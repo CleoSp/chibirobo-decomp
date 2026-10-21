@@ -2,10 +2,10 @@
 
 A work in progress decompilation of Chibi-Robo! for the GameCube.
 
-[![Linked](https://cleosp.github.io/chibirobo/badges/linked.svg)](https://cleosp.github.io/chibirobo/progress.html)
-[![Data](https://cleosp.github.io/chibirobo/badges/data.svg)](https://cleosp.github.io/chibirobo/progress.html)
+[![Linked](https://cleosp.github.io/chibirobo-decomp/badges/linked.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
+[![Data](https://cleosp.github.io/chibirobo-decomp/badges/data.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
 
-[![Decompilation progress](https://cleosp.github.io/chibirobo/progress.svg)](https://cleosp.github.io/chibirobo/progress.html)
+[![Decompilation progress](https://cleosp.github.io/chibirobo-decomp/progress.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
 
 Supported versions:
 
@@ -38,8 +38,8 @@ The build downloads its compiler and other tools on first run.
 Clone the repository:
 
 ```sh
-git clone https://github.com/cleosp/chibirobo.git
-cd chibirobo
+git clone https://github.com/CleoSp/chibirobo-decomp.git
+cd chibirobo-decomp
 ```
 
 Put an ISO, RVZ or CISO of your game in the folder for its version: `orig/GGTE01/`, `orig/GGTJ01_01/` or `orig/GGTP01/`.

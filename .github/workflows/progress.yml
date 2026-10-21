@@ -19,24 +19,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # BUILD_IMAGE has the discs in /orig
+  # Runs on a self-hosted runner that has the discs locally, so the game never
+  # leaves that machine. The runner's .env sets CHIBIROBO_ORIG to its orig/ folder.
   build:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && vars.BUILD_IMAGE != ''
-    runs-on: ubuntu-24.04
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: [self-hosted, chibirobo-orig]
     permissions:
       contents: read
-      packages: read
-    container:
-      image: ${{ vars.BUILD_IMAGE }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
       - name: Prepare originals
-        run: cp -a /orig/. orig/
+        run: |
+          if [ -z "$CHIBIROBO_ORIG" ] || [ ! -d "$CHIBIROBO_ORIG" ]; then
+            echo '::error::CHIBIROBO_ORIG is not set to the discs folder in the runner .env'
+            exit 1
+          fi
+          cp -a "$CHIBIROBO_ORIG/." orig/
       - name: Build and record progress
         run: python3 tools/progress.py update --version GGTE01 --version GGTJ01_01 --version GGTP01
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
