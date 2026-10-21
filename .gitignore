@@ -1,0 +1,75 @@
+# IDE folders
+.idea/
+.vscode/
+.vs/
+
+# Caches
+__pycache__/
+.mypy_cache/
+.cache/
+.DS_Store
+
+# Original files
+/orig/**
+!/orig/**/
+!/orig/**/.gitkeep
+*.[iI][sS][oO]
+*.[gG][cC][mM]
+*.[cC][iI][sS][oO]
+*.[rR][vV][zZ]
+*.[wW][bB][fF][sS]
+*.[nN][kK][iI][tT]
+*.[gG][cC][zZ]
+*.[wW][iI][aA]
+*.[nN][fF][sS]
+*.[tT][gG][cC]
+*.[wW][aA][dD]
+*.dol
+*.rel
+*.elf
+*.bin
+*.arc
+*.szs
+*.thp
+*.bti
+*.tpl
+*.bmd
+*.bdl
+*.dat
+*.sdat
+*.brsar
+*.adp
+*.dsp
+*.ast
+
+# Build files
+build/
+compilers/
+binutils/
+.ninja_*
+build.ninja
+*.o
+*.map
+*.MAP
+*.exe
+*.dll
+
+# decompctx output
+ctx.*
+*.ctx
+
+# Generated configs
+objdiff.json
+compile_commands.json
+/config/*/config.example.yml
+
+# Miscellaneous
+/*.txt
+*.orig
+*.bak
+/docs/
+/notes/
+/reference/
+/vbuild/
+/progress/
+/worktrees/

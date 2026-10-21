@@ -1,0 +1,69 @@
+#include "types.h"
+
+// rel/ana.cpp
+extern "C" void DrawAnas(void);
+extern "C" void UpdateAnas(void);
+extern "C" void InitAnas(void);
+extern "C" s32 CmdAttachAnaToRobo(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdSetAnaRotY(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdSetAnaJObj(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdPlantTane(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdFindNearestAna(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdSetTutiAna(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdAddAna(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdDropHeldObj(s32 cmd, void* arg, void* arg2);
+
+// rel/trash.cpp
+extern "C" void DrawTrashStack(void);
+extern "C" void UpdateTrash(void* arg);
+extern "C" void InitTrash(void);
+extern "C" s32 CmdIsNearTrashbox(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdCancelTrash(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdEndTrash(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdGetTrashResult(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdStartTrash(s32 cmd, void* arg, void* arg2);
+
+extern "C" void DrawStage(void* arg);
+extern "C" void UpdateStage(void* arg);
+extern "C" void InitStage(void* arg);
+
+typedef void (*RelSlotFunc)(void* arg);
+typedef s32 (*RelCmdFunc)(s32 cmd, void* arg, void* arg2);
+
+extern "C" {
+RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage };
+RelCmdFunc _prolog_cmds[]    = {
+    CmdAddAna,          CmdSetTutiAna, CmdFindNearestAna, CmdPlantTane, CmdSetAnaJObj,  CmdSetAnaRotY,     CmdDropHeldObj,
+    CmdAttachAnaToRobo, CmdStartTrash, CmdGetTrashResult, CmdEndTrash,  CmdCancelTrash, CmdIsNearTrashbox,
+};
+}
+
+/**
+ * @note Address: stage04 .text 0x0
+ * @note Size: 0x24
+ */
+extern "C" void DrawStage(void* arg)
+{
+	DrawAnas();
+	DrawTrashStack();
+}
+
+/**
+ * @note Address: stage04 .text 0x24
+ * @note Size: 0x34
+ */
+extern "C" void UpdateStage(void* arg)
+{
+	UpdateAnas();
+	UpdateTrash(arg);
+}
+
+/**
+ * @note Address: stage04 .text 0x58
+ * @note Size: 0x24
+ */
+extern "C" void InitStage(void* arg)
+{
+	InitAnas();
+	InitTrash();
+}

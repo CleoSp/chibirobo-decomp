@@ -1,0 +1,43 @@
+Third-party code retains its original terms; LICENSE covers this project's
+CC0 contributions. Existing notices in individual source files also apply.
+
+CC0 sources:
+  encounter/dtk-template @ 95a941f: build system and tools.
+  projectPiki/pikmin2 @ f8e0ee39a: SDK, runtime, MSL, TRK, headers and
+    formatting configuration.
+  projectPiki/pikmin @ 9a21636: runtime destructor chain and build headers.
+  zeldaret/tp @ c8fa8c9e2: 2004 SDK sources and headers.
+  wowjinxy/KAR @ cb94b1576: HSD sources and headers.
+  DonovanMontoya/pokemon-xd-decomp @ 8b567c8bb: HSD implementations.
+  iirg4x/marioparty6 @ 9be18e25e: THPSimple error handling and microphone SDK.
+
+Other imports:
+  Sun fdlibm: copyright and permission notices remain in the math sources.
+
+MIT imports:
+  adierking/unplug @ c6dc1d5f6: event and message enums in
+    include/game/evt.h and include/game/msg.h.
+  doldecomp/ttyd @ 62131fc31: src/game/THPSimple.cpp and THPDraw.cpp.
+
+MIT License
+
+Copyright (c) 2022 Derpky (unplug)
+Copyright (c) 2019-2025 NWPlayer123 (TTYD)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

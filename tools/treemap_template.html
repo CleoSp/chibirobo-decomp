@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Unit Treemap</title>
+<style>
+/* color shows match progress */
+:root {
+  --paper: #fff;
+  --ink: #292929;
+  --meta: #646464;
+  --rule: #e2e2e2;
+  --link: #314f68;
+  /* one ordered ramp, gets darker as work gets done, so it still reads in grayscale.
+     unnamed gray, then named at 0, 50 and 100 percent match, then linked */
+  --unnamed: #e4e4e1;
+  --r0: #ebe2b9;
+  --r1: #c3d27e;
+  --r2: #62ad72;
+  --linked: #1f5f4b;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 1.0625rem/1.55 Calibri, "Segoe UI", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.layout { max-width: 60rem; margin: 0 auto; padding: 3.5rem 2rem 2rem; }
+header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .75rem 2rem; margin-bottom: 3rem; }
+.site-name { margin: 0; font-size: 1.375rem; font-weight: 600; }
+.meta { color: var(--meta); font-size: .9375rem; }
+h1 { margin: 0 0 .5rem; font-size: 1.5rem; line-height: 1.3; font-weight: 600; }
+h2 { margin: 0 0 .75rem; font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+p { margin: 0 0 1rem; max-width: 43rem; }
+section { margin-top: 2.25rem; }
+a, .linkish { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: .18em; }
+a:hover, .linkish:hover { color: #172f42; text-decoration-thickness: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.linkish { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+
+.bars { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .5rem 1.25rem; align-items: center; }
+.bars dt { font-size: .9375rem; white-space: nowrap; }
+.bars dd { margin: 0; }
+.bars .fact { font-size: .9375rem; }
+.bars .fact b { font-weight: 600; }
+/* a bit of air between the count rows and the bars */
+#code-label, #code-label + dd { margin-top: .6rem; }
+.bar { display: flex; height: .625rem; background: var(--unnamed); }
+.bar > div { height: 100%; }
+.stats { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: .4rem 0 .6rem; }
+.stats b { color: var(--ink); font-weight: 600; }
+.sw { display: inline-block; width: .7rem; height: .7rem; margin-right: .4rem; vertical-align: -.05rem; }
+
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: .75rem; margin-bottom: .75rem; }
+select, input {
+  width: 100%; font: inherit; font-size: .9375rem; color: var(--ink); background: var(--paper);
+  border: 1px solid #c9c9c9; border-radius: 0; padding: .45rem .6rem;
+}
+select { appearance: none; cursor: pointer; padding-right: 1.8rem;
+  background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23646464' stroke-width='1.3'/%3E%3C/svg%3E") no-repeat right .65rem center;
+}
+input::placeholder { color: #8a8a8a; }
+/* version picker up top, only shows up when more than one version is built */
+#ver-pick { width: auto; color: var(--meta); padding: .2rem 1.8rem .2rem .5rem; }
+select:focus-visible, input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+.unit-head { margin-bottom: .75rem; }
+.unit-head h2 { margin-bottom: .15rem; }
+.unit-head .crumb { color: var(--meta); font-weight: 400; }
+
+/* fixed 2 by 1 like decomp.dev, so a narrow screen shows a smaller copy of
+   the same map, the layout is done in this shape and placed in percentages */
+#map { position: relative; aspect-ratio: 2 / 1; }
+.box { position: absolute; overflow: hidden; box-shadow: inset 0 0 0 .5px var(--paper); }
+.box.open { cursor: pointer; }
+.box:hover { box-shadow: inset 0 0 0 2px var(--ink); z-index: 1; }
+.box.done:hover { box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px var(--ink); }
+.box.dim { opacity: .15; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--meta); }
+
+footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: 3rem; }
+
+/* hover card */
+#tip {
+  position: fixed; pointer-events: none; z-index: 10; display: none; width: max-content; max-width: 19rem;
+  background: var(--paper); color: var(--ink); border: 1px solid #cfcfcf;
+  padding: .6rem .75rem .65rem; font-size: .875rem; line-height: 1.35; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+#tip .t { font-weight: 600; font-size: .9375rem; overflow-wrap: anywhere; }
+#tip .p { color: var(--meta); font-size: .8125rem; overflow-wrap: anywhere; }
+#tip .bar { height: .4rem; margin: .5rem 0 .3rem; min-width: 12rem; }
+#tip .st { display: flex; justify-content: space-between; gap: 1rem; }
+#tip .st b { font-weight: 600; }
+#tip dl { display: grid; grid-template-columns: max-content 1fr; gap: .1rem .75rem; margin: .45rem 0 0; color: var(--meta); }
+#tip dt { color: var(--ink); }
+#tip dd { margin: 0; }
+#tip .hint { margin-top: .45rem; color: var(--meta); font-size: .8125rem; }
+
+@media (max-width: 34rem) {
+  .layout { padding: 2rem 1.25rem; }
+  header { margin-bottom: 2rem; }
+  .controls { grid-template-columns: 1fr; }
+  .bars { grid-template-columns: 1fr; gap: .15rem; }
+  .bars dt:not(:empty) { margin-top: .6rem; }
+  .bars dt:empty { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <header>
+    <p class="site-name">Chibi-Robo! decomp</p>
+    <span class="meta" id="ver"></span>
+    <select id="ver-pick" aria-label="Game version" hidden></select>
+  </header>
+  <main>
+    <h1 id="headline"></h1>
+    <section>
+      <dl class="bars">
+        <dt>Units</dt>
+        <dd class="fact" id="units-fact"></dd>
+        <dt>Functions</dt>
+        <dd class="fact" id="fns-fact"></dd>
+        <dt id="code-label">Code <span class="meta" id="code-size"></span></dt>
+        <dd><div class="bar" id="code-bar"></div></dd>
+        <dt></dt><dd class="stats meta" id="code-stats"></dd>
+        <dt>Data <span class="meta" id="data-size"></span></dt>
+        <dd><div class="bar" id="data-bar"></div></dd>
+        <dt></dt><dd class="stats meta" id="data-stats"></dd>
+      </dl>
+    </section>
+
+    <section id="units">
+      <div id="list-head">
+        <h2>Units</h2>
+        <div class="controls">
+          <select id="cat" aria-label="Library"></select>
+          <input id="filter" aria-label="Filter units" placeholder="Filter, like OS >2kb, named or linked" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div id="unit-head" class="unit-head" hidden></div>
+      <div id="map"></div>
+    </section>
+  </main>
+  <footer class="meta"><span id="source"></span><span id="foot-note"></span></footer>
+</div>
+<div id="tip"></div>
+<script>
+const DATA = /*__DATA__*/null;
+
+// byte buckets for the bars, most done first. colors walk the same ramp as the map
+const BUCKET = {
+  linked: { label: "linked", color: "var(--linked)", tip: "in units that link from our source" },
+  matched: { label: "matched", color: "var(--r2)", tip: "in functions that match exactly, unit not linked yet" },
+  fuzzy: { label: "fuzzy", color: "var(--r1)", tip: "close but not exact, weighted by match %" },
+  named: { label: "named", color: "var(--r0)", tip: "in named units, nothing matched yet" },
+  auto: { label: "unnamed", color: "var(--unnamed)", tip: "in auto split chunks nobody has mapped" },
+};
+
+// one entry per built version, V is the one on screen
+const byVersion = new Map(DATA.versions.map(v => [v.version, v]));
+let V, units, byFull;
+function setVersion(id) {
+  V = byVersion.get(id) || byVersion.get(DATA.default) || DATA.versions[0];
+  units = V.units;
+  byFull = new Map(units.map(u => [u.full, u]));
+}
+// like "Japan rev 1, GGTJ01_01", just the id when the region is unknown
+const verLabel = v => {
+  const name = (v.region || "") + (v.revision != null ? ` rev ${v.revision}` : "");
+  return name.trim() ? `${name.trim()}, ${v.version}` : v.version;
+};
+let category = "all";
+let query = "";
+let openUnit = null;
+
+const fmt = n => n.toLocaleString("en-US");
+const size = n => n >= 1048576 ? (n / 1048576).toFixed(2) + " MB" : n >= 1024 ? (n / 1024).toFixed(1) + " KB" : Math.round(n) + " B";
+// always one decimal so numbers side by side line up, except a clean 100.
+// anything short of 100 caps at 99.9 so it never rounds up and looks done
+const dec = v => v >= 100 ? "100" : Math.min(v, 99.9).toFixed(1);
+const pct = (a, b) => dec(b ? 100 * a / b : 0) + "%";
+const hex = n => n.toString(16).toUpperCase().padStart(8, "0");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const total = (us, k) => us.reduce((s, u) => s + u[k], 0);
+const isNamed = u => u.status !== "auto";
+const inCategory = u => category === "all" || u.group === category;
+const baseName = u => u.name.split("/").pop();
+const isRel = u => u.module !== "main";
+const addrOf = (u, a) => isRel(u) ? "+" + a.toString(16).toUpperCase() : hex(a);
+const canOpen = u => u.funcs && u.funcs.length > 0;
+
+// splits bytes into the buckets so they add up to the total, a linked unit
+// counts fully as linked, fuzzy only counts what's past the exact matches
+function breakdown(us, key) {
+  const b = { linked: 0, matched: 0, fuzzy: 0, named: 0, auto: 0 };
+  for (const u of us) {
+    const n = u[key];
+    if (!n) continue;
+    if (u.status === "auto") { b.auto += n; continue; }
+    if (u.complete) { b.linked += n; continue; }
+    const m = Math.min(n, key === "code" ? u.matched_code : u.matched_data);
+    const f = key === "code" ? Math.max(0, Math.min(n, n * u.fuzzy / 100) - m) : 0;
+    b.matched += m; b.fuzzy += f; b.named += n - m - f;
+  }
+  return b;
+}
+
+// name words, size bounds like >2kb, or a status word
+function parseFilter(q) {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const tests = terms.map(t => {
+    const m = t.match(/^([<>])(\d+(?:\.\d+)?)(b|k|kb|m|mb)?$/);
+    if (m) {
+      const mul = { b: 1, k: 1024, kb: 1024, m: 1048576, mb: 1048576 }[m[3] || "b"];
+      const lim = parseFloat(m[2]) * mul;
+      return u => m[1] === ">" ? u.code > lim : u.code < lim;
+    }
+    if (["auto", "unmapped", "unnamed"].includes(t)) return u => u.status === "auto";
+    if (["linked", "complete", "done"].includes(t)) return u => u.status === "linked";
+    // anything named but not linked yet
+    if (["named", "progress", "wip"].includes(t)) return u => u.status === "named" || u.status === "fuzzy";
+    if (["fuzzy", "partial", "started"].includes(t)) return u => u.status === "fuzzy";
+    if (t === "untouched") return u => u.status === "named";
+    return u => u.full.toLowerCase().includes(t);
+  });
+  return u => tests.every(f => f(u));
+}
+
+const swatch = c => `<i class="sw" style="background:${c}"></i>`;
+
+// a bar from bucket sizes, used by the header, the hover card and the function list
+function barHtml(b, of, keys) {
+  return keys.map(k => b[k] ? `<div style="width:${100 * b[k] / of}%;background:${BUCKET[k].color}"></div>` : "").join("");
+}
+
+function bars(id, statsId, b, of, keys) {
+  const el = document.getElementById(id);
+  el.innerHTML = barHtml(b, of, keys);
+  [...el.children].forEach((d, i) => {
+    const k = keys.filter(k => b[k])[i];
+    d.title = `${pct(b[k], of)} ${BUCKET[k].label} (${size(b[k])}), ${BUCKET[k].tip}`;
+  });
+  // legend stacks, each label is everything up to and including its bucket,
+  // so fuzzy reads as matched plus fuzzy. unnamed is a different axis (nobody
+  // mapped it), so it stays on its own. the hover title keeps the bucket alone
+  let run = 0;
+  document.getElementById(statsId).innerHTML = keys.filter(k => b[k]).map(k => {
+    const shown = k === "auto" ? b[k] : (run += b[k]);
+    return `<span title="${pct(b[k], of)} on its own, ${size(b[k])} ${BUCKET[k].tip}">${swatch(BUCKET[k].color)}${BUCKET[k].label} <b>${pct(shown, of)}</b></span>`;
+  }).join("");
+}
+
+// sums the open unit when there is one, otherwise the whole dropdown pick
+function renderHeader() {
+  const us = openUnit ? [openUnit] : units.filter(inCategory);
+  const code = total(us, "code"), data = total(us, "data");
+  const bc = breakdown(us, "code"), bd = breakdown(us, "data");
+  const done = pct(bc.linked, code);
+  const who = openUnit ? baseName(openUnit) : category === "all" ? "" : category;
+  document.getElementById("headline").textContent = who ? `${who}: ${done} linked from source` : `${done} linked from source`;
+  const linkedN = us.filter(u => u.status === "linked").length;
+  const fnN = total(us, "fn_named"), fnAll = fnN + total(us, "fn_placeholder");
+  const fnM = total(us.filter(isNamed), "fns_matched");
+  document.getElementById("units-fact").innerHTML =
+    `<b>${fmt(linkedN)}</b> of ${fmt(us.length)} link from source <span class="meta">${pct(linkedN, us.length)}</span>`;
+  document.getElementById("fns-fact").innerHTML =
+    `<b>${fmt(fnM)}</b> of ${fmt(total(us, "fns"))} match, <b>${fmt(fnN)}</b> of ${fmt(fnAll)} have names`;
+  document.getElementById("code-size").textContent = size(code);
+  document.getElementById("data-size").textContent = size(data);
+  bars("code-bar", "code-stats", bc, code, ["linked", "matched", "fuzzy", "named", "auto"]);
+  bars("data-bar", "data-stats", bd, data, ["linked", "matched", "named", "auto"]);
+}
+
+function renderCategories() {
+  const opts = [["all", "All libraries"]];
+  for (const g of DATA.groups) {
+    const us = units.filter(u => u.group === g);
+    if (!us.length) continue;
+    opts.push([g, g]);
+  }
+  const sel = document.getElementById("cat");
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+  if (![...sel.options].some(o => o.value === category)) category = "all";
+  sel.value = category;
+  sel.onchange = () => { category = sel.value; saveState(); render(); };
+}
+
+// 0 to 100 match walks r0 to r1 to r2
+function ramp(p) {
+  p = Math.max(0, Math.min(100, p));
+  return p <= 50
+    ? `color-mix(in oklab, var(--r1) ${p * 2}%, var(--r0))`
+    : `color-mix(in oklab, var(--r2) ${(p - 50) * 2}%, var(--r1))`;
+}
+
+// linked is one clear step past the end of the ramp
+function colorFor(u) {
+  if (u.status === "auto") return "var(--unnamed)";
+  if (u.status === "linked") return "var(--linked)";
+  return ramp(u.fuzzy);
+}
+
+// a function at 100% is done, same deep green as a linked unit
+const fnColor = p => p >= 100 ? "var(--linked)" : ramp(p);
+const fnPct = p => dec(p) + "%";
+
+// binary split, same as decomp.dev's streemap::binary. units stay in report order,
+// cut the list where half the bytes land on each side, split the box along its long
+// edge, recurse. the unit straddling the halfway point goes right, like theirs
+function binaryLayout(items, W, H, out) {
+  const P = [0];
+  for (const n of items) P.push(P[P.length - 1] + n.area);
+  const go = (lo, hi, x, y, w, h) => {
+    if (hi - lo === 1) { out.push([items[lo], x, y, w, h]); return; }
+    const value = P[hi] - P[lo];
+    if (value <= 0) return;
+    const target = P[lo] + value / 2;
+    // first item whose running total passes the halfway mark
+    let a = lo, b = hi - 1;
+    while (a < b) { const m = (a + b) >> 1; if (P[m + 1] > target) b = m; else a = m + 1; }
+    const mid = Math.max(a, lo + 1);
+    const left = P[mid] - P[lo];
+    if (w > h) {
+      const lw = w * left / value;
+      go(lo, mid, x, y, lw, h);
+      go(mid, hi, x + lw, y, w - lw, h);
+    } else {
+      const lh = h * left / value;
+      go(lo, mid, x, y, w, lh);
+      go(mid, hi, x, y + lh, w, h - lh);
+    }
+  };
+  if (items.length) go(0, items.length, 0, 0, W, H);
+}
+
+// lays out [item, bytes] pairs into the map and hands back the boxes.
+// W by H is the map's fixed shape from the css, never the screen size,
+// so every screen gets the same split, just scaled
+function drawMap(map, items, W, H, paint) {
+  map.innerHTML = "";
+  const all = items.reduce((s, [, n]) => s + n, 0);
+  if (!all) return [];
+  const scale = W * H / all;
+  const out = [];
+  binaryLayout(items.map(([it, n]) => ({ it, area: n * scale })), W, H, out);
+  const frag = document.createDocumentFragment();
+  const els = [];
+  for (const [n, x, y, w, h] of out) {
+    const el = document.createElement("div");
+    el.className = "box";
+    el.style.cssText = `left:${100 * x / W}%;top:${100 * y / H}%;width:${100 * w / W}%;height:${100 * h / H}%`;
+    paint(el, n.it);
+    frag.appendChild(el);
+    els.push(el);
+  }
+  map.appendChild(frag);
+  return els;
+}
+
+function render() {
+  hideTip();
+  renderHeader();
+  if (openUnit) return renderUnit(openUnit);
+  document.getElementById("list-head").hidden = false;
+  document.getElementById("unit-head").hidden = true;
+  document.getElementById("foot-note").textContent = "Boxes sized by code bytes, in report order. Click one to see its functions.";
+  const map = document.getElementById("map");
+  map.className = "";
+  const us = units.filter(u => inCategory(u) && u.code > 0);
+  const match = parseFilter(query);
+  const els = drawMap(map, us.map(u => [u, u.code]), 2, 1, (el, u) => {
+    el.style.background = colorFor(u);
+    if (u.status === "linked") el.classList.add("done");
+    if (canOpen(u)) el.classList.add("open");
+    if (!match(u)) el.classList.add("dim");
+    el._unit = u;
+  });
+  if (!els.length) map.innerHTML = '<div class="empty">No units with code in this library</div>';
+}
+
+function unitState(u) {
+  if (u.status === "auto") return "Not split into a source file yet";
+  if (u.status === "linked") return "Linked";
+  if (u.code && u.matched_code >= u.code) return "Fully matched, not linked yet";
+  if (!u.fuzzy) return "Not started";
+  return `${fnPct(u.fuzzy)} match`;
+}
+
+function renderUnit(u) {
+  document.getElementById("list-head").hidden = true;
+  const head = document.getElementById("unit-head");
+  head.hidden = false;
+  document.getElementById("foot-note").textContent = "Boxes sized by function bytes, in report order. Esc goes back.";
+  const fns = u.funcs.map(([name, addr, sz, p], i) => ({ i, name, addr, sz, p }));
+  const done = fns.filter(f => f.p >= 100).length;
+  const rel = isRel(u) ? `, ${esc(u.module)}.rel` : "";
+  head.innerHTML =
+    `<h2><button class="linkish" id="back">Units</button> <span class="crumb">/</span> ${esc(u.name)}</h2>` +
+    `<div class="meta">${esc(unitState(u))}. ${fmt(done)} of ${fmt(fns.length)} functions match, ${size(u.code)} code, ${esc(u.group)}${rel}</div>`;
+  document.getElementById("back").onclick = closeUnit;
+
+  const map = document.getElementById("map");
+  map.className = "";
+  // report order and no empty functions, same as decomp.dev
+  drawMap(map, fns.filter(f => f.sz > 0).map(f => [f, f.sz]), 2, 1, (el, f) => {
+    el.style.background = fnColor(f.p);
+    if (f.p >= 100) el.classList.add("done");
+    el._fn = f;
+  });
+}
+
+function openUnitView(u) {
+  openUnit = u;
+  saveState(true);
+  render();
+  document.getElementById("units").scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function closeUnit() {
+  if (!openUnit) return;
+  openUnit = null;
+  saveState(true);
+  render();
+}
+
+function renderStatic() {
+  const multi = DATA.versions.length > 1;
+  const ver = document.getElementById("ver"), pick = document.getElementById("ver-pick");
+  ver.hidden = multi; pick.hidden = !multi;
+  ver.textContent = V.version;
+  if (multi) {
+    pick.innerHTML = DATA.versions.map(v => `<option value="${esc(v.version)}">${esc(verLabel(v))}</option>`).join("");
+    pick.value = V.version;
+    pick.onchange = () => {
+      // the open unit might not exist in the other version, so go back to the map
+      setVersion(pick.value); openUnit = null;
+      saveState(true); renderStatic(); renderCategories(); render();
+    };
+  }
+  const when = new Date(V.generated * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  document.getElementById("source").textContent = `From ${V.source}, ${when}`;
+}
+
+// hover card
+const tip = document.getElementById("tip");
+const map = document.getElementById("map");
+const hideTip = () => { tip.style.display = "none"; };
+
+function unitCard(u) {
+  const fns = u.fn_named + u.fn_placeholder;
+  const rows = [];
+  if (u.status === "auto") {
+    const text = u.sections.find(s => s[0] === ".text");
+    if (text) rows.push(["Address", `${addrOf(u, text[1])} to ${addrOf(u, text[1] + text[2])}`]);
+  } else {
+    if (u.fns) rows.push(["Functions", `${fmt(u.fns_matched)} of ${fmt(u.fns)} match`]);
+    if (fns) rows.push(["Names", `${fmt(u.fn_named)} of ${fmt(fns)} named`]);
+  }
+  rows.push(["Library", esc(u.group) + (isRel(u) ? `, ${esc(u.module)}.rel` : "")]);
+  const b = breakdown([u], "code");
+  return `<div class="t">${esc(baseName(u))}</div>` +
+    (u.name !== baseName(u) ? `<div class="p">${esc(u.name)}</div>` : "") +
+    `<div class="bar">${barHtml(b, u.code, ["linked", "matched", "fuzzy", "named", "auto"])}</div>` +
+    `<div class="st"><b>${esc(unitState(u))}</b><span class="meta">${size(u.code)}</span></div>` +
+    `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>` +
+    (canOpen(u) ? `<div class="hint">Click to see its functions</div>` : "");
+}
+
+function fnCard(f) {
+  const state = f.p >= 100 ? "Matched" : f.p ? `${fnPct(f.p)} match` : "Not started";
+  return `<div class="t">${esc(f.name)}</div>` +
+    `<div class="bar">${f.p ? `<div style="width:${f.p}%;background:${fnColor(f.p)}"></div>` : ""}</div>` +
+    `<div class="st"><b>${state}</b><span class="meta">${size(f.sz)}</span></div>` +
+    `<dl><dt>Address</dt><dd>${addrOf(openUnit, f.addr)}</dd></dl>`;
+}
+
+map.addEventListener("mousemove", e => {
+  const el = e.target.closest(".box");
+  if (!el) return hideTip();
+  const html = el._unit ? unitCard(el._unit) : el._fn ? fnCard(el._fn) : "";
+  if (!html) return hideTip();
+  // only rebuild when the box changes, moving inside one box just moves the card
+  if (tip._for !== el) { tip.innerHTML = html; tip._for = el; }
+  tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let tx = e.clientX + 16, ty = e.clientY + 16;
+  if (tx + r.width > innerWidth - 8) tx = e.clientX - r.width - 16;
+  if (ty + r.height > innerHeight - 8) ty = e.clientY - r.height - 16;
+  tip.style.left = Math.max(8, tx) + "px";
+  tip.style.top = Math.max(8, ty) + "px";
+});
+map.addEventListener("mouseleave", () => { hideTip(); tip._for = null; });
+map.addEventListener("click", e => {
+  const el = e.target.closest(".box");
+  if (el && el._unit && canOpen(el._unit)) openUnitView(el._unit);
+});
+addEventListener("keydown", e => { if (e.key === "Escape" && openUnit) closeUnit(); });
+
+// version, dropdown, filter and open unit live in the hash so a reload keeps them.
+// opening or closing a unit pushes history so the back button closes it
+function loadState() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  setVersion(h.get("v"));
+  category = h.get("cat") || "all";
+  query = h.get("q") || "";
+  openUnit = byFull.get(h.get("u")) || null;
+  if (openUnit && !canOpen(openUnit)) openUnit = null;
+  document.getElementById("filter").value = query;
+}
+function saveState(push) {
+  const h = new URLSearchParams();
+  if (V.version !== DATA.default) h.set("v", V.version);
+  if (category !== "all") h.set("cat", category);
+  if (query) h.set("q", query);
+  if (openUnit) h.set("u", openUnit.full);
+  const url = h.toString() ? "#" + h : location.pathname;
+  push ? history.pushState(null, "", url) : history.replaceState(null, "", url);
+}
+addEventListener("popstate", () => {
+  loadState();
+  renderStatic(); renderCategories();
+  render();
+});
+
+// file pages can't fetch, so load the stamp script ninja rewrites and reload on change
+const stampFile = location.pathname.split("/").pop().replace(/\.html?$/, "") + "_stamp.js";
+function poll() {
+  const s = document.createElement("script");
+  s.src = stampFile + "?t=" + Date.now();
+  s.onload = () => {
+    s.remove();
+    if (window.TREEMAP_STAMP && window.TREEMAP_STAMP !== DATA.stamp) location.reload();
+  };
+  s.onerror = () => s.remove();
+  document.head.appendChild(s);
+}
+if (DATA.live !== false) setInterval(poll, 2000);
+
+document.getElementById("filter").addEventListener("input", e => { query = e.target.value; saveState(); render(); });
+
+loadState();
+renderStatic();
+renderCategories();
+render();
+</script>
+</body>
+</html>

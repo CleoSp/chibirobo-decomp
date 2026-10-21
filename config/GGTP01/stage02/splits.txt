@@ -1,0 +1,30 @@
+Sections:
+	.text       type:code align:4
+	.ctors      type:rodata align:4
+	.dtors      type:rodata align:4
+	.rodata     type:rodata align:8
+	.data       type:data align:8
+	.bss        type:bss align:8
+
+rel/stage02/fighter.cpp:
+	.text       start:0x00000000 end:0x00006170
+	.ctors      start:0x00000000 end:0x00000004
+	.rodata     start:0x00000000 end:0x000001E8
+	.data       start:0x00000000 end:0x00000180
+	.bss        start:0x00000000 end:0x000016D8
+
+rel/stage02/rouka.cpp:
+	.text       start:0x00006170 end:0x00008644
+	.ctors      start:0x00000004 end:0x00000008
+	.rodata     start:0x000001E8 end:0x000002C8
+	.data       start:0x00000180 end:0x000002D8
+	.bss        start:0x000016D8 end:0x000019E8
+
+Runtime.PPCEABI.H/global_destructor_chain.c:
+	.text       start:0x00008644 end:0x000086B8
+	.dtors      start:0x00000000 end:0x00000004
+	.bss        start:0x000019E8 end:0x000019EC
+
+rel/module.c:
+	.text       start:0x000086B8 end:0x00008870
+	.rodata     start:0x000002C8 end:0x00000336

@@ -1,0 +1,27 @@
+Sections:
+	.text       type:code align:4
+	.ctors      type:rodata align:4
+	.dtors      type:rodata align:4
+	.rodata     type:rodata align:8
+	.data       type:data align:8
+	.bss        type:bss align:8
+
+rel/stage07/living.cpp:
+	.text       start:0x00000000 end:0x00002648
+	.rodata     start:0x00000000 end:0x000000F8
+	.data       start:0x00000000 end:0x000000C0
+	.bss        start:0x00000000 end:0x00000028
+
+rel/module.c:
+	.text       start:0x00002648 end:0x00002800
+	.rodata     start:0x000000F8 end:0x00000168
+
+rel/fafa.cpp:
+	.text       start:0x00002800 end:0x00003E4C
+	.rodata     start:0x00000168 end:0x00000228
+
+rel/trash.cpp:
+	.text       start:0x00003E4C end:0x00004F78
+	.rodata     start:0x00000228 end:0x00000299
+	.data       start:0x000000C0 end:0x000000D4
+	.bss        start:0x00000028 end:0x00000070

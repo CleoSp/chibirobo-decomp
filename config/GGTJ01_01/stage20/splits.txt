@@ -1,0 +1,17 @@
+Sections:
+	.text       type:code align:4
+	.ctors      type:rodata align:4
+	.dtors      type:rodata align:4
+	.rodata     type:rodata align:8
+	.data       type:data align:8
+	.bss        type:bss align:8
+
+rel/stage20/stage20.cpp:
+	.text       start:0x00000000 end:0x00000124
+	.rodata     start:0x00000000 end:0x00000010
+	.data       start:0x00000000 end:0x00000020
+	.bss        start:0x00000000 end:0x00000004
+
+rel/module.c:
+	.text       start:0x00000124 end:0x000002DC
+	.rodata     start:0x00000010 end:0x0000007E

@@ -1,0 +1,82 @@
+# object_base holds the disc image; dtk reads everything through it.
+object_base: orig/GGTJ01_01
+object: sys/main.dol
+hash: 0e72bc0875b69fefba1530f0345a51b7ddebc5fc
+symbols: config/GGTJ01_01/symbols.txt
+splits: config/GGTJ01_01/splits.txt
+# 10 = GC 1.3.2 to 2.6. Phase 4 found GC/2.6 for game code and a pre 2.7 linker.
+mw_comment_version: 10
+write_asm: true
+block_relocations:
+# psSetupTev loads GX register constants that only look like addresses
+- source: .text:0x801E67F4
+- source: .text:0x801E67FC
+- source: .text:0x801E6874
+- source: .text:0x801E6884
+
+# All RELs live inside files/qp.bin, a U8 archive.
+modules:
+- object: files/qp.bin:rel/ahk.rel
+  hash: d497fd717e3f645e24f2d9c2f9ed91507f8560b4
+  symbols: config/GGTJ01_01/ahk/symbols.txt
+  splits: config/GGTJ01_01/ahk/splits.txt
+- object: files/qp.bin:rel/hori.rel
+  hash: dcd2a8c2e02ef86f6173bce02e7ddfddf2727c06
+  symbols: config/GGTJ01_01/hori/symbols.txt
+  splits: config/GGTJ01_01/hori/splits.txt
+- object: files/qp.bin:rel/shun.rel
+  hash: 19feebef1f5fb4e9cf196739671f10f6a6d3e4e8
+  symbols: config/GGTJ01_01/shun/symbols.txt
+  splits: config/GGTJ01_01/shun/splits.txt
+- object: files/qp.bin:rel/stage01.rel
+  hash: 5bd9a3a96c762d624e5a48319c87a2692a5dcbb7
+  symbols: config/GGTJ01_01/stage01/symbols.txt
+  splits: config/GGTJ01_01/stage01/splits.txt
+- object: files/qp.bin:rel/stage02.rel
+  hash: 4156fac57c65a959f5ba53eea1b041b580e2dab0
+  symbols: config/GGTJ01_01/stage02/symbols.txt
+  splits: config/GGTJ01_01/stage02/splits.txt
+- object: files/qp.bin:rel/stage03.rel
+  hash: 3754e5a0a198db4d9035362a5724868c39068e13
+  symbols: config/GGTJ01_01/stage03/symbols.txt
+  splits: config/GGTJ01_01/stage03/splits.txt
+- object: files/qp.bin:rel/stage04.rel
+  hash: 994fdd261b974147e21a8d0bb22f1c355b3c842f
+  symbols: config/GGTJ01_01/stage04/symbols.txt
+  splits: config/GGTJ01_01/stage04/splits.txt
+- object: files/qp.bin:rel/stage06.rel
+  hash: f52adb177b04bc97571bb9ead097ae82ca641945
+  symbols: config/GGTJ01_01/stage06/symbols.txt
+  splits: config/GGTJ01_01/stage06/splits.txt
+- object: files/qp.bin:rel/stage07.rel
+  hash: b56f712e0e746569875e27eafa10ea8aa53a6e1c
+  symbols: config/GGTJ01_01/stage07/symbols.txt
+  splits: config/GGTJ01_01/stage07/splits.txt
+- object: files/qp.bin:rel/stage08.rel
+  hash: 925fe51a5f45954b8938bdd3c95121e9631ec3fa
+  symbols: config/GGTJ01_01/stage08/symbols.txt
+  splits: config/GGTJ01_01/stage08/splits.txt
+- object: files/qp.bin:rel/stage09.rel
+  hash: b98094df99bb0d934c75ffa021ec60a46d9e4062
+  symbols: config/GGTJ01_01/stage09/symbols.txt
+  splits: config/GGTJ01_01/stage09/splits.txt
+- object: files/qp.bin:rel/stage11.rel
+  hash: 4b0085c6f3af73070966d8917ca1ca56d75ec3e6
+  symbols: config/GGTJ01_01/stage11/symbols.txt
+  splits: config/GGTJ01_01/stage11/splits.txt
+- object: files/qp.bin:rel/stage16.rel
+  hash: 13d53cb01570492e2a25ffff4bc796b54336bb23
+  symbols: config/GGTJ01_01/stage16/symbols.txt
+  splits: config/GGTJ01_01/stage16/splits.txt
+- object: files/qp.bin:rel/stage17.rel
+  hash: 58f5da55dcfd24fad38e40761a839699a6b22441
+  symbols: config/GGTJ01_01/stage17/symbols.txt
+  splits: config/GGTJ01_01/stage17/splits.txt
+- object: files/qp.bin:rel/stage18.rel
+  hash: e7fbb986bcb5f2725a4793705f940c6251af2faf
+  symbols: config/GGTJ01_01/stage18/symbols.txt
+  splits: config/GGTJ01_01/stage18/splits.txt
+- object: files/qp.bin:rel/stage20.rel
+  hash: 79ae3144c683cef7d9c619e927f85ee50bc4322d
+  symbols: config/GGTJ01_01/stage20/symbols.txt
+  splits: config/GGTJ01_01/stage20/splits.txt
