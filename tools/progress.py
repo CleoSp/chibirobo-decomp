@@ -10,6 +10,7 @@ from pathlib import Path
 
 import check_versions
 import treemap
+import treemap_layout
 import versions
 
 ROOT = versions.ROOT
@@ -62,42 +63,6 @@ def update(wanted):
     print(f"updated {SNAPSHOT.relative_to(ROOT)}")
 
 
-def rectangles(items, x, y, width, height):
-    # cut along the longer side, as close to half the code size as it gets
-    if not items:
-        return
-    if len(items) == 1:
-        yield items[0], x, y, width, height
-        return
-    total = sum(item["code"] for item in items)
-    running = 0
-    best = 1
-    distance = total
-    for index, item in enumerate(items[:-1], 1):
-        running += item["code"]
-        if abs(total / 2 - running) < distance:
-            best, distance = index, abs(total / 2 - running)
-    fraction = sum(item["code"] for item in items[:best]) / total
-    if width >= height:
-        cut = width * fraction
-        yield from rectangles(items[:best], x, y, cut, height)
-        yield from rectangles(items[best:], x + cut, y, width - cut, height)
-    else:
-        cut = height * fraction
-        yield from rectangles(items[:best], x, y, width, cut)
-        yield from rectangles(items[best:], x, y + cut, width, height - cut)
-
-
-def color(unit):
-    if unit["status"] == "auto":
-        return "#e4e4e1"
-    if unit["complete"]:
-        return "#1f5f4b"
-    amount = max(0, min(100, unit["fuzzy"])) / 100
-    return "#" + "".join(f"{round(a + (b - a) * amount):02x}"
-                         for a, b in zip((235, 226, 185), (98, 173, 114)))
-
-
 def us_units(payload):
     for version in payload["versions"]:
         if version["version"] == versions.USA:
@@ -116,12 +81,15 @@ def percentages(payload):
 
 
 def svg(payload):
-    units = sorted((u for u in us_units(payload) if u["code"] > 0), key=lambda u: (-u["code"], u["full"]))
-    parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500" viewBox="0 0 1000 500" role="img" aria-labelledby="title desc">',
+    units = us_units(payload)
+    attrs = " ".join(f'{key}="{value}"' for key, value in treemap.SVG_ATTRIBUTES.items())
+    border = " ".join(f'{key}="{value}"' for key, value in treemap.RECT_ATTRIBUTES.items())
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" {attrs} role="img" aria-labelledby="title desc">',
              '<title id="title">Chibi-Robo! US decompilation treemap</title>',
              '<desc id="desc">Units sized by code bytes and colored by progress.</desc>']
-    for unit, x, y, width, height in rectangles(units, 0, 0, 1000, 500):
-        parts.append(f'<rect x="{x:.6f}" y="{y:.6f}" width="{width:.6f}" height="{height:.6f}" fill="{color(unit)}" stroke="white" stroke-width="0.6"><title>{escape(unit["full"])}</title></rect>')
+    for index, x, y, width, height in treemap_layout.layout([u["code"] for u in units]):
+        unit = units[index]
+        parts.append(f'<rect x="{x}" y="{y}" width="{width}" height="{height}" fill="{treemap_layout.unit_color(unit)}" {border}><title>{escape(unit["full"])}</title></rect>')
     parts.append('</svg>\n')
     return "\n".join(parts)
 
@@ -154,10 +122,11 @@ def render(output=OUTPUT):
     if stale:
         for version in payload["versions"]:
             version["source"] = "earlier build; source has changed"
-    page = (ROOT / "tools" / "treemap_template.html").read_text(encoding="utf-8")
-    blob = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     output.mkdir(parents=True, exist_ok=True)
-    (output / "progress.html").write_text(page.replace("/*__DATA__*/null", blob), encoding="utf-8")
+    page = treemap.render_page(payload)
+    (output / "index.html").write_text(page, encoding="utf-8")
+    # Keep old README links and bookmarks working, including their filters.
+    (output / "progress.html").write_text(page, encoding="utf-8")
     (output / "progress.svg").write_text(svg(payload), encoding="utf-8")
     (output / "badges").mkdir(exist_ok=True)
     for label, percent in measures.items():

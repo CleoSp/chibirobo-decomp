@@ -4,7 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Unit Treemap</title>
+<title>Chibi-Robo! decomp — Cleo Spiers</title>
+<meta name="description" content="I'm working on a decompilation of Chibi-Robo! for the GameCube. Explore the code and follow its progress here.">
+<link rel="canonical" href="https://cleosp.com/chibirobo-decomp/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Chibi-Robo! decomp — Cleo Spiers">
+<meta property="og:description" content="Explore the code and follow progress on a decompilation of Chibi-Robo! for the GameCube.">
+<meta property="og:url" content="https://cleosp.com/chibirobo-decomp/">
+<meta property="og:site_name" content="Cleo Spiers">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chibi-Robo! decomp — Cleo Spiers">
+<meta name="twitter:description" content="Explore the code and follow progress on a decompilation of Chibi-Robo! for the GameCube.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"Chibi-Robo! decomp","url":"https://cleosp.com/chibirobo-decomp/","description":"Explore the code and follow progress on a decompilation of Chibi-Robo! for the GameCube.","isPartOf":{"@type":"WebSite","name":"Cleo Spiers","url":"https://cleosp.com/"}}
+</script>
 <style>
 /* color shows match progress */
 :root {
@@ -13,14 +26,9 @@
   --meta: #646464;
   --rule: #e2e2e2;
   --link: #314f68;
-  /* one ordered ramp, gets darker as work gets done, so it still reads in grayscale.
-     unnamed gray, then named at 0, 50 and 100 percent match, then linked */
-  --unnamed: #e4e4e1;
-  --r0: #ebe2b9;
-  --r1: #c3d27e;
-  --r2: #62ad72;
-  --linked: #1f5f4b;
+/*__PALETTE__*/
   color-scheme: light;
+  background: var(--paper);
 }
 * { box-sizing: border-box; }
 body {
@@ -39,6 +47,8 @@ section { margin-top: 2.25rem; }
 a, .linkish { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: .18em; }
 a:hover, .linkish:hover { color: #172f42; text-decoration-thickness: 2px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.site-name a { color: inherit; text-decoration: none; }
+.site-name a:hover { text-decoration: underline; }
 .linkish { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 
 .bars { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .5rem 1.25rem; align-items: center; }
@@ -71,13 +81,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--link); outl
 .unit-head h2 { margin-bottom: .15rem; }
 .unit-head .crumb { color: var(--meta); font-weight: 400; }
 
-/* fixed 2 by 1 like decomp.dev, so a narrow screen shows a smaller copy of
-   the same map, the layout is done in this shape and placed in percentages */
 #map { position: relative; aspect-ratio: 2 / 1; }
-.box { position: absolute; overflow: hidden; box-shadow: inset 0 0 0 .5px var(--paper); }
+#map svg { display: block; width: 100%; height: 100%; }
 .box.open { cursor: pointer; }
-.box:hover { box-shadow: inset 0 0 0 2px var(--ink); z-index: 1; }
-.box.done:hover { box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px var(--ink); }
+.box:hover { stroke: var(--ink); stroke-width: 2; }
+.box.done:hover { stroke: var(--paper); }
 .box.dim { opacity: .15; }
 .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--meta); }
 
@@ -112,13 +120,16 @@ footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5
 <body>
 <div class="layout">
   <header>
-    <p class="site-name">Chibi-Robo! decomp</p>
+    <p class="site-name"><a href="https://cleosp.com/">Cleo Spiers</a></p>
     <span class="meta" id="ver"></span>
     <select id="ver-pick" aria-label="Game version" hidden></select>
   </header>
   <main>
-    <h1 id="headline"></h1>
+    <h1>Chibi-Robo! decomp</h1>
+    <p><a href="https://github.com/CleoSp/chibirobo-decomp">Source on GitHub</a></p>
+    <noscript><p>The interactive map needs JavaScript. You can still read the project and build instructions on GitHub.</p></noscript>
     <section>
+      <h2 id="headline">Decompilation progress</h2>
       <dl class="bars">
         <dt>Units</dt>
         <dd class="fact" id="units-fact"></dd>
@@ -289,75 +300,27 @@ function renderCategories() {
   sel.onchange = () => { category = sel.value; saveState(); render(); };
 }
 
-// 0 to 100 match walks r0 to r1 to r2
-function ramp(p) {
-  p = Math.max(0, Math.min(100, p));
-  return p <= 50
-    ? `color-mix(in oklab, var(--r1) ${p * 2}%, var(--r0))`
-    : `color-mix(in oklab, var(--r2) ${(p - 50) * 2}%, var(--r1))`;
-}
-
-// linked is one clear step past the end of the ramp
-function colorFor(u) {
-  if (u.status === "auto") return "var(--unnamed)";
-  if (u.status === "linked") return "var(--linked)";
-  return ramp(u.fuzzy);
-}
-
-// a function at 100% is done, same deep green as a linked unit
-const fnColor = p => p >= 100 ? "var(--linked)" : ramp(p);
 const fnPct = p => dec(p) + "%";
 
-// binary split, same as decomp.dev's streemap::binary. units stay in report order,
-// cut the list where half the bytes land on each side, split the box along its long
-// edge, recurse. the unit straddling the halfway point goes right, like theirs
-function binaryLayout(items, W, H, out) {
-  const P = [0];
-  for (const n of items) P.push(P[P.length - 1] + n.area);
-  const go = (lo, hi, x, y, w, h) => {
-    if (hi - lo === 1) { out.push([items[lo], x, y, w, h]); return; }
-    const value = P[hi] - P[lo];
-    if (value <= 0) return;
-    const target = P[lo] + value / 2;
-    // first item whose running total passes the halfway mark
-    let a = lo, b = hi - 1;
-    while (a < b) { const m = (a + b) >> 1; if (P[m + 1] > target) b = m; else a = m + 1; }
-    const mid = Math.max(a, lo + 1);
-    const left = P[mid] - P[lo];
-    if (w > h) {
-      const lw = w * left / value;
-      go(lo, mid, x, y, lw, h);
-      go(mid, hi, x + lw, y, w - lw, h);
-    } else {
-      const lh = h * left / value;
-      go(lo, mid, x, y, w, lh);
-      go(mid, hi, x, y + lh, w, h - lh);
-    }
-  };
-  if (items.length) go(0, items.length, 0, 0, W, H);
-}
-
-// lays out [item, bytes] pairs into the map and hands back the boxes.
-// W by H is the map's fixed shape from the css, never the screen size,
-// so every screen gets the same split, just scaled
-function drawMap(map, items, W, H, paint) {
+function drawMap(map, items, boxes, paint) {
   map.innerHTML = "";
-  const all = items.reduce((s, [, n]) => s + n, 0);
-  if (!all) return [];
-  const scale = W * H / all;
-  const out = [];
-  binaryLayout(items.map(([it, n]) => ({ it, area: n * scale })), W, H, out);
-  const frag = document.createDocumentFragment();
+  if (!boxes.length) return [];
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  for (const [key, value] of Object.entries(DATA.map_style.svg)) svg.setAttribute(key, value);
   const els = [];
-  for (const [n, x, y, w, h] of out) {
-    const el = document.createElement("div");
-    el.className = "box";
-    el.style.cssText = `left:${100 * x / W}%;top:${100 * y / H}%;width:${100 * w / W}%;height:${100 * h / H}%`;
-    paint(el, n.it);
-    frag.appendChild(el);
+  for (const [index, x, y, width, height] of boxes) {
+    const el = document.createElementNS(ns, "rect");
+    el.setAttribute("class", "box");
+    for (const [key, value] of Object.entries({ x, y, width, height, ...DATA.map_style.rect })) {
+      el.setAttribute(key, value);
+    }
+    el.dataset.index = index;
+    paint(el, items[index]);
+    svg.appendChild(el);
     els.push(el);
   }
-  map.appendChild(frag);
+  map.appendChild(svg);
   return els;
 }
 
@@ -370,10 +333,9 @@ function render() {
   document.getElementById("foot-note").textContent = "Boxes sized by code bytes, in report order. Click one to see its functions.";
   const map = document.getElementById("map");
   map.className = "";
-  const us = units.filter(u => inCategory(u) && u.code > 0);
   const match = parseFilter(query);
-  const els = drawMap(map, us.map(u => [u, u.code]), 2, 1, (el, u) => {
-    el.style.background = colorFor(u);
+  const els = drawMap(map, units, V.layouts[category], (el, u) => {
+    el.setAttribute("fill", u.color);
     if (u.status === "linked") el.classList.add("done");
     if (canOpen(u)) el.classList.add("open");
     if (!match(u)) el.classList.add("dim");
@@ -395,7 +357,7 @@ function renderUnit(u) {
   const head = document.getElementById("unit-head");
   head.hidden = false;
   document.getElementById("foot-note").textContent = "Boxes sized by function bytes, in report order. Esc goes back.";
-  const fns = u.funcs.map(([name, addr, sz, p], i) => ({ i, name, addr, sz, p }));
+  const fns = u.funcs.map(([name, addr, sz, p, color], i) => ({ i, name, addr, sz, p, color }));
   const done = fns.filter(f => f.p >= 100).length;
   const rel = isRel(u) ? `, ${esc(u.module)}.rel` : "";
   head.innerHTML =
@@ -405,9 +367,8 @@ function renderUnit(u) {
 
   const map = document.getElementById("map");
   map.className = "";
-  // report order and no empty functions, same as decomp.dev
-  drawMap(map, fns.filter(f => f.sz > 0).map(f => [f, f.sz]), 2, 1, (el, f) => {
-    el.style.background = fnColor(f.p);
+  drawMap(map, fns, u.function_map, (el, f) => {
+    el.setAttribute("fill", f.color);
     if (f.p >= 100) el.classList.add("done");
     el._fn = f;
   });
@@ -472,7 +433,7 @@ function unitCard(u) {
 function fnCard(f) {
   const state = f.p >= 100 ? "Matched" : f.p ? `${fnPct(f.p)} match` : "Not started";
   return `<div class="t">${esc(f.name)}</div>` +
-    `<div class="bar">${f.p ? `<div style="width:${f.p}%;background:${fnColor(f.p)}"></div>` : ""}</div>` +
+    `<div class="bar">${f.p ? `<div style="width:${f.p}%;background:${f.color}"></div>` : ""}</div>` +
     `<div class="st"><b>${state}</b><span class="meta">${size(f.sz)}</span></div>` +
     `<dl><dt>Address</dt><dd>${addrOf(openUnit, f.addr)}</dd></dl>`;
 }

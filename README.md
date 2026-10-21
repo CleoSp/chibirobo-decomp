@@ -2,10 +2,12 @@
 
 A work in progress decompilation of Chibi-Robo! for the GameCube.
 
-[![Linked](https://cleosp.github.io/chibirobo-decomp/badges/linked.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
-[![Data](https://cleosp.github.io/chibirobo-decomp/badges/data.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
+[![Linked](https://cleosp.com/chibirobo-decomp/badges/linked.svg)](https://cleosp.com/chibirobo-decomp/)
+[![Data](https://cleosp.com/chibirobo-decomp/badges/data.svg)](https://cleosp.com/chibirobo-decomp/)
 
-[![Decompilation progress](https://cleosp.github.io/chibirobo-decomp/progress.svg)](https://cleosp.github.io/chibirobo-decomp/progress.html)
+[![Decompilation progress](https://cleosp.com/chibirobo-decomp/progress.svg)](https://cleosp.com/chibirobo-decomp/)
+
+[Explore the interactive progress map](https://cleosp.com/chibirobo-decomp/).
 
 Supported versions:
 
@@ -54,6 +56,18 @@ ninja
 To pick a version, add `--version GGTE01`, `--version GGTJ01_01` or `--version GGTP01` to the configure command.
 
 The build checks the DOL and 16 RELs against the originals. Unfinished units still link original code.
+
+## Progress site
+
+The Progress workflow rebuilds all three versions on the self-hosted runner,
+then publishes the interactive page and README badges to
+[cleosp.com/chibirobo-decomp](https://cleosp.com/chibirobo-decomp/). It runs when
+source, config, or tools change on the default branch, and can also be run from
+the Actions tab. Failed builds leave the last published page in place.
+
+The runner needs `CHIBIROBO_ORIG` set to its local `orig/` folder. Only the
+progress report goes to GitHub; the discs stay on the runner. In the repo’s
+Pages settings, the publishing source should be **GitHub Actions**.
 
 ## Diffing
 

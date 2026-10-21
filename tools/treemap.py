@@ -15,6 +15,10 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 root_dir = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path.insert(0, script_dir)
 import versions as ver  # noqa: E402
+import treemap_layout  # noqa: E402
+
+SVG_ATTRIBUTES = {"width": "1000", "height": "500", "viewBox": "0 0 1000 500"}
+RECT_ATTRIBUTES = {"stroke": "#fff", "stroke-width": "1", "vector-effect": "non-scaling-stroke"}
 
 # First match wins, checked against the path under the module, like
 # TRK_MINNOW_DOLPHIN/msghndlr. Named units that match nothing land in game.
@@ -188,6 +192,20 @@ def find_versions(building: str) -> List[str]:
     return sorted(found, key=lambda v: (order.index(v) if v in order else len(order), v))
 
 
+def render_page(payload):
+    treemap_layout.prepare(payload)
+    payload["map_style"] = {"svg": SVG_ATTRIBUTES, "rect": RECT_ATTRIBUTES}
+    with open(os.path.join(script_dir, "treemap_template.html"), encoding="utf-8") as f:
+        page = f.read()
+    palette = "\n".join(f"  --{key}: {value};" for key, value in treemap_layout.PALETTE.items())
+    page = page.replace("/*__PALETTE__*/", palette)
+    if payload.get("live") is not False:
+        content = [{k: x for k, x in v.items() if k != "generated"} for v in payload["versions"]]
+        payload["stamp"] = hashlib.sha1((json.dumps([content, payload["map_style"]]) + page).encode()).hexdigest()[:16]
+    blob = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return page.replace("/*__DATA__*/null", blob)
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description="Write a local unit treemap page.")
     parser.add_argument("--version", default=ver.current(), help="version being built, default the configured one")
@@ -218,16 +236,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         "groups": GROUP_ORDER,
         "versions": versions,
     }
-    template_path = os.path.join(script_dir, "treemap_template.html")
-    with open(template_path) as f:
-        page = f.read()
-    # an open page polls the stamp file and reloads when this changes, ninja
-    # rewrites the report on every run so hash the content rather than use a time
-    content = [{k: x for k, x in v.items() if k != "generated"} for v in versions]
-    payload["stamp"] = hashlib.sha1((json.dumps(content) + page).encode()).hexdigest()[:16]
-    # keep a stray </script> in a name from closing the data tag
-    blob = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
-    page = page.replace("/*__DATA__*/null", blob)
+    page = render_page(payload)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w") as f:

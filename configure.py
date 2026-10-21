@@ -928,7 +928,7 @@ def append_treemap_step(config: ProjectConfig) -> None:
             "rule treemap\n"
             f"  command = $python tools/treemap.py --version {config.version} --report $in -o $out\n"
             "  description = TREEMAP $out\n"
-            f"build {page}: treemap {report} | tools/treemap.py tools/treemap_template.html\n"
+            f"build {page}: treemap {report} | tools/treemap.py tools/treemap_layout.py tools/treemap_template.html\n"
             f"default {page}\n"
         )
 
