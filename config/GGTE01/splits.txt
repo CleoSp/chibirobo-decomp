@@ -35,6 +35,21 @@ game/msg.cpp:
 	.sdata      start:0x8065A428 end:0x8065A430
 	.sdata2     start:0x8065D030 end:0x8065D158
 
+game/obja.cpp:
+	.text       start:0x8008A360 end:0x80092AA4
+
+game/obja_camera.cpp:
+	.text       start:0x80092AA4 end:0x80092DBC
+
+game/obja_light.cpp:
+	.text       start:0x80092DBC end:0x80093134
+
+game/obja_map.cpp:
+	.text       start:0x80093134 end:0x80093B7C
+
+game/obja_chr.cpp:
+	.text       start:0x80093B7C end:0x800B7898
+
 game/xobjs.cpp:
 	.text       start:0x80132040 end:0x80132D08
 	.rodata     start:0x8020C458 end:0x8020C510

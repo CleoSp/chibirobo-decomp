@@ -367,6 +367,11 @@ config.libs = [
         "progress_category": "game",
         "objects": [
             Object(NonMatching, "game/sound.cpp"),
+            Object(NonMatching, "game/obja.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(NonMatching, "game/obja_camera.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(NonMatching, "game/obja_light.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(NonMatching, "game/obja_map.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(NonMatching, "game/obja_chr.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/evt.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/msg.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/xobjs.cpp", cflags=with_hsd_headers(cflags_game)),
