@@ -13,12 +13,24 @@ Sections:
 	.sdata2     type:rodata align:16
 	.sbss2      type:bss align:32
 
+game/cgame.cpp:
+	.text       start:0x80007880 end:0x8001933C
+
+game/gxa.cpp:
+	.text       start:0x80019480 end:0x8001DC20
+
 game/sound.cpp:
 	.text       start:0x8001DC20 end:0x8001F8D8
 	.rodata     start:0x801FE3BC end:0x801FEE18
 	.data       start:0x802107A0 end:0x8021134C
 	.sdata      start:0x8065A1C0 end:0x8065A1C8
 	.sdata2     start:0x8065C08C end:0x8065C0C4
+
+game/gxb.cpp:
+	.text       start:0x8001F8D8 end:0x80031004
+
+game/stg.cpp:
+	.text       start:0x8003135C end:0x80062B6C
 
 game/evt.cpp:
 	.text       start:0x8006FD8C end:0x8007EEA4
@@ -49,6 +61,36 @@ game/obja_map.cpp:
 
 game/obja_chr.cpp:
 	.text       start:0x80093B7C end:0x800B7898
+
+game/objb.cpp:
+	.text       start:0x800B7898 end:0x800BD324
+
+game/objb_act.cpp:
+	.text       start:0x800BD324 end:0x800D552C
+
+game/objb_attach.cpp:
+	.text       start:0x800D552C end:0x800D7D3C
+
+game/objb_plug.cpp:
+	.text       start:0x800D7D3C end:0x800D9B10
+
+game/objb_path.cpp:
+	.text       start:0x800D9B10 end:0x800DD32C
+
+game/objb_sound.cpp:
+	.text       start:0x800DD32C end:0x800DD5A0
+
+game/objb_free.cpp:
+	.text       start:0x800DD5A0 end:0x800E2520
+
+game/scra.cpp:
+	.text       start:0x8010011C end:0x8010697C
+
+game/scrb.cpp:
+	.text       start:0x80106A14 end:0x80108424
+
+game/scrc.cpp:
+	.text       start:0x80108424 end:0x801152A0
 
 game/xobjs.cpp:
 	.text       start:0x80132040 end:0x80132D08

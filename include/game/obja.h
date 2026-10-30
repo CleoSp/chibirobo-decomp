@@ -14,6 +14,33 @@ void HSD_MObjSetAlpha(HSD_MObj* mobj, f32 alpha);
 void JObjSetPObjFlags(HSD_JObj* jobj, void* flags, u32 type);
 void JObjClearPObjFlags(HSD_JObj* jobj, void* flags, u32 type);
 }
+extern "C" void HSD_MtxGetTranslate(Mtx mat, Vec* vec);
+
+// first anim object on the jobj, whichever kind it is
+inline HSD_AObj* GetAObj(HSD_JObj* jobj)
+{
+	HSD_AObj* aobj;
+	if (jobj != NULL) {
+		if ((aobj = fn_801908F8(jobj)) != NULL) {
+			return aobj;
+		}
+		if ((aobj = fn_801905D4(jobj)) != NULL) {
+			return aobj;
+		}
+		if ((aobj = fn_801902C4(jobj)) != NULL) {
+			return aobj;
+		}
+	}
+	return NULL;
+}
+
+// the jobj's place in the world
+inline Vec GetJObjPos(HSD_JObj* jobj)
+{
+	Vec v;
+	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &v);
+	return v;
+}
 
 // a CJArchive that counts the reads it has going, __vt__6CJAnim
 class CJAnim : public CJArchive {
@@ -22,6 +49,11 @@ public:
 
 	virtual void Clear();   // _0C
 	virtual void Release(); // _18
+
+	// anims past 1000 come from this archive instead of the model's
+	void* GetAnimJoint(s32 id) { return mAnimJoint != NULL ? mAnimJoint[id % 1000] : NULL; }
+	void* GetMatAnimJoint(s32 id) { return mMatAnimJoint != NULL ? mMatAnimJoint[id % 1000] : NULL; }
+	void* GetShapeAnimJoint(s32 id) { return mShapeAnimJoint != NULL ? mShapeAnimJoint[id % 1000] : NULL; }
 };
 typedef char CJAnim_size_check[sizeof(CJAnim) == 0x84 ? 1 : -1];
 
@@ -46,6 +78,14 @@ struct XObjInfo {
 	s16 mId;             // _14
 };
 
+inline s16 GetInfoId(XObjInfo* info)
+{
+	if (info != NULL) {
+		return info->mId;
+	}
+	return 0;
+}
+
 // a color stepping to a target, 0 to 255 per channel
 struct XObjColor {
 	Vec mColor;  // _00
@@ -55,8 +95,9 @@ struct XObjColor {
 
 // one slot of the object's message table
 struct XObjMsg {
-	s32 mId; // _00
-	s32 _04; // _04
+	s32 mId;    // _00, an anim id, or two in the halves
+	u16 mFrame; // _04
+	s16 mRate;  // _06, hundredths
 };
 
 struct XObjEvt {
@@ -76,10 +117,11 @@ public:
 	s32 _244;               // _244
 	u8 _248[0x4];           // _248
 	XObjPoint* mPoints;     // _24C
-	u32 mPointMask;         // _250
-	u32 mPointMaskOld;      // _254
+	u32 mPointMasks[2];     // _250, the points on now and before
 	s32 _258;               // _258
-	u8 _25C[0x6FC - 0x25C]; // _25C
+	u8 _25C[0xC];           // _25C
+	f32 _268;               // _268, the y the floor test last ran at
+	u8 _26C[0x6FC - 0x26C]; // _26C
 	f32 mPointDist[32];     // _6FC
 	f32 _77C;               // _77C
 	f32 mNearDist;          // _780
@@ -93,12 +135,15 @@ public:
 	u8 _7A0[0x4];           // _7A0
 	XObjEvt mEvt;           // _7A4
 	s32 _80C;               // _80C
-	s32 mMsgCount;          // _810
+	s32 mMsgCount;          // _810, where the ring starts
 	XObjMsg mMsgs[16];      // _814
 	f32 _894;               // _894
-	f32 _898;               // _898
+	f32 _898;               // _898, the anchor it is held around, nan when free
 	f32 _89C;               // _89C
-	u8 _8A0[0x10];          // _8A0
+	f32 mMinX;              // _8A0, the box around the anchor, in its own turn
+	f32 mMaxX;              // _8A4
+	f32 mMinZ;              // _8A8
+	f32 mMaxZ;              // _8AC
 	u32 _8B0;               // _8B0
 	XObjColor mColors[2];   // _8B4
 	CJAnim mAnim;           // _8FC
@@ -111,8 +156,8 @@ public:
 	virtual void Update(u32 frames);                             // _A4
 	virtual void vfA8();                                         // _A8
 	virtual void vfAC();                                         // _AC
-	virtual void vfB0();                                         // _B0
-	virtual void vfB4();                                         // _B4
+	virtual void Draw(MtxPtr vmtx);                              // _B0
+	virtual void DrawSub(void* args);                            // _B4
 	virtual void vfB8();                                         // _B8
 	virtual void vfBC(Vec* pos, f32 scale);                      // _BC
 	virtual void vfC0();                                         // _C0
@@ -127,9 +172,9 @@ public:
 	virtual void vfE4(f32 alpha);                                // _E4
 	virtual void vfE8();                                         // _E8
 	virtual void vfEC();                                         // _EC
-	virtual void vfF0();                                         // _F0
-	virtual void vfF4();                                         // _F4
-	virtual void vfF8();                                         // _F8
+	virtual void* GetAnimJoint(s32 id);                          // _F0
+	virtual void* GetMatAnimJoint(s32 id);                       // _F4
+	virtual void* GetShapeAnimJoint(s32 id);                     // _F8
 	virtual void vfFC();                                         // _FC
 	virtual void vf100();                                        // _100
 	virtual void vf104();                                        // _104
@@ -150,8 +195,52 @@ public:
 	virtual BOOL vf140(s32 a, s32 b);                            // _140
 	virtual void vf144();                                        // _144
 
-	BOOL IsPointOn(int i) const { return mPointMask & (1 << i); }
-	void PointOff(int i) { mPointMask &= ~(1 << i); }
+	// which anim archive an anim id is in, 0 for the model's own
+	s32 GetAnimSet(s32 id) const
+	{
+		bool ret = false;
+		if (id >= 1000 && mAnim.mArchive != NULL) {
+			ret = true;
+		}
+		return ret ? id / 1000 : 0;
+	}
+
+	// the id of what it was placed from, -1 when it wasn't
+	s16 GetId() const
+	{
+		if (mInfo != NULL) {
+			return GetInfoId(mInfo);
+		}
+		return -1;
+	}
+
+	BOOL IsPointOn(int i) const { return mPointMasks[0] & (1 << i); }
+	void PointOff(int i) { mPointMasks[0] &= ~(1 << i); }
+
+	BOOL HasMsg() const
+	{
+		for (int i = 0; i < 16; i++) {
+			if (mMsgs[(mMsgCount + i) % 16].mId != -1) {
+				return TRUE;
+			}
+		}
+		return FALSE;
+	}
+
+	void PopMsg(s32& id, u16& frame, s16& rate)
+	{
+		for (int i = 0; i < 16; i++) {
+			s32 j = (mMsgCount + i) % 16;
+			if (mMsgs[j].mId != -1) {
+				id           = mMsgs[j].mId;
+				frame        = mMsgs[j].mFrame;
+				rate         = mMsgs[j].mRate;
+				mMsgs[j].mId = -1;
+				mMsgCount    = (j + 1) % 16;
+				return;
+			}
+		}
+	}
 
 	// clears the message table
 	void ClearMsgs()

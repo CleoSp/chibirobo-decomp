@@ -23,6 +23,12 @@ public:
 	CLight mLights[8];    // _B88
 	s32 mAnims[8];        // _2648, the anim each light plays, -1 for none
 
+	virtual void Release();          // _54
+	virtual void Init(u32 id);       // _90
+	virtual void Reset();            // _98
+	virtual BOOL vf9C(void* info);   // _9C
+	virtual void Update(u32 frames); // _A4
+
 	s32 GetLightMode() { return fn_8006F4B8()->mInfo->mLightMode; }
 };
 
@@ -45,9 +51,7 @@ static inline u32 MakeRGB(s32 r, s32 g, s32 b)
 
 // ---- functions ----
 
-extern "C" {
-
-s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
+extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
 {
 	static u32 sColors[13] = {
 		MakeRGB(0, 0, 0),       MakeRGB(256, 256, 128), MakeRGB(256, 0, 0), MakeRGB(0, 0, 0), MakeRGB(256, 256, 0),
@@ -63,81 +67,80 @@ s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
 	return 0;
 }
 
-// NONMATCHING: induction pointer difference, see fn_80092E38
-void fn_8009369C(XObjMap* map, u32 frames)
+// NONMATCHING: induction pointer difference, see XObjLight::Update
+void XObjMap::Update(u32 frames)
 {
-	fn_80090ED4(map, frames);
-	if (map->GetLightMode() == 1) {
-		for (int i = 0; i < map->mLightCount; i++) {
-			if (map->mArchive.mDesc[i + 1] != NULL && map->mArchive.mNum[i + 2] > 0) {
-				map->mLights[i].SetAnimRate(frames);
-				map->mLights[i].Anim();
+	fn_80090ED4(this, frames);
+	if (GetLightMode() == 1) {
+		for (int i = 0; i < mLightCount; i++) {
+			if (mArchive.mDesc[i + 1] != NULL && mArchive.mNum[i + 2] > 0) {
+				mLights[i].SetAnimRate(frames);
+				mLights[i].Anim();
 			}
 		}
 	}
 }
 
-void fn_80093768(XObjMap* map)
+void XObjMap::Release()
 {
-	for (int i = 0; i < map->mTrigonCount; i++) {
-		map->mTrigons[i].Release();
+	for (int i = 0; i < mTrigonCount; i++) {
+		mTrigons[i].Release();
 	}
-	if (map->GetLightMode() == 1) {
-		for (int i = 0; i < map->mLightCount; i++) {
-			if (map->mArchive.mDesc[i + 1] != NULL) {
-				map->mLights[i].Release();
+	if (GetLightMode() == 1) {
+		for (int i = 0; i < mLightCount; i++) {
+			if (mArchive.mDesc[i + 1] != NULL) {
+				mLights[i].Release();
 			}
 		}
 	}
-	fn_800911C0(map);
+	fn_800911C0(this);
 }
 
 // NONMATCHING: the dol copies a zero path template before storing the index, this drops it
-BOOL fn_80093828(XObjMap* map, void* info)
+BOOL XObjMap::vf9C(void* info)
 {
-	if (fn_80091C80(map, info)) {
+	if (fn_80091C80(this, info)) {
 		int i;
 		int j;
 		int n = 0;
 		for (i = 0;; i++) {
 			s32 path[]     = { 0 };
 			path[0]        = i;
-			HSD_JObj* jobj = GetJointByPath(map->mJObj, path, 1);
+			HSD_JObj* jobj = GetJointByPath(mJObj, path, 1);
 			if (jobj == NULL) {
 				break;
 			}
-			if (map->mTrigons[n].Create(jobj) != NULL) {
-				map->mOrder[n] = n;
+			if (mTrigons[n].Create(jobj) != NULL) {
+				mOrder[n] = n;
 				n++;
 			}
 		}
-		map->mTrigonCount = n;
-		for (i = 0; i < map->mTrigonCount - 1; i++) {
-			for (j = i + 1; j < map->mTrigonCount; j++) {
-				s32 a = map->mOrder[i];
-				s32 b = map->mOrder[j];
-				if (map->mTrigons[a].mMinY < map->mTrigons[b].mMinY) {
-					map->mOrder[i] = b;
-					map->mOrder[j] = a;
+		mTrigonCount = n;
+		for (i = 0; i < mTrigonCount - 1; i++) {
+			for (j = i + 1; j < mTrigonCount; j++) {
+				s32 a = mOrder[i];
+				s32 b = mOrder[j];
+				if (mTrigons[a].mMinY < mTrigons[b].mMinY) {
+					mOrder[i] = b;
+					mOrder[j] = a;
 				}
 			}
 		}
-		for (i = 0; i < map->mTrigonCount; i++) { }
-		if (map->GetLightMode() == 1) {
+		for (i = 0; i < mTrigonCount; i++) { }
+		if (GetLightMode() == 1) {
 			CLight* prev = NULL;
 			for (i = 0; i < 8; i++) {
-				if (map->mArchive.mDesc[i + 1] != NULL) {
-					map->mLights[i].Init((HSD_LightDesc*)map->mArchive.mDesc[i + 1]->_00,
-					                     fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
-					if (map->mArchive.mNum[i + 2] > 0) {
-						map->mAnims[i] = 0;
-						map->mLights[i].SetAnim((HSD_LightAnim*)map->mArchive.mDesc[i + 1]->_04[map->mAnims[i]], 0.0f);
+				if (mArchive.mDesc[i + 1] != NULL) {
+					mLights[i].Init((HSD_LightDesc*)mArchive.mDesc[i + 1]->_00, fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
+					if (mArchive.mNum[i + 2] > 0) {
+						mAnims[i] = 0;
+						mLights[i].SetAnim((HSD_LightAnim*)mArchive.mDesc[i + 1]->_04[mAnims[i]], 0.0f);
 					}
-					map->mLightCount++;
+					mLightCount++;
 					if (prev != NULL) {
-						prev->next = &map->mLights[i];
+						prev->next = &mLights[i];
 					}
-					prev = &map->mLights[i];
+					prev = &mLights[i];
 				}
 			}
 			if (prev != NULL) {
@@ -149,22 +152,20 @@ BOOL fn_80093828(XObjMap* map, void* info)
 	return FALSE;
 }
 
-void fn_80093AC0(XObjMap* map)
+void XObjMap::Reset()
 {
-	fn_800928E8(map);
-	map->mTrigonCount = 0;
+	fn_800928E8(this);
+	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
-		map->mOrder[i] = 0;
+		mOrder[i] = 0;
 	}
-	map->mLightCount = 0;
+	mLightCount = 0;
 	for (int i = 0; i < 8; i++) {
-		map->mAnims[i] = -1;
+		mAnims[i] = -1;
 	}
 }
 
-void fn_80093B5C(XObjMap* map, u32 id)
+void XObjMap::Init(u32 id)
 {
-	fn_800929C4(map, id);
+	fn_800929C4(this, id);
 }
-
-} // extern "C"

@@ -15,80 +15,81 @@ public:
 	CLight mLights[8]; // _984
 	s32 mAnims[8];     // _2444, the anim each light plays, -1 for none
 
+	virtual void Release();          // _54
+	virtual void Init(u32 id);       // _90
+	virtual void Reset();            // _98
+	virtual BOOL vf9C(void* info);   // _9C
+	virtual void Update(u32 frames); // _A4
+
 	s32 GetLightMode() { return fn_8006F4B8()->mInfo->mLightMode; }
 };
 
 // ---- functions ----
 
-extern "C" {
-
 // NONMATCHING: the desc and anim count arrays share one induction pointer here, two in the dol
-void fn_80092E38(XObjLight* obj, u32 frames)
+void XObjLight::Update(u32 frames)
 {
-	if (obj->GetLightMode() == 2) {
-		for (int i = 0; i < obj->mLightCount; i++) {
-			if (obj->mArchive.mDesc[i + 1] != NULL && obj->mArchive.mNum[i + 2] > 0) {
-				obj->mLights[i].SetAnimRate(frames);
-				obj->mLights[i].Anim();
+	if (GetLightMode() == 2) {
+		for (int i = 0; i < mLightCount; i++) {
+			if (mArchive.mDesc[i + 1] != NULL && mArchive.mNum[i + 2] > 0) {
+				mLights[i].SetAnimRate(frames);
+				mLights[i].Anim();
 			}
 		}
 	}
 }
 
-void fn_80092F00(XObjLight* obj)
+void XObjLight::Release()
 {
-	if (obj->GetLightMode() == 2) {
-		for (int i = 0; i < obj->mLightCount; i++) {
-			if (obj->mArchive.mDesc[i + 1] != NULL) {
-				obj->mLights[i].Release();
+	if (GetLightMode() == 2) {
+		for (int i = 0; i < mLightCount; i++) {
+			if (mArchive.mDesc[i + 1] != NULL) {
+				mLights[i].Release();
 			}
 		}
 	}
-	fn_800911C0(obj);
+	fn_800911C0(this);
 }
 
-// NONMATCHING: same induction pointer difference as fn_80092E38
-BOOL fn_80092F98(XObjLight* obj, void* info)
+// NONMATCHING: same induction pointer difference as Update
+BOOL XObjLight::vf9C(void* info)
 {
-	if (fn_80091C80(obj, info)) {
-		if (obj->GetLightMode() == 2) {
+	if (fn_80091C80(this, info)) {
+		if (GetLightMode() == 2) {
 			CLight* prev = NULL;
 			for (int i = 0; i < 8; i++) {
-				if (obj->mArchive.mDesc[i + 1] != NULL) {
-					obj->mLights[i].Init((HSD_LightDesc*)obj->mArchive.mDesc[i + 1]->_00,
-					                     fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
-					if (obj->mArchive.mNum[i + 2] > 0) {
-						obj->mAnims[i] = 0;
-						obj->mLights[i].SetAnim((HSD_LightAnim*)obj->mArchive.mDesc[i + 1]->_04[obj->mAnims[i]], 0.0f);
+				if (mArchive.mDesc[i + 1] != NULL) {
+					mLights[i].Init((HSD_LightDesc*)mArchive.mDesc[i + 1]->_00, fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
+					if (mArchive.mNum[i + 2] > 0) {
+						mAnims[i] = 0;
+						mLights[i].SetAnim((HSD_LightAnim*)mArchive.mDesc[i + 1]->_04[mAnims[i]], 0.0f);
 					}
-					obj->mLightCount++;
+					mLightCount++;
 					if (prev != NULL) {
-						prev->next = &obj->mLights[i];
+						prev->next = &mLights[i];
 					}
-					prev = &obj->mLights[i];
+					prev = &mLights[i];
 				}
 			}
 			if (prev != NULL) {
 				prev->next = NULL;
 			}
 		}
-		obj->mFlags &= ~0x10000ULL;
+		mFlags &= ~0x10000ULL;
 		return TRUE;
 	}
 	return FALSE;
 }
 
-void fn_800930E4(XObjLight* obj)
+void XObjLight::Reset()
 {
-	obj->mLightCount = 0;
+	mLightCount = 0;
 	for (int i = 0; i < 8; i++) {
-		obj->mAnims[i] = -1;
+		mAnims[i] = -1;
 	}
 }
 
-void fn_80093114(XObjLight* obj, u32 id)
+void XObjLight::Init(u32 id)
 {
-	fn_800929C4(obj, id);
+	fn_800929C4(this, id);
 }
-
-} // extern "C"
