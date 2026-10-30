@@ -50,9 +50,9 @@ extern "C" {
 s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
 {
 	static u32 sColors[13] = {
-		MakeRGB(0, 0, 0),     MakeRGB(256, 256, 128), MakeRGB(256, 0, 0),     MakeRGB(0, 0, 0),   MakeRGB(256, 256, 0),
-		MakeRGB(256, 256, 256), MakeRGB(0, 0, 0),     MakeRGB(0, 0, 0),       MakeRGB(0, 0, 0),   MakeRGB(0, 256, 256),
-		MakeRGB(256, 0, 256), MakeRGB(256, 0, 128),   MakeRGB(0, 0, 0),
+		MakeRGB(0, 0, 0),       MakeRGB(256, 256, 128), MakeRGB(256, 0, 0), MakeRGB(0, 0, 0), MakeRGB(256, 256, 0),
+		MakeRGB(256, 256, 256), MakeRGB(0, 0, 0),       MakeRGB(0, 0, 0),   MakeRGB(0, 0, 0), MakeRGB(0, 256, 256),
+		MakeRGB(256, 0, 256),   MakeRGB(256, 0, 128),   MakeRGB(0, 0, 0),
 	};
 	u32 color = map->mTrigons[trigon].mTri[tri].mColor;
 	for (s32 i = 1; i < 13; i++) {
@@ -100,8 +100,8 @@ BOOL fn_80093828(XObjMap* map, void* info)
 		int j;
 		int n = 0;
 		for (i = 0;; i++) {
-			s32 path[] = { 0 };
-			path[0]    = i;
+			s32 path[]     = { 0 };
+			path[0]        = i;
 			HSD_JObj* jobj = GetJointByPath(map->mJObj, path, 1);
 			if (jobj == NULL) {
 				break;
@@ -127,7 +127,8 @@ BOOL fn_80093828(XObjMap* map, void* info)
 			CLight* prev = NULL;
 			for (i = 0; i < 8; i++) {
 				if (map->mArchive.mDesc[i + 1] != NULL) {
-					map->mLights[i].Init((HSD_LightDesc*)map->mArchive.mDesc[i + 1]->_00, fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
+					map->mLights[i].Init((HSD_LightDesc*)map->mArchive.mDesc[i + 1]->_00,
+					                     fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
 					if (map->mArchive.mNum[i + 2] > 0) {
 						map->mAnims[i] = 0;
 						map->mLights[i].SetAnim((HSD_LightAnim*)map->mArchive.mDesc[i + 1]->_04[map->mAnims[i]], 0.0f);

@@ -13292,7 +13292,7 @@ static inline void Compare(BOOL& result, u8 op, s32 lhs, s32 rhs)
 static inline BOOL EvalCmp(CEvt* evt)
 {
 	BOOL result = FALSE;
-	s32 op    = *evt->_04;
+	s32 op      = *evt->_04;
 
 	switch (op) {
 	// anything that isn't a comparison is true when nonzero

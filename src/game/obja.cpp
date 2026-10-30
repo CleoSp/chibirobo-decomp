@@ -34,8 +34,8 @@ struct XObjArgs {
 };
 
 struct XObjAlphaArgs {
-	XObj* mObj;   // _00
-	f32* mAlpha;  // _04
+	XObj* mObj;  // _00
+	f32* mAlpha; // _04
 };
 
 struct XObjCullArgs {
@@ -169,7 +169,9 @@ void fn_80090254(XObj* obj)
 	obj->mFlags &= ~0x0008000000000000ULL;
 }
 
-void fn_80090568(XObj* obj) { }
+void fn_80090568(XObj* obj)
+{
+}
 
 void fn_80090864(XObj* obj)
 {
@@ -258,7 +260,7 @@ void fn_8009172C(XObj* obj, f32 alpha)
 
 void fn_80091784(HSD_JObj* jobj, XObjCullArgs* args, u32 type)
 {
-	s32 on = args->mOn;
+	s32 on  = args->mOn;
 	u8 mode = args->mMode;
 	for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
@@ -299,7 +301,7 @@ void fn_800928E8(XObj* obj)
 	obj->_79C = 0.0f;
 	obj->ClearMsgs();
 	obj->_898 = obj->_89C = NAN;
-	obj->_8B0 = 0;
+	obj->_8B0             = 0;
 	obj->_8B0 |= 0x80000000;
 	obj->mColors[0].mColor.x = obj->mColors[0].mColor.y = obj->mColors[0].mColor.z = 255.0f;
 	obj->mColors[0].mTarget.x = obj->mColors[0].mTarget.y = obj->mColors[0].mTarget.z = 255.0f;

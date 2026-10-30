@@ -16,7 +16,6 @@ public:
 	s32 mAnims[8];     // _2444, the anim each light plays, -1 for none
 
 	s32 GetLightMode() { return fn_8006F4B8()->mInfo->mLightMode; }
-
 };
 
 // ---- functions ----
@@ -56,7 +55,8 @@ BOOL fn_80092F98(XObjLight* obj, void* info)
 			CLight* prev = NULL;
 			for (int i = 0; i < 8; i++) {
 				if (obj->mArchive.mDesc[i + 1] != NULL) {
-					obj->mLights[i].Init((HSD_LightDesc*)obj->mArchive.mDesc[i + 1]->_00, fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
+					obj->mLights[i].Init((HSD_LightDesc*)obj->mArchive.mDesc[i + 1]->_00,
+					                     fn_8006F4B8()->mInfo->mShadowMask & (1 << (7 - i)));
 					if (obj->mArchive.mNum[i + 2] > 0) {
 						obj->mAnims[i] = 0;
 						obj->mLights[i].SetAnim((HSD_LightAnim*)obj->mArchive.mDesc[i + 1]->_04[obj->mAnims[i]], 0.0f);

@@ -3887,7 +3887,8 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
 			slot->StartSlide(0.0f, 0.5f, angle);
 		}
 
-		if (!putDownActive && !(slot->mActor->_228 & 0x100000000ULL) && (slot->_00 == NULL || (slot->_00 != NULL && slot->_30 == slot->_00->_30))) {
+		if (!putDownActive && !(slot->mActor->_228 & 0x100000000ULL)
+		    && (slot->_00 == NULL || (slot->_00 != NULL && slot->_30 == slot->_00->_30))) {
 			slot->mActor->_228 |= 0x100000000ULL;
 		}
 	}

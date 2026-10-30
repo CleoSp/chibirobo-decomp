@@ -88,16 +88,16 @@ struct UnkHolder {
 };
 
 struct UnkLink {
-	u8 _00[0xC];       // _00
-	s32 mKind;         // _0C
-	u8 _10[0x10];      // _10
-	UnkHolder* mHold;  // _20
-	s32 _24;           // _24
-	s32 mHoldId;       // _28
-	u8 _2C[0x10];      // _2C
-	UnkChrSub mSub3C;  // _3C
-	u8 _40[0x8];       // _40
-	f32 _48;           // _48
+	u8 _00[0xC];      // _00
+	s32 mKind;        // _0C
+	u8 _10[0x10];     // _10
+	UnkHolder* mHold; // _20
+	s32 _24;          // _24
+	s32 mHoldId;      // _28
+	u8 _2C[0x10];     // _2C
+	UnkChrSub mSub3C; // _3C
+	u8 _40[0x8];      // _40
+	f32 _48;          // _48
 };
 
 struct UnkTimer {
@@ -129,63 +129,63 @@ struct UnkChrSlot {
 
 // the robot, a CXObjIntp underneath. offsets are usa
 struct UnkChr {
-	HSD_JObj* mJObj;        // _000
-	u8 _004[0xB0];          // _004
-	UnkChrSub mSubB4;       // _0B4
-	u8 _0B8[0x194];         // _0B8
-	UnkChrSub mSub24C;      // _24C
-	u8 _250[0xC];           // _250
-	u32 _25C[2];            // _25C
-	UnkChrSub mSub264;      // _264
-	u8 _268[0xC];           // _268
-	s32 mIndex;             // _274
-	u8 _278[0x480];         // _278
-	f32 _6F8;               // _6F8
-	f32 _6FC[2];            // _6FC
-	u8 _704[0x78];          // _704
-	f32 _77C;               // _77C
-	f32 _780;               // _780
-	s32 mId;                // _784
-	u8 _788[0x128];         // _788
-	u32 mFlags;             // _8B0
-	u8 _8B4[0x138];         // _8B4
-	UnkChrSub mSub9EC;      // _9EC
-	u8 _9F0[0x50];          // _9F0
-	f32 _A40;               // _A40
-	UnkChrSub mTimer;       // _A44
-	s32 mTimerState;        // _A48
-	u8 _A4C[0x18];          // _A4C
-	UnkActor* mTarget;      // _A64
-	u8 _A68[0x5C];          // _A68
-	s32 mStateAC4;          // _AC4
-	u8 _AC8[0x18];          // _AC8
-	UnkHolder* mHoldAE0;    // _AE0
-	u8 _AE4[0x4];           // _AE4
-	s32 mHoldIdAE8;         // _AE8
-	u8 _AEC[0x7C];          // _AEC
-	s32 mStateB68;          // _B68
-	u8 _B6C[0x18];          // _B6C
-	UnkHolder* mHoldB84;    // _B84
-	u8 _B88[0x4];           // _B88
-	s32 mHoldIdB8C;         // _B8C
-	u8 _B90[0x1C];          // _B90
-	s32 mStateBAC;          // _BAC
-	u8 _BB0[0x18];          // _BB0
-	UnkHolder* mHoldBC8;    // _BC8
-	u8 _BCC[0x4];           // _BCC
-	s32 mHoldIdBD0;         // _BD0
-	u8 _BD4[0x70];          // _BD4
-	s32 _C44;               // _C44
-	u8 _C48[0x24];          // _C48
-	s32 _C6C;               // _C6C
-	u8 _C70[0xC];           // _C70
-	f32 _C7C;               // _C7C
-	u8 _C80[0xBC];          // _C80
-	s32 _D3C;               // _D3C
-	u8 _D40[0xC74];         // _D40
-	UnkChrSlot mSlots[4];   // _19B4
-	u8 _1B04[0xC];          // _1B04
-	u64 mFlags2;            // _1B10
+	HSD_JObj* mJObj;      // _000
+	u8 _004[0xB0];        // _004
+	UnkChrSub mSubB4;     // _0B4
+	u8 _0B8[0x194];       // _0B8
+	UnkChrSub mSub24C;    // _24C
+	u8 _250[0xC];         // _250
+	u32 _25C[2];          // _25C
+	UnkChrSub mSub264;    // _264
+	u8 _268[0xC];         // _268
+	s32 mIndex;           // _274
+	u8 _278[0x480];       // _278
+	f32 _6F8;             // _6F8
+	f32 _6FC[2];          // _6FC
+	u8 _704[0x78];        // _704
+	f32 _77C;             // _77C
+	f32 _780;             // _780
+	s32 mId;              // _784
+	u8 _788[0x128];       // _788
+	u32 mFlags;           // _8B0
+	u8 _8B4[0x138];       // _8B4
+	UnkChrSub mSub9EC;    // _9EC
+	u8 _9F0[0x50];        // _9F0
+	f32 _A40;             // _A40
+	UnkChrSub mTimer;     // _A44
+	s32 mTimerState;      // _A48
+	u8 _A4C[0x18];        // _A4C
+	UnkActor* mTarget;    // _A64
+	u8 _A68[0x5C];        // _A68
+	s32 mStateAC4;        // _AC4
+	u8 _AC8[0x18];        // _AC8
+	UnkHolder* mHoldAE0;  // _AE0
+	u8 _AE4[0x4];         // _AE4
+	s32 mHoldIdAE8;       // _AE8
+	u8 _AEC[0x7C];        // _AEC
+	s32 mStateB68;        // _B68
+	u8 _B6C[0x18];        // _B6C
+	UnkHolder* mHoldB84;  // _B84
+	u8 _B88[0x4];         // _B88
+	s32 mHoldIdB8C;       // _B8C
+	u8 _B90[0x1C];        // _B90
+	s32 mStateBAC;        // _BAC
+	u8 _BB0[0x18];        // _BB0
+	UnkHolder* mHoldBC8;  // _BC8
+	u8 _BCC[0x4];         // _BCC
+	s32 mHoldIdBD0;       // _BD0
+	u8 _BD4[0x70];        // _BD4
+	s32 _C44;             // _C44
+	u8 _C48[0x24];        // _C48
+	s32 _C6C;             // _C6C
+	u8 _C70[0xC];         // _C70
+	f32 _C7C;             // _C7C
+	u8 _C80[0xBC];        // _C80
+	s32 _D3C;             // _D3C
+	u8 _D40[0xC74];       // _D40
+	UnkChrSlot mSlots[4]; // _19B4
+	u8 _1B04[0xC];        // _1B04
+	u64 mFlags2;          // _1B10
 };
 
 // the game object behind lbl_8025C400, the CGs is only its start
@@ -209,18 +209,18 @@ struct UnkRoom {
 };
 
 struct UnkMap {
-	u8 _0000[0x8580];         // _0000
-	s32 _8580;                // _8580
-	u8 _8584[0x104C];         // _8584
-	s32 _95D0;                // _95D0
-	s32 _95D4;                // _95D4
-	u8 _95D8[0xBC];           // _95D8
-	UnkRoomList mLists[4];    // _9694
-	u8 _96E4[0x17C];          // _96E4
-	u32 _9860[0x400];         // _9860
-	s32 _A860;                // _A860
-	u8 _A864[0xC];            // _A864
-	UnkRoom mRooms[1];        // _A870
+	u8 _0000[0x8580];      // _0000
+	s32 _8580;             // _8580
+	u8 _8584[0x104C];      // _8584
+	s32 _95D0;             // _95D0
+	s32 _95D4;             // _95D4
+	u8 _95D8[0xBC];        // _95D8
+	UnkRoomList mLists[4]; // _9694
+	u8 _96E4[0x17C];       // _96E4
+	u32 _9860[0x400];      // _9860
+	s32 _A860;             // _A860
+	u8 _A864[0xC];         // _A864
+	UnkRoom mRooms[1];     // _A870
 };
 
 struct UnkStageTable {
@@ -841,7 +841,9 @@ f32 fn_800B2FA0(Vec* a, Vec* b)
 	return PSVECDistance(a, b);
 }
 
-void fn_800B2FC0(void) { }
+void fn_800B2FC0(void)
+{
+}
 
 u64 fn_800B2FC4(UnkChr* chr, u64 mask)
 {

@@ -414,7 +414,7 @@ inline void PlayerCarRoot_Start(Car::PlayerCarRoot* car)
 
 inline void RoboView_ResetFlags(RoboView* game)
 {
-	game->_980   = 0;
+	game->_980 = 0;
 	game->_980 |= 0x20000000;
 	game->_980 |= 7;
 	game->_12DF4 = 1;
