@@ -946,14 +946,15 @@ void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32*
  */
 void interpretShapeAnimDisplayList(HSD_PObj* pobj, f32 (*vertex)[3], f32 (*normal)[3])
 {
-	u8* dl     = pobj->display;
-	s32 length = pobj->n_display << 5;
+	s32 i, j;
+	s32 n, m;
 	s32 l;
+	s32 length = pobj->n_display << 5;
+	u8* dl     = pobj->display;
 
 	for (l = 0; l + 3 < length;) {
-		s32 n = dl[1] << 8 | dl[2];
-		s32 m = 3;
-		s32 i, j;
+		n = dl[1] << 8 | dl[2];
+		m = 3;
 
 		if ((dl[0] & GX_OPCODE_MASK) == GX_NOP) {
 			break;

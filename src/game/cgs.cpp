@@ -579,8 +579,9 @@ extern "C" void fn_8019B850(CGsScreen* screen, s32 mode, u16 hor, u16 ver)
 	GXAdjustForOverscan(lbl_80237728[screen->mMode], screen, hor, ver);
 	screen->viWidth   = 660;
 	screen->viXOrigin = (720 - screen->viWidth) / 2;
-	if ((screen->viTVMode & 3) == 1) {
-		screen->viYOrigin = screen->viYOrigin / 2;
+	// viTVMode is a VITVMode in the sdk, the hsd header has it as a u32
+	if (((s32)screen->viTVMode & 3) == 1) {
+		screen->viYOrigin /= 2;
 	}
 	HSD_VISetConfigure(screen);
 	HSD_CObjSetReferenceSize(screen->fbWidth, screen->efbHeight);
@@ -2347,10 +2348,12 @@ extern "C" void fn_80197800(CGs* gs, CTexObj* tex, u32 color0, u32 color1, u32 c
 
 	// negative size means use the texture's own
 	if (w < 0.0f) {
-		w = GXGetTexObjWidth(tex);
+		u16 size = GXGetTexObjWidth(tex);
+		w        = size;
 	}
 	if (h < 0.0f) {
-		h = GXGetTexObjHeight(tex);
+		u16 size = GXGetTexObjHeight(tex);
+		h        = size;
 	}
 
 	SetFlatTransform(gs, &gs->mSprite2, x, y, z, w, h, rx, ry, rz);

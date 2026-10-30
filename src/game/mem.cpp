@@ -14,8 +14,8 @@ u32 fn_801D0768(void);
 // can hand it out again, the name is the tag the caller passed. MEMINFO is from the wii
 // build's "no space for MEMINFO array" message
 struct MEMINFO {
-	u32 mAddr;        // _00
-	u32 mFree;        // _04
+	u8* mAddr;        // _00
+	u8* mFree;        // _04
 	u32 mSize;        // _08
 	char mName[0x80]; // _0C
 	s32 mStatic;      // _8C
@@ -25,8 +25,8 @@ STATIC_ASSERT(sizeof(MEMINFO) == 0x90);
 #define MEMINFO_MAX 0x400
 
 static MEMINFO sInfo[MEMINFO_MAX];
-static u32 sTop;
-static u32 sCur;
+static u8* sTop;
+static u8* sCur;
 static s32 sNum;
 
 namespace mm {
@@ -453,7 +453,7 @@ void mm::SetName(void* ptr, const char* name)
 {
 	BOOL enabled = OSDisableInterrupts();
 	for (int i = 0; i < sNum; i++) {
-		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == (u32)ptr) {
+		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == ptr) {
 			strcpy(sInfo[i].mName, name);
 			OSRestoreInterrupts(enabled);
 			return;
@@ -520,7 +520,7 @@ char* mm::GetName(void* ptr)
 {
 	BOOL enabled = OSDisableInterrupts();
 	for (int i = 0; i < sNum; i++) {
-		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == (u32)ptr) {
+		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == ptr) {
 			OSRestoreInterrupts(enabled);
 			return sInfo[i].mName;
 		}
@@ -598,7 +598,7 @@ void mm::Compact(BOOL dump)
 	}
 
 	// find the lowest used block, every freed block below it goes back to the arena
-	u32 low  = sTop;
+	u8* low  = sTop;
 	s32 last = 0;
 	for (int i = 0; i < MEMINFO_MAX; i++) {
 		if (sInfo[i].mAddr != 0) {
@@ -854,7 +854,7 @@ void mm::Free(void* ptr, s32 flag)
 {
 	BOOL enabled = OSDisableInterrupts();
 	for (int i = 0; i < sNum; i++) {
-		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == (u32)ptr) {
+		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == ptr) {
 			if (sInfo[i].mAddr == sCur) {
 				// the lowest block, give it straight back to the arena
 				sCur           = sInfo[i].mAddr + sInfo[i].mSize;
@@ -964,9 +964,9 @@ void* mm::Alloc(u32 size, const char* name)
 
 	BOOL found = FALSE;
 	if (size != 0) {
-		s32 num = sNum;
-		u32 cur = sCur;
 		int i;
+		s32 num = sNum;
+		u8* cur = sCur;
 		for (i = 0; i < sNum; i++) {
 			if (sInfo[i].mAddr == 0 && sInfo[i].mFree != 0 && sInfo[i].mSize >= size) {
 				if (sInfo[i].mStatic != 0) {
@@ -1276,7 +1276,7 @@ void mm::Init()
 		sInfo[i].mName[0] = '\0';
 		sInfo[i].mStatic  = 0;
 	}
-	sTop = sCur = (u32)OSGetArenaHi();
+	sTop = sCur = (u8*)OSGetArenaHi();
 	sNum        = 0;
 }
 

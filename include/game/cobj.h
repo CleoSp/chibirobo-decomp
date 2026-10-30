@@ -101,7 +101,7 @@ public:
 	CVec mTarget; // _10
 	CVec mSpeed;  // _20
 
-	bool Step(u32 frames);
+	u8 Step(u32 frames);
 
 	// puts it at a value with nowhere to go
 	void Reset(f32 x, f32 y, f32 z)

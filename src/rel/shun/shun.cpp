@@ -150,12 +150,13 @@ inline void SavedObjFlagList::Apply(s32 mode)
 
 	if (mode != 0) {
 		if (mCount > 0) {
-			for (i = 0; i < mCount; i++) {
-				if (mEntries[i].mId == -1) {
+			s32 j;
+			for (j = 0; j < mCount; j++) {
+				if (mEntries[j].mId == -1) {
 					break;
 				}
-				obj = ShunFindObj(mEntries[i].mId);
-				if (mEntries[i].mFlag & 1) {
+				obj = ShunFindObj(mEntries[j].mId);
+				if (mEntries[j].mFlag & 1) {
 					obj->_228 |= 0x10000;
 				}
 			}
@@ -193,7 +194,6 @@ extern "C" s32 CmdSetJunkUnkoFlag(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
 {
-	// NONMATCHING: clear pass register allocation
 	savedObjFlags.Apply(args[0]);
 	return 0;
 }

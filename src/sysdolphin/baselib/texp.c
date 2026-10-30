@@ -1059,8 +1059,8 @@ int TExpAssignReg(HSD_TExp* texp, HSD_TExpRes* res)
 				}
 			}
 		} else if (IsThroughColor((HSD_TExp*)tev) && tev->c_in[3].type == HSD_TE_CNST) {
-			if (AssignColorKonst(tev, 3, res) < 0) {
-				val = AssignColorReg(tev, 3, res);
+			if (AssignColorReg(tev, 3, res) < 0) {
+				val = AssignColorKonst(tev, 3, res);
 				if (val < 0) {
 					TEXP_ASSERT(1161, val >= 0);
 					return val;

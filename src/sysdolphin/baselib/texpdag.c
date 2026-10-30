@@ -178,16 +178,16 @@ void HSD_TExpUnref(HSD_TExp* texp, u8 sel);
  */
 int assign_reg(int num, u32* dep, HSD_TExpDag* list, int* order)
 {
+	int ref;
 	u8 color_refs[4] = { 0 };
-	u8 alpha_refs[4] = { 0 };
 	HSD_TETev* tev;
 	HSD_TExpDag* dag_entry;
 	int idx;
 	int i;
+	int j;
 	int min_color_reg = 4;
 	int min_alpha_reg = 4;
-	int alpha_ref_count;
-	int color_ref_count;
+	u8 alpha_refs[4] = { 0 };
 
 	for (idx = num - 1; idx >= 0; idx--) {
 		dag_entry = &list[order[idx]];
@@ -206,28 +206,28 @@ int assign_reg(int num, u32* dep, HSD_TExpDag* list, int* order)
 			}
 		}
 
-		tev             = dag_entry->tev;
-		color_ref_count = tev->c_ref;
-		if (color_ref_count > 0) {
-			for (i = 3; i >= 0; i--) {
-				if (color_refs[i] == 0) {
-					color_refs[i] = color_ref_count;
-					tev->c_dst    = i;
-					if (min_color_reg > i) {
-						min_color_reg = i;
+		tev = dag_entry->tev;
+		ref = tev->c_ref;
+		if (ref > 0) {
+			for (j = 3; j >= 0; j--) {
+				if (color_refs[j] == 0) {
+					color_refs[j] = ref;
+					tev->c_dst    = j;
+					if (min_color_reg > j) {
+						min_color_reg = j;
 					}
 					break;
 				}
 			}
 		}
-		alpha_ref_count = tev->a_ref;
-		if (alpha_ref_count > 0) {
-			for (i = 3; i >= 0; i--) {
-				if (alpha_refs[i] == 0) {
-					alpha_refs[i] = alpha_ref_count;
-					tev->a_dst    = i;
-					if (min_alpha_reg > i) {
-						min_alpha_reg = i;
+		ref = tev->a_ref;
+		if (ref > 0) {
+			for (j = 3; j >= 0; j--) {
+				if (alpha_refs[j] == 0) {
+					alpha_refs[j] = ref;
+					tev->a_dst    = j;
+					if (min_alpha_reg > j) {
+						min_alpha_reg = j;
 					}
 					break;
 				}
@@ -290,8 +290,8 @@ void order_dag(int num, u32* dep, u32* full_dep, HSD_TExpDag* list, int depth, i
  */
 void CalcDistance(HSD_TExp** tevs, int* dist, HSD_TExp* tev, int num, int depth)
 {
-	HSD_TExp** p;
 	int idx;
+	HSD_TExp** p;
 	int i;
 
 	p   = tevs;

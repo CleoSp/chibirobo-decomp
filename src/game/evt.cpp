@@ -2558,9 +2558,10 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 		fn_8001E2CC(GAME_SOUND, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 4: {
+		u8* sound;
 		u16 frames = CEvt_Evaluate(evt) * 2;
 		u8 vol     = CEvt_Evaluate(evt);
-		u8* sound  = GAME_SOUND;
+		sound      = GAME_SOUND;
 		if (!fn_8001E6C8(sound, sfx)) {
 			fn_8001E904(sound, sfx, vol);
 		} else {
@@ -5453,11 +5454,12 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 		obj->_264.y = obj->mMoveTranslate.y;
 		obj->_264.z = obj->mMoveTranslate.z;
 		((CMotionControlCamera*)GAME_CAMERA)->UpdateTarget(obj);
+		u8* carry;
 		u8* player = GAME_PLAYER;
 		if (obj == (XObj*)player) {
 			fn_800B5E1C(player);
 			fn_8009FCC4(player);
-			u8* carry = player + PLAYER_CARRY;
+			carry = player + PLAYER_CARRY;
 			if (*(XObj**)(carry + 0x20) != NULL) {
 				fn_800CECFC(carry, 1);
 				(*(XObj**)(carry + 0x20))->vfA4(1);
@@ -13264,7 +13266,7 @@ extern "C" s32 CEvt__cmd_PUSHBP(CEvt* evt)
 }
 
 // any other op leaves result alone
-static inline void Compare(u8& result, u8 op, s32 lhs, s32 rhs)
+static inline void Compare(BOOL& result, u8 op, s32 lhs, s32 rhs)
 {
 	if (op == EVT_EXPR_EQUAL) {
 		result = lhs == rhs;
@@ -13287,9 +13289,9 @@ static inline void Compare(u8& result, u8 op, s32 lhs, s32 rhs)
 }
 
 // EvalSet inlines this too
-static inline bool EvalCmp(CEvt* evt)
+static inline BOOL EvalCmp(CEvt* evt)
 {
-	u8 result = false;
+	BOOL result = FALSE;
 	s32 op    = *evt->_04;
 
 	switch (op) {

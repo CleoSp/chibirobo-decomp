@@ -1045,9 +1045,9 @@ void fn_8018F14C(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 	Vec va;
 	Vec vb;
 	Vec v;
+	Quaternion q;
 	Quaternion qa;
 	Quaternion qb;
-	Quaternion q;
 
 	HSD_JObjGetTranslation(a, &va);
 	HSD_JObjGetTranslation(b, &vb);

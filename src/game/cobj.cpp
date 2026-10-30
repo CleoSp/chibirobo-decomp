@@ -394,25 +394,26 @@ BOOL CJArchive::ReadCheck()
 {
 	switch (mState) {
 	case 1: {
+		s32 result;
 		CObjArchive* archive = mArchive;
-		s32 result           = archive->mFile.GetResult();
+		result               = archive->mFile.GetResult();
 		if (result == 0) {
 			archive->mFile.CloseHandle();
 		}
 		if (result == 0) {
 			mState++;
-		} else {
-			if (result < 0) {
-				mResult = result;
-				if (mFlags & 0x100) {
-					if (mArchive->mRefCount <= 0) {
-						mArchive->mFile.Close();
-					}
-					mState = 0;
-				} else {
-					HALTF(307, "%s(%d)\n", mArchive->mFile.mPath, result);
+		} else if (result < 0) {
+			mResult = result;
+			if (mFlags & 0x100) {
+				if (mArchive->mRefCount <= 0) {
+					mArchive->mFile.Close();
 				}
+				mState = 0;
+				break;
+			} else {
+				HALTF(307, "%s(%d)\n", mArchive->mFile.mPath, result);
 			}
+		} else {
 			break;
 		}
 	}
@@ -422,17 +423,19 @@ BOOL CJArchive::ReadCheck()
 			if (mAramAddr + size < ARGetSize()) {
 				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1, ReadDone,
 				                  &mState);
-				while (mState == 2) { }
+				while (*(volatile s32*)&mState == 2) { }
 			} else {
 				mState++;
 			}
 		} else {
 			mState++;
 		}
-	case 3:
-		mArchive->Parse();
+	case 3: {
+		CObjArchive* archive = mArchive;
+		archive->Parse();
 		mState = 0;
 		break;
+	}
 	}
 	return mState == 0;
 }
@@ -1278,9 +1281,9 @@ extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A346C
  * @note Size: 0x1FC
  */
-bool CObjVec::Step(u32 frames)
+u8 CObjVec::Step(u32 frames)
 {
-	bool moving = IsMoving();
+	u8 moving = IsMoving();
 
 	if (x < mTarget.x) {
 		if ((x += mSpeed.x * frames) > mTarget.x) {
@@ -1472,11 +1475,12 @@ HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
 {
 	HSD_TExp* tev1;
 	HSD_TExp* tev0;
-	HSD_TExp* cnst1;
+	HSD_TExp* exp;
 	HSD_TExp* cnst0;
 	u32* colors;
-	HSD_TExp* exp = hsdMObj.make_texp(mobj, tobj_top, list);
-	colors        = ((XCObj*)mobj)->mColors;
+	HSD_TExp* cnst1;
+	exp    = hsdMObj.make_texp(mobj, tobj_top, list);
+	colors = ((XCObj*)mobj)->mColors;
 	if (colors == NULL) {
 		return exp;
 	}
@@ -1896,9 +1900,9 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
 	mMoveTranslate.mTarget.z = dir->z;
 	CVec d(mMoveTranslate - *dir);
 	if (PSVECMag(&d) > 0.0f) {
-		d.x = Abs(d.x);
-		d.y = Abs(d.y);
-		d.z = Abs(d.z);
+		d.x = ABS(d.x);
+		d.y = ABS(d.y);
+		d.z = ABS(d.z);
 		PSVECNormalize(&d, &d);
 		mMoveTranslate.mSpeed.Set(d * speed);
 		if (mMoveTranslate.mSpeed.x > 0.0f && mMoveTranslate.mSpeed.x < 0.001f) {

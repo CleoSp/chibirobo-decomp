@@ -70,21 +70,6 @@ public:
 	} _814[16];   // _814 (JP: _80C)
 };
 
-// takes the first free slot in the request ring
-inline void XObj_PushRequest(XObj* obj)
-{
-	s32 i;
-	for (i = 0; i < 16; i++) {
-		s32 idx = (obj->_810 + i) % 16;
-		if (obj->_814[idx].type == -1) {
-			obj->_814[idx].type = 3;
-			obj->_814[idx]._04  = 0;
-			obj->_814[idx]._06  = 100;
-			break;
-		}
-	}
-}
-
 class CamInfo {
 public:
 	CamInfo(s32* values) { m_values = values; }
@@ -187,6 +172,8 @@ struct Stage02Main {
 	u8 _00[0x9860];        // _00
 	XObj* mObjects[0x400]; // _9860
 	s32 mObjectCount;      // _A860
+
+	XObj* GetObject(s32 index) const { return mObjects[index]; }
 };
 
 #define MAIN() ((Stage02Main*)lbl_8025C400)
@@ -211,6 +198,16 @@ class CMotionControlCamera {
 public:
 	void ChangeAction(CInterfaceCameraAction* action);
 };
+
+// see game/ccameraaction.h
+class CCameraActionScroll2 {
+public:
+	void SaveCamInfo(const void* info);
+	void ClearHideList();
+	BOOL AddHideObj(s32 id);
+};
+
+#define SCROLL2() (*(CCameraActionScroll2**)GAME_AT(0xE7DFC))
 static Car::PlayerCarRoot playerCar;
 static Car::CarRoot racerCar;
 static u8 carsStarted;
@@ -226,9 +223,6 @@ void fn_80066BF0(void* p);
 void fn_80066BFC(void* p);
 void fn_8006613C(void* p, s32 a, s32 b);
 void* fn_8007F570(void* table, s16 id);
-void fn_801439C0(void* p, s32* info);
-void fn_801468FC(void* p);
-void fn_801469A8(void* p, s32 v);
 void fn_800F53F8(s32 v);
 s32 fn_8001E6C8(void* p, s32 id);
 void fn_8001E904(void* p, s32 id, s32 v);
@@ -251,7 +245,7 @@ f32 GetFighterProgress(void);
 void SetSoundCueTable(s32 v);
 void SetFighterParams(s32 v);
 void SetSpeedRateTable(s32 v);
-void AddMato(void* p);
+void AddMato(void* p, s32 id);
 void StartFighter(void* a, void* b, void* c);
 void DrawFighterHud(void* p);
 s32 DrawShots(void);
@@ -389,9 +383,22 @@ inline void Car::CarRoot::Register(XObj* a, XObj* b, XObj* c)
 // inline virtuals in the original, so direct calls get inlined
 inline void CarRoot_Brake(Car::CarRoot* car)
 {
+	s32 i;
+	XObj* obj;
+
 	car->_7C = 1;
 	car->_04->vf80(2, 0, 0.0f, 1.0f, 0.0f, 10.0f, 0, 0, 0);
-	XObj_PushRequest(car->_04);
+	obj = car->_04;
+	// takes the first free slot in the request ring
+	for (i = 0; i < 16; i++) {
+		s32 idx = (obj->_810 + i) % 16;
+		if (obj->_814[idx].type == -1) {
+			obj->_814[idx].type = 3;
+			obj->_814[idx]._04  = 0;
+			obj->_814[idx]._06  = 100;
+			break;
+		}
+	}
 }
 
 inline void CarRoot_Start(Car::CarRoot* car)
@@ -403,6 +410,14 @@ inline void PlayerCarRoot_Start(Car::PlayerCarRoot* car)
 {
 	car->_7D = 1;
 	fn_8001E904(SOUND(), 0x2000D, 0xFF);
+}
+
+inline void RoboView_ResetFlags(RoboView* game)
+{
+	game->_980   = 0;
+	game->_980 |= 0x20000000;
+	game->_980 |= 7;
+	game->_12DF4 = 1;
 }
 
 // body of Car::Init, inlined into Terminate
@@ -577,7 +592,7 @@ extern "C" s32 CmdRegisterCar(s32 cmd, s32 argc, s32* argv)
  */
 extern "C" s32 CmdClearCamInfo(s32 cmd, s32 argc, s32* argv)
 {
-	fn_801439C0(*(void**)GAME_AT(0xE7DFC), NULL);
+	SCROLL2()->SaveCamInfo(NULL);
 	return 0;
 }
 
@@ -616,7 +631,7 @@ extern "C" s32 CmdSetCamInfo(s32 cmd, s32 argc, s32* argv)
 		CamInfo c(info);
 		c.Set(7, 6000);
 	}
-	fn_801439C0(*(void**)GAME_AT(0xE7DFC), info);
+	SCROLL2()->SaveCamInfo(info);
 	return 0;
 }
 
@@ -632,7 +647,7 @@ extern "C" s32 CmdSetCamInfo(s32 cmd, s32 argc, s32* argv)
  */
 extern "C" s32 CmdClearObjFlagList(s32 cmd, s32 argc, s32* argv)
 {
-	fn_801468FC(*(void**)GAME_AT(0xE7DFC));
+	SCROLL2()->ClearHideList();
 	return 0;
 }
 
@@ -644,7 +659,7 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 argc, s32* argv)
 {
 	s32 i;
 	for (i = 0; i < argc; i++) {
-		fn_801469A8(*(void**)GAME_AT(0xE7DFC), argv[i]);
+		SCROLL2()->AddHideObj(argv[i]);
 	}
 	return 0;
 }
@@ -700,10 +715,9 @@ extern "C" s32 CmdRegisterFighterLink(s32 cmd, s32 argc, s32* argv)
 	XObj* objs[4];
 	u32 i;
 
-	objs[0] = NULL;
-	objs[1] = NULL;
-	objs[2] = NULL;
-	objs[3] = NULL;
+	for (i = 0; i < 4; i++) {
+		objs[i] = NULL;
+	}
 	for (i = 0; i < 4 && (s32)i - 1 < argc; i++) {
 		objs[i] = ObjTable_Find(OBJ_TABLE(), argv[i]);
 	}
@@ -843,7 +857,7 @@ extern "C" s32 CmdAddMato(s32 cmd, s32 argc, s32* argv)
 {
 	s32 i;
 	for (i = 0; i < argc; i++) {
-		AddMato(MAIN()->mObjects[argv[i]]);
+		AddMato(MAIN()->mObjects[argv[i]], argv[i]);
 	}
 	return 0;
 }
@@ -982,13 +996,15 @@ extern "C" void UpdateStage(void* arg)
 extern "C" void InitStage(void* arg)
 {
 	XObj* obj;
+	s32 count;
 	s32 i;
 
 	ClearFighterObjects();
 	Car::Init();
 	takiObj = NULL;
-	for (i = 0; takiObj == NULL && i < MAIN()->mObjectCount; i++) {
-		obj = MAIN()->mObjects[i];
+	count   = MAIN()->mObjectCount;
+	for (i = 0; takiObj == NULL && i < count; i++) {
+		obj = MAIN()->GetObject(i);
 		if ((obj->_228 & 1) != 0 && obj->_238[0] == 0x254) {
 			takiObj = obj;
 		}
@@ -1063,8 +1079,6 @@ extern "C" void RestoreDefaultCamera(void)
  */
 extern "C" void Terminate(void)
 {
-	RoboView* game;
-
 	OSReport("Terminate\n");
 	JObjInline1199(playerCar._04->jobj);
 	if (playerCar._0C != NULL) {
@@ -1078,11 +1092,7 @@ extern "C" void Terminate(void)
 	}
 	racerCar._7D = 0;
 	racerCar._7C = 0;
-	game         = GAME_OBJ();
-	game->_980   = 0;
-	game->_980 |= 0x20000000;
-	game->_980 |= 7;
-	game->_12DF4 = 1;
+	RoboView_ResetFlags(GAME_OBJ());
 	JObjInline1199(((XObj*)GAME_OBJ())->jobj);
 	((CMotionControlCamera*)GAME_AT(0xE5D38))->ChangeAction(*(CInterfaceCameraAction**)GAME_AT(0xE5F0C));
 	Car_Init();
@@ -1921,24 +1931,6 @@ extern "C" void Car_CarRoot_Brake(Car::CarRoot* car)
  * @note Address: stage02 .text 0x80A0
  * @note Size: 0x490
  */
-inline HSD_JObj* Stage02_GetJObj(HSD_JObj* root, s32* path)
-{
-	HSD_JObj* jobj;
-	s32 i;
-
-	if (root == NULL) {
-		return NULL;
-	}
-	jobj = HSD_JObjGetChild(root);
-	for (i = 0; i < path[0]; i++) {
-		jobj = HSD_JObjGetNext(jobj);
-		if (jobj == NULL) {
-			return NULL;
-		}
-	}
-	return jobj;
-}
-
 extern "C" void Car_CarRoot_Update(Car::CarRoot* car, u32 arg)
 {
 	HSD_JObj* jobj;
@@ -1949,7 +1941,7 @@ extern "C" void Car_CarRoot_Update(Car::CarRoot* car, u32 arg)
 		return;
 	}
 	s32 path[2] = { 0, 0 };
-	jobj        = Stage02_GetJObj(car->_08->jobj, path);
+	jobj        = GetJointByPath(car->_08->jobj, path, 1);
 	PSMTXScale(scale, 0.5f, 0.5f, 0.5f);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, car->_1C);
 	HSD_JObjCopyMtx(car->_04->jobj, car->_1C);

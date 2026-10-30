@@ -245,6 +245,8 @@ struct Shot {
 
 // where the player is aiming and what's under it
 struct FighterAim {
+	FighterAim() { _18 = NULL; }
+
 	Vec _00;   // _00
 	f32 _0C;   // _0C
 	f32 _10;   // _10
@@ -273,7 +275,6 @@ struct ShotList {
 };
 
 struct Fighter {
-	Fighter() { _F4._18 = NULL; }
 	~Fighter() { }
 
 	UnkDolObj* _00; // _00
@@ -381,6 +382,14 @@ struct UnkGame_96BC {
 	u8 _9660[0x9794]; // _9660
 	s32 _12DF4;       // _12DF4
 };
+
+inline void ResetModelFlags(UnkGame_96BC* model)
+{
+	model->_980 = 0;
+	model->_980 |= 0x20000000;
+	model->_980 |= 7;
+	model->_12DF4 = 1;
+}
 
 // todo: copied inline, clean up
 inline void HSD_JObjClearMtxFlags(HSD_JObj* jobj)
@@ -3276,16 +3285,10 @@ extern "C" s32 GetShotEvent(void)
  */
 extern "C" void EndFighter(void)
 {
-	UnkGame_96BC* model;
-
 	if (fighterWork._00 == NULL) {
 		return;
 	}
-	model       = GAME_FIELD(UnkGame_96BC*, 0x96BC);
-	model->_980 = 0;
-	model->_980 |= 0x20000000;
-	model->_980 |= 7;
-	model->_12DF4 = 1;
+	ResetModelFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC));
 	HSD_JObjClearMtxFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC)->_00);
 	((CMotionControlCamera*)(lbl_8025C400 + 0xE5D38))->ChangeAction(GAME_FIELD(CInterfaceCameraAction*, 0xE5F0C));
 	if (fn_8001E6C8(lbl_8025C400 + 0xE7E24, 0x20004)) {
@@ -3690,14 +3693,13 @@ extern "C" void SetSpeedRateTable(u8* rates)
  */
 extern "C" void AddMato(UnkDolObj* obj, s32 id)
 {
-	MatoList* list = &matoList;
 	Mato* item;
 	s32 kind;
 
-	if (list->_00 >= ARRAY_SIZE(list->_2C)) {
+	if (matoList._00 >= ARRAY_SIZE(matoList._2C)) {
 		return;
 	}
-	item      = &list->_2C[list->_00++];
+	item      = &matoList._2C[matoList._00++];
 	item->_04 = obj;
 	item->_00 = id;
 	item->_1C = 0;
