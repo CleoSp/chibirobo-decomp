@@ -360,16 +360,6 @@ extern "C" void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
 extern "C" void PSMTXRotRad(Mtx m, char axis, f32 rad);
 extern "C" f64 atan2(f64 y, f64 x);
 
-// todo: copied inline, clean up
-inline void HSD_JObjCopyMtx(HSD_JObj* jobj, Mtx mtx)
-{
-	JOBJ_H_ASSERT(1173, jobj);
-	JOBJ_H_ASSERT(1174, mtx);
-	PSMTXCopy(mtx, jobj->mtx);
-	jobj->flags |= USER_DEF_MTX | (1 << 24) | MTX_INDEP_SRT;
-	HSD_JObjSetMtxDirty(jobj);
-}
-
 // hangs off CGame, stage model jobj at _00
 struct UnkGame_96BC {
 	HSD_JObj* _00;    // _00
@@ -381,14 +371,6 @@ struct UnkGame_96BC {
 	u8 _9660[0x9794]; // _9660
 	s32 _12DF4;       // _12DF4
 };
-
-// todo: copied inline, clean up
-inline void HSD_JObjClearMtxFlags(HSD_JObj* jobj)
-{
-	JOBJ_H_ASSERT(1199, jobj);
-	jobj->flags &= ~(USER_DEF_MTX | (1 << 24) | MTX_INDEP_SRT);
-	HSD_JObjSetMtxDirty(jobj);
-}
 
 // shadow offsets for the hud captions
 f32 captionShadowX[4] = { -2.0f, 2.0f, 2.0f, -2.0f };
@@ -2750,8 +2732,8 @@ extern "C" void UpdateFighter(u32 arg)
 	}
 	shotEvents.mFlags = 0;
 	CPad pad(0);
-	if (pad.mStatus->_04 & 0x100) {
-		if (pad.mStatus->_14 & 0x100) {
+	if (pad.mPad->mButton & 0x100) {
+		if (pad.mPad->mTrigger & 0x100) {
 			Fighter_Fire(&fighterWork, 1);
 		}
 		fireHoldFrames++;
@@ -2761,7 +2743,7 @@ extern "C" void UpdateFighter(u32 arg)
 		}
 		fireHoldFrames = 0;
 	}
-	fighterWork._9C = -1.3962634f * pad.mStatus->_34;
+	fighterWork._9C = -1.3962634f * pad.mPad->mStickX;
 	Fighter_Update(&fighterWork, arg);
 	PilotNwing_Update(&pilotNwing, arg, fighterWork._A0);
 	matoList._14++;
@@ -7413,7 +7395,7 @@ void fighter::CCameraActionFighter::Update()
 		return;
 	}
 	CPad pad(0);
-	if (pad.mStatus->_14 & 0x800) {
+	if (pad.mPad->mTrigger & 0x800) {
 		if (_68) {
 			_68 = false;
 		} else {

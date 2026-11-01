@@ -44,8 +44,6 @@ static inline void GXColor1u32(u32 c)
 extern "C" {
 void GXSetVtxAttrFmtv(u32 fmt, GXVtxAttrFmtList* list);
 void GXSetVtxDescv(GXVtxDescList* list);
-// sets the lighting channel mode and color
-s32 fn_8019957C(CGs* gs, s32 matSrc, u32 rgba);
 }
 
 extern "C" {
@@ -171,16 +169,6 @@ struct TextGlyph {
 	u32 mBgColor; // _08
 };
 
-// shift jis lead byte
-static inline bool IsSjisLead(u8 c)
-{
-	u8 lead = FALSE;
-	if ((c >= 0x81 && c <= 0x9F) || (c >= 0xE0 && c <= 0xFC)) {
-		lead = TRUE;
-	}
-	return lead;
-}
-
 // fills glyph with the next character, returns where the one after starts or null at the end
 static inline const char* GetGlyph(CGs* gs, const char* text, TextGlyph* glyph)
 {
@@ -212,7 +200,11 @@ static inline const char* GetGlyph(CGs* gs, const char* text, TextGlyph* glyph)
 		}
 		break;
 	default:
+#if defined(VERSION_JP)
+		if (IsSjisLead(*text)) {
+#else
 		if (gs->_17A4 && IsSjisLead(*text)) {
+#endif
 			glyph->mStr[0] = *text;
 			glyph->mStr[1] = *++text;
 		} else {
@@ -258,10 +250,6 @@ enum {
 };
 
 extern "C" {
-// the glyph texture for one character and how wide it is
-CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width);
-f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 size);
-s32 fn_8019957C(CGs* gs, s32 matSrc, u32 rgba);
 }
 
 // one character's sprite and its background tile, the text draw keeps 256 of them
@@ -320,7 +308,6 @@ static inline void SetColor(CTile* tile, u32 color)
 	tile->_168 = tile->_16C = tile->_170 = tile->_174 = color;
 }
 
-extern "C" s32 fn_8019957C(CGs* gs, s32 matSrc, u32 rgba);
 extern "C" {
 u16 GXGetTexObjWidth(const GXTexObj* obj);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
@@ -486,19 +473,8 @@ void HSD_SetZSortMode(s32 mode, s32 sort);
 }
 
 extern "C" {
-void fn_8019A4E0(CGs* gs, s32 arg);
-void fn_8019B128(CGsTevStage* stage, u32 id, GsTevOrder order, GsTevOp colorOp, GsTevIn colorIn, GsTevOp alphaOp, GsTevIn alphaIn);
-void fn_8019B6C0(CGsRenderMode* mode, u8 colorUpdate, u8 alphaUpdate, GsBlendMode blend, GsAlphaCompare compare, GsDstAlpha dstAlpha,
-                 GsZMode zmode, u8 beforeTex, u8 dither, s32 cull, GsLineWidth line, GsLineWidth point);
-void fn_8019B850(CGsScreen* screen, s32 mode, u16 hor, u16 ver);
-}
-extern "C" {
 #include <sysdolphin/video.h>
 void GXSetClipMode(s32 mode);
-void fn_80199B98(CGs* gs, CGsChannel* chan, s32 id, GsChanCtrl ctrl, GXColor amb, GXColor mat);
-void fn_8019A2C8(CGs* gs, CGsTevStage* stage, u32 id, GsTevOrder order, GsTevOp colorOp, GsTevIn colorIn, GsTevOp alphaOp, GsTevIn alphaIn);
-void fn_8019A3CC(CGs* gs, CGsRenderMode* mode, u8 colorUpdate, u8 alphaUpdate, GsBlendMode blend, GsAlphaCompare compare,
-                 GsDstAlpha dstAlpha, GsZMode zmode, u8 beforeTex, u8 dither, s32 cull, GsLineWidth line, GsLineWidth point);
 }
 
 // HSD's video state, partial. the full struct is in video.c
@@ -511,62 +487,6 @@ extern "C" struct _HSD_VIInfo {
 } HSD_VIData;
 
 // forward decls so the definitions can go in reverse
-extern "C" {
-void fn_8019B850(CGsScreen* screen, s32 mode, u16 hor, u16 ver);
-void fn_8019B6C0(CGsRenderMode* mode, u8 colorUpdate, u8 alphaUpdate, GsBlendMode blend, GsAlphaCompare compare, GsDstAlpha dstAlpha,
-                 GsZMode zmode, u8 beforeTex, u8 dither, s32 cull, GsLineWidth line, GsLineWidth point);
-void fn_8019B648(CGsRenderMode* mode, u8 enable);
-void fn_8019B5D0(CGsRenderMode* mode, u8 enable);
-void fn_8019B56C(CGsRenderMode* mode, s32 type, s32 src, s32 dst, s32 op);
-void fn_8019B504(CGsRenderMode* mode, s32 comp0, s32 ref0, s32 op, s32 comp1, s32 ref1);
-void fn_8019B464(CGsRenderMode* mode, u8 enable, s32 func, u8 update);
-void fn_8019B3E8(CGsRenderMode* mode, u8 enable, u8 value);
-void fn_8019B370(CGsRenderMode* mode, u8 beforeTex);
-void fn_8019B360(CGsRenderMode* mode, s32 cull);
-void fn_8019B34C(CGsRenderMode* mode, u8 width, s32 texOffs);
-void fn_8019B278(CGsRenderMode* mode, BOOL force);
-void fn_8019B128(CGsTevStage* stage, u32 id, GsTevOrder order, GsTevOp colorOp, GsTevIn colorIn, GsTevOp alphaOp, GsTevIn alphaIn);
-void fn_8019B040(CGsTevStage* stage, s32 coord, s32 map, s32 color);
-void fn_8019AFA0(CGsTevStage* stage, s32 mode);
-void fn_8019AED0(CGsTevStage* stage, BOOL force);
-void fn_8019AE94(CGsChannel* chan, BOOL force);
-void fn_8019ADDC(CGs* gs, s32 mode, u16 hor, u16 ver, s32 arg);
-void fn_8019A4E0(CGs* gs, s32 arg);
-void fn_8019A3CC(CGs* gs, CGsRenderMode* mode, u8 colorUpdate, u8 alphaUpdate, GsBlendMode blend, GsAlphaCompare compare,
-                 GsDstAlpha dstAlpha, GsZMode zmode, u8 beforeTex, u8 dither, s32 cull, GsLineWidth line, GsLineWidth point);
-void fn_8019A2C8(CGs* gs, CGsTevStage* stage, u32 id, GsTevOrder order, GsTevOp colorOp, GsTevIn colorIn, GsTevOp alphaOp, GsTevIn alphaIn);
-void fn_80199B98(CGs* gs, CGsChannel* ch, s32 chan, GsChanCtrl ctrl, GXColor amb, GXColor mat);
-void fn_80199AB0(CGs* gs, s32 chan, u8 enable);
-MtxPtr fn_8019997C(CBase* gs);
-void fn_80199944(CGs* gs);
-s32 fn_8019957C(CGs* gs, s32 matSrc, u32 rgba);
-void fn_801992BC(CGs* gs, Mtx view, f32 x0, f32 y0, f32 z0, u32 color0, f32 x1, f32 y1, f32 z1, u32 color1);
-void fn_801990EC(CGs* gs, Vec* pos, u32 color, u16 count);
-void fn_80198F1C(CGs* gs, Vec* pos, u32* color, u16 count);
-void fn_80198D08(CGs* gs, GXPrimitive type, Mtx view, Vec* pos, u32 color, u16 count);
-void fn_80198AF4(CGs* gs, GXPrimitive type, Mtx view, Vec* pos, u32* color, u16 count);
-void fn_801988EC(CGs* gs, GXPrimitive type, Mtx view, PrimVertex* vtx, u16 count);
-void fn_80198614(CGs* gs, f32 x0, f32 y0, f32 z0, u32 color0, f32 x1, f32 y1, f32 z1, u32 color1, f32 x2, f32 y2, f32 z2, u32 color2,
-                 f32 x3, f32 y3, f32 z3, u32 color3);
-void fn_80198258(CGs* gs, u32 segments, u32 centerColor, u32 edgeColor, f32 x, f32 y, f32 z, f32 w, f32 h, f32 rx, f32 ry, f32 rz);
-void fn_80197E90(CGs* gs, u32 color0, u32 color1, u32 color2, u32 color3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 rx, f32 ry, f32 rz);
-void fn_80197800(CGs* gs, CTexObj* tex, u32 color0, u32 color1, u32 color2, u32 color3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 rx, f32 ry,
-                 f32 rz);
-void fn_80197538(CGs* gs, u32 color, f32 tx, f32 ty, f32 tz, f32 rx, f32 ry, f32 rz, f32 sx, f32 sy, f32 sz);
-void fn_80197250(CGs* gs, u32 color, u8 major, u8 minor, f32 tx, f32 ty, f32 tz, f32 rx, f32 ry, f32 rz, f32 sx, f32 sy, f32 sz);
-void fn_801970B0(CGs* gs, Mtx mtx, u32 color, u8 major, u8 minor);
-void fn_80196DD8(CGs* gs, u32 color, u8 sides, f32 tx, f32 ty, f32 tz, f32 rx, f32 ry, f32 rz, f32 sx, f32 sy, f32 sz);
-void fn_80196C28(CGs* gs, Mtx mtx, u32 color, u8 sides);
-void fn_80196C0C(CGs* gs, f32 width);
-f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 size);
-f32 fn_80196708(CGs* gs, const char* text, f32 size);
-void fn_80196610(CBase* gs, u32 color, const char* format, f32 x, f32 y, f32 z, f32 size, f32 height, ...);
-void fn_80196518(CBase* gs, u32 color, const char* format, f32 x, f32 y, f32 z, f32 size, f32 height, ...);
-void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char* text, f32 x, f32 y, f32 z, f32 size, f32 height);
-void fn_80194FD4(CBase* gs, u32 color, const char* fmt, f32 x, f32 y, f32 z, f32 w, f32 h, ...);
-void fn_801943FC(CBase* gs, u32 color, const char* text, f32 x, f32 y, f32 z, f32 w, f32 h);
-}
-
 // reverse order below, mwcc defers the inlines
 
 /**
@@ -1166,9 +1086,11 @@ extern "C" void fn_8019A4E0(CGs* gs, s32 arg)
 	gs->mCylinder.Init(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f);
 	gs->mTorus.Init(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f);
 	gs->_17A0 = 5;
+#if !defined(VERSION_JP)
 	gs->_17A4 = arg;
 	gs->_17A8 = 1.0f;
 	gs->_17AC = 1.0f;
+#endif
 }
 // fn_8019A4E0
 /*
@@ -2904,11 +2826,13 @@ extern "C" void fn_80196C28(CGs* gs, Mtx mtx, u32 color, u8 sides)
  */
 extern "C" void fn_80196C0C(CGs* gs, f32 width)
 {
+#if !defined(VERSION_JP)
 	if (gs->_17A4) {
 		gs->_17A8 = width;
 	} else {
 		gs->_17AC = width;
 	}
+#endif
 }
 
 /**
@@ -2937,6 +2861,13 @@ extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 siz
 		if (size > 0.0f) {
 			if (proportional) {
 				width[0] += charWidth * size / 24.0f;
+#if defined(VERSION_JP)
+			} else if (IsSjisLead(glyph.mStr[0])) {
+				width[0] += size;
+			} else {
+				width[0] += halfSize;
+			}
+#else
 			} else if (gs->_17A4) {
 				if (IsSjisLead(glyph.mStr[0])) {
 					width[0] += size * gs->_17A8;
@@ -2946,6 +2877,7 @@ extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 siz
 			} else {
 				width[0] += halfSize * gs->_17AC;
 			}
+#endif
 		} else {
 			width[0] += charWidth;
 		}
@@ -3426,6 +3358,13 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		f32 advance;
 		if (proportional) {
 			advance = charWidth * (size / 24.0f);
+#if defined(VERSION_JP)
+		} else if (wide) {
+			advance = size;
+		} else {
+			advance = size * 0.5f;
+		}
+#else
 		} else if (gs->_17A4) {
 			if (wide) {
 				advance = size * gs->_17A8;
@@ -3435,10 +3374,16 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		} else {
 			advance = size * (0.5f * gs->_17AC);
 		}
+#endif
 
 		f32 offsX = curX - x;
 		f32 u     = 2.0f * (offsX / size) + 1.0f - textWidth / size;
 		f32 v     = 2.0f * (-(curY - y) / lineHeight) + 1.0f;
+#if defined(VERSION_JP)
+		if (!proportional && wide && charWidth < size) {
+			u += (size - charWidth) * 0.5f / size;
+		}
+#else
 		if (gs->_17A4) {
 			// with fixed widths a character narrower than its cell gets centered in it
 			if (!proportional && wide && charWidth < size) {
@@ -3447,6 +3392,7 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		} else if (!proportional) {
 			u += (size - charWidth) * 0.5f / size;
 		}
+#endif
 
 		sCur->mSprite.SetTrans(x + textWidth * 0.5f, y - lineHeight, z);
 		sCur->mSprite.SetScale(size * 0.5f, lineHeight * 0.5f, 1.0f);

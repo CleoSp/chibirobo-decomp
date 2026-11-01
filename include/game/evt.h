@@ -1,6 +1,8 @@
 #ifndef _GAME_EVT_H
 #define _GAME_EVT_H
 
+#include "types.h"
+
 // event script bytecode, the stuff in qp.bin's bin/stageNN.bin that CEvt runs
 
 // command opcodes. the spellings are the game's own, evtCmdTable pairs each opcode
@@ -198,5 +200,140 @@ enum EvtSyscall {
 	SYSCALL_CHK_OBJSTAT = -28,  // obj, bit
 	SYSCALL_STGFUNC     = -100, // first arg plus 7 picks the stage rel function
 };
+
+// CEvt's call data, names from RTTI
+class CEvtData {
+public:
+	u8* _00; // _00
+	u32 _04; // _04
+	// _08 vtable
+
+	virtual ~CEvtData() { } // _08
+};
+typedef char CEvtData_size_check[sizeof(CEvtData) == 0xC ? 1 : -1];
+
+// one of CEvt's three stacks
+class CStack {
+public:
+	void* _00; // _00
+	s32 _04;   // _04
+	s32 _08;   // _08
+	// _0C vtable
+
+	virtual ~CStack() { } // _08
+};
+typedef char CStack_size_check[sizeof(CStack) == 0x10 ? 1 : -1];
+
+class CCameraMemento;
+
+// the script runner. _34/_38 look like a stack and its top, PUSHBP and POPBP park _48 there
+class CEvt {
+public:
+	u32 _00;                        // _00, ABORT only resumes a parked script while this is zero
+	u8* _04;                        // _04, read pointer
+	u32 _08;                        // _08
+	u8 _0C[0x4];                    // _0C
+	s32 _10;                        // _10, SELECT result
+	s32 _14;                        // _14
+	s32 _18;                        // _18
+	s32 _1C;                        // _1C
+	s32 _20;                        // _20
+	u8** _24;                       // _24, return stack
+	s32 _28;                        // _28
+	u8 _2C[0x8];                    // _2C
+	s32* _34;                       // _34
+	s32 _38;                        // _38
+	u8 _3C[0x8];                    // _3C
+	s32* _44;                       // _44
+	s32 _48;                        // _48
+	u8 _4C[0x8];                    // _4C
+	u8* _54;                        // _54, WARP raises a flag deep inside it
+	s32 _58;                        // _58
+	s16 _5C;                        // _5C
+	s16 _5E;                        // _5E
+	CCameraMemento* mCameraMemento; // _60, private saved camera
+	// _64 vtable
+
+	virtual ~CEvt(); // _08
+};
+typedef char CEvt_size_check[sizeof(CEvt) == 0x68 ? 1 : -1];
+
+// the event globals, class names from RTTI. the evt tu's __sinit builds one of each
+
+// script flags, 0x1000 one bit flags. the dust, coin and item objects keep one each
+class CEvtFlags {
+public:
+	u32 mFlags[0x80]; // _00
+	// _200 vtable
+
+	CEvtFlags() { }
+	virtual ~CEvtFlags() { } // _08
+};
+typedef char CEvtFlags_size_check[sizeof(CEvtFlags) == 0x204 ? 1 : -1];
+
+// script variables
+class CEvtVars {
+public:
+	s32 mVars[0x800]; // _00
+	// _2000 vtable
+
+	virtual ~CEvtVars() { } // _08
+};
+typedef char CEvtVars_size_check[sizeof(CEvtVars) == 0x2004 ? 1 : -1];
+
+// a ring of parked scripts, a null script is a free slot
+class CEvtQueue {
+public:
+	s32 mRead;         // _00
+	u8* mScript[0x80]; // _04
+	// _204 vtable
+
+	virtual ~CEvtQueue() { } // _08
+};
+
+// the same with each script's context and two arguments
+class CEvtQueueEx : public CEvtQueue {
+public:
+	u32 mContext[0x80]; // _208
+	s16 mArg0[0x80];    // _408
+	s16 mArg1[0x80];    // _508
+
+	virtual ~CEvtQueueEx() { } // _08
+};
+typedef char CEvtQueueEx_size_check[sizeof(CEvtQueueEx) == 0x608 ? 1 : -1];
+
+// TIMER's countdowns, a script starts when one runs out
+class CEvtTimer {
+public:
+	s32 mFrames[10]; // _00, 0 is a free slot
+	s32 mValue[10];  // _28, the script
+	// _50 vtable
+
+	virtual ~CEvtTimer() { } // _08
+};
+typedef char CEvtTimer_size_check[sizeof(CEvtTimer) == 0x54 ? 1 : -1];
+
+class CJObj;
+class CVec;
+class XObj;
+
+extern "C" {
+// script flags, one bit each, and script variables. both go in the save file
+extern u32 lbl_8036781C[0x80];
+extern s32 lbl_80367A2C[0x800];
+// the camera states scripts save and load
+extern CCameraMemento lbl_8036AA3C[];
+
+// world position of the joint a path leads to, path holds a sibling count per level
+CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path);
+CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path);
+// start a script on evt, or park it in the queue while another one runs
+void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s32 argument0, s32 argument1);
+void fn_8007F040(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
+// runs the script on for step frames
+void CEvt_Update(CEvt* evt, s32 step);
+// the object an event refers to by id, -1 is the one running the script
+XObj* fn_8007F570(void* context, s16 id);
+}
 
 #endif

@@ -13,6 +13,15 @@ extern "C" {
 f32 fn_801C0DEC(HSD_CObj* cobj);
 }
 
+class CCamera;
+
+extern "C" {
+// sets the camera up for a render mode, cbasesetup.cpp
+CCamera* fn_8001D3D4(CCamera* camera, GXRenderModeObj* mode);
+// the same for CBase's second camera
+CCamera* fn_8001D1D0(CCamera* camera, GXRenderModeObj* mode);
+}
+
 class CCamera : public HSD_CObj {
 public:
 	BOOL mUseMtx;           // _8C, the view comes from SetMtx, not from the eye and interest

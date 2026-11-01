@@ -20,7 +20,6 @@ extern "C" {
 
 // the sdk calls the hsd header tree doesn't declare
 extern "C" {
-void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 void C_VECCrossProduct(const Vec* a, const Vec* b, Vec* axb);
 void PSMTXRotRad(Mtx m, char axis, f32 rad);
 }

@@ -3,9 +3,11 @@
 
 #include <math.h>
 
-#define TWO_PI  6.2831855f
-#define HALF_PI 1.5707964f
-#define DEG2RAD 0.017453292f
+#define TWO_PI   6.2831855f
+#define HALF_PI  1.5707964f
+#define THIRD_PI 1.0471976f
+#define DEG2RAD  0.017453292f
+#define RAD2DEG  57.295776f // one ulp under 180 / pi, what the rodata has
 
 #define ABS(x) ((x) < 0.0f ? -(x) : (x))
 

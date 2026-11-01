@@ -1,3 +1,6 @@
+extern "C" {
+#include <sysdolphin/controller.h>
+}
 #include "game/cpad.h"
 extern "C" {
 #include <sysdolphin/video.h>

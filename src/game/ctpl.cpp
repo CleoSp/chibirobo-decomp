@@ -6,7 +6,6 @@
 extern "C" {
 void HSD_AudioSetMallocFreeProc(void* (*mallocProc)(s32), void (*freeProc)(void*));
 BOOL HSD_AudioInit(u32 heapSize, u32 voices, u32 groups);
-CTexObj* fn_8019E8F4(CFont* font, const char* str, u32* width);
 }
 
 static void InitTextureLOD(CTexObj* texture);
@@ -100,7 +99,7 @@ u32 CTexObj::Set(const CTexObj& other)
 u32 CTexObj::SetChar(const char* str)
 {
 	CFont font;
-	u32 width;
+	s32 width;
 	*this = *fn_8019E8F4(&font, str, &width);
 	return width;
 }

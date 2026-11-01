@@ -88,7 +88,7 @@ extern "C" s32 fn_13_0(s32 cmd, void* arg, void* arg2)
 extern "C" void UpdateStage(void* arg)
 {
 	if (gameBotan2 != NULL) {
-		XObj* other = lbl_8025C400.mPlayer;
+		XObj* other = (XObj*)lbl_8025C400.mPlayer;
 		f32 angle   = atan2(other->_C8 - gameBotan2->_C8, other->_D0 - gameBotan2->_D0);
 		gameBotan2->vf7C(angle, 0.0f);
 	} else {

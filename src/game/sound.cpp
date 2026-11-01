@@ -3,17 +3,35 @@
 #include <dolphin/os.h>
 #include <dolphin/mtx.h>
 #include "Version.h"
+#include "game/csound.h"
+#include "game/xaction.h"
+#include "game/cgame.h"
 
 // the sound object in CGame at +0xE7E24
 struct CSound {
-	u8 _00[0xFC];           // _00
+	u8 _00[0xF8];           // _00
+	u8 _F8;                 // _F8
+	u8 _F9[0xFC - 0xF9];    // _F9
 	s32 _FC;                // _FC, default track, fn_8001E11C also writes 1 or 0 here, weird
 	s32 _100;               // _100
 	u8 _104[0x108 - 0x104]; // _104
 	s32 _108[32];           // _108, ids that fn_8001E904 started, zero means free
-	u8 _188[0x2B4 - 0x188]; // _188
+	s32 _188;               // _188, pitch interpolation and queued sound delay
+	s32 _18C;               // _18C, alternating sound sequence index
+	s32 _190;               // _190, voice sequence index
+	s32 _194;               // _194, sound sequence index
+	s32 _198;               // _198, cooldown
+	u8 _19C[0x1A0 - 0x19C]; // _19C
+	u8 _1A0;                // _1A0, sound queue read index
+	u8 _1A1;                // _1A1, sound queue write index
+	u8 _1A2[0x1AC - 0x1A2]; // _1A2
+	s32 _1AC[64];           // _1AC, queued sound ids
+	s32 _2AC;               // _2AC, last queued sound
+	u8 _2B0[0x2B4 - 0x2B0]; // _2B0
 	s32 _2B4;               // _2B4
-	u8 _2B8[0x2C0 - 0x2B8]; // _2B8
+	s16 _2B8;               // _2B8, current music pitch
+	s16 _2BA;               // _2BA, target music pitch
+	s32 _2BC;               // _2BC
 	s32 _2C0;               // _2C0
 	s32 _2C4;               // _2C4, fade length, frames * 60 / 200
 	s32 _2C8;               // _2C8
@@ -62,12 +80,12 @@ struct CSound {
 	}
 };
 
-// the game object, CSound is at +0xE7E24 in it
-extern "C" u8 lbl_8025C400[];
 #if defined(VERSION_JP)
-#define SOUND() ((CSound*)(lbl_8025C400 + 0xE713C))
+#define SOUND_PLAYER_STATE   ((u8*)lbl_8025C400.mPlayer + 0xA34)
+#define SOUND_PLAYER_SURFACE (*(s32*)((u8*)lbl_8025C400.mPlayer + 0x14480))
 #else
-#define SOUND() ((CSound*)(lbl_8025C400 + 0xE7E24))
+#define SOUND_PLAYER_STATE   ((u8*)lbl_8025C400.mPlayer + 0xA44)
+#define SOUND_PLAYER_SURFACE (*(s32*)((u8*)lbl_8025C400.mPlayer + 0x158C0))
 #endif
 
 extern "C" {
@@ -75,18 +93,20 @@ BOOL fn_801E93A8(s32 track);
 BOOL HSD_AudioSFXKeyOffTrack(s32 track);
 BOOL fn_801E9724(s32 track);
 void HSD_SynthSetSoundMode(s32 mode);
-BOOL fn_801E62A8(s32 sfx);
-void fn_801E9FA4(void);
 BOOL fn_801EA028(u8 vol, u16 frames);
 BOOL fn_801EA0C4(void);
 BOOL fn_801EA134(void);
 BOOL HSD_AudioSFXSetVolumeByID(s32 sfx, u8 vol, u16 frames);
 BOOL fn_801E9604(s32 sfx);
 s32 HSD_AudioSFXCountByID(s32 sfx);
+s32 HSD_AudioSFXStartParam(u32 sfx, u8 vol, u8 pan, s32 group, s32 track);
+BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
+s32 HSD_AudioPStreamStartChParam(const char* path, u8 vol, s32 channel);
+s32 HSD_SynthSFXGetPendingLoadCount(void);
+s32 HSD_SynthSFXLoad(const char* name, s32 bank, void (*callback)(s32, s32), s32 arg);
+BOOL fn_801EA2E8(void);
+BOOL fn_801EA1A4(s16 pitch);
 }
-
-extern "C" BOOL fn_8001E6C8(CSound* sound, s32 sfx);
-extern "C" BOOL fn_8001E904(CSound* sound, s32 sfx, u8 vol);
 
 // one entry per music track, the path to the .hps stream and its volume
 struct MusicEntry {
@@ -95,16 +115,6 @@ struct MusicEntry {
 	u8 _05[3];       // _05
 };
 extern "C" MusicEntry musicTable[];
-
-// listener position in CGame, stage07 living reads the same spot
-#if defined(VERSION_JP)
-#define SOUND_LISTENER_POS() ((Vec*)(lbl_8025C400 + 0xE50F4))
-#else
-#define SOUND_LISTENER_POS() ((Vec*)(lbl_8025C400 + 0xE5DDC))
-#endif
-
-// distance falloff steps, far to near, one row per falloff kind
-extern "C" f32 lbl_80210C10[][4];
 
 // guess: ids with high half 0xFFFF (but not -1) mean "every sfx", stops all slots
 static inline bool isAllSfx(s32 sfx)
@@ -139,11 +149,175 @@ static inline void setSfxVolume(CSound* sound, s32 sfx, u8 vol, u16 frames)
 	}
 }
 
+// the group lists sit in the sound data block, the two entry one is in small data
+extern "C" u8 lbl_802107A0[];
+extern "C" s32 lbl_8065A1C0[2];
+extern "C" s32 HSD_Randi(s32 max);
+
 /**
  * @note Address: 0x8001DC20
  * @note Size: 0x2E0
  */
-// fn_8001DC20
+extern "C" void fn_8001DC20(CSound* sound, u32 group, f32 strength, u8 first, u8 second)
+{
+	u8* data   = lbl_802107A0;
+	u32 volume = 255.0f * strength;
+	if (strength < 0.5f) {
+		volume *= 0.2f;
+	} else if (strength < 1.0f) {
+		volume *= 0.6;
+	}
+
+	s32* ids;
+	s32 count;
+	switch (group) {
+	case 0:
+		ids   = (s32*)(data + 0x6C4);
+		count = 7;
+		break;
+	case 1:
+		ids   = (s32*)(data + 0x9AC);
+		count = 5;
+		break;
+	case 2:
+		ids   = (s32*)(data + 0x6E0);
+		count = 10;
+		break;
+	case 3:
+		ids   = (s32*)(data + 0x730);
+		count = 10;
+		break;
+	case 4:
+		ids   = (s32*)(data + 0x708);
+		count = 10;
+		break;
+	case 7:
+		ids   = (s32*)(data + 0x794);
+		count = 10;
+		break;
+	case 8:
+		ids   = (s32*)(data + 0x780);
+		count = 5;
+		break;
+	case 9:
+		ids   = (s32*)(data + 0x758);
+		count = 10;
+		break;
+	case 10:
+		ids   = (s32*)(data + 0x7BC);
+		count = 5;
+		break;
+	case 11:
+		ids   = (s32*)(data + 0x7E8);
+		count = 5;
+		break;
+	case 12:
+		ids   = (s32*)(data + 0x7FC);
+		count = 6;
+		break;
+	case 13:
+		ids   = (s32*)(data + 0x814);
+		count = 10;
+		break;
+	case 14:
+		ids   = lbl_8065A1C0;
+		count = 2;
+		break;
+	case 15:
+		ids   = (s32*)(data + 0x83C);
+		count = 12;
+		break;
+	case 16:
+		ids   = (s32*)(data + 0x86C);
+		count = 10;
+		break;
+	case 17:
+		ids   = (s32*)(data + 0x894);
+		count = 10;
+		break;
+	case 18:
+		ids   = (s32*)(data + 0x984);
+		count = 10;
+		break;
+	case 19:
+		ids   = (s32*)(data + 0x8BC);
+		count = 10;
+		break;
+	case 20:
+		ids   = (s32*)(data + 0x8E4);
+		count = 10;
+		break;
+	case 21:
+		ids   = (s32*)(data + 0x90C);
+		count = 10;
+		break;
+	case 22:
+		ids   = (s32*)(data + 0x934);
+		count = 10;
+		break;
+	case 23:
+		ids   = (s32*)(data + 0x95C);
+		count = 10;
+		break;
+	case 24:
+		ids   = (s32*)(data + 0x9C0);
+		count = 6;
+		break;
+	case 25:
+		ids   = (s32*)(data + 0xA00);
+		count = 11;
+		break;
+	case 26:
+		ids   = (s32*)(data + 0xA2C);
+		count = 12;
+		break;
+	case 27:
+		ids   = (s32*)(data + 0x9D8);
+		count = 10;
+		break;
+	case 28:
+		ids   = (s32*)(data + 0xA5C);
+		count = 6;
+		break;
+	case 29:
+		ids   = (s32*)(data + 0x7D0);
+		count = 6;
+		break;
+	case 30:
+		ids   = (s32*)(data + 0xA74);
+		count = 8;
+		break;
+	case 31:
+		ids   = (s32*)(data + 0xA94);
+		count = 4;
+		break;
+	case 32:
+		ids   = (s32*)(data + 0xAA4);
+		count = 4;
+		break;
+	case 33:
+		ids   = (s32*)(data + 0xAB4);
+		count = 6;
+		break;
+	default:
+		return;
+	}
+	if (count > 0) {
+		for (s32 i = 0; i < count; i++) {
+			if (fn_8001E6C8(sound, ids[i])) {
+				return;
+			}
+		}
+		s32 index = HSD_Randi(count);
+		if (volume >= 512) {
+			volume = 511;
+		}
+		fn_8001E904(sound, ids[index], volume);
+		if (volume > 255) {
+			fn_8001E904(sound, ids[index], 255);
+		}
+	}
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -375,10 +549,10 @@ static inline void setSfxVolume(CSound* sound, s32 sfx, u8 vol, u16 frames)
  * @note Address: 0x8001DF00
  * @note Size: 0x10C
  */
-extern "C" s32 fn_8001DF00(CSound* sound, Vec* pos, s32 kind)
+extern "C" u8 fn_8001DF00(CSound* sound, Vec* pos, s32 kind)
 {
-	f32 dist   = PSVECDistance(SOUND_LISTENER_POS(), pos);
-	f32* range = lbl_80210C10[kind];
+	f32 dist   = PSVECDistance((Vec*)lbl_8025C400._E5DDC, pos);
+	f32* range = lbl_80210C10.ranges[kind];
 
 	if (range[0] < dist) {
 		return 0;
@@ -486,12 +660,12 @@ extern "C" BOOL fn_8001E044(CSound* sound, const char* name)
 extern "C" void fn_8001E11C(CSound* sound, BOOL on)
 {
 	if (on) {
-		CSound* game = SOUND();
+		CSound* game = (CSound*)&lbl_8025C400.mSound;
 		fn_801E93A8(game->resolveTrack(0));
 		fn_801EA0C4();
 		game->_FC = 1;
 	} else {
-		CSound* game = SOUND();
+		CSound* game = (CSound*)&lbl_8025C400.mSound;
 		fn_801E9724(game->resolveTrack(0));
 		fn_801EA134();
 		game->_FC = 0;
@@ -946,11 +1120,307 @@ extern "C" BOOL fn_8001E6C8(CSound* sound, s32 sfx)
     blr
 */
 
+static inline void PauseMusic(CSound* sound, s32 frames)
+{
+	fn_801EA0C4();
+	sound->_2C0 = frames;
+	sound->_2C8 = sound->_2B4;
+}
+
+static inline s32 SelectAlternatingSound(CSound* sound, s32* stop, s32* play)
+{
+	for (u32 i = 0; i < 4; i++) {
+		if (fn_8001E6C8(sound, stop[i])) {
+			fn_8001E660(sound, stop[i]);
+			sound->_18C = 0;
+		}
+	}
+	for (u32 i = 0; i < 4; i++) {
+		if (fn_8001E6C8(sound, play[i])) {
+			return -1;
+		}
+	}
+	if (sound->_18C < 0 || (u32)sound->_18C >= 4) {
+		sound->_18C = 0;
+	}
+	return play[sound->_18C++];
+}
+
+static inline s32 SelectMappedSound(s32 sfx, u8* data)
+{
+	s32 index;
+	switch (sfx) {
+	case 0x86:
+		index = 0;
+		break;
+	case 0x87:
+		index = 1;
+		break;
+	case 0x88:
+		index = 2;
+		break;
+	case 0x85:
+		index = 3;
+		break;
+	case 0x84:
+		index = 4;
+		break;
+	default:
+		return sfx;
+	}
+	return ((s32*)(data + 0xACC))[((s32*)(data + 0xAF4))[index]];
+}
+
 /**
  * @note Address: 0x8001E904
  * @note Size: 0xB68
  */
-// fn_8001E904
+extern "C" s32 fn_8001E904(CSound* sound, s32 sfx, u8 vol)
+{
+	u8* data = lbl_802107A0;
+	if (isAllSfx(sfx)) {
+		if (sfx == (s32)0xFFFF0000) {
+			return 0;
+		}
+		if (sfx == (s32)0xFFFF0005 && lbl_8025C400.mTimeState.mMode == 1) {
+			sfx = 0xFFFF0010;
+		}
+		if (sfx == (s32)0xFFFF0010) {
+			bool audible = !(lbl_8025C400.mTimeState.mMode == 1 && lbl_8025C400.mTimeState.mTime > 0.5f);
+			if (!audible) {
+				fn_8001E660(sound, sfx);
+				return 1;
+			}
+		}
+		u8 index = sfx;
+		if (index >= 0x6D) {
+			index = 0;
+		}
+		MusicEntry* music = (MusicEntry*)(data + 0x108) + index;
+		if (sound->_2B4 == sfx) {
+			return 1;
+		}
+		sound->_2B4      = sfx;
+		bool raisedPitch = false;
+		if (sfx == (s32)0xFFFF0005) {
+			if (*(s32*)(SOUND_PLAYER_STATE + 4) == 4 && fn_800D4FE8((XActLift*)SOUND_PLAYER_STATE)) {
+				raisedPitch = true;
+			}
+		}
+		if (raisedPitch) {
+			sound->_2B8 = sound->_2BA = 200;
+		} else {
+			sound->_2B8 = sound->_2BA = 0;
+		}
+		sound->_2BC = 0;
+		sound->_2C4 = 0;
+		if (vol == 255) {
+			vol = music->_04;
+		}
+		sound->_2CC = vol;
+		s32 result  = HSD_AudioPStreamStartChParam(music->_00, vol, 31);
+		fn_801EA1A4(sound->_2B8);
+		if (sfx == (s32)0xFFFF0005 || sfx == (s32)0xFFFF0010) {
+			if (fn_8001E6C8(sound, 0x18C) || fn_8001E6C8(sound, 0x18D) || fn_8001E6C8(sound, 0x18E)) {
+				if (isAllSfx(sound->_2B4)) {
+					PauseMusic(sound, 120);
+				}
+			}
+		}
+		return result;
+	}
+
+	s32 track = sound->_FC;
+	switch (sfx) {
+	case 0x1B:
+		sfx += HSD_Randi(4);
+		break;
+	case 0x19: {
+		s32 surface = SOUND_PLAYER_SURFACE;
+		if (surface >= 13) {
+			surface = 0;
+		}
+		if (surface == 12) {
+			sfx = -1;
+		} else {
+			switch (surface) {
+			case 8:
+				HSD_AudioSFXStartParam(0x19D, 70, 127, 0, 0);
+				break;
+			case 9:
+				HSD_AudioSFXStartParam(0x19C, 255, 127, 0, 0);
+				break;
+			case 10:
+				HSD_AudioSFXStartParam(0x19E, 50, 127, 0, 0);
+				break;
+			}
+			sfx = ((s32(*)[5])(data + 0x4C0))[surface][HSD_Randi(5)];
+		}
+		if (sfx < 0) {
+			return -1;
+		}
+		if (sound->_2C0 > 10) {
+			sound->_2C0 = 10;
+		}
+		break;
+	}
+	case 0x0A:
+		vol = 0;
+		break;
+	case 0x3E:
+		sound->_18C = 0;
+		break;
+	case 0x11:
+		sfx = SelectAlternatingSound(sound, (s32*)(data + 0x5D4), (s32*)(data + 0x5C4));
+		if (sfx < 0) {
+			return -1;
+		}
+		break;
+	case 0x15:
+		sfx = SelectAlternatingSound(sound, (s32*)(data + 0x5C4), (s32*)(data + 0x5D4));
+		if (sfx < 0) {
+			return -1;
+		}
+		break;
+	case 0x3C:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	case 0xFD:
+		if (fn_8001E6C8(sound, 0xFFFF0000)) {
+			PauseMusic(sound, 120);
+		}
+		if (fn_8001E6C8(sound, 0xFD)) {
+			sfx = -1;
+		} else {
+			if (sound->_190 < 0 || (u32)sound->_190 >= 25) {
+				sound->_190 = 0;
+			}
+			sfx = ((s32*)(data + 0x5E4))[sound->_190++];
+		}
+		break;
+	case 0x110:
+		if (fn_8001E6C8(sound, 0xFFFF0037)) {
+			sfx = -1;
+		} else {
+			if (fn_8001E6C8(sound, 0xFFFF0000)) {
+				PauseMusic(sound, 120);
+			}
+			if (sound->_190 < 0 || (u32)sound->_190 >= 8) {
+				sound->_190 = 0;
+			}
+			sfx = ((s32*)(data + 0x648))[sound->_190++];
+		}
+		if (sfx < 0) {
+			return -1;
+		}
+		break;
+	case 0x175:
+	case 0x176:
+	case 0x177:
+	case 0x178:
+		if (fn_8001E6C8(sound, 0xFFFF0005)) {
+			PauseMusic(sound, 180);
+		}
+		if (fn_8001E6C8(sound, 0xFFFF0010)) {
+			PauseMusic(sound, 180);
+		}
+		if (sfx == 0x175) {
+			sfx = ((s32*)(data + 0x6AC))[HSD_Randi(6)];
+		} else {
+			sfx = ((s32*)(data + 0x694))[HSD_Randi(6)];
+		}
+		break;
+	case 0x137:
+		if (sound->_194 < 0 || (u32)sound->_194 >= 11) {
+			sound->_194 = 0;
+		}
+		sfx = ((s32*)(data + 0x668))[sound->_194++];
+		break;
+	case 0x84:
+	case 0x85:
+	case 0x86:
+	case 0x87:
+	case 0x88:
+		sfx = SelectMappedSound(sfx, data);
+		break;
+	case 0x11D:
+		if (sound->_198 > 0) {
+			return -1;
+		}
+		sound->_198 = 60;
+		break;
+	case 0x44:
+	case 0x18C:
+	case 0x18D:
+	case 0x18E:
+		if (fn_8001E6C8(sound, 0xFFFF0005)) {
+			PauseMusic(sound, 120);
+		}
+		if (fn_8001E6C8(sound, 0xFFFF0010)) {
+			PauseMusic(sound, 120);
+		}
+		if (fn_8001E6C8(sound, 0x18C)) {
+			fn_801E62A8(0x18C);
+		}
+		if (fn_8001E6C8(sound, 0x18D)) {
+			fn_801E62A8(0x18D);
+		}
+		if (fn_8001E6C8(sound, 0x18E)) {
+			fn_801E62A8(0x18E);
+		}
+		break;
+	case 0x11001C:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	case 0x186:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	case 0x184:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	case 0x4001C:
+	case 0x4001D:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	case 0x190:
+	case 0x191:
+	case 0x10001F:
+		if (fn_8001E6C8(sound, sfx)) {
+			return -1;
+		}
+		break;
+	}
+
+	s32 result;
+	if (vol != 0) {
+		result = HSD_AudioSFXStartParam(sfx, vol, 127, 0, track);
+	} else {
+		result = 1;
+	}
+	u32 i = 0;
+	while (i < 32 && sound->_108[i] != 0) {
+		i++;
+	}
+	if (i < 32) {
+		sound->_108[i] = sfx;
+	}
+	switch (sfx) {
+	case 9:
+		HSD_AudioSFXSetPitchByID(sfx, 60 - HSD_Randi(20) * 6);
+		break;
+	}
+	return result;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -1812,7 +2282,98 @@ extern "C" BOOL fn_8001E6C8(CSound* sound, s32 sfx)
  * @note Address: 0x8001F46C
  * @note Size: 0x46C
  */
-// fn_8001F46C
+extern "C" void fn_8001F46C(CSound* sound, s32 step)
+{
+	if (!sound->_F8) {
+		return;
+	}
+	if (sound->_3E0 > 0 && !HSD_SynthSFXGetPendingLoadCount()) {
+		for (s32 i = 0; i < 16; i++) {
+			if (sound->_2E0[i]._00 != NULL && !sound->_2E0[i]._0C) {
+#if !defined(VERSION_PAL)
+				OSReport("HSD_AudioSFXLoad::%s\n", sound->_2E0[i]._00);
+#endif
+				sound->_2E0[i]._08 = HSD_SynthSFXLoad(sound->_2E0[i]._00, sound->_2E0[i]._04, 0, 0);
+				sound->_2E0[i]._0C = 1;
+				sound->_3E0--;
+				break;
+			}
+		}
+	}
+	for (s32 i = 0; i < 32; i++) {
+		sound->_108[i] = 0;
+	}
+	if (sound->_2B4 != 0 && sound->_2C8 == 0 && !fn_801EA2E8()) {
+		sound->_2B4 = 0;
+	}
+	if (sound->_188 > 0 && sound->_2B8 != sound->_2BA) {
+		sound->_2B8 += (sound->_2BA - sound->_2B8) / sound->_188;
+		sound->_188 -= step;
+		if (sound->_188 <= 0) {
+			sound->_2B8 = sound->_2BA;
+		}
+		fn_801EA1A4(sound->_2B8);
+	}
+	if (fn_8001E6C8(sound, 0xFFFF0005)) {
+		u8* state   = SOUND_PLAYER_STATE;
+		bool active = *(s32*)(state + 4) == 4 && fn_800D4FE8((XActLift*)state);
+		if (active) {
+			if (sound->_2BA != 200) {
+				sound->_2BA = 200;
+				sound->_188 = 15;
+			}
+		} else if (sound->_2BA != 0) {
+			sound->_2BA = 0;
+			sound->_188 = 15;
+		}
+	}
+	if (sound->_FC == 0 && sound->_2C0 > 0) {
+		if (!fn_8001E6C8(sound, 0x18C) && !fn_8001E6C8(sound, 0x18D) && !fn_8001E6C8(sound, 0x18E)) {
+			sound->_2C0 -= step;
+		}
+		if (sound->_2C0 <= 0) {
+			if (sound->_2C8 == sound->_2B4) {
+				fn_801EA134();
+			} else {
+				fn_8001E904(sound, 0xFFFF0000, 255);
+			}
+			sound->_2C8 = 0;
+		}
+	}
+	if (sound->_2B4 == 0xFFFF0010 && !(lbl_8025C400.mTimeState.mMode != 1 || lbl_8025C400.mTimeState.mTime <= 0.5f)) {
+		if (sound->_2C4 <= 0) {
+			sound->_2C4 = 180;
+			sound->_2CC = 0;
+			fn_801EA028(0, 600);
+		}
+	}
+	if (sound->_2C4 > 0) {
+		sound->_2C4 -= step;
+		if (sound->_2C4 <= 0) {
+			sound->_2B4 = 0;
+			sound->_2C8 = 0;
+			fn_801E9FA4();
+		}
+	}
+	if (sound->_198 > 0) {
+		sound->_198 -= step;
+	}
+	if (sound->_1A0 != sound->_1A1) {
+		if (sound->_188 > 0) {
+			sound->_188 -= step;
+		}
+		if (sound->_2AC != 0 && fn_8001E6C8(sound, sound->_2AC)) {
+			return;
+		}
+		if (sound->_188 <= 0) {
+			sound->_2AC = sound->_1AC[sound->_1A0];
+			fn_8001E904((CSound*)&lbl_8025C400.mSound, sound->_2AC, 255);
+			if (++sound->_1A0 >= 64) {
+				sound->_1A0 = 0;
+			}
+		}
+	}
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0

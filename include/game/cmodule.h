@@ -13,6 +13,12 @@ typedef void (*CModuleEpilog)(void);
 
 class CModule : public OSModuleHeader {
 public:
+	CModule()
+	    : mModule(NULL)
+	    , mBss(NULL)
+	{
+	}
+
 	// _00 OSModuleHeader
 	CFileA mFile;            // _4C
 	OSModuleHeader* mModule; // _138, the linked module, null when none is in

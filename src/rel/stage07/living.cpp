@@ -1,5 +1,6 @@
 #include "Version.h"
 #include "game/cjobj.h"
+#include "game/cjobjset.h"
 
 extern "C" f32 PSVECDistance(Vec* a, Vec* b);
 

@@ -85,15 +85,57 @@ public:
 	// inlined:
 	CJArchiveScene* GetScene(s32 index);
 	HSD_JObj* LoadJObj();
-	HSD_AnimJoint* GetAnimJointRoot(s32 id);
-	HSD_MatAnimJoint* GetMatAnimJointRoot(s32 id);
-	HSD_ShapeAnimJoint* GetShapeAnimJointRoot(s32 id);
+
+	// anim ids past 1000 wrap around
+	HSD_AnimJoint* GetAnimJointRoot(s32 id)
+	{
+		if (id >= 0) {
+			s32 i = id % 1000;
+			if (i < mNum[0]) {
+				return mAnimJoint != NULL ? mAnimJoint[i] : NULL;
+			}
+		}
+		return NULL;
+	}
+
+	HSD_MatAnimJoint* GetMatAnimJointRoot(s32 id)
+	{
+		if (id >= 0) {
+			s32 i = id % 1000;
+			if (i < mNum[0]) {
+				return mMatAnimJoint != NULL ? mMatAnimJoint[i] : NULL;
+			}
+		}
+		return NULL;
+	}
+
+	HSD_ShapeAnimJoint* GetShapeAnimJointRoot(s32 id)
+	{
+		if (id >= 0) {
+			s32 i = id % 1000;
+			if (i < mNum[0]) {
+				return mShapeAnimJoint != NULL ? mShapeAnimJoint[i] : NULL;
+			}
+		}
+		return NULL;
+	}
 };
 #if defined(VERSION_JP)
 typedef char CJArchive_size_check[sizeof(CJArchive) == 0x78 ? 1 : -1];
 #else
 typedef char CJArchive_size_check[sizeof(CJArchive) == 0x80 ? 1 : -1];
 #endif
+
+// a CJArchive for an object's second set of anims
+class CJAnim : public CJArchive {
+public:
+	// _00-_80 = CJArchive
+	s32 mLoading; // _80, fn_8008A38C's step
+
+	virtual ~CJAnim();      // _08
+	virtual void Clear();   // _0C
+	virtual void Release(); // _18
+};
 
 // a value with a target and a per frame speed to step it there
 class CObjVec : public CVec {
@@ -179,11 +221,11 @@ public:
 	virtual BOOL StepRotate(u32 frames);                                                                              // _58
 	virtual BOOL StepTranslate(u32 frames);                                                                           // _5C
 	virtual BOOL StepScale(u32 frames);                                                                               // _60
-	virtual void vf64();                                                                                              // _64, 0x8002657C
-	virtual void vf68();                                                                                              // _68, 0x800263EC
-	virtual void vf6C();                                                                                              // _6C, 0x80027B70
-	virtual void vf70();                                                                                              // _70, 0x80026938
-	virtual void vf74();                                                                                              // _74, 0x800266F8
+	virtual void SetPos(const Vec& pos, s32 force);                                                                   // _64
+	virtual void SetPos(f32 x, f32 y, f32 z, s32 force);                                                              // _68
+	virtual void SetScale(f32 scale, s32 force);                                                                      // _6C
+	virtual void SetRot(const Vec& rot, s32 force);                                                                   // _70
+	virtual void SetRot(f32 x, f32 y, f32 z, s32 force);                                                              // _74
 	virtual void SetMoveDir(const Vec* dir, f32 speed);                                                               // _78
 	virtual void SetRotateY(f32 target, f32 speed);                                                                   // _7C
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
@@ -191,6 +233,9 @@ public:
 	virtual void ClearAnim();            // _84
 	virtual void UpdateAnim(u32 speed);  // _88
 	virtual void ApplyTransform();       // _8C
+
+	// todo: cleanup
+	void SetMoveDir(const Vec& dir, f32 speed) { SetMoveDir(&dir, speed); }
 
 	void Init(u32 id);
 	BOOL Load(CObjArchive* archive, const char* path, u32 model, u32 flags, u32 aramAddr, u32 aramSize);

@@ -3,10 +3,6 @@
 
 #include "types.h"
 
-extern "C" {
-#include <sysdolphin/controller.h>
-}
-
 // one controller port, class name from RTTI. the dir fields fold both sticks into the
 // dpad bits so menus can read either
 class CPadOne {
@@ -27,7 +23,7 @@ public:
 	f32 mSubStickY;      // _40
 	f32 mAnalogL;        // _44
 	f32 mAnalogR;        // _48
-	u32 mConnected;      // _4C
+	BOOL mConnected;     // _4C
 	// _50 vtable
 
 	virtual ~CPadOne() { }           // _08, its one copy is in game part 1
@@ -37,7 +33,20 @@ public:
 };
 STATIC_ASSERT(sizeof(CPadOne) == 0x54);
 
-// all four ports plus the HSD pad queue and rumble lists. CGame holds the one instance
+// a handle on one port of the CPadEx, what the rest of the game keeps
+class CPad {
+public:
+	CPadOne* mPad; // _00
+	// _04 vtable
+
+	CPad(u8 port);
+	virtual ~CPad() { } // _08
+};
+STATIC_ASSERT(sizeof(CPad) == 0x8);
+
+#if defined(_controller_h_)
+// all four ports plus the HSD pad queue and rumble lists. CGame holds the one instance,
+// sysdolphin/controller.h has to come first
 class CPadEx {
 public:
 	HSD_PadData mQueue;               // _00
@@ -52,16 +61,6 @@ public:
 	void Update(s32 frames);
 };
 STATIC_ASSERT(sizeof(CPadEx) == 0x208);
-
-// a handle on one port of the CPadEx, what the rest of the game keeps
-class CPad {
-public:
-	CPadOne* mPad; // _00
-	// _04 vtable
-
-	CPad(u8 port);
-	virtual ~CPad() { } // _08
-};
-STATIC_ASSERT(sizeof(CPad) == 0x8);
+#endif
 
 #endif

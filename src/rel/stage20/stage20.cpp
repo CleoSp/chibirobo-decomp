@@ -90,8 +90,8 @@ extern "C" void fn_16_8(void* arg)
 extern "C" void UpdateStage(void* arg)
 {
 	if (timeAnimObj != NULL) {
-		f32 x = 150.0f * lbl_8025C400._E5D2C;
-		if (lbl_8025C400._E5D28 == 1) {
+		f32 x = 150.0f * lbl_8025C400.mTimeState.mTime;
+		if (lbl_8025C400.mTimeState.mMode == 1) {
 			x += 150.0f;
 		}
 		timeAnimObj->vf80(0, 1, 0, 0, 0, x, 1.0f, 0.0f, 10.0f);

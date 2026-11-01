@@ -10,7 +10,9 @@
 #define HSD_JObjSetupMatrix HSD_JObjSetupMatrix_c
 #define HSD_JObjSetMtxDirty HSD_JObjSetMtxDirty_c
 extern "C" {
+#include <dolphin/mtx/mtx.h>
 #include <sysdolphin/jobj.h>
+#include <sysdolphin/mtx_transform.h>
 }
 #undef HSD_JObjMtxIsDirty
 #undef HSD_JObjSetupMatrix
@@ -162,11 +164,45 @@ inline MtxPtr HSD_JObjGetMtxPtr(HSD_JObj* jobj)
 	return jobj->mtx;
 }
 
+inline void HSD_JObjCopyMtx(HSD_JObj* jobj, Mtx mtx)
+{
+	JOBJ_H_ASSERT(1173, jobj);
+	JOBJ_H_ASSERT(1174, mtx);
+	PSMTXCopy(mtx, jobj->mtx);
+	jobj->flags |= USER_DEF_MTX | MTX_INDEP_PARENT | MTX_INDEP_SRT;
+	HSD_JObjSetMtxDirty(jobj);
+}
+
+inline void HSD_JObjClearMtxFlags(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(1199, jobj);
+	jobj->flags &= ~(USER_DEF_MTX | MTX_INDEP_PARENT | MTX_INDEP_SRT);
+	HSD_JObjSetMtxDirty(jobj);
+}
+
 inline void HSD_JObjGetTranslation(HSD_JObj* jobj, Vec* translate)
 {
 	JOBJ_H_ASSERT(996, jobj);
 	JOBJ_H_ASSERT(997, translate);
 	*translate = jobj->translate;
+}
+
+inline f32 HSD_JObjGetTranslationX(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(1009, jobj);
+	return jobj->translate.x;
+}
+
+inline f32 HSD_JObjGetTranslationY(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(1021, jobj);
+	return jobj->translate.y;
+}
+
+inline f32 HSD_JObjGetTranslationZ(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(1033, jobj);
+	return jobj->translate.z;
 }
 
 inline void HSD_JObjSetRotation(HSD_JObj* jobj, Quaternion* rotate)
@@ -228,6 +264,32 @@ inline HSD_JObj* GetJointByPath(HSD_JObj* jobj, s32* path, s32 depth)
 		for (j = 0; j < path[i]; j++) {
 			jobj = HSD_JObjGetNext(jobj);
 			if (jobj == NULL) {
+				return NULL;
+			}
+		}
+	}
+	return jobj;
+}
+
+// world position out of the joint's matrix
+inline Vec GetJointPosition(HSD_JObj* jobj)
+{
+	Vec position;
+	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &position);
+	return position;
+}
+
+// same walk stepping the path pointer, the joint helpers with a fixed depth use this one
+inline HSD_JObj* FindJointByPath(HSD_JObj* jobj, s32* path, s32 depth)
+{
+	if (!jobj) {
+		return NULL;
+	}
+	for (s32 i = 0; i < depth; i++, path++) {
+		jobj = HSD_JObjGetChild(jobj);
+		for (s32 j = 0; j < *path; j++) {
+			jobj = HSD_JObjGetNext(jobj);
+			if (!jobj) {
 				return NULL;
 			}
 		}

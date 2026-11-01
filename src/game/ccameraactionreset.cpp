@@ -3,48 +3,23 @@
 #include "Version.h"
 #include <math.h>
 
+#include "game/cgame.h"
+#include "game/xchr.h"
+
 extern "C" {
 #include <dolphin/os.h>
+#include "game/video.h"
 }
 
 // CGame camera stuff, by offset for now
-extern "C" u8 lbl_8025C400[];
 // japan's camera, area and map sit 0xCE8 lower
-#if defined(VERSION_JP)
-#define GAME_CAMERA ((CMotionControlCamera*)(lbl_8025C400 + 0xE5050))
-#define GAME_AREA   (*(void**)(lbl_8025C400 + 0xE7108))
-#define GAME_MAP    (*(void**)(lbl_8025C400 + 0xE7120))
-#else
-#define GAME_CAMERA ((CMotionControlCamera*)(lbl_8025C400 + 0xE5D38))
-#define GAME_AREA   (*(void**)(lbl_8025C400 + 0xE7DF0))
-#define GAME_MAP    (*(void**)(lbl_8025C400 + 0xE7E08))
-#endif
-#if defined(VERSION_JP)
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x9674))
-#else
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#endif
 
 // pal goes by the current refresh rate, 50 or 60
 #if defined(VERSION_PAL)
-extern "C" s32 lbl_80660D4C;
 #define FRAME_TIME (1.0f / lbl_80660D4C)
 #else
 #define FRAME_TIME (1.0f / 60.0f)
 #endif
-
-extern "C" {
-void fn_8013801C(CamAreaState* state);
-void fn_80137D00(CamAreaState* state, s32 arg);
-s32 fn_80135D28(CamAreaState* state);
-f32 fn_801353E4(CamAreaState* state, s32 area);
-void fn_801382D4(void* area, s32 index);
-void fn_80138CA4(void* area, s32 mode, f32 time, s32 arg);
-void fn_8013C510(void* map, s32 index, f32 speed);
-void fn_8013BCE4(void* map);
-void fn_8013A204(void* map, f32 dy, f32 dx, f32 speed);
-void fn_8013BD28(void* map, Vec* eye, s32 arg);
-}
 
 /**
  * @note Address: 0x80147630
@@ -111,7 +86,7 @@ void CCameraActionReset::PreviousUpdate()
 	}
 	if (mState == 1) {
 		if (mEyeInterp == NULL && mFovInterp == NULL) {
-			GAME_CAMERA->ChangeAction(_50);
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(_50);
 		}
 		return;
 	}
@@ -121,16 +96,16 @@ void CCameraActionReset::PreviousUpdate()
 	s32 arg = lbl_805A054C._0C;
 	_50     = fn_80135D28(&lbl_805A054C);
 	if (_4C == TRUE) {
-		CMotionControlCamera* camera = GAME_CAMERA;
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
 		camera->ChangeAction(_50);
 		if (_50 == 1) {
-			fn_801382D4(GAME_AREA, lbl_805A054C._14);
+			fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraTable[1], lbl_805A054C._14);
 		} else {
-			fn_8013C510(GAME_MAP, lbl_805A054C._14, 15.0f);
-			fn_8013BCE4(GAME_MAP);
+			fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraTable[7], lbl_805A054C._14, 15.0f);
+			fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraTable[7]);
 			f32 dy = camera->mCamera.mInterest.y - mTarget->GetCameraTarget().y;
 			if (0.0f != dy) {
-				fn_8013A204(GAME_MAP, dy, 0.0f, 8.0f);
+				fn_8013A204((CCameraActionMap*)lbl_8025C400.mCameraTable[7], dy, 0.0f, 8.0f);
 			}
 		}
 		_4C = FALSE;
@@ -138,10 +113,10 @@ void CCameraActionReset::PreviousUpdate()
 	}
 
 	if (_50 == 1) {
-		CMotionControlCamera* camera = GAME_CAMERA;
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
 		camera->ChangeAction(_50);
-		fn_801382D4(GAME_AREA, lbl_805A054C._14);
-		fn_80138CA4(GAME_AREA, mMode, mTime, arg);
+		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraTable[1], lbl_805A054C._14);
+		fn_80138CA4((CCameraActionArea*)lbl_8025C400.mCameraTable[1], mMode, mTime, arg);
 		if (mMode == 3) {
 			camera->ApplyAction();
 		}
@@ -149,10 +124,10 @@ void CCameraActionReset::PreviousUpdate()
 	}
 
 	if (_50 == 7) {
-		fn_8013BD28(GAME_MAP, &eye, 1);
+		fn_8013BD28((CCameraActionMap*)lbl_8025C400.mCameraTable[7], eye, 1);
 		if (fpclassify(eye.x) == FP_NAN || fpclassify(eye.y) == FP_NAN || fpclassify(eye.z) == FP_NAN) {
-			CVec cameraEye      = GAME_CAMERA->mCamera.mEye;
-			CVec cameraInterest = GAME_CAMERA->mCamera.mInterest;
+			CVec cameraEye      = ((CMotionControlCamera*)lbl_8025C400.mCamera)->mCamera.mEye;
+			CVec cameraInterest = ((CMotionControlCamera*)lbl_8025C400.mCamera)->mCamera.mInterest;
 			OSPanic(__FILE__, 157, "%s%s",
 			        fn_801911B4("CCameraActionReset ...\nEye(%f, %f, %f)\nInt(%f, %f, %f)\n", cameraEye.x, cameraEye.y, cameraEye.z,
 			                    cameraInterest.x, cameraInterest.y, cameraInterest.z),
@@ -165,7 +140,7 @@ void CCameraActionReset::PreviousUpdate()
 		f32 fov = fn_801353E4(&lbl_805A054C, lbl_805A054C._14);
 		SetFov_Interp(mMode, fov, mTime);
 
-		fn_801382D4(GAME_AREA, lbl_805A054C._14);
+		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraTable[1], lbl_805A054C._14);
 		if (mMode == 3 || 0.0f == mTime) {
 			_58 = 0;
 		} else {
@@ -599,7 +574,7 @@ void CCameraActionReset::SetCamera(CCamera* camera)
 	SetDistance(camera->mDistance);
 	SetFov(camera->mFov);
 	SetAngle(camera->mAngle);
-	mTarget = GAME_PLAYER;
+	mTarget = lbl_8025C400.mPlayer;
 	mState  = 100;
 	_58     = 2;
 }

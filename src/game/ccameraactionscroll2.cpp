@@ -1,55 +1,24 @@
 #include "game/ccameraaction.h"
+extern "C" {
+#include <dolphin/mtx/vec.h>
+}
 #include "game/caminfo.h"
 #include "game/ctpl.h"
 #include "game/gmath.h"
 #include "Version.h"
 #include <math.h>
 #include <string.h>
+#include "game/globals.h"
+#include "game/stagedata.h"
+#include "game/evt.h"
+#include "game/cgame.h"
+#include "game/xchr.h"
+#include "game/cgs.h"
 
-// camera fields off CGame
-extern "C" u8 lbl_8025C400[];
-// japan's room sits 0x18 lower, europe's 8 higher
-#if defined(VERSION_JP)
-#define GAME_ROOM       (*(s32*)(lbl_8025C400 + 0x342C))
-#define GAME_ROOM_COUNT (*(s32*)(lbl_8025C400 + 0x3434))
-#elif defined(VERSION_PAL)
-#define GAME_ROOM       (*(s32*)(lbl_8025C400 + 0x344C))
-#define GAME_ROOM_COUNT (*(s32*)(lbl_8025C400 + 0x3454))
-#else
-#define GAME_ROOM       (*(s32*)(lbl_8025C400 + 0x3444))
-#define GAME_ROOM_COUNT (*(s32*)(lbl_8025C400 + 0x344C))
-#endif
-// the object table in the game object
-struct Scroll2Game {
-	u8 _00[0x9860];   // _00
-	XObj* mObjs[256]; // _9860
-};
-#define GAME_OBJ(id) (((Scroll2Game*)lbl_8025C400)->mObjs[id])
-
-// japan has the player, the pools and the texture bank lower, europe the gx state higher
-#if defined(VERSION_JP)
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x9674))
-#define GAME_TPL    (*(TPLPalette**)(lbl_8025C400 + 0x3D2C))
-#define GAME_TEX    (*(CTexObj*)(lbl_8025C400 + 0x3D4C))
-#define GAME_POOL   0x9804
-#define GAME_POOL2  0x9700
-#else
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#define GAME_TPL    (*(TPLPalette**)(lbl_8025C400 + 0x3D4C))
-#define GAME_TEX    (*(CTexObj*)(lbl_8025C400 + 0x3D6C))
-#define GAME_POOL   0x984C
-#define GAME_POOL2  0x9748
-#endif
-#if defined(VERSION_PAL)
-#define GAME_294 (*(void**)(lbl_8025C400 + 0x298))
-#else
-#define GAME_294 (*(void**)(lbl_8025C400 + 0x294))
-#endif
-#define PLAYER ((CameraPlayer*)GAME_PLAYER)
-// GAME_TPL is the game's own texture bank, GAME_TEX the texture object it sets up from it
-// two pools of objects, each a base pointer with the size of one entry 0x10 after it
-#define GAME_POOL_OBJ(i)  ((XObj*)(*(u8**)(lbl_8025C400 + GAME_POOL) + (i) * *(s32*)(lbl_8025C400 + GAME_POOL + 0x10)))
-#define GAME_POOL2_OBJ(i) ((XObj*)(*(u8**)(lbl_8025C400 + GAME_POOL2) + (i) * *(s32*)(lbl_8025C400 + GAME_POOL2 + 0x10)))
+#define PLAYER lbl_8025C400.mPlayer
+// two of the object pools
+#define GAME_POOL_OBJ(i)  ((XObj*)(lbl_8025C400.mPools[19].mObjects + (i) * lbl_8025C400.mPools[19].mStride))
+#define GAME_POOL2_OBJ(i) ((XObj*)(lbl_8025C400.mPools[6].mObjects + (i) * lbl_8025C400.mPools[6].mStride))
 // lit flag on the second pool's objects
 #define POOL2_LIT(obj) (*((u8*)(obj) + 0xA2C))
 
@@ -61,12 +30,6 @@ struct CaptionMsg {
 	const char* mText; // _04
 };
 
-// unknown .bss block, a count per room at _180C
-struct Unk80367A2C {
-	u8 _0000[0x180C]; // _0000
-	s32 _180C[0x201]; // _180C
-};
-extern "C" Unk80367A2C lbl_80367A2C;
 extern const f32 lbl_8022E988[4];
 extern const f32 lbl_8022E998[4];
 
@@ -75,15 +38,8 @@ const char* GetStageName(s32 stage);
 u16 GXGetTexObjWidth(const GXTexObj* obj);
 void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
-const char* fn_8006DBF0(s32 id);
-void fn_8019AFA0(void* gx, s32 mode);
-void fn_80197800(void* game, CTexObj* tex, s32 c0, s32 c1, s32 c2, s32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v, f32 rot);
-f32 fn_801968BC(void* game, const char* text, s32 a, f32 size);
-void fn_80196610(void* game, s32 color, const char* text, f32 x, f32 y, f32 z, f32 w, f32 h, ...);
 void fn_800652C0(u32 color, s32 a, f32 x, f32 y, f32 w, f32 h, f32 sx, f32 sy, f32 sz);
 void fn_80050FE8(s32 id, s32 value, s32 a, f32 x, f32 y, f32 scale);
-CamInfoData* fn_8006F3BC(void);
-void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 void PSMTXRotRad(Mtx m, char axis, f32 rad);
 }
 
@@ -105,15 +61,15 @@ static s32 sHideState[256];
 inline void DrawMark(s32 index, f32 x, f32 y, u32 color)
 {
 	CTexObj tex;
-	tex = GAME_TEX.Init(&GAME_TPL->descriptorArray[index], 0);
-	fn_8019AFA0(GAME_294, 0);
+	tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[index], 0);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
 	f32 zoom = 1.0f; // never anything else, but it stops the divide being folded away
 	f32 w    = MARK_SCALE * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
 	f32 h    = MARK_SCALE * GXGetTexObjHeight(&tex) / zoom;
 	f32 cx   = w * 0.5f;
 	f32 cy   = -h * 0.5f;
-	fn_80197800(lbl_8025C400, &tex, color, color, color, color, x + cx, y + cy, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-	fn_8019AFA0(GAME_294, 4);
+	fn_80197800((CGs*)lbl_8025C400.mGs, &tex, color, color, color, color, x + cx, y + cy, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
 }
 
 // in reverse order, same deferred inlining thing
@@ -158,11 +114,11 @@ void CCameraActionScroll2::HideObjs()
 		if (*id == -1) {
 			return;
 		}
-		XObj* obj = GAME_OBJ(*id);
-		if (obj != NULL && (obj->mFlags & 1)) {
-			if (obj->mFlags & 0x10000) {
+		XObj* obj = lbl_8025C400.mObjects[*id];
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mStatus.mFlags & 0x10000) {
 				*state = 1;
-				obj->mFlags &= ~0x10000;
+				obj->mStatus.mFlags &= ~0x10000;
 			} else {
 				*state = 2;
 			}
@@ -190,7 +146,7 @@ void CCameraActionScroll2::ShowObjs()
 			id++;
 			state++;
 		} else {
-			GAME_OBJ(*id)->mFlags |= 0x10000;
+			lbl_8025C400.mObjects[*id]->mStatus.mFlags |= 0x10000;
 			id++;
 			state++;
 		}
@@ -229,7 +185,7 @@ inline void CalcLimits(CCameraActionScroll2* camera, Scroll2Limits* limits)
  */
 void CCameraActionScroll2::vf14()
 {
-	if (GAME_ROOM == 11) {
+	if (lbl_8025C400.mStage == 11) {
 		mTurned = TRUE;
 	} else {
 		mTurned = FALSE;
@@ -272,7 +228,7 @@ void CCameraActionScroll2::vf14()
 	mCenter.z   = center.z;
 	mCenterPtr  = &mCenter;
 	mYaw        = atan2(mInterest.x - mEye.x, mInterest.z - mEye.z);
-	CalcLimits(this, GetLimits(GAME_ROOM));
+	CalcLimits(this, GetLimits(lbl_8025C400.mStage));
 	Update(1);
 }
 
@@ -294,8 +250,8 @@ void CCameraActionScroll2::Update(u32 step)
 	}
 
 	CPad pad(0);
-	if (pad.mStatus->_40 != 0.0f) {
-		f32 fov = mFov - 0.3f * pad.mStatus->_40 * step;
+	if (pad.mPad->mSubStickY != 0.0f) {
+		f32 fov = mFov - 0.3f * pad.mPad->mSubStickY * step;
 		if (fov < mMinFov) {
 			fov = mMinFov;
 		}
@@ -303,11 +259,11 @@ void CCameraActionScroll2::Update(u32 step)
 			fov = mMaxFov;
 		}
 		SetFov(fov);
-		CalcLimits(this, GetLimits(GAME_ROOM));
+		CalcLimits(this, GetLimits(lbl_8025C400.mStage));
 	}
 
-	f32 stickX = pad.mStatus->_34;
-	f32 stickY = pad.mStatus->_38;
+	f32 stickX = pad.mPad->mStickX;
+	f32 stickY = pad.mPad->mStickY;
 	if (stickX != 0.0f || stickY != 0.0f) {
 		CVec center(*mCenterPtr);
 		CVec eye(mEye);
@@ -392,7 +348,7 @@ void CCameraActionScroll2::Update(u32 step)
  */
 Scroll2Limits* CCameraActionScroll2::GetLimits(s32 room)
 {
-	if (room < GAME_ROOM_COUNT) {
+	if (room < lbl_8025C400._344C) {
 		return lbl_8022E938[room];
 	}
 	return lbl_8022E938[7];
@@ -417,11 +373,11 @@ void CCameraActionScroll2::vf20()
 	u32 color = (u32)(255.0f * blink) | 0xC8C8C800;
 	for (s32 i = 0; i < 288; i++) {
 		XObj* obj = GAME_POOL_OBJ(i);
-		if (!(obj->mFlags & 0x10000)) {
+		if (!(obj->mStatus.mFlags & 0x10000)) {
 			continue;
 		}
 
-		switch (XObjKind(obj)) {
+		switch ((obj)->GetKind()) {
 		case 0x10E: {
 			Vec ofs = { 0.0f, 0.0f, 0.0f };
 			obj->vf10C(&ofs, &x, &y, NULL, 0);
@@ -435,7 +391,7 @@ void CCameraActionScroll2::vf20()
 			break;
 		}
 		case 0x115:
-			if (obj->mFlags & 0x10000) {
+			if (obj->mStatus.mFlags & 0x10000) {
 				Vec ofs = { 0.0f, 0.0f, 0.0f };
 				obj->vf10C(&ofs, &x, &y, NULL, 0);
 				DrawMark(163, x, y, color);
@@ -459,7 +415,7 @@ void CCameraActionScroll2::vf20()
 			// the doors, each says which stage it goes to
 			Vec door = { 0.0f, 0.0f, 0.0f };
 			pos      = door;
-			switch (XObjKind(obj)) {
+			switch ((obj)->GetKind()) {
 			case 0xD2:
 			case 0x22C: {
 				Vec high = { 0.0f, 0.0f, -100.0f };
@@ -472,7 +428,7 @@ void CCameraActionScroll2::vf20()
 				break;
 			}
 			}
-			if (XObjKind(obj) == 0x20) {
+			if ((obj)->GetKind() == 0x20) {
 				Vec far = { -180.0f, 0.0f, -380.0f };
 				pos     = far;
 				if (!mFromStage) {
@@ -487,16 +443,16 @@ void CCameraActionScroll2::vf20()
 			obj->vf114();
 
 			s32 stage = 0;
-			switch (GAME_ROOM) {
+			switch (lbl_8025C400.mStage) {
 			case 1:
-				if (XObjKind(obj) == 0xC) {
+				if ((obj)->GetKind() == 0xC) {
 					stage = 7;
 				} else {
 					stage = 2;
 				}
 				// room 2's doors get visited here too
 			case 2:
-				switch (XObjKind(obj)) {
+				switch ((obj)->GetKind()) {
 				case 0x19:
 					stage = 4;
 					break;
@@ -528,9 +484,9 @@ void CCameraActionScroll2::vf20()
 				stage = 2;
 				break;
 			case 7:
-				if (XObjKind(obj) == 0x75) {
+				if ((obj)->GetKind() == 0x75) {
 					stage = 2;
-				} else if (XObjKind(obj) == 0x1B4) {
+				} else if ((obj)->GetKind() == 0x1B4) {
 					stage = 1;
 				} else {
 					stage = 9;
@@ -542,15 +498,15 @@ void CCameraActionScroll2::vf20()
 			}
 
 			const char* name = GetStageName(stage);
-			fn_801968BC(lbl_8025C400, name, 1, 16.0f);
+			fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 16.0f);
 			f32 nameX = x;
 			f32 nameY = y;
 			sin(2.356194496154785);
 			cos(2.356194496154785);
-			f32 width = fn_801968BC(lbl_8025C400, name, 1, 18.0f) * 0.5f;
-			fn_800652C0(0x141414A0, -1, fn_801968BC(lbl_8025C400, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f, width, 18.0f, 1.0f, 1.0f,
-			            1.0f);
-			fn_80196610(lbl_8025C400, -1, name, nameX, nameY - 18.0f, 0.0f, 18.0f, 18.0f);
+			f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f;
+			fn_800652C0(0x141414A0, -1, fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f, width, 18.0f,
+			            1.0f, 1.0f, 1.0f);
+			fn_80196610(&lbl_8025C400, -1, name, nameX, nameY - 18.0f, 0.0f, 18.0f, 18.0f);
 			break;
 		}
 		}
@@ -560,7 +516,7 @@ void CCameraActionScroll2::vf20()
 	u32 color2Off = (u32)(255.0f * (1.0f - slowBlink)) | 0xC8C8C800;
 	for (s32 i = 0; i < 12; i++) {
 		XObj* obj = GAME_POOL2_OBJ(i);
-		switch (XObjKind(obj)) {
+		switch ((obj)->GetKind()) {
 		case 0xD3:
 		case 0x115:
 		case 0x116:
@@ -568,7 +524,7 @@ void CCameraActionScroll2::vf20()
 		default:
 			continue;
 		}
-		if (!(obj->mFlags & 0x10000)) {
+		if (!(obj->mStatus.mFlags & 0x10000)) {
 			continue;
 		}
 
@@ -580,14 +536,14 @@ void CCameraActionScroll2::vf20()
 			f32 markX = x;
 			f32 markY = y;
 			CTexObj tex;
-			tex = GAME_TEX.Init(&GAME_TPL->descriptorArray[161], 0);
-			fn_8019AFA0(GAME_294, 0);
+			tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[161], 0);
+			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
 			u16 w    = GXGetTexObjWidth(&tex);
 			u16 h    = GXGetTexObjHeight(&tex);
 			f32 zoom = 1.0f;
-			fn_80197800(lbl_8025C400, &tex, color2Off, color2Off, color2Off, color2Off, markX + 23.4f, markY + -20.8f, 0.0f,
+			fn_80197800((CGs*)lbl_8025C400.mGs, &tex, color2Off, color2Off, color2Off, color2Off, markX + 23.4f, markY + -20.8f, 0.0f,
 			            MARK_SCALE * (1.1f * w) / zoom, MARK_SCALE * h / zoom, 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_294, 4);
+			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
 		} else {
 			DrawMark(163, x, y, color);
 		}
@@ -595,45 +551,45 @@ void CCameraActionScroll2::vf20()
 
 	{
 		Vec ofs = { 0.0f, 0.0f, 0.0f };
-		GAME_PLAYER->vf10C(&ofs, &x, &y, NULL, 0);
+		lbl_8025C400.mPlayer->vf10C(&ofs, &x, &y, NULL, 0);
 		DrawMark(164, x, y, color);
 	}
 
 	// the arrow round the player points the way it faces
 	f32 angle;
-	switch (GAME_ROOM) {
+	switch (lbl_8025C400.mStage) {
 	case 3:
-		angle = PI + PLAYER->mRot.y;
+		angle = PI + PLAYER->mMoveRotate.y;
 		break;
 	case 11:
-		if (HALF_PI + PLAYER->mRot.y > PI) {
+		if (HALF_PI + PLAYER->mMoveRotate.y > PI) {
 			angle = -HALF_PI;
 		} else {
 			angle = HALF_PI;
 		}
 		break;
 	default:
-		angle = HALF_PI + PLAYER->mRot.y;
+		angle = HALF_PI + PLAYER->mMoveRotate.y;
 		break;
 	}
 
 	CTexObj tex;
-	tex = GAME_TEX.Init(&GAME_TPL->descriptorArray[160], 0);
+	tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[160], 0);
 	GXGetTexObjWidth(&tex);
 	GXGetTexObjHeight(&tex);
 	sin(angle);
 	cos(angle);
 	f32 pulse = sin(DEG2RAD * ((sCount * 24) % 360));
-	fn_8019AFA0(GAME_294, 0);
-	tex        = GAME_TEX.Init(&GAME_TPL->descriptorArray[166], 0);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+	tex        = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[166], 0);
 	f32 zoom   = 1.0f;
 	f32 arrowW = zoom * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
 	u16 arrowH = GXGetTexObjHeight(&tex);
 	f32 radius = arrowW / 3.0f + 3.0f * pulse * zoom / zoom;
 	f32 arrowX = radius * (f32)sin(angle) + x;
-	fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, zoom * arrowH / zoom, 0.0f, 0.0f,
-	            PI + angle);
-	fn_8019AFA0(GAME_294, 4);
+	fn_80197800((CGs*)lbl_8025C400.mGs, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, zoom * arrowH / zoom,
+	            0.0f, 0.0f, PI + angle);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
 
 	// the caption in the corner, with a dark outline
 	CaptionMsg msg = { 7, NULL };
@@ -644,28 +600,30 @@ void CCameraActionScroll2::vf20()
 	u32 alpha      = (u32)fade;
 	u32 white      = alpha | 0xFFFFFF00;
 	f32 frame      = 0.05882353f * msg.mId;
-	captionX -= fn_801968BC(lbl_8025C400, msg.mText, 1, 20.0f);
+	captionX -= fn_801968BC((CGs*)lbl_8025C400.mGs, msg.mText, 1, 20.0f);
 	s32 line     = 0;
 	f32 captionY = 24.0f * line + 62.0f;
 	for (s32 i = 0; i < 4; i++) {
-		fn_80196610(lbl_8025C400, alpha, msg.mText, captionX + lbl_8022E988[i], captionY + lbl_8022E998[i], 0.0f, 20.0f, 20.0f);
+		fn_80196610(&lbl_8025C400, alpha, msg.mText, captionX + lbl_8022E988[i], captionY + lbl_8022E998[i], 0.0f, 20.0f, 20.0f);
 	}
-	fn_80196610(lbl_8025C400, white, msg.mText, captionX, captionY, 0.0f, 20.0f, 20.0f);
+	fn_80196610(&lbl_8025C400, white, msg.mText, captionX, captionY, 0.0f, 20.0f, 20.0f);
 
 	CTexObj icon;
-	icon = GAME_TEX.Init(&GAME_TPL->descriptorArray[119], 0);
+	icon = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[119], 0);
 	PSMTXScale(icon.mMtx[1], 0.05882353f, 1.0f, 1.0f);
 	icon.mMtxDirty = TRUE;
 	PSMTXTrans(icon.mMtx[0], frame, 0.0f, 0.0f);
 	icon.mMtxDirty = TRUE;
-	fn_8019AFA0(GAME_294, 0);
-	fn_80197800(lbl_8025C400, &icon, white, white, white, white, captionX - 12.0f, captionY + 10.0f, 0.0f, 24.0f, 24.0f, 0.0f, 0.0f, 0.0f);
-	fn_8019AFA0(GAME_294, 4);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+	fn_80197800((CGs*)lbl_8025C400.mGs, &icon, white, white, white, white, captionX - 12.0f, captionY + 10.0f, 0.0f, 24.0f, 24.0f, 0.0f,
+	            0.0f, 0.0f);
+	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
 
-	if (GAME_ROOM >= 0 && GAME_ROOM < 10) {
+	if (lbl_8025C400.mStage >= 0 && lbl_8025C400.mStage < 10) {
 		static const s32 sRoomBase[10] = { 0, 9, 11, 4, 7, 0, 12, 9, 0, 8 };
-		s32 base                       = sRoomBase[GAME_ROOM];
-		s32 count                      = lbl_80367A2C._180C[GAME_ROOM];
+		s32 base                       = sRoomBase[lbl_8025C400.mStage];
+		// script variables from 0x603 on hold a count per room
+		s32 count = lbl_80367A2C[0x603 + lbl_8025C400.mStage];
 		if (base > 0) {
 			fn_80050FE8(0xAB, base + count * 100, 0, 56.0f, 378.0f, 1.0f);
 		}

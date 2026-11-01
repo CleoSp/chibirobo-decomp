@@ -1,4 +1,5 @@
 #include "game/cjobj.h"
+#include "game/cjobjset.h"
 #include "Version.h"
 extern "C" {
 #include <sysdolphin/aobj.h>

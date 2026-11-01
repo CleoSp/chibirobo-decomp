@@ -1,0 +1,57 @@
+#include "game/xobjflags.h"
+#include "game/xobjhbox.h"
+
+void operator delete(void* object);
+
+extern "C" {
+extern void* __vt__8XObjCoin[];
+extern void* __vt__8XObjItem[];
+XObjFlags* fn_800E22A0(XObjFlags* flags, s32 del);
+}
+
+/**
+ * @note Address: 0x800E240C
+ * @note Size: 0x54
+ */
+// todo: weak copy
+extern "C" XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del)
+{
+	if (part != NULL) {
+		fn_8000877C((XObj*)&part->mObj, -1);
+		if ((s16)del > 0)
+			::operator delete(part);
+	}
+	return part;
+}
+
+/**
+ * @note Address: 0x800E2460
+ * @note Size: 0x60
+ */
+// todo: weak copy
+extern "C" XObjCoin* fn_800E2460(XObjCoin* coin, s32 del)
+{
+	if (coin != NULL) {
+		*(void***)((u8*)coin + 0x34) = __vt__8XObjCoin;
+		fn_800E22A0(coin, 0);
+		if ((s16)del > 0)
+			::operator delete(coin);
+	}
+	return coin;
+}
+
+/**
+ * @note Address: 0x800E24C0
+ * @note Size: 0x60
+ */
+// todo: weak copy
+extern "C" XObjItem* fn_800E24C0(XObjItem* item, s32 del)
+{
+	if (item != NULL) {
+		*(void***)((u8*)item + 0x34) = __vt__8XObjItem;
+		fn_800E22A0(item, 0);
+		if ((s16)del > 0)
+			::operator delete(item);
+	}
+	return item;
+}

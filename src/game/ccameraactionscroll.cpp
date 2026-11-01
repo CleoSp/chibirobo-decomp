@@ -3,23 +3,14 @@
 #include "sysdolphin/controller.h"
 #include "Version.h"
 #include <math.h>
+#include "game/video.h"
+#include "game/cgame.h"
+#include "game/xchr.h"
 
 // the CGame camera fields this reads
-extern "C" u8 lbl_8025C400[];
-#if defined(VERSION_JP)
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1AF8))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x9674))
-#elif defined(VERSION_PAL)
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1B18))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#else
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1B10))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#endif
 
 // 50 or 60 on pal, whatever the refresh rate is
 #if defined(VERSION_PAL)
-extern "C" s32 lbl_80660D4C;
 #define FRAME_TIME (1.0f / lbl_80660D4C)
 #else
 #define FRAME_TIME (1.0f / 60.0f)
@@ -38,7 +29,7 @@ extern "C" s32 lbl_80660D4C;
  */
 void CCameraActionDefault::Update(u32 step)
 {
-	SetInterest(GAME_PLAYER->GetCameraTarget(), 0x10002);
+	SetInterest(lbl_8025C400.mPlayer->GetCameraTarget(), 0x10002);
 }
 
 /**
@@ -47,7 +38,7 @@ void CCameraActionDefault::Update(u32 step)
  */
 Vec CCameraActionLadr::GetCameraTarget()
 {
-	return GAME_PLAYER->GetCameraTarget();
+	return lbl_8025C400.mPlayer->GetCameraTarget();
 }
 
 /**
@@ -80,9 +71,9 @@ void CCameraActionLadr::Update(u32 step)
 void CCameraActionLadr::CalcEye(Vec* eye, f32 angle)
 {
 	*eye = GetCameraTarget();
-	eye->x -= 100.0f * (f32)sin(angle + HSD_JObjGetRotationY(GAME_PLAYER->mJObj));
+	eye->x -= 100.0f * (f32)sin(angle + HSD_JObjGetRotationY(lbl_8025C400.mPlayer->mJObj));
 	eye->y += 30.0f;
-	eye->z -= 100.0f * (f32)cos(angle + HSD_JObjGetRotationY(GAME_PLAYER->mJObj));
+	eye->z -= 100.0f * (f32)cos(angle + HSD_JObjGetRotationY(lbl_8025C400.mPlayer->mJObj));
 }
 
 /**
@@ -114,7 +105,7 @@ void CCameraActionScroll::Update(u32 step)
 	if (mStart) {
 		Vec interest;
 		Vec eye;
-		eye      = GAME_PLAYER->GetCameraTarget();
+		eye      = lbl_8025C400.mPlayer->GetCameraTarget();
 		interest = eye;
 		if (mZoom == 0) {
 			eye.z += mNearDistance;
@@ -138,12 +129,12 @@ void CCameraActionScroll::Update(u32 step)
 
 	_64 = 2;
 	CPad pad(0);
-	u32 nearButton = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
-	u32 farButton  = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
-	if (pad.mStatus->_14 & nearButton) {
+	u32 nearButton = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
+	u32 farButton  = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
+	if (pad.mPad->mTrigger & nearButton) {
 		mZoom = 0;
 		StartZoom(mNearDistance);
-	} else if (pad.mStatus->_14 & farButton) {
+	} else if (pad.mPad->mTrigger & farButton) {
 		mZoom = 1;
 		StartZoom(mFarDistance);
 	}
@@ -152,14 +143,14 @@ void CCameraActionScroll::Update(u32 step)
 		if (!mDistanceInterp->Update(step, FRAME_TIME)) {
 			SetDistance(mDistanceInterp->Get());
 			f32 distance = mDistanceInterp->Get();
-			SetInterest(GAME_PLAYER->GetCameraTarget(), 0x10006);
+			SetInterest(lbl_8025C400.mPlayer->GetCameraTarget(), 0x10006);
 			SetDistance(distance);
 			return;
 		}
 		mDistanceInterp = NULL;
 	}
 
-	SetInterest(GAME_PLAYER->GetCameraTarget(), 0x10002);
+	SetInterest(lbl_8025C400.mPlayer->GetCameraTarget(), 0x10002);
 }
 
 /**

@@ -1,8 +1,10 @@
 #include "game/xobjs.h"
 #include "game/cgame.h"
+#include "game/xchr.h"
 #include "Dolphin/OS/OSMessage.h"
 #include "Dolphin/OS/OSAlloc.h"
 #include "Dolphin/OS/OSThread.h"
+#include "game/xobjchr.h"
 
 // Dolphin/os.h resolves to the hsd copy, whose OSHeapHandle clashes with OSAlloc.h
 extern "C" void OSPanic(const char* file, int line, const char* message, ...);
@@ -65,9 +67,9 @@ public:
  * @note Address: 0x80132040
  * @note Size: 0xB4
  */
-extern "C" BOOL fn_80132040(XObjRead* self, UnkXObjReadObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_80132040(XObjRead* self, XObj* obj, UnkXObjList* list)
 {
-	obj->_228 |= 0x0080000000000000ULL;
+	obj->mStatus.mFlags |= 0x0080000000000000ULL;
 	return self->ReadStart(obj, list);
 }
 
@@ -101,9 +103,9 @@ extern "C" void fn_80132140(void* self)
  * @note Address: 0x80132144
  * @note Size: 0xB8
  */
-extern "C" BOOL fn_80132144(UnkXObjReadObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_80132144(XObj* obj, UnkXObjList* list)
 {
-	obj->_228 |= 0x0080000000000000ULL;
+	obj->mStatus.mFlags |= 0x0080000000000000ULL;
 	return lbl_80380748.ReadStart(obj, list);
 }
 
@@ -114,22 +116,22 @@ extern "C" BOOL fn_80132144(UnkXObjReadObj* obj, UnkXObjList* list)
 // vf18 for the requests fn_801322A4 posts
 extern "C" void fn_801321FC(void* self, UnkXObjReadReq* req)
 {
-	UnkXObjReadObj* obj = (UnkXObjReadObj*)req->_00;
+	XObj* obj = (XObj*)req->_00;
 	CoordInfo info(req->_04);
 	while (!obj->vf9C(info)) {
 		OSYieldThread();
 	}
 	req->_00 = NULL;
-	obj->_228 &= ~0x0040000000000000ULL;
+	obj->mStatus.mFlags &= ~0x0040000000000000ULL;
 }
 
 /**
  * @note Address: 0x801322A4
  * @note Size: 0xB4
  */
-extern "C" BOOL fn_801322A4(XObjRead* self, UnkXObjReadObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_801322A4(XObjRead* self, XObj* obj, UnkXObjList* list)
 {
-	obj->_228 |= 0x0040000000000000ULL;
+	obj->mStatus.mFlags |= 0x0040000000000000ULL;
 	return self->ReadStart(obj, list);
 }
 
@@ -303,12 +305,12 @@ struct UnkXObjPool {
 	const char* _0C; // _0C, the pool's name, printed when it runs out
 	s32 _10;         // _10, size of one object
 
-	UnkXObjReadObj* Get(s32 i) { return (UnkXObjReadObj*)(_00 + i * _10); }
+	XObj* Get(s32 i) { return (XObj*)(_00 + i * _10); }
 
 	s32 Find(u64 mask, u64 value)
 	{
 		for (s32 i = 0; i < _08; i++) {
-			if ((Get(i)->_228 & mask) == value) {
+			if ((Get(i)->mStatus.mFlags & mask) == value) {
 				return i;
 			}
 		}
@@ -317,11 +319,11 @@ struct UnkXObjPool {
 };
 
 struct UnkXObjList {
-	UnkXObjPool _00[0x17];       // _00
-	UnkXObjReadObj* _1CC[0x400]; // _1CC
-	s32 _11CC;                   // _11CC, entries used in _1CC
-	s32 _11D0;                   // _11D0
-	s32 _11D4;                   // _11D4, fn_80132B98's state, 0 when idle
+	UnkXObjPool _00[0x17]; // _00
+	XObj* _1CC[0x400];     // _1CC
+	s32 _11CC;             // _11CC, entries used in _1CC
+	s32 _11D0;             // _11D0
+	s32 _11D4;             // _11D4, fn_80132B98's state, 0 when idle
 
 	inline void ReadAll();
 };
@@ -340,32 +342,9 @@ extern "C" s32 fn_8013265C(UnkXObjList* list, CXObj* obj)
  * @note Address: 0x80132698
  * @note Size: 0x230
  */
-// an entry of objTable or objTableEx, 0x18 bytes
-struct UnkObjData {
-	u8 _00[0x14]; // _00
-	s16 _14;      // _14, which pool in UnkXObjList
-};
-
-extern "C" UnkObjData* GetObjData(CoordInfo* info);
-
-// name from __vt__8AttrInfo
-class AttrInfo {
-public:
-	UnkObjData* _00; // _00
-	void* _04;       // _04
-	// _08 vtable
-
-	AttrInfo(CoordInfo* info)
-	    : _00(GetObjData(info))
-	    , _04(info->_00)
-	{
-	}
-	virtual ~AttrInfo() { } // _08
-};
-
-extern "C" UnkXObjReadObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 unused, BOOL async)
+extern "C" XObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 unused, BOOL async)
 {
-	UnkXObjReadObj* obj;
+	XObj* obj;
 	AttrInfo attr(info);
 	s16 pool = attr._00 ? attr._00->_14 : 0;
 
@@ -379,7 +358,7 @@ extern "C" UnkXObjReadObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 u
 			list->_11CC++;
 		}
 		if (async) {
-			obj->_228 |= 0x0040000000000000ULL;
+			obj->mStatus.mFlags |= 0x0040000000000000ULL;
 			lbl_803803A8.ReadStart(obj, info->_00);
 		} else {
 			while (!obj->vf9C(*info)) { }
@@ -595,7 +574,7 @@ inline void UnkXObjList::ReadAll()
 			while (!_1CC[_11D0]->vf9C(info)) { }
 		}
 		_11D0++;
-		if (lbl_8025C400._3330 != 0) {
+		if (lbl_8025C400.mReset != 0) {
 			break;
 		}
 	}
@@ -777,7 +756,6 @@ extern "C" void fn_80132950(UnkXObjList* list)
 
 extern "C" BOOL fn_800B8EC4(XObj* player);
 extern "C" BOOL fn_800B78FC(XObj* player);
-extern "C" BOOL fn_800B9758(XObj* player);
 
 // steps through the stage read and the player setup calls, true when done
 extern "C" u8 fn_80132B98(UnkXObjList* list)

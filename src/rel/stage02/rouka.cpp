@@ -332,43 +332,12 @@ inline f32 HSD_AObjGetEndFrame(HSD_AObj* aobj)
 	return aobj->end_frame;
 }
 
-// todo: copied inline, clean up
-inline void HSD_JObjCopyMtx(HSD_JObj* jobj, Mtx mtx)
-{
-	JOBJ_H_ASSERT(1173, jobj);
-	JOBJ_H_ASSERT(1174, mtx);
-	PSMTXCopy(mtx, jobj->mtx);
-	jobj->flags |= 0x3800000;
-	HSD_JObjSetMtxDirty(jobj);
-}
-
 // clears the three user matrix bits copy_mtx sets, real name unknown
 inline void JObjInline1199(HSD_JObj* jobj)
 {
 	JOBJ_H_ASSERT(1199, jobj);
 	jobj->flags &= ~0x3800000;
 	HSD_JObjSetMtxDirty(jobj);
-}
-
-inline HSD_AObj* Stage02_FindAObj(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj;
-
-	if (jobj != NULL) {
-		aobj = fn_801908F8(jobj);
-		if (aobj != NULL) {
-			return aobj;
-		}
-		aobj = fn_801905D4(jobj);
-		if (aobj != NULL) {
-			return aobj;
-		}
-		aobj = fn_801902C4(jobj);
-		if (aobj != NULL) {
-			return aobj;
-		}
-	}
-	return NULL;
 }
 
 inline void Car::CarRoot::Register(XObj* a, XObj* b, XObj* c)
@@ -1381,7 +1350,7 @@ extern "C" s32 GetPlayerCarResult(void)
 	if (playerCar._7C && playerCar._18 <= 0.0f) {
 		return 1;
 	}
-	aobj = Stage02_FindAObj(playerCar._08->jobj);
+	aobj = GetAObj(playerCar._08->jobj);
 	end  = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 	if (end <= playerCar._10) {
 		return 2;
@@ -1791,7 +1760,7 @@ extern "C" void Car_PlayerCarRoot_Update(Car::PlayerCarRoot* car, u32 arg)
 	}
 	CPad pad(0);
 	void* sound;
-	if (!car->_7C && (pad.mStatus->_14 & 0x200)) {
+	if (!car->_7C && (pad.mPad->mTrigger & 0x200)) {
 		car->vf0C();
 		car->_80 = car->_10;
 		sound    = SOUND();

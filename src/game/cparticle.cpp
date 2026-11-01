@@ -5,8 +5,6 @@ extern "C" {
 #include <dolphin/os.h>
 void OSReport(const char* msg, ...);
 HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind);
-HSD_Generator* fn_801E4380(int linkNo, int bank, int kind, HSD_JObj* jobj);
-HSD_Generator* fn_801E4C58(int linkNo, int bank, int kind, HSD_JObj* jobj);
 HSD_psAppSRT* fn_801E56F8(HSD_Generator* gen, s32 status);
 void _psDispParticlesSub(s32 bankMask, s32 kind);
 void psInterpretParticles(u32 flags);

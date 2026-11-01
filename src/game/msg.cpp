@@ -1,116 +1,126 @@
 #include "game/xobjs.h"
+#include "game/stagedata.h"
+#include "game/ccameraaction.h"
+#include "game/cfont.h"
+#include "game/ctpl.h"
+#include "game/cprimitive.h"
+#include "game/cgs.h"
+#include "game/evt.h"
+#include "game/csound.h"
+#include "game/msg.h"
+#include "game/xchr.h"
+#include "game/video.h"
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <types.h>
+#include "game/cgame.h"
 
-// one of the 400 entries at CMsg _1348, CMsgFont_Draw uses a CTexObj at +4 in each,
-// japan's is 4 bytes shorter before _2A6
-struct CMsgUnkEntry {
-#if defined(VERSION_JP)
-	u8 _00[0x2A2]; // _00
-#else
-	u8 _00[0x2A6]; // _00
-#endif
-	s16 _2A6;     // _2A6
-	s16 _2A8;     // _2A8
-	u8 _2AA[0x2]; // _2AA
-};
+extern "C" {
+#include <dolphin/os.h>
+#include <sysdolphin/aobj.h>
+}
 
-struct CMsgUnk8A0 {
-	u32 _00;             // _00
-	u8 _04_80 : 1;       // _04
-	u8 _04_40 : 1;       // _04
-	u8 _04_20 : 1;       // _04
-	u8 _04_10 : 1;       // _04
-	u8 _04_08 : 1;       // _04
-	u8 _04_04 : 1;       // _04
-	u8 _04_03 : 2;       // _04
-	u8 _05[0x120 - 0x5]; // _05
-};
-
-// the message window. japan has everything from _9C0 on 0x650 lower, its UnkXObjReadObj
-// is 8 shorter, there are 8 more before the entries, and each entry is 4 shorter
-struct CMsg {
-	u8 _00[0x804];          // _00
-	u8* _804;               // _804, read cursor
-	u8 _808[0x898 - 0x808]; // _808
-	u32 _898;               // _898
-	u8 _89C[0x8A0 - 0x89C]; // _89C
-	CMsgUnk8A0 _8A0;        // _8A0
-	UnkXObjReadObj _9C0;    // _9C0
-#if defined(VERSION_JP)
-	u8 _C18[0x1338 - 0xC18]; // _C18
-#else
-	u8 _C20[0x1348 - 0xC20]; // _C20
-#endif
-	CMsgUnkEntry _1348[400];      // _1348
-	u8 _44008[0x4450C - 0x44008]; // _44008
-	s32 _4450C;                   // _4450C
-	f32 _44510;                   // _44510
-	f32 _44514;                   // _44514
-	s32 _44518;                   // _44518, current entry index in CMsgFont_Draw
-	s32 _4451C;                   // _4451C
-	s32 _44520;                   // _44520
-	Vec _44524;                   // _44524
-	u8 _44530[0x44570 - 0x44530]; // _44530
-	f32 _44570;                   // _44570
-	f32 _44574;                   // _44574
-	u32 _44578;                   // _44578, rgba out of msgColorTable
-	f32 _4457C;                   // _4457C
-	f32 _44580;                   // _44580
-	f32 _44584;                   // _44584
-	u8 _44588;                    // _44588
-	s32 _4458C;                   // _4458C
-	u8 _44590[0x445AC - 0x44590]; // _44590
-	s32 _445AC;                   // _445AC
-	f32 _445B0;                   // _445B0
-	f32 _445B4;                   // _445B4
-	f32 _445B8;                   // _445B8
-	u8 _445BC[0x445C0 - 0x445BC]; // _445BC
-	s32 _445C0;                   // _445C0
-	f32 _445C4;                   // _445C4
-	f32 _445C8;                   // _445C8
-	u8 _445CC[0x445D0 - 0x445CC]; // _445CC
-	s32 _445D0;                   // _445D0
-	s32 _445D4;                   // _445D4
-	s32 _445D8;                   // _445D8
-	u8 _445DC[9];                 // _445DC, three groups of 3
-	u8 _445E5[0x445E8 - 0x445E5]; // _445E5
-	s32 _445E8;                   // _445E8
-	s32 _445EC;                   // _445EC
-	s32 _445F0;                   // _445F0
-	u8 _445F4[0x445F8 - 0x445F4]; // _445F4
-	s32 _445F8;                   // _445F8
-	s32 _445FC;                   // _445FC
-	f32 _44600;                   // _44600, 320.0f at reset, maybe a screen x
-	f32 _44604;                   // _44604, 344.0f at reset, maybe a screen y
-	s32 _44608;                   // _44608
-	Vec _4460C;                   // _4460C
-};
-
-extern "C" u8 lbl_8025C400[];
 extern u32 msgColorTable[];
-
-// europe has an extra word somewhere before this
-#if defined(VERSION_PAL)
-#define GAME_290 (*(void**)(lbl_8025C400 + 0x294))
-#else
-#define GAME_290 (*(void**)(lbl_8025C400 + 0x290))
-#endif
 
 extern "C" {
 void CMsg_ResetPos(CMsg* msg);
 void CMsgFont_Draw(void* p, f32 t);
-void fn_80199AB0(void* game, s32 a, s32 b);
-void fn_8019B56C(void* gx, s32 a, s32 b, s32 c, s32 d);
-void fn_8019B464(void* gx, s32 a, s32 b, s32 c);
-void* GetSpawnData(s32 index);
+void fn_8001DC10(void* sound, s32 id);
+}
+
+#if defined(VERSION_JP)
+#define MsgHasSjisLead(c) IsSjisLead(c)
+#else
+#define MsgHasSjisLead(c) (lbl_8025C400.mLanguage == 6 && IsSjisLead(c))
+#endif
+
+// read before stepping, the script can point into the message's own bytes
+static inline u32 ReadMsgU8(CMsg* msg)
+{
+	u32 value = *msg->mData.mCursor;
+	msg->mData.mCursor++;
+	return value;
+}
+
+// script operands are little endian, literal colors are rgba bytes
+static inline s16 ReadMsgS16(CMsg* msg)
+{
+	u32 lo = ReadMsgU8(msg);
+	u32 hi = ReadMsgU8(msg);
+	return lo | (hi << 8);
 }
 
 /**
  * @note Address: 0x8007FFB4
  * @note Size: 0x2D0
  */
-// CMsg__cmd_SETFONT
+extern "C" s32 CMsg__cmd_SETFONT(CMsg* msg, u8 command)
+{
+	switch (command) {
+	case 13: {
+		u8 size = ReadMsgU8(msg);
+		if (size == 255) {
+			size = 22;
+		}
+		msg->mFont.mSize = size;
+		break;
+	}
+	case 14: {
+		u8 color = ReadMsgU8(msg);
+		if (color == 255) {
+			color = 0;
+		}
+		msg->mFont.mGlyphColor = msgColorTable[color];
+		break;
+	}
+	case 15: {
+		u32 r                  = ReadMsgU8(msg);
+		u32 g                  = ReadMsgU8(msg);
+		u32 b                  = ReadMsgU8(msg);
+		u32 a                  = ReadMsgU8(msg);
+		msg->mFont.mGlyphColor = (r << 24) | (g << 16) | (b << 8) | a;
+		break;
+	}
+	case 16:
+		msg->mFont._04_04 = ReadMsgU8(msg);
+		break;
+	case 19:
+		msg->mFont.mFitLine = ReadMsgU8(msg);
+		break;
+	case 18: {
+		u32 a              = ReadMsgU8(msg);
+		u32 b              = ReadMsgU8(msg);
+		u32 c              = ReadMsgU8(msg);
+		msg->mFont.mEffect = a;
+		msg->mFont.mAmount = b;
+		msg->mFont.mSpeed  = c;
+		break;
+	}
+	case 20:
+		msg->mFont.mGlyphAngle = DEG2RAD * ReadMsgS16(msg);
+		break;
+	case 21: {
+		f32 x                   = ReadMsgS16(msg) / 100.0f;
+		f32 y                   = ReadMsgS16(msg) / 100.0f;
+		msg->mFont.mGlyphScaleX = x;
+		msg->mFont.mGlyphScaleY = y;
+		break;
+	}
+	default:
+#if defined(VERSION_JP)
+		const s32 line = 2044;
+#elif defined(VERSION_PAL)
+		const s32 line = 2114;
+#else
+		const s32 line = 2097;
+#endif
+		OSPanic("msg.cpp", line, "%s%s", fn_801911B4("Unknown msg-setfont cmd - %d\n", command), "_cmd_SETFONT");
+		break;
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -310,7 +320,73 @@ void* GetSpawnData(s32 index);
  * @note Address: 0x80080284
  * @note Size: 0x2FC
  */
-// CMsg__cmd_SFX
+extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
+{
+	s32 sfx = ReadMsgU8(msg);
+	sfx |= ReadMsgU8(msg) << 8;
+	sfx |= ReadMsgU8(msg) << 16;
+	sfx |= ReadMsgU8(msg) << 24;
+	s8 command = ReadMsgU8(msg);
+	switch (command) {
+	case 0:
+		if (sfx == -2) {
+			fn_8001E630((CSound*)&lbl_8025C400.mSound, -1);
+		} else {
+			fn_8001E660((CSound*)&lbl_8025C400.mSound, sfx);
+		}
+		break;
+	case 1:
+		fn_8001E904((CSound*)&lbl_8025C400.mSound, sfx, 255);
+		break;
+	case 2: {
+		u16 frames = ReadMsgS16(msg);
+		fn_8001E1A4((CSound*)&lbl_8025C400.mSound, sfx, frames);
+		break;
+	}
+	case 3: {
+		u16 frames = ReadMsgS16(msg);
+		fn_8001E2CC((CSound*)&lbl_8025C400.mSound, sfx, frames);
+		break;
+	}
+	case 4: {
+		u16 frames = ReadMsgS16(msg);
+		u8 volume  = ReadMsgU8(msg);
+		if (!fn_8001E6C8((CSound*)&lbl_8025C400.mSound, sfx)) {
+			fn_8001E904((CSound*)&lbl_8025C400.mSound, sfx, volume);
+		} else {
+			fn_8001E468((CSound*)&lbl_8025C400.mSound, sfx, volume, frames);
+		}
+		break;
+	}
+	case 5:
+		if (sfx == -2) {
+			fn_8001E590((CSound*)&lbl_8025C400.mSound, -1);
+		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
+			fn_8001E5C0((CSound*)&lbl_8025C400.mSound, sfx, 0);
+		} else {
+			fn_801E94E4(sfx);
+		}
+		break;
+	case 6:
+		if (sfx == -2) {
+			fn_8001E4D4((CSound*)&lbl_8025C400.mSound, -1);
+		} else {
+			fn_8001E504((CSound*)&lbl_8025C400.mSound, sfx);
+		}
+		break;
+	case -1:
+		if (fn_8001E6C8((CSound*)&lbl_8025C400.mSound, sfx)) {
+#if defined(VERSION_PAL)
+			msg->mData.mCursor -= 6;
+#else
+			msg->mData.mCursor -= 3;
+#endif
+			return 1;
+		}
+		break;
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -524,7 +600,56 @@ void* GetSpawnData(s32 index);
  * @note Address: 0x80080580
  * @note Size: 0x364
  */
-// CMsg__cmd_ANIM
+extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
+{
+	u8 flags = ReadMsgU8(msg);
+	s16 id   = ReadMsgS16(msg);
+	s32 anim = ReadMsgU8(msg);
+	anim |= ReadMsgU8(msg) << 8;
+	anim |= ReadMsgU8(msg) << 16;
+	anim |= ReadMsgU8(msg) << 24;
+	if (flags & 1) {
+		anim = lbl_80367A2C[anim];
+	}
+	void* state = &lbl_8025C400._5D080;
+	XObj* obj   = *(void**)state != NULL ? fn_8007F570(state, id) : NULL;
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		if (anim == -1) {
+			HSD_AObj* aobj = GetAObj(obj->mJObj);
+			if (!(aobj->flags & (AOBJ_NO_ANIM | AOBJ_REWINDED))) {
+				msg->mData.mCursor -= 8;
+				return 1;
+			}
+		} else if (!(flags & 0x10)) {
+			obj->mAnmQueue.Clear();
+			if (anim & 0xFFFF0000) {
+				s32 jointId     = anim & 0xFFFF;
+				s32 matId       = anim >> 16;
+				void* jointAnim = obj->vfF0(jointId);
+				void* matAnim   = obj->vfF4(matId);
+				void* shapeAnim = obj->vfF8(jointId);
+				obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
+				if (jointId >= 1000 || matId >= 1000) {
+					obj->mStatus.mFlags |= 0x0008000000000000;
+				}
+			} else {
+				obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			}
+			obj->UpdateAnim(1);
+		} else {
+			for (s32 i = 0; i < 16; i++) {
+				s32 index = (obj->mAnmQueue.mNext + i) % 16;
+				if (obj->mAnmQueue.mEntry[index].mId == -1) {
+					obj->mAnmQueue.mEntry[index].mId    = anim;
+					obj->mAnmQueue.mEntry[index].mFrame = 0;
+					obj->mAnmQueue.mEntry[index].mRate  = 100;
+					break;
+				}
+			}
+		}
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -765,7 +890,59 @@ void* GetSpawnData(s32 index);
  * @note Address: 0x800808E4
  * @note Size: 0x2A4
  */
-// CMsg__cmd_WAIT
+extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
+{
+	s32 command = ReadMsgU8(msg);
+	if (command == 255 || command == 254 || command == 253 || command == 252) {
+		if (msg->_00 == 0x23) {
+			if (!msg->mFont.mBlink) {
+				s32 mode = -1;
+				if (command == 255) {
+					mode = 0;
+				}
+				if (command == 254) {
+					mode = 1;
+				}
+				if (command == 253 || command == 252) {
+					mode = 0;
+				}
+				msg->mFont.mBlink      = 1;
+				msg->mFont._43C6C      = mode;
+				msg->mFont.mBlinkPhase = 0.0f;
+				msg->mData.mCursor -= 2;
+			} else {
+				BOOL done = FALSE;
+				CPad pad(0);
+				if (command == 253 || command == 252) {
+					if ((pad.mPad->mTrigger & 0x400) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
+						done = TRUE;
+						if (command == 253) {
+							fn_800B54A4(lbl_8025C400.mPlayer, 0);
+						} else if (command == 252) {
+							fn_800B54A4(lbl_8025C400.mPlayer, 1);
+						}
+					}
+				} else if (((pad.mPad->mTrigger & 0x100) || (pad.mPad->mTrigger & 0x200)) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
+					done = TRUE;
+				}
+				if (done) {
+					msg->mFont.mBlink = 0;
+					fn_8001DC10((CSound*)&lbl_8025C400.mSound, msg->_445FC);
+				} else {
+					msg->mData.mCursor -= 2;
+				}
+			}
+		}
+		return msg->mFont.mBlink;
+	}
+#if defined(VERSION_PAL)
+	f32 framesPerSecond = lbl_80660D4C;
+#else
+	f32 framesPerSecond = 60.0f;
+#endif
+	msg->_445CC = framesPerSecond * (command / 10) + (framesPerSecond * (command % 10)) / 10.0f;
+	return 0;
+}
 /*
     stwu     r1, -0x30(r1)
     mflr     r0
@@ -954,11 +1131,134 @@ void* GetSpawnData(s32 index);
     blr
 */
 
+static inline void MsgSetDigits(CMsg* msg, const s8* digits, s32 count, s32 first, s32 selected)
+{
+	for (s32 i = 0; i < 9; i += 3) {
+		for (s32 j = 0; j < 3; j++) {
+			msg->mFont.mDigits[i + j] = digits[i + j];
+		}
+	}
+	msg->mFont.mDigitCount     = count;
+	msg->mFont.mFirstEditDigit = first;
+	msg->mFont.mOtherSelection = selected;
+}
+
 /**
  * @note Address: 0x80080B88
  * @note Size: 0x944
  */
-// CMsg__cmd_END
+extern "C" s32 CMsg__cmd_END(CMsg* msg)
+{
+	if (msg->mFont.mActive) {
+		if (!msg->mFont.mFadeOut) {
+			if (msg->_00 == 0x2B) {
+				if (msg->_445D0 < 0) {
+					msg->_445D0              = msg->_445D8;
+					msg->mFont.mSelectedLine = msg->_445D0;
+					msg->mFont.mCurLineY     = msg->mFont.mLineY[msg->mFont.mSelectedLine];
+					msg->mFont.mCurLineWidth = 0.0f;
+				} else if (!(lbl_8025C400.mStatus.mFlags & 0x20)) {
+					CPad pad(0);
+					u32 up   = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x10000 : 0x10008;
+					u32 down = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x20000 : 0x20004;
+					if (pad.mPad->mRepeat & up) {
+						if (--msg->_445D0 < 0) {
+							msg->_445D0 = msg->mData.mLineCount - 1;
+						}
+						msg->mFont.mSelectedLine = msg->_445D0;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+					} else if (pad.mPad->mRepeat & down) {
+						if (++msg->_445D0 >= msg->mData.mLineCount) {
+							msg->_445D0 = 0;
+						}
+						msg->mFont.mSelectedLine = msg->_445D0;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+					} else if (pad.mPad->mTrigger & 0x100) {
+						msg->_445D4              = msg->_445D0;
+						msg->_445D0              = -1;
+						msg->mFont.mFadeOut      = 1;
+						msg->mFont.mSelectedLine = -1;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x88, 255);
+					} else if (pad.mPad->mTrigger & 0x200) {
+						msg->_445D4              = -1;
+						msg->_445D0              = -1;
+						msg->mFont.mFadeOut      = 1;
+						msg->mFont.mSelectedLine = -1;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x86, 255);
+					}
+				}
+			} else if (msg->_445E8 > 0) {
+				if (msg->mFont.mOtherSelection < 0) {
+					MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+				} else {
+					CPad pad(0);
+					u32 up       = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x10000 : 0x10008;
+					u32 down     = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x20000 : 0x20004;
+					u32 next     = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x40000 : 0x40001;
+					u32 previous = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x80000 : 0x80002;
+					if (pad.mPad->mRepeat & up) {
+						if (++msg->_445DC[msg->_445F0] > 9) {
+							msg->_445DC[msg->_445F0] = 0;
+						}
+						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+					} else if (pad.mPad->mRepeat & down) {
+						if (--msg->_445DC[msg->_445F0] < 0) {
+							msg->_445DC[msg->_445F0] = 9;
+						}
+						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+					} else if (pad.mPad->mRepeat & next) {
+						if (++msg->_445F0 > msg->_445E8 - 1) {
+							msg->_445F0 = msg->_445E8 - 1;
+						} else {
+							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+							fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						}
+					} else if (pad.mPad->mRepeat & previous) {
+						if (--msg->_445F0 < msg->_445EC) {
+							msg->_445F0 = msg->_445EC;
+						} else {
+							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+							fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						}
+					} else if (pad.mPad->mTrigger & 0x100) {
+						msg->mFont.mFadeOut        = 1;
+						msg->mFont.mOtherSelection = -1;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x88, 255);
+						s32 result = 0;
+						for (s32 i = 9; i >= 0; i--) {
+							result = result * 10 + msg->_445DC[i];
+						}
+						lbl_8025C400._5D08C = result;
+					} else if (pad.mPad->mTrigger & 0x200) {
+						msg->mFont.mFadeOut        = 1;
+						msg->mFont.mOtherSelection = -1;
+						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x86, 255);
+						lbl_8025C400._5D08C = -1;
+					}
+				}
+			} else if (msg->_445F8 != 0) {
+				if (msg->_445F8 == 1) {
+					if (lbl_8025C400.mPlayer->mOXMenu.mStarted < 0) {
+						msg->_445F8++;
+					}
+				} else {
+					msg->mFont.mFadeOut = 1;
+				}
+			} else {
+				msg->mFont.mFadeOut = 1;
+			}
+		}
+		msg->mData.mCursor--;
+	} else {
+		msg->mData.mCursor = NULL;
+#if !defined(VERSION_JP)
+		msg->mData.mIconColumns = 0;
+#endif
+	}
+	return 1;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -1596,14 +1896,13 @@ void* GetSpawnData(s32 index);
  * @note Address: 0x800814CC
  * @note Size: 0xD0
  */
-// CMsg_Draw
 extern "C" void CMsg_Draw(CMsg* msg)
 {
-	fn_80199AB0(lbl_8025C400, 0, 0);
-	fn_8019B56C(GAME_290, 1, 4, 5, 15);
-	fn_8019B464(GAME_290, 0, 3, 0);
+	fn_80199AB0((CGs*)lbl_8025C400.mGs, 0, 0);
+	fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
+	fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 0, 3, 0);
 	if (msg->_445C8 == 0.0f) {
-		CMsgFont_Draw(&msg->_8A0, 1.0f);
+		CMsgFont_Draw(&msg->mFont, 1.0f);
 	} else {
 		f32 t = (msg->_445C8 - msg->_445C4) / msg->_445C8;
 		if (t > 1.0f) {
@@ -1612,15 +1911,208 @@ extern "C" void CMsg_Draw(CMsg* msg)
 		if (t < 0.0f) {
 			t = 0.0f;
 		}
-		CMsgFont_Draw(&msg->_8A0, t);
+		CMsgFont_Draw(&msg->mFont, t);
 	}
+}
+
+extern "C" {
+s32 CMsg__cmd_END(CMsg* msg);
+void CMsgFont_Update(CMsgFont* font, u32 step);
+void CMsgFont_AddChar(CMsgFont* font, const char* text);
+}
+
+static inline void MsgNextLine(CMsg* msg)
+{
+	msg->mFont.mLine++;
+	CMsgData* data      = msg->mFont.mData;
+	f32 width           = msg->mFont.mFitLine ? data->mWidths[msg->mFont.mLine] : msg->mFont.mWidth;
+	msg->mFont.mCursorX = -(width * 0.5f);
+	msg->mFont.mCursorY += msg->mFont.mData->mHeights[msg->mFont.mLine - 1];
+	msg->mFont.mLineY[msg->mFont.mLine] = msg->mFont.mCursorY + (msg->mFont.mData->mHeights[msg->mFont.mLine] - 22.0f) * 0.5f;
 }
 
 /**
  * @note Address: 0x8008159C
  * @note Size: 0x6D8
  */
-// CMsg_Update
+extern "C" void CMsg_Update(CMsg* msg, u32 step)
+{
+	if (msg->mData.mCursor == NULL) {
+		return;
+	}
+	s32 waiting = FALSE;
+	while (!waiting) {
+		if (msg->mFont.mFadeIn) {
+			waiting = TRUE;
+			continue;
+		}
+		if (msg->_445CC > 0.0f) {
+			f32 time    = msg->_445CC - step;
+			msg->_445CC = time;
+			if (time < 0.0f) {
+				msg->_445CC = 0.0f;
+			} else {
+				waiting = TRUE;
+			}
+			continue;
+		}
+		if (msg->_445C4 < 0.0f) {
+			waiting = TRUE;
+			continue;
+		}
+		if (msg->_445C4 > 0.0f) {
+			f32 time    = msg->_445C4 - step;
+			msg->_445C4 = time;
+			if (time < 0.0f) {
+				msg->_445C4 = 0.0f;
+				if (msg->_445C8 > 0.0f && msg->_445C8 - step < 0.0f) {
+					waiting = TRUE;
+				}
+			} else {
+				waiting = TRUE;
+			}
+			continue;
+		}
+		u8 command = ReadMsgU8(msg);
+		switch (command) {
+		case 10:
+			MsgNextLine(msg);
+			waiting = FALSE;
+			break;
+		case 11:
+			MsgNextLine(msg);
+			waiting = FALSE;
+			break;
+		case 0:
+			waiting = CMsg__cmd_END(msg);
+			break;
+		case 1: {
+			s32 time = ReadMsgU8(msg);
+			if (time == 255) {
+				if (msg->_00 == 0x23) {
+					time = 2;
+				} else {
+					time = 0;
+				}
+			}
+			msg->_445C8 = time;
+			waiting     = FALSE;
+			break;
+		}
+		case 2:
+			waiting = CMsg__cmd_WAIT(msg);
+			break;
+		case 3:
+			waiting = CMsg__cmd_ANIM(msg);
+			break;
+		case 6: {
+			u8 flags  = ReadMsgU8(msg);
+			s32 value = ReadMsgU8(msg);
+			value |= ReadMsgU8(msg) << 8;
+			value |= ReadMsgU8(msg) << 16;
+			value |= ReadMsgU8(msg) << 24;
+			if (flags & 1) {
+				value = lbl_80367A2C[value];
+			}
+			msg->_445D8 = value;
+			waiting     = FALSE;
+			break;
+		}
+		case 4:
+			waiting = CMsg__cmd_SFX(msg);
+			break;
+		case 5:
+			msg->_445FC = ReadMsgU8(msg);
+			if (msg->_445FC == 255) {
+				msg->_445FC = -1;
+			}
+			waiting = FALSE;
+			break;
+		case 13:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 14:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 15:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 16:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 19:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 18:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 20:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 21:
+			waiting = CMsg__cmd_SETFONT(msg, command);
+			break;
+		case 22:
+			msg->_445E8 = ReadMsgU8(msg);
+			msg->_445EC = ReadMsgU8(msg);
+			msg->_445EC = msg->_445E8 - msg->_445EC;
+			msg->_445F0 = ReadMsgU8(msg) - 1;
+			if (msg->_445F0 > msg->_445E8 - 1) {
+				msg->_445F0 = msg->_445E8 - 1;
+			} else if (msg->_445F0 < msg->_445EC) {
+				msg->_445F0 = msg->_445EC;
+			}
+			waiting = FALSE;
+			break;
+		case 23: {
+			u32 arg1 = ReadMsgU8(msg);
+			u32 arg2 = ReadMsgU8(msg);
+			if (lbl_8025C400.mPlayer->mOXMenu.mStarted == 0) {
+				fn_800B51FC(lbl_8025C400.mPlayer, arg1, arg2);
+				msg->mData.mCursor -= 3;
+				waiting = TRUE;
+			} else {
+				CPad pad(0);
+				fn_80096E38(&lbl_8025C400.mPlayer->mOXMenu, &pad);
+				if (pad.mPad->mTrigger & 0x100) {
+					lbl_8025C400._5D08C = lbl_8025C400.mPlayer->mOXMenu._1340;
+					waiting             = FALSE;
+				} else {
+					msg->mData.mCursor -= 3;
+					waiting = TRUE;
+				}
+			}
+			break;
+		}
+		case 24:
+			msg->_445F8 = 1;
+			waiting     = FALSE;
+			break;
+		default: {
+			char text[3];
+			if (MsgHasSjisLead(command)) {
+				text[0] = command;
+				text[1] = ReadMsgU8(msg);
+				text[2] = 0;
+			} else if (command == 17) {
+				text[0] = command;
+				text[1] = ReadMsgU8(msg);
+				text[2] = 0;
+			} else {
+				text[0] = command;
+				text[1] = 0;
+			}
+			CMsgFont_AddChar(&msg->mFont, text);
+			msg->_445C4 = msg->_445C8;
+			if (msg->_445FC >= 0) {
+				fn_8001DC20((CSound*)&lbl_8025C400.mSound, msg->_445FC, msg->mFont.mSize / 22.0f, text[0], text[1]);
+			}
+			break;
+		}
+		}
+	}
+	CMsgFont_Update(&msg->mFont, step);
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -2112,11 +2604,96 @@ extern "C" void CMsg_Draw(CMsg* msg)
     blr
 */
 
+static inline void ResetMsgState(CMsg* msg)
+{
+	msg->mData.mCursor = NULL;
+#if !defined(VERSION_JP)
+	msg->mData.mIconColumns = 0;
+#endif
+	msg->mFont.mActive    = 0;
+	msg->mFont.mFadeIn    = 0;
+	msg->mFont.mFadeOut   = 0;
+	msg->mFont.mBlink     = 0;
+	msg->mFont.mFitLine   = 1;
+	msg->mFont._04_04     = 1;
+	msg->mFont.mCharCount = 0;
+	msg->mFont.mLine      = 0;
+	msg->mFont.mPlacement = 0;
+	Vec zero              = { 0.0f, 0.0f, 0.0f };
+	msg->mFont.mPosition  = zero;
+	msg->mFont.mSize      = 22.0f;
+#if defined(VERSION_JP)
+	msg->mFont.mPrevSize = 22.0f;
+#else
+	msg->mFont.mPrevSize = NAN;
+#endif
+	msg->mFont.mGlyphColor     = msgColorTable[0];
+	msg->mFont.mGlyphAngle     = 0.0f;
+	msg->mFont.mGlyphScaleY    = 1.0f;
+	msg->mFont.mGlyphScaleX    = 1.0f;
+	msg->mFont.mEffect         = 0;
+	msg->mFont.mSelectedLine   = -1;
+	msg->mFont.mOtherSelection = -1;
+	msg->mFont.mAlpha          = 0.0f;
+	msg->mFont.mTextAlpha      = 1.0f;
+	msg->mFont.mHighlightAlpha = 0.0f;
+	msg->mFont._43C6C          = 0;
+	msg->mFont.mBlinkPhase     = 0.0f;
+	msg->mFont.mTexOffset      = 0.0f;
+	for (int i = 0; i < 400; i++) {
+		msg->mFont.mGlyphs[i].mPhaseX = msg->mFont.mGlyphs[i].mPhaseY = (i * 75) % 360;
+	}
+	msg->_445C0 = 1;
+	msg->_445C8 = 0.0f;
+	msg->_445C4 = 0.0f;
+	msg->_445D4 = -1;
+	msg->_445D0 = -1;
+	msg->_445D8 = 0;
+	for (int i = 0; i < 9; i += 3) {
+		for (int j = 0; j < 3; j++) {
+			msg->_445DC[i + j] = 0;
+		}
+	}
+	msg->_445F0 = 0;
+	msg->_445EC = 0;
+	msg->_445E8 = 0;
+	msg->_445F8 = 0;
+	msg->_445FC = -1;
+}
+
+extern "C" void CMsgData_Format(u8* data, u8* script, MsgFormatArgs* args);
+extern "C" void CMsgData_Measure(CMsgData* data);
+extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, s32 mode, s32 style, s32 align);
+
 /**
  * @note Address: 0x80081C74
  * @note Size: 0x508
  */
-// CMsg_Open
+extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
+{
+	ResetMsgState(msg);
+	msg->_00       = command;
+	s32 savedCount = args->count;
+	CMsgData_Format(msg->mData.mText, script, args);
+	CMsgData_Measure(&msg->mData);
+	args->count        = savedCount;
+	msg->mData.mCursor = msg->mData.mText;
+#if !defined(VERSION_JP)
+	if (msg->mData.mIconColumns == 0) {
+		TPLPalette* palette     = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture        = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		CTexObj icon            = texture->Init(&palette->descriptorArray[119], 0);
+		msg->mData.mIconColumns = (s32)GXGetTexObjWidth(&icon) / 24;
+	}
+#endif
+	u8* cursor = msg->mData.mCursor;
+	CMsgFont_Init(&msg->mFont, msg->mData.mText, msg->_44600, msg->_44604, msg->_44608, msg->mData.mAlignment, msg->mData.mStyle);
+	msg->SetFontPosition(msg->_4460C.x, msg->_4460C.y, msg->_4460C.z);
+	msg->_445C4 = 0.0f;
+	msg->_445C8 = msg->_00 == 35 ? 2 : 0;
+	msg->_445CC = 0.0f;
+	return cursor;
+}
 /*
     stwu     r1, -0x150(r1)
     mflr     r0
@@ -2449,7 +3026,6 @@ extern "C" void CMsg_Draw(CMsg* msg)
  * @note Address: 0x8008217C
  * @note Size: 0x60
  */
-// CMsg_ResetPos
 extern "C" void CMsg_ResetPos(CMsg* msg)
 {
 	msg->_44600   = 320.0f;
@@ -2467,59 +3043,7 @@ extern "C" void CMsg_ResetPos(CMsg* msg)
  */
 extern "C" void fn_800821DC(CMsg* msg)
 {
-	msg->_804 = NULL;
-#if !defined(VERSION_JP)
-	msg->_898 = 0;
-#endif
-	msg->_8A0._04_80 = 0;
-	msg->_8A0._04_40 = 0;
-	msg->_8A0._04_20 = 0;
-	msg->_8A0._04_10 = 0;
-	msg->_8A0._04_08 = 1;
-	msg->_8A0._04_04 = 1;
-	msg->_44518      = 0;
-	msg->_4451C      = 0;
-	msg->_44520      = 0;
-	Vec zero         = { 0.0f, 0.0f, 0.0f };
-	msg->_44524      = zero;
-	msg->_44570      = 22.0f;
-#if defined(VERSION_JP)
-	msg->_44574 = 22.0f;
-#else
-	msg->_44574 = NAN;
-#endif
-	msg->_44578 = msgColorTable[0];
-	msg->_4457C = 0.0f;
-	msg->_44584 = 1.0f;
-	msg->_44580 = 1.0f;
-	msg->_44588 = 0;
-	msg->_4458C = -1;
-	msg->_445AC = -1;
-	msg->_445B0 = 0.0f;
-	msg->_445B4 = 1.0f;
-	msg->_445B8 = 0.0f;
-	msg->_4450C = 0;
-	msg->_44510 = 0.0f;
-	msg->_44514 = 0.0f;
-	for (int i = 0; i < 400; i++) {
-		msg->_1348[i]._2A6 = msg->_1348[i]._2A8 = (i * 75) % 360;
-	}
-	msg->_445C0 = 1;
-	msg->_445C8 = 0.0f;
-	msg->_445C4 = 0.0f;
-	msg->_445D4 = -1;
-	msg->_445D0 = -1;
-	msg->_445D8 = 0;
-	for (int i = 0; i < 9; i += 3) {
-		for (int j = 0; j < 3; j++) {
-			msg->_445DC[i + j] = 0;
-		}
-	}
-	msg->_445F0 = 0;
-	msg->_445EC = 0;
-	msg->_445E8 = 0;
-	msg->_445F8 = 0;
-	msg->_445FC = -1;
+	ResetMsgState(msg);
 }
 
 /*
@@ -2735,8 +3259,8 @@ extern "C" void fn_800821DC(CMsg* msg)
  */
 extern "C" BOOL fn_80082508(CMsg* msg)
 {
-	void* spawn         = GetSpawnData(13);
-	UnkXObjReadObj* obj = &msg->_9C0;
+	void* spawn = GetSpawnData(13);
+	XObj* obj   = &msg->mFont.mCursor[0].mCursor;
 	if (obj->vf9C(CoordInfo(spawn))) {
 		obj->SetScale(3.0f, 3.0f, 3.0f, 0);
 		return TRUE;
@@ -2744,11 +3268,23 @@ extern "C" BOOL fn_80082508(CMsg* msg)
 	return FALSE;
 }
 
+extern "C" GXColor lbl_8065A428;
+
 /**
  * @note Address: 0x800825A8
  * @note Size: 0x3C8
  */
-// fn_800825A8
+extern "C" void fn_800825A8(CMsg* msg)
+{
+	ResetMsgState(msg);
+	CMsg_ResetPos(msg);
+	GXColor color       = lbl_8065A428;
+	msg->mFont.mColor.r = color.r;
+	msg->mFont.mColor.g = color.g;
+	msg->mFont.mColor.b = color.b;
+	msg->mFont.mColor.a = color.a;
+	msg->mFont.mCursor[0].mCursor.vf90(0);
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -2995,11 +3531,544 @@ extern "C" BOOL fn_80082508(CMsg* msg)
     blr
 */
 
+extern "C" {
+void fn_80017BB0(CJObj* object, f32 x, f32 y, f32 z, s32 force);
+void fn_80017E68(CJObj* object, f32 x, f32 y, f32 z, s32 force);
+void fn_80017878(CJObj* object, f32 yaw, s32 force);
+void fn_80017D1C(CJObj* object, const Vec& position, s32 force);
+void fn_80017FD0(CJObj* object, const Vec& scale, s32 force);
+#if defined(VERSION_JP)
+void fn_80086BC4(u8* game);
+#elif defined(VERSION_PAL)
+void fn_800869E8(u8* game);
+#endif
+}
+
+#if defined(VERSION_JP)
+#define MSG_OBJECT_OFFSET(offset) ((offset) - 8)
+#else
+#define MSG_OBJECT_OFFSET(offset) (offset)
+#endif
+
+#if defined(VERSION_PAL)
+static inline void MsgRestoreScissor(u32 x, u32 y, u32 width, u32 height)
+{
+	f32 displayScale = ((CGs*)lbl_8025C400.mGs)->mScreen._40;
+	u32 scaledHeight = (u32)(height * displayScale);
+	u32 scaledY      = (u32)(y * displayScale);
+	GXSetScissor(x, scaledY, width, scaledHeight);
+}
+#endif
+
+// one piece of the window frame, a texture window and where it goes
+struct MsgWindowSlice {
+	f32 u;      // _00
+	f32 v;      // _04
+	f32 scaleU; // _08
+	f32 scaleV; // _0C
+	f32 x;      // _10
+	f32 y;      // _14
+	f32 width;  // _18
+	f32 height; // _1C
+};
+
 /**
  * @note Address: 0x80082970
  * @note Size: 0x2308
  */
-// CMsgFont_Draw
+extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
+{
+	CMsgFont* font = (CMsgFont*)p;
+	XObj* anchor   = (XObj*)font->mPlacement;
+	if (anchor != NULL && (anchor->mStatus.mFlags & 1) && (anchor->mStatus.mFlags & 0x10000)) {
+		anchor->vf10C(&font->mPosition, &font->mWindowX, &font->mWindowY, NULL, 0);
+		font->mWindowY -= font->mHeight;
+	}
+	if (font->mWindowX - font->mWidth * 0.5f < 16.0f)
+		font->mWindowX = 16.0f + font->mWidth * 0.5f;
+	if (font->mWindowX + font->mWidth * 0.5f > 624.0f)
+		font->mWindowX = 624.0f - font->mWidth * 0.5f;
+	if (font->mWindowY < 34.0f)
+		font->mWindowY = 34.0f;
+	if (font->mWindowY + font->mHeight > 414.0f)
+		font->mWindowY = 414.0f - font->mHeight;
+	f32 portraitScale;
+	if (lbl_8025C400._4168 != 0)
+		portraitScale = 0.846153855f;
+	else
+		portraitScale = font->mHeight / 52.0f;
+	if (portraitScale > 1.1f)
+		portraitScale = 1.1f;
+	if (portraitScale < 0.5f)
+		portraitScale = 0.5f;
+	f32 portraitWidth = (font->mMode >= 0 && font->mMode < 1) ? 40.0f * portraitScale : 0.0f;
+	f32 textOffset    = portraitWidth;
+	f32 expandX       = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
+	f32 expandY       = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
+
+	if (font->mAlpha > 0.0f) {
+		fn_8019B34C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 12, 5);
+		f32 halfPortrait = portraitWidth * 0.5f;
+		f32 left         = ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - expandX) - halfPortrait;
+		f32 right        = halfPortrait + (expandX + (40.0f + (font->mWindowX + font->mWidth * 0.5f)));
+		f32 top          = (font->mWindowY - 8.0f) - expandY;
+		f32 bottom       = expandY + (8.0f + (font->mWindowY + font->mHeight));
+		f32 windowAlpha  = font->mColor.a != 0 ? font->mAlpha : 0.0f;
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
+		f32 outerRight  = 9.0f + (8.0f + right);
+		f32 outerBottom = 9.0f + (8.0f + bottom);
+		fn_80198614((CGs*)lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000,
+		            outerRight, outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+
+		Vec fan[10]   = { { 0 } };
+		f32 innerLeft = 1.0f + left, innerRight = right - 1.0f;
+		f32 innerTop = 1.0f + top, innerBottom = bottom - 1.0f;
+		f32 roundLeft = 8.0f + innerLeft, roundRight = innerRight - 8.0f;
+		f32 roundTop = 8.0f + innerTop, roundBottom = innerBottom - 8.0f;
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = font->mWindowX;
+			point.y   = font->mWindowY;
+			fan[0]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = innerLeft;
+			point.y   = roundTop;
+			fan[1]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = roundLeft;
+			point.y   = innerTop;
+			fan[2]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = roundRight;
+			point.y   = innerTop;
+			fan[3]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = innerRight;
+			point.y   = roundTop;
+			fan[4]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = innerRight;
+			point.y   = roundBottom;
+			fan[5]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = roundRight;
+			point.y   = innerBottom;
+			fan[6]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = roundLeft;
+			point.y   = innerBottom;
+			fan[7]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = innerLeft;
+			point.y   = roundBottom;
+			fan[8]    = point;
+		}
+		{
+			Vec point = { 0.0f, 0.0f, 0.0f };
+			point.x   = innerLeft;
+			point.y   = roundTop;
+			fan[9]    = point;
+		}
+		u32 color
+		    = ((u32)font->mColor.r << 24) | ((u32)font->mColor.g << 16) | ((u32)font->mColor.b << 8) | (u32)(font->mColor.a * font->mAlpha);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
+		fn_80198D08((CGs*)lbl_8025C400.mGs, GX_TRIANGLEFAN, ((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, fan, color, 10);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 1, 1);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundLeft, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundRight, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundLeft, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundRight, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		color = (u32)(64.0f * windowAlpha);
+		for (s32 i = 0; i < 10; i++) {
+			fan[i].x += 9.0f;
+			fan[i].y += 9.0f;
+		}
+		fn_80198D08((CGs*)lbl_8025C400.mGs, GX_TRIANGLEFAN, ((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, fan, color, 10);
+		f32 shadowLeft = 8.0f + (1.0f + (9.0f + left));
+		f32 shadowTop  = 8.0f + (1.0f + (9.0f + top));
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		f32 shadowRight = ((9.0f + right) - 1.0f) - 8.0f;
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowRight, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		f32 shadowBottom = ((9.0f + bottom) - 1.0f) - 8.0f;
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowRight, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+
+		TPLPalette* palette    = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* sharedTexture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+#if defined(VERSION_JP)
+		CTexObj border = sharedTexture->Init(&palette->descriptorArray[112], 0);
+#else
+		CTexObj border = sharedTexture->Init(&palette->descriptorArray[114], 0);
+#endif
+		f32 textureWidth  = GXGetTexObjWidth(&border);
+		f32 textureHeight = GXGetTexObjHeight(&border);
+		f32 stretchX      = (right - left) - 128.0f;
+		if (stretchX < 0.0f)
+			stretchX = 0.0f;
+		f32 stretchY = (bottom - top) - 64.0f;
+		if (stretchY < 0.0f)
+			stretchY = 0.0f;
+		MsgWindowSlice slices[8]
+		    = { { 0, 0, 0.5f, 0.5f, 0, 0, 64, 32 },   { 0.5f, 0, 0, 0.5f, 0, 0, 0, 32 },       { 0.5f, 0, 0.5f, 0.5f, 0, 0, 64, 32 },
+			    { 0, 0.5f, 0.5f, 0, 0, 0, 64, 0 },    { 0.5f, 0.5f, 0.5f, 0, 0, 0, 64, 0 },    { 0, 0.5f, 0.5f, 0.5f, 0, 0, 64, 32 },
+			    { 0.5f, 0.5f, 0, 0.5f, 0, 0, 0, 32 }, { 0.5f, 0.5f, 0.5f, 0.5f, 0, 0, 64, 32 } };
+		f32 edgeLeft = (32.0f + left) - 3.0f, edgeRight = 3.0f + (right - 32.0f);
+		f32 edgeTop = 8.0f + ((16.0f + top) - 10.0f), edgeBottom = 10.0f + (bottom - 16.0f);
+		slices[1].scaleU = 1.0f / textureWidth;
+		slices[0].x      = edgeLeft;
+		slices[0].y      = edgeTop;
+		slices[1].x      = font->mWindowX;
+		slices[1].y      = edgeTop;
+		slices[1].width  = 6.0f + stretchX;
+		slices[2].x      = edgeRight;
+		slices[2].y      = edgeTop;
+		slices[3].scaleV = 1.0f / textureHeight;
+		slices[3].x      = edgeLeft;
+		slices[3].y      = 4.0f + (font->mHeight * 0.5f + font->mWindowY);
+		slices[3].height = (20.0f + stretchY) - 8.0f;
+		slices[4].scaleV = 1.0f / textureHeight;
+		slices[4].x      = edgeRight;
+		slices[4].y      = 4.0f + (font->mHeight * 0.5f + font->mWindowY);
+		slices[4].height = (20.0f + stretchY) - 8.0f;
+		slices[5].x      = edgeLeft;
+		slices[5].y      = edgeBottom;
+		slices[6].scaleU = 1.0f / textureWidth;
+		slices[6].x      = font->mWindowX;
+		slices[6].y      = edgeBottom;
+		slices[6].width  = 6.0f + stretchX;
+		slices[7].x      = edgeRight;
+		slices[7].y      = edgeBottom;
+		color            = 0xFFFFFF00 | (u32)(255.0f * windowAlpha);
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 1, 1);
+		for (s32 i = 0; i < 8; i++) {
+			PSMTXTrans(border.mMtx[0], slices[i].u, slices[i].v, 0.0f);
+			border.mMtxDirty = TRUE;
+			PSMTXScale(border.mMtx[1], slices[i].scaleU, slices[i].scaleV, 1.0f);
+			border.mMtxDirty = TRUE;
+			fn_80197800((CGs*)lbl_8025C400.mGs, &border, color, color, color, color, slices[i].x, slices[i].y, 1.0f, slices[i].width,
+			            slices[i].height, 0.0f, 0.0f, 0.0f);
+		}
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
+		fn_80198614((CGs*)lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000,
+		            outerRight, outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
+
+		if (font->mMode >= 0 && font->mMode < 1) {
+			if (font->mColor.a != 0) {
+#if defined(VERSION_PAL)
+				f32 displayScale = ((CGs*)lbl_8025C400.mGs)->mScreen._40;
+				u32 clipHeight   = (u32)(displayScale * (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight));
+#else
+				u32 clipHeight = (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight);
+#endif
+				u32 clipWidth = (u32)(2.0f * ((40.0f + expandX) - 1.0f) + font->mWidth);
+#if defined(VERSION_PAL)
+				u32 clipY = (u32)(displayScale * (u32)(1.0f + ((font->mWindowY - 8.0f) - expandY)));
+#else
+				u32 clipY = (u32)(1.0f + ((font->mWindowY - 8.0f) - expandY));
+#endif
+				u32 clipX = (u32)(1.0f + (((font->mWindowX - font->mWidth * 0.5f) - 40.0f - expandX) - halfPortrait));
+				GXSetScissor(clipX, clipY, clipWidth, clipHeight);
+			}
+			f32 portraitX   = 44.0f * portraitScale + ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - halfPortrait);
+			f32 portraitY   = 12.0f * portraitScale + (font->mHeight * 0.5f + font->mWindowY);
+			XObj* portrait  = NULL;
+			s32 objectCount = lbl_8025C400.mPools[7].mUsed;
+			s32 stride      = lbl_8025C400.mPools[7].mStride;
+			u8* objects     = lbl_8025C400.mPools[7].mObjects;
+			for (s32 i = 0; i < objectCount; i++) {
+				XObj* obj = (XObj*)(objects + i * stride);
+				if (obj->mStatus.mFlags & 1) {
+					UnkObjData* kind = *(UnkObjData**)((u8*)obj + MSG_OBJECT_OFFSET(0x240));
+					if ((s16)(kind != NULL ? kind->GetItem() : -1) == 10)
+						portrait = obj;
+				}
+			}
+			if (portrait != NULL) {
+#if !defined(VERSION_JP)
+				if (portrait->mJObj->flags & USER_DEF_MTX)
+					textOffset = 0.0f;
+				else {
+#endif
+					f32 scale       = (9.0f * portraitScale) * font->mAlpha;
+					Vec oldPosition = (Vec)portrait->mMoveTranslate;
+					Vec oldScale    = (Vec)portrait->mMoveScale;
+					f32 oldYaw      = portrait->mMoveRotate.y;
+					CJObj joint(portrait->mJObj);
+					f32 depth = 80.0f * portraitScale;
+					fn_80017BB0(&joint, portraitX, portraitY, depth, 1);
+					fn_80017E68(&joint, scale, -scale, scale, 1);
+					fn_80017878(&joint, 0.0f, 1);
+					HSD_JObjSetupMatrix(joint.mJObj);
+					s32 path[6] = { 0, 3, 0, 0, 0, 0 };
+					f32 height  = fn_8007E7F4((CJObj*)portrait, 6, path).y;
+					fn_80017BB0(&joint, portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
+					fn_80017E68(&joint, scale, -scale, scale, 1);
+					fn_80017878(&joint, 0.0f, 1);
+					HSD_JObjSetFlags(portrait->mJObj, 8);
+					u32 oldColor                                      = *(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168));
+					s32 oldMode                                       = *(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164));
+					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = 0xFFFFFF00;
+					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = 0;
+					portrait->vfAC();
+#if defined(VERSION_US)
+					joint.CJObj::SetTranslate(oldPosition, 1);
+					joint.CJObj::SetScale(oldScale, 1);
+#else
+				fn_80017D1C(&joint, oldPosition, 1);
+				fn_80017FD0(&joint, oldScale, 1);
+#endif
+					fn_80017878(&joint, oldYaw, 1);
+					HSD_JObjClearFlags(portrait->mJObj, 8);
+					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = oldColor;
+					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = oldMode;
+#if !defined(VERSION_JP)
+				}
+#endif
+			} else {
+				font->mCursor[0].mCursor.SetPos(portraitX, portraitY, 80.0f * portraitScale, 0);
+				font->mCursor[0].mCursor.SetScale((9.0f * portraitScale) * font->mAlpha, 0);
+				font->mCursor[0].mCursor.vfAC();
+			}
+#if defined(VERSION_JP)
+			fn_80086BC4((u8*)&lbl_8025C400);
+#elif defined(VERSION_PAL)
+			fn_800869E8((u8*)&lbl_8025C400);
+#else
+			HSD_StateInvalidate(-1);
+			if (((CGs*)lbl_8025C400.mGs)->mCurRenderMode != NULL)
+				((CGs*)lbl_8025C400.mGs)->mCurRenderMode->Invalidate();
+			if (((CGs*)lbl_8025C400.mGs)->mCurTevStage != NULL)
+				((CGs*)lbl_8025C400.mGs)->mCurTevStage->Invalidate();
+			if (((CGs*)lbl_8025C400.mGs)->mCurChannel != NULL && !((CGs*)lbl_8025C400.mGs)->mCurChannel->mDirty)
+				((CGs*)lbl_8025C400.mGs)->mCurChannel->mDirty = TRUE;
+#endif
+			if (font->mColor.a != 0) {
+#if defined(VERSION_PAL)
+				MsgRestoreScissor(0, 0, 640, 448);
+#else
+				GXSetScissor(0, 0, 640, 448);
+#endif
+			}
+		}
+		if (font->mSelectedLine >= 0) {
+			f32 x      = textOffset * 0.5f + font->mWindowX;
+			f32 y      = font->mCurLineY + (8.0f + font->mWindowY);
+			f32 width  = 24.0f + font->mCurLineWidth;
+			f32 height = font->mData->mHeights[font->mSelectedLine];
+			u32 color  = 0xC87F1600 | (u32)(200.0f * font->mHighlightAlpha);
+			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+			CTexObj* highlight = &font->mTexs.mTex[MSG_TEX_ARROW];
+			PSMTXScale(highlight->mMtx[1], 0.25f, 1.0f, 1.0f);
+			highlight->mMtxDirty = TRUE;
+			PSMTXTrans(highlight->mMtx[0], 0.25f, 0.0f, 0.0f);
+			highlight->mMtxDirty = TRUE;
+			y                    = 2.0f + y;
+			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+			PSMTXTrans(highlight->mMtx[0], 0.0f, 0.0f, 0.0f);
+			highlight->mMtxDirty = TRUE;
+			f32 halfWidth        = width * 0.5f;
+			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, (x - halfWidth) - 4.0f, y, 0.0f, 8.0f, height, 0.0f,
+			            0.0f, 0.0f);
+			PSMTXTrans(highlight->mMtx[0], 0.5f, 0.0f, 0.0f);
+			highlight->mMtxDirty = TRUE;
+			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, 4.0f + (x + halfWidth), y, 0.0f, 8.0f, height, 0.0f,
+			            0.0f, 0.0f);
+			CTexObj* line = &font->mTexs.mTex[MSG_TEX_LINE];
+			f32 lineWidth = GXGetTexObjWidth(line);
+			PSMTXScale(line->mMtx[1], 0.5f * (width / lineWidth), 0.5f, 1.0f);
+			line->mMtxDirty = TRUE;
+			color           = 0xFFFFFF00 | (u32)(40.0f * font->mHighlightAlpha);
+			fn_80197800((CGs*)lbl_8025C400.mGs, line, color, color, color, color, 2.0f + x, y, 0.0f, width, height - 4.0f, 0.0f, 0.0f,
+			            0.0f);
+			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+		}
+		if (font->mOtherSelection >= 0) {
+			s32 line    = font->mGlyphs[font->mCharCount - 1].mLine;
+			f32 center  = textOffset * 0.5f + font->mWindowX;
+			f32 x       = ((font->mDigitCount * font->mSize) * 0.5f + center) - (font->mOtherSelection + 1) * font->mSize;
+			f32 y       = 3.0f + ((font->mLineY[line] + (8.0f + font->mWindowY)) - font->mData->mHeights[line] * 0.5f);
+			Vec quad[4] = { { 0 } };
+			{
+				Vec point = { 0.0f, 0.0f, 0.0f };
+				point.x   = x;
+				point.y   = y;
+				quad[0]   = point;
+			}
+			{
+				Vec point = { 0.0f, 0.0f, 0.0f };
+				point.x   = x + font->mSize;
+				point.y   = y;
+				quad[1]   = point;
+			}
+			{
+				Vec point = { 0.0f, 0.0f, 0.0f };
+				point.x   = x + font->mSize;
+				point.y   = y + font->mSize;
+				quad[2]   = point;
+			}
+			{
+				Vec point = { 0.0f, 0.0f, 0.0f };
+				point.x   = x;
+				point.y   = y + font->mSize;
+				quad[3]   = point;
+			}
+			u32 color = 0xFF00 | (u32)(200.0f * font->mHighlightAlpha);
+			fn_80198614((CGs*)lbl_8025C400.mGs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x,
+			            quad[2].y, quad[2].z, color, quad[3].x, quad[3].y, quad[3].z, color);
+			for (s32 i = 0; i < font->mDigitCount; i++) {
+				f32 digitX = ((font->mDigitCount * font->mSize) * 0.5f + center) - (i + 1) * font->mSize;
+				u32 color;
+				if (i < font->mFirstEditDigit)
+					color = 0xFFFFFF00 | (u32)(255.0f * font->mTextAlpha);
+				else
+					color = 0x64FF6400 | (u32)(255.0f * font->mTextAlpha);
+				char text[4];
+#if defined(VERSION_JP)
+				fn_80191268(fn_801911B4("%d", font->mDigits[i]), text);
+#else
+				sprintf(text, "%d", font->mDigits[i]);
+#endif
+				f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, text, TRUE, font->mSize);
+				digitX += (font->mSize - width) * 0.5f;
+				fn_80196610(&lbl_8025C400, color, text, digitX, y, 0.0f, font->mSize, font->mSize);
+			}
+		}
+		fn_8019B34C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 12, 5);
+	}
+
+	if (font->mTextAlpha > 0.0f) {
+		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0, 0, 4);
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(1);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetTexGen(0, 1, 4, 30);
+		if (((CGs*)lbl_8025C400.mGs)->mCurRenderMode != NULL)
+			fn_8019B278(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, FALSE);
+		if (((CGs*)lbl_8025C400.mGs)->mCurTevStage != NULL)
+			fn_8019AED0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, FALSE);
+		if (((CGs*)lbl_8025C400.mGs)->mCurChannel != NULL)
+			fn_8019AE94(((CGs*)lbl_8025C400.mGs)->mCurChannel, FALSE);
+		f32 halfOffset = textOffset * 0.5f;
+		f32 alpha      = font->mTextAlpha;
+		f32 last       = alpha * lastAlpha;
+		Mtx translation, view;
+		PSMTXTrans(translation, 2.0f + (font->mWindowX + halfOffset), 1.0f + font->mWindowY, 0.0f);
+		PSMTXConcat(((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, translation, view);
+		for (s32 i = 0; i < font->mCharCount; i++) {
+			MsgFontGlyph& glyph = font->mGlyphs[i];
+			if (glyph.mLine == font->mSelectedLine) {
+				u32 color = (u32)(150.0f * (i == font->mCharCount - 1 ? last : alpha));
+				glyph.mSprite.SetBillboard(0);
+				glyph.mSprite.Draw(view, GX_TEXMAP0, 30, GX_MTX2x4, color, color, color, color);
+			}
+		}
+		PSMTXTrans(translation, font->mWindowX + halfOffset, font->mWindowY, 0.0f);
+		PSMTXConcat(((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, translation, view);
+		for (s32 i = 0; i < font->mCharCount; i++) {
+			MsgFontGlyph& glyph = font->mGlyphs[i];
+			f32 opacity         = i == font->mCharCount - 1 ? last : alpha;
+			u32 color           = (glyph.mColor & 0xFFFFFF00) | (u8)((u8)glyph.mColor * opacity);
+			glyph.mSprite.SetBillboard(0);
+			switch (glyph.mEffect & 0xF0) {
+			case 0x10:
+			case 0x20: {
+				f32 angle       = glyph.mAngle;
+				f32 a           = (glyph.mEffect & 1) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseY) : 0.0f;
+				f32 b           = (glyph.mEffect & 2) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseX) : 0.0f;
+				f32 quarterTurn = HALF_PI + angle;
+				f32 sideSin     = sin(quarterTurn);
+				f32 forwardSin  = sin(angle);
+				f32 dx          = a * forwardSin + b * sideSin;
+				f32 sideCos     = cos(quarterTurn);
+				f32 forwardCos  = cos(angle);
+				f32 dy          = a * forwardCos + b * sideCos;
+				f32 scaleX = glyph.mScaleX, scaleY = glyph.mScaleY;
+				if (glyph.mEffect & 4) {
+					f32 wave  = sin(DEG2RAD * glyph.mPhaseW);
+					f32 scale = 0.1f * wave + 1.0f;
+					glyph.mSprite.SetScale(scaleX * scale, scaleY * scale, 1.0f);
+				}
+				if (glyph.mEffect & 8) {
+					f32 wave = 0.52359879f * (f32)sin(DEG2RAD * glyph.mPhaseZ);
+					glyph.mSprite.SetRot(0.0f, 0.0f, wave + (angle - wave * 0.5f));
+				}
+				Mtx offset, animatedView;
+				PSMTXTrans(offset, dx, dy, 0.0f);
+				PSMTXConcat(view, offset, animatedView);
+				glyph.mSprite.Draw(animatedView, GX_TEXMAP0, 30, GX_MTX2x4, color, color, color, color);
+				break;
+			}
+			default:
+#if !defined(VERSION_JP)
+				if (glyph.mAngle > 0.0f) {
+					f32 wave  = sin(glyph.mAngle);
+					f32 width = glyph.mWidthAdjust;
+					Mtx offset, rotatedView;
+					PSMTXTrans(offset, width, -width * wave, 0.0f);
+					PSMTXConcat(view, offset, rotatedView);
+					glyph.mSprite.Draw(rotatedView, GX_TEXMAP0, 30, GX_MTX2x4, color, color, color, color);
+				} else
+#endif
+					glyph.mSprite.Draw(view, GX_TEXMAP0, 30, GX_MTX2x4, color, color, color, color);
+				break;
+			}
+		}
+		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 255, 255, 4);
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(0);
+	}
+	if (font->mBlink && (s32)font->_43C6C >= 0) {
+		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0, 0, 4);
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(1);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetTexGen(0, 1, 4, 30);
+		s32 index = font->_43C6C;
+		if (index >= 2)
+			index = 2;
+		CTexObj* cursor = &font->mTexs.mTex[MSG_TEX_CURSOR] + index;
+		f32 width       = GXGetTexObjWidth(cursor);
+		f32 height      = GXGetTexObjHeight(cursor);
+		if ((s32)font->_43C6C >= 2) {
+			width = (s32)GXGetTexObjWidth(cursor) / 11;
+			PSMTXScale(cursor->mMtx[1], 1.0f / 11.0f, 1.0f, 1.0f);
+			cursor->mMtxDirty = TRUE;
+			PSMTXTrans(cursor->mMtx[0], (1.0f / 11.0f) * ((s32)font->_43C6C - 2), 0.0f, 0.0f);
+			cursor->mMtxDirty = TRUE;
+		}
+		s32 line = font->mGlyphs[font->mCharCount - 1].mLine;
+		f32 x    = width * 0.5f + (font->mCursorX + (textOffset * 0.5f + font->mWindowX));
+		f32 y    = (font->mData->mHeights[line] * 0.5f + (font->mLineY[line] + (8.0f + font->mWindowY))) - height * 0.25f;
+		f32 wave = sin(font->mBlinkPhase);
+		if (wave < 0.0f)
+			wave = 0.0f;
+		u32 shadow = (u32)(200.0f * wave);
+		u32 color  = 0xFFFFFF00 | shadow;
+		fn_80197800((CGs*)lbl_8025C400.mGs, cursor, shadow, shadow, shadow, shadow, 2.0f + x, 2.0f + y, 0.0f, width, height, 0.0f, 0.0f,
+		            0.0f);
+		fn_80197800((CGs*)lbl_8025C400.mGs, cursor, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 255, 255, 4);
+		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(0);
+	}
+}
 /*
     stwu     r1, -0x660(r1)
     mflr     r0
@@ -5341,453 +6410,212 @@ CJObj::CJObj(HSD_JObj* jobj)
 	Attach(jobj);
 }
 
+#if defined(VERSION_PAL)
+#define MSG_FADE_RATE (1.0f / (0.3f * lbl_80660D4C))
+#else
+#define MSG_FADE_RATE (1.0f / 18.0f)
+#endif
+
 /**
  * @note Address: 0x80084DC0
  * @note Size: 0x684
  */
-// CMsgFont_Update
-/*
-    stwu     r1, -0x90(r1)
-    mflr     r0
-    stw      r0, 0x94(r1)
-    stw      r31, 0x8c(r1)
-    stw      r30, 0x88(r1)
-    stw      r29, 0x84(r1)
-    mr       r29, r4
-    stw      r28, 0x80(r1)
-    mr       r28, r3
-    lbz      r3, 0x4(r3)
-    extrwi.  r0, r3, 1, 24
-    beq      .L_800850BC
-    extrwi.  r0, r3, 1, 25
-    beq      .L_80084E88
-    addis    r3, r28, 0x4
-    lfs      f0, lbl_8065D05C@sda21(r0)
-    lfs      f1, 0x3d10(r3)
-    fcmpo    cr0, f1, f0
-    bge      .L_80084E88
-    lbz      r0, 0x11b(r28)
-    cmplwi   r0, 0x0
-    bne      .L_80084E38
-    lwz      r0, 0xaa8(r28)
-    cmpwi    r0, 0x0
-    bge      .L_80084E38
-    stfs     f0, 0x3d10(r3)
-    li       r3, 0x0
-    lbz      r0, 0x4(r28)
-    rlwimi   r0, r3, 6, 25, 25
-    stb      r0, 0x4(r28)
-.L_80084E38:
-    lis      r0, 0x4330
-    addis    r3, r28, 0x4
-    stw      r29, 0xc(r1)
-    lfd      f2, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    lfs      f3, lbl_8065D11C@sda21(r0)
-    lfd      f0, 0x8(r1)
-    lfs      f1, 0x3d10(r3)
-    fsubs    f2, f0, f2
-    lfs      f0, lbl_8065D05C@sda21(r0)
-    fmadds   f1, f3, f2, f1
-    fcmpo    cr0, f1, f0
-    stfs     f1, 0x3d10(r3)
-    cror     eq, gt, eq
-    bne      .L_80084E88
-    stfs     f0, 0x3d10(r3)
-    li       r3, 0x0
-    lbz      r0, 0x4(r28)
-    rlwimi   r0, r3, 6, 25, 25
-    stb      r0, 0x4(r28)
-.L_80084E88:
-    lbz      r0, 0x4(r28)
-    extrwi.  r0, r0, 1, 26
-    beq      .L_80084F04
-    addis    r3, r28, 0x4
-    lfs      f3, lbl_8065D058@sda21(r0)
-    lfs      f4, 0x3d10(r3)
-    fcmpo    cr0, f4, f3
-    ble      .L_80084EF8
-    lis      r0, 0x4330
-    stw      r29, 0xc(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    lfs      f2, lbl_8065D11C@sda21(r0)
-    lfd      f0, 0x8(r1)
-    fsubs    f0, f0, f1
-    fnmsubs  f0, f2, f0, f4
-    fcmpo    cr0, f0, f3
-    stfs     f0, 0x3d10(r3)
-    cror     eq, lt, eq
-    bne      .L_80084EF8
-    stfs     f3, 0x3d10(r3)
-    li       r3, 0x0
-    lbz      r0, 0x4(r28)
-    rlwimi   r0, r3, 5, 26, 26
-    stb      r0, 0x4(r28)
-    lbz      r0, 0x4(r28)
-    rlwimi   r0, r3, 7, 24, 24
-    stb      r0, 0x4(r28)
-.L_80084EF8:
-    addis    r3, r28, 0x4
-    lfs      f0, 0x3d10(r3)
-    stfs     f0, 0x3d14(r3)
-.L_80084F04:
-    addis    r3, r28, 0x4
-    lwz      r0, 0x3cec(r3)
-    cmpwi    r0, 0x0
-    bge      .L_80084F20
-    lwz      r0, 0x3d0c(r3)
-    cmpwi    r0, 0x0
-    blt      .L_80084F6C
-.L_80084F20:
-    addis    r3, r28, 0x4
-    lfs      f3, lbl_8065D05C@sda21(r0)
-    lfs      f4, 0x3d18(r3)
-    fcmpo    cr0, f4, f3
-    bge      .L_80084FB0
-    lis      r0, 0x4330
-    stw      r29, 0xc(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    lfs      f2, lbl_8065D11C@sda21(r0)
-    lfd      f0, 0x8(r1)
-    fsubs    f0, f0, f1
-    fmadds   f0, f2, f0, f4
-    fcmpo    cr0, f0, f3
-    stfs     f0, 0x3d18(r3)
-    cror     eq, gt, eq
-    bne      .L_80084FB0
-    stfs     f3, 0x3d18(r3)
-    b        .L_80084FB0
-.L_80084F6C:
-    lfs      f4, 0x3d18(r3)
-    lfs      f3, lbl_8065D058@sda21(r0)
-    fcmpo    cr0, f4, f3
-    ble      .L_80084FB0
-    lis      r0, 0x4330
-    stw      r29, 0xc(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    lfs      f2, lbl_8065D11C@sda21(r0)
-    lfd      f0, 0x8(r1)
-    fsubs    f0, f0, f1
-    fnmsubs  f0, f2, f0, f4
-    fcmpo    cr0, f0, f3
-    stfs     f0, 0x3d18(r3)
-    cror     eq, lt, eq
-    bne      .L_80084FB0
-    stfs     f3, 0x3d18(r3)
-.L_80084FB0:
-    addis    r3, r28, 0x4
-    lwz      r4, 0x3cec(r3)
-    cmpwi    r4, 0x0
-    blt      .L_8008506C
-    lbz      r0, 0x4(r28)
-    extrwi.  r0, r0, 1, 28
-    beq      .L_80084FE0
-    lwz      r3, 0x0(r28)
-    slwi     r0, r4, 2
-    add      r3, r3, r0
-    lfs      f7, 0x830(r3)
-    b        .L_80084FE8
-.L_80084FE0:
-    lwz      r3, 0x0(r28)
-    lfs      f7, 0x880(r3)
-.L_80084FE8:
-    addis    r5, r28, 0x4
-    lis      r0, 0x4330
-    lwz      r4, 0x3cec(r5)
-    addi     r3, r5, 0x3ba8
-    lfs      f2, lbl_8065D058@sda21(r0)
-    slwi     r4, r4, 2
-    lfs      f4, 0x3cf0(r5)
-    add      r4, r5, r4
-    lfs      f5, lbl_8065D120@sda21(r0)
-    lfs      f0, 0x3ca8(r4)
-    fmr      f3, f2
-    lfs      f6, lbl_8065D124@sda21(r0)
-    fsubs    f0, f0, f4
-    stw      r29, 0xc(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    fmadds   f5, f5, f0, f4
-    lfs      f4, lbl_8065D128@sda21(r0)
-    lfd      f0, 0x8(r1)
-    stfs     f5, 0x3cf0(r5)
-    fsubs    f1, f0, f1
-    lfs      f5, 0x3cf4(r5)
-    fsubs    f0, f7, f5
-    fmadds   f0, f6, f0, f5
-    stfs     f0, 0x3cf4(r5)
-    lfs      f0, 0x3c74(r5)
-    fnmsubs  f0, f4, f1, f0
-    stfs     f0, 0x3c74(r5)
-    lfs      f1, 0x3c74(r5)
-    bl       PSMTXTrans
-    addis    r3, r28, 0x4
-    li       r0, 0x1
-    stw      r0, 0x3ba4(r3)
-.L_8008506C:
-    lbz      r0, 0x4(r28)
-    extrwi.  r0, r0, 1, 27
-    beq      .L_800850BC
-    lis      r0, 0x4330
-    addis    r3, r28, 0x4
-    stw      r29, 0xc(r1)
-    lfd      f2, lbl_8065D048@sda21(r0)
-    stw      r0, 0x8(r1)
-    lfs      f3, lbl_8065D12C@sda21(r0)
-    lfd      f1, 0x8(r1)
-    lfs      f0, 0x3c70(r3)
-    fsubs    f1, f1, f2
-    lfd      f2, lbl_8065D130@sda21(r0)
-    fmadds   f0, f3, f1, f0
-    stfs     f0, 0x3c70(r3)
-    lfs      f1, 0x3c70(r3)
-    bl       fmod
-    frsp     f0, f1
-    addis    r3, r28, 0x4
-    stfs     f0, 0x3c70(r3)
-.L_800850BC:
-    lbz      r0, 0x4(r28)
-    extrwi.  r0, r0, 1, 24
-    beq      .L_80085380
-    li       r30, 0x0
-    mr       r31, r28
-.L_800850D0:
-    lbz      r0, 0xd4c(r31)
-    rlwinm   r0, r0, 0, 24, 27
-    cmpwi    r0, 0x20
-    beq      .L_800852A4
-    bge      .L_80085370
-    cmpwi    r0, 0x10
-    beq      .L_800850F0
-    b        .L_80085370
-.L_800850F0:
-    lbz      r3, 0xd56(r31)
-    lis      r0, 0x4330
-    lha      r4, 0xd50(r31)
-    extsb    r3, r3
-    stw      r0, 0x8(r1)
-    mullw    r0, r3, r29
-    lfd      f1, lbl_8065D048@sda21(r0)
-    lfd      f2, lbl_8065D138@sda21(r0)
-    add      r0, r4, r0
-    stw      r0, 0xc(r1)
-    lfd      f0, 0x8(r1)
-    fsubs    f1, f0, f1
-    bl       fmod
-    frsp     f0, f1
-    lis      r0, 0x4330
-    stw      r0, 0x18(r1)
-    lfd      f4, lbl_8065D050@sda21(r0)
-    fctiwz   f0, f0
-    stw      r29, 0x24(r1)
-    lfs      f5, lbl_8065D068@sda21(r0)
-    stw      r0, 0x20(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stfd     f0, 0x10(r1)
-    lfd      f0, 0x20(r1)
-    lwz      r3, 0x14(r1)
-    stw      r0, 0x28(r1)
-    fsubs    f1, f0, f1
-    lfd      f2, lbl_8065D138@sda21(r0)
-    sth      r3, 0xd50(r31)
-    lbz      r3, 0xd56(r31)
-    lha      r0, 0xd4e(r31)
-    extsb    r3, r3
-    xoris    r3, r3, 0x8000
-    xoris    r0, r0, 0x8000
-    stw      r3, 0x1c(r1)
-    lfd      f0, 0x18(r1)
-    stw      r0, 0x2c(r1)
-    fsubs    f3, f0, f4
-    lfd      f0, 0x28(r1)
-    fmuls    f3, f5, f3
-    fsubs    f0, f0, f4
-    fmadds   f1, f3, f1, f0
-    bl       fmod
-    frsp     f0, f1
-    lis      r0, 0x4330
-    stw      r0, 0x38(r1)
-    lfd      f4, lbl_8065D050@sda21(r0)
-    fctiwz   f0, f0
-    stw      r29, 0x44(r1)
-    lfs      f5, lbl_8065D124@sda21(r0)
-    stw      r0, 0x40(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stfd     f0, 0x30(r1)
-    lfd      f0, 0x40(r1)
-    lwz      r3, 0x34(r1)
-    stw      r0, 0x48(r1)
-    fsubs    f1, f0, f1
-    lfd      f2, lbl_8065D138@sda21(r0)
-    sth      r3, 0xd4e(r31)
-    lbz      r3, 0xd56(r31)
-    lha      r0, 0xd52(r31)
-    extsb    r3, r3
-    xoris    r3, r3, 0x8000
-    xoris    r0, r0, 0x8000
-    stw      r3, 0x3c(r1)
-    lfd      f0, 0x38(r1)
-    stw      r0, 0x4c(r1)
-    fsubs    f3, f0, f4
-    lfd      f0, 0x48(r1)
-    fmuls    f3, f5, f3
-    fsubs    f0, f0, f4
-    fmadds   f1, f3, f1, f0
-    bl       fmod
-    frsp     f0, f1
-    lis      r0, 0x4330
-    stw      r0, 0x58(r1)
-    lfd      f4, lbl_8065D050@sda21(r0)
-    fctiwz   f0, f0
-    stw      r29, 0x64(r1)
-    lfs      f5, lbl_8065D120@sda21(r0)
-    stw      r0, 0x60(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    stfd     f0, 0x50(r1)
-    lfd      f0, 0x60(r1)
-    lwz      r3, 0x54(r1)
-    stw      r0, 0x68(r1)
-    fsubs    f1, f0, f1
-    lfd      f2, lbl_8065D138@sda21(r0)
-    sth      r3, 0xd52(r31)
-    lbz      r3, 0xd56(r31)
-    lha      r0, 0xd54(r31)
-    extsb    r3, r3
-    xoris    r3, r3, 0x8000
-    xoris    r0, r0, 0x8000
-    stw      r3, 0x5c(r1)
-    lfd      f0, 0x58(r1)
-    stw      r0, 0x6c(r1)
-    fsubs    f3, f0, f4
-    lfd      f0, 0x68(r1)
-    fmuls    f3, f5, f3
-    fsubs    f0, f0, f4
-    fmadds   f1, f3, f1, f0
-    bl       fmod
-    frsp     f0, f1
-    fctiwz   f0, f0
-    stfd     f0, 0x70(r1)
-    lwz      r0, 0x74(r1)
-    sth      r0, 0xd54(r31)
-    b        .L_80085370
-.L_800852A4:
-    lbz      r3, 0xd57(r31)
-    subi     r3, r3, 0x1
-    extsb.   r0, r3
-    stb      r3, 0xd57(r31)
-    bgt      .L_80085370
-    bl       rand
-    lis      r4, 0xb60b
-    addi     r0, r4, 0x60b7
-    mulhw    r0, r0, r3
-    add      r0, r0, r3
-    srawi    r0, r0, 8
-    srwi     r4, r0, 31
-    add      r0, r0, r4
-    mulli    r0, r0, 0x168
-    subf     r0, r0, r3
-    sth      r0, 0xd50(r31)
-    bl       rand
-    lis      r4, 0xb60b
-    addi     r0, r4, 0x60b7
-    mulhw    r0, r0, r3
-    add      r0, r0, r3
-    srawi    r0, r0, 8
-    srwi     r4, r0, 31
-    add      r0, r0, r4
-    mulli    r0, r0, 0x168
-    subf     r0, r0, r3
-    sth      r0, 0xd4e(r31)
-    bl       rand
-    lis      r4, 0xb60b
-    addi     r0, r4, 0x60b7
-    mulhw    r0, r0, r3
-    add      r0, r0, r3
-    srawi    r0, r0, 8
-    srwi     r4, r0, 31
-    add      r0, r0, r4
-    mulli    r0, r0, 0x168
-    subf     r0, r0, r3
-    sth      r0, 0xd52(r31)
-    bl       rand
-    lis      r4, 0xb60b
-    addi     r0, r4, 0x60b7
-    mulhw    r0, r0, r3
-    add      r0, r0, r3
-    srawi    r0, r0, 8
-    srwi     r4, r0, 31
-    add      r0, r0, r4
-    mulli    r0, r0, 0x168
-    subf     r0, r0, r3
-    sth      r0, 0xd54(r31)
-    lbz      r0, 0xd56(r31)
-    stb      r0, 0xd57(r31)
-.L_80085370:
-    addi     r30, r30, 0x1
-    addi     r31, r31, 0x2ac
-    cmpwi    r30, 0x190
-    blt      .L_800850D0
-.L_80085380:
-    lis      r0, 0x4330
-    stw      r29, 0x74(r1)
-    lfd      f1, lbl_8065D048@sda21(r0)
-    addi     r3, r28, 0x44
-    stw      r0, 0x70(r1)
-    lfs      f2, lbl_8065D140@sda21(r0)
-    lfd      f0, 0x70(r1)
-    lfs      f4, 0x108(r28)
-    fsubs    f0, f0, f1
-    lfs      f3, lbl_8065D058@sda21(r0)
-    fmuls    f1, f2, f0
-    fadds    f0, f4, f1
-    stfs     f0, 0x108(r28)
-    lfs      f0, 0x10c(r28)
-    fadds    f0, f0, f1
-    stfs     f0, 0x10c(r28)
-    lfs      f1, 0x108(r28)
-    lfs      f2, 0x10c(r28)
-    bl       PSMTXTrans
-    li       r5, 0x1
-    stw      r5, 0x40(r28)
-    lwz      r0, 0xaa8(r28)
-    cmpwi    r0, 0x0
-    blt      .L_80085424
-    cmpwi    r0, 0x1
-    bge      .L_80085424
-    lwz      r3, 0x34c(r28)
-    li       r4, 0x0
-    lwz      r0, 0x348(r28)
-    and      r3, r3, r5
-    and      r0, r0, r4
-    xor      r3, r3, r4
-    xor      r0, r0, r4
-    or.      r0, r3, r0
-    beq      .L_80085424
-    addi     r3, r28, 0x120
-    mr       r4, r29
-    lwz      r12, 0x154(r28)
-    lwz      r12, 0xa4(r12)
-    mtctr    r12
-    bctrl
-.L_80085424:
-    lwz      r0, 0x94(r1)
-    lwz      r31, 0x8c(r1)
-    lwz      r30, 0x88(r1)
-    lwz      r29, 0x84(r1)
-    lwz      r28, 0x80(r1)
-    mtlr     r0
-    addi     r1, r1, 0x90
-    blr
-*/
+extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
+{
+	if (font->mActive) {
+		if (font->mFadeIn && font->mAlpha < 1.0f) {
+			if (font->mColor.a == 0 && font->mMode < 0) {
+				font->mAlpha  = 1.0f;
+				font->mFadeIn = FALSE;
+			}
+			f32 alpha    = font->mAlpha + MSG_FADE_RATE * step;
+			font->mAlpha = alpha;
+			if (alpha >= 1.0f) {
+				font->mAlpha  = 1.0f;
+				font->mFadeIn = FALSE;
+			}
+		}
+		if (font->mFadeOut) {
+			if (font->mAlpha > 0.0f) {
+				f32 alpha    = font->mAlpha - MSG_FADE_RATE * step;
+				font->mAlpha = alpha;
+				if (alpha <= 0.0f) {
+					font->mAlpha   = 0.0f;
+					font->mFadeOut = FALSE;
+					font->mActive  = FALSE;
+				}
+			}
+			font->mTextAlpha = font->mAlpha;
+		}
+		if (font->mSelectedLine >= 0 || font->mOtherSelection >= 0) {
+			if (font->mHighlightAlpha < 1.0f) {
+				f32 alpha             = font->mHighlightAlpha + MSG_FADE_RATE * step;
+				font->mHighlightAlpha = alpha;
+				if (alpha >= 1.0f) {
+					font->mHighlightAlpha = 1.0f;
+				}
+			}
+		} else if (font->mHighlightAlpha > 0.0f) {
+			f32 alpha             = font->mHighlightAlpha - MSG_FADE_RATE * step;
+			font->mHighlightAlpha = alpha;
+			if (alpha <= 0.0f) {
+				font->mHighlightAlpha = 0.0f;
+			}
+		}
+		if (font->mSelectedLine >= 0) {
+			f32 width = font->mFitLine ? font->mData->mWidths[font->mSelectedLine] : font->mData->mMaxWidth;
+			font->mCurLineY += 0.8f * (font->mLineY[font->mSelectedLine] - font->mCurLineY);
+			font->mCurLineWidth += 0.7f * (width - font->mCurLineWidth);
+			font->mTexOffset -= 0.008f * step;
+			PSMTXTrans(font->mTexs.mTex[MSG_TEX_LINE].mMtx[0], font->mTexOffset, 0.0f, 0.0f);
+			font->mTexs.mTex[MSG_TEX_LINE].mMtxDirty = TRUE;
+		}
+		if (font->mBlink) {
+			font->mBlinkPhase += 0.104719758f * step;
+			font->mBlinkPhase = fmod(font->mBlinkPhase, (f64)PI);
+		}
+	}
+
+	if (font->mActive) {
+		for (s32 i = 0; i < 400; i++) {
+			MsgFontGlyph& glyph = font->mGlyphs[i];
+			switch (glyph.mEffect & 0xF0) {
+			case 0x10:
+				// this one wraps as an int before going to float
+				glyph.mPhaseY = (s16)(f32)fmod((f32)(glyph.mPhaseY + glyph.mSpeed * step), 360.0);
+				glyph.mPhaseX = (s16)(f32)fmod(glyph.mPhaseX + (0.5f * glyph.mSpeed) * step, 360.0);
+				glyph.mPhaseZ = (s16)(f32)fmod(glyph.mPhaseZ + (0.7f * glyph.mSpeed) * step, 360.0);
+				glyph.mPhaseW = (s16)(f32)fmod(glyph.mPhaseW + (0.8f * glyph.mSpeed) * step, 360.0);
+				break;
+			case 0x20:
+				if (--glyph.mRefresh <= 0) {
+					glyph.mPhaseY  = rand() % 360;
+					glyph.mPhaseX  = rand() % 360;
+					glyph.mPhaseZ  = rand() % 360;
+					glyph.mPhaseW  = rand() % 360;
+					glyph.mRefresh = glyph.mSpeed;
+				}
+				break;
+			}
+		}
+	}
+	font->mScrollX += 0.01f * step;
+	font->mScrollY += 0.01f * step;
+	PSMTXTrans(font->mFrame.mTex.mMtx[0], font->mScrollX, font->mScrollY, 0.0f);
+	font->mFrame.mTex.mMtxDirty = TRUE;
+	if (font->mMode >= 0 && font->mMode < 1 && (font->mCursor[0].mCursor.mStatus.mFlags & 1)) {
+		font->mCursor[0].mCursor.vfA4(step);
+	}
+}
 
 /**
  * @note Address: 0x80085444
  * @note Size: 0x6F0
  */
-// CMsgFont_AddChar
+extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
+{
+	f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, text, font->_04_04, font->mSize);
+	f32 spacing;
+#if defined(VERSION_JP)
+	spacing = (font->mSize - font->mPrevSize) * 0.5f;
+#else
+	if (__fpclassifyf(font->mPrevSize) == FP_NAN) {
+		spacing = 0.0f;
+	} else {
+		spacing = (font->mSize - font->mPrevSize) * 0.5f;
+	}
+#endif
+	s32 textureWidth;
+	if ((u8)text[0] == 17) {
+#if defined(VERSION_JP)
+		TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
+		PSMTXScale(icon.mMtx[1], 1.0f / 14.0f, 1.0f, 1.0f);
+		icon.mMtxDirty = TRUE;
+		PSMTXTrans(icon.mMtx[0], (1.0f / 14.0f) * (u8)text[1], 0.0f, 0.0f);
+		icon.mMtxDirty = TRUE;
+		textureWidth   = (s32)font->mGlyphs[font->mCharCount].mTexture.Set(icon) / 14;
+#else
+		TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
+		s32 index           = (u8)text[1];
+		s32 columns         = font->mData->mIconColumns;
+		if (index >= columns) {
+			index = columns - 1;
+		}
+		f32 cellWidth = 1.0f / columns;
+		PSMTXScale(icon.mMtx[1], cellWidth, 1.0f, 1.0f);
+		icon.mMtxDirty = TRUE;
+		PSMTXTrans(icon.mMtx[0], cellWidth * index, 0.0f, 0.0f);
+		icon.mMtxDirty = TRUE;
+		textureWidth   = (s32)font->mGlyphs[font->mCharCount].mTexture.Set(icon) / columns;
+#endif
+		width = textureWidth * (font->mSize / 22.0f);
+	} else {
+		textureWidth = font->mGlyphs[font->mCharCount].mSprite.mTex->SetChar(text);
+	}
+	f32 x = (width - textureWidth) * 0.5f + (11.0f + font->mCursorX + spacing);
+	f32 y = font->mCursorY + font->mData->mHeights[font->mLine] * 0.5f;
+#if defined(VERSION_JP)
+	if ((u8)text[0] == 17) {
+		font->mGlyphs[font->mCharCount].mSprite.SetTrans(x + 0.08f * textureWidth, y, 0.0f);
+	} else {
+		font->mGlyphs[font->mCharCount].mSprite.SetTrans(x, y, 0.0f);
+	}
+#else
+	font->mGlyphs[font->mCharCount].mSprite.SetTrans(x, y, 0.0f);
+#endif
+	f32 sx, sy;
+	if (font->mGlyphScaleX >= 0.0f && font->mGlyphScaleY >= 0.0f) {
+		sx = font->mGlyphScaleX;
+		sy = font->mGlyphScaleY;
+	} else {
+		f32 min = 100.0f * font->mGlyphScaleX;
+		if (min < 0.0f)
+			min = -min;
+		f32 max = 100.0f * font->mGlyphScaleY;
+		if (max < 0.0f)
+			max = -max;
+		f32 value = fmod((f32)rand(), max - min);
+		f32 scale = font->mGlyphScaleX;
+		if (scale < 0.0f)
+			scale = -scale;
+		sx = sy = scale + value / 100.0f;
+	}
+	f32 scaleX = (font->mSize * 0.5f) * sx;
+	f32 scaleY = (-font->mSize * 0.5f) * sy;
+	font->mGlyphs[font->mCharCount].mSprite.SetScale(scaleX, scaleY, 1.0f);
+	f32 angle = font->mGlyphAngle;
+	if (!(angle >= 0.0f)) {
+		f32 range = 2.0f * angle;
+		if (range < 0.0f)
+			range = -range;
+		f32 value = fmod((f32)rand(), RAD2DEG * range);
+		angle     = DEG2RAD * value + font->mGlyphAngle;
+	}
+	font->mGlyphs[font->mCharCount].mSprite.SetRot(0.0f, 0.0f, angle);
+	font->mGlyphs[font->mCharCount].mColor  = font->mGlyphColor;
+	font->mGlyphs[font->mCharCount].mLine   = font->mLine;
+	font->mGlyphs[font->mCharCount].mAngle  = angle;
+	font->mGlyphs[font->mCharCount].mScaleX = scaleX;
+	font->mGlyphs[font->mCharCount].mScaleY = scaleY;
+#if !defined(VERSION_JP)
+	if (!(angle <= PI)) {
+		angle = TWO_PI - angle;
+	}
+	font->mGlyphs[font->mCharCount].mWidthAdjust = (angle / PI) * (width - font->mSize);
+#endif
+	font->mGlyphs[font->mCharCount].mEffect = font->mEffect;
+	font->mGlyphs[font->mCharCount].mAmount = font->mAmount;
+	font->mGlyphs[font->mCharCount].mPhaseZ = rand() % 360;
+	font->mGlyphs[font->mCharCount].mPhaseW = rand() % 360;
+	font->mGlyphs[font->mCharCount].mSpeed = font->mGlyphs[font->mCharCount].mRefresh = font->mSpeed;
+	font->mCursorX += width + spacing;
+	font->mPrevSize = font->mSize;
+	font->mCharCount++;
+}
 /*
     stwu     r1, -0x190(r1)
     mflr     r0
@@ -6257,11 +7085,100 @@ CJObj::CJObj(HSD_JObj* jobj)
     blr
 */
 
+extern "C" u16 GXGetTexObjHeight(const GXTexObj* obj);
+
 /**
  * @note Address: 0x80085B34
  * @note Size: 0x950
  */
-// CMsgFont_Init
+extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 placement, s32 fitLine, s32 mode)
+{
+	CMsgFont* font    = (CMsgFont*)window;
+	font->mData       = (CMsgData*)data;
+	font->mActive     = FALSE;
+	font->mFadeIn     = FALSE;
+	font->mFadeOut    = FALSE;
+	font->mBlink      = FALSE;
+	font->mFitLine    = TRUE;
+	font->_04_04      = TRUE;
+	font->mCharCount  = 0;
+	font->mLine       = 0;
+	font->mPlacement  = 0;
+	Vec origin        = { 0.0f, 0.0f, 0.0f };
+	font->mPosition.x = origin.x;
+	font->mPosition.y = origin.y;
+	font->mPosition.z = origin.z;
+#if defined(VERSION_JP)
+	font->mSize = font->mPrevSize = 22.0f;
+#else
+	font->mSize     = 22.0f;
+	font->mPrevSize = NAN;
+#endif
+	font->mGlyphColor  = msgColorTable[0];
+	font->mGlyphAngle  = 0.0f;
+	font->mGlyphScaleX = font->mGlyphScaleY = 1.0f;
+	font->mEffect                           = 0;
+	font->mSelectedLine                     = -1;
+	font->mOtherSelection                   = -1;
+	font->mAlpha                            = 0.0f;
+	font->mTextAlpha                        = 1.0f;
+	font->mHighlightAlpha                   = 0.0f;
+	font->_43C6C                            = 0;
+	font->mBlinkPhase                       = 0.0f;
+	font->mTexOffset                        = 0.0f;
+	for (s32 i = 0; i < 400; i++) {
+		font->mGlyphs[i].mPhaseX = font->mGlyphs[i].mPhaseY = (i * 75) % 360;
+	}
+	font->mActive  = TRUE;
+	font->mFadeIn  = TRUE;
+	font->mFadeOut = FALSE;
+	font->mBlink   = FALSE;
+	font->mFitLine = fitLine;
+	font->_04_04   = TRUE;
+	f32 width      = font->mData->mMaxWidth;
+	f32 height     = font->mData->mTotalHeight;
+#if defined(VERSION_JP)
+	CTexObj* texture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+#define MSG_INIT_DESCRIPTOR(i) ((i) - 2)
+#else
+	CTexObj* texture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+#define MSG_INIT_DESCRIPTOR(i) (i)
+#endif
+	font->mFrame.mTex = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(138)], 0);
+	font->mScrollX = font->mScrollY = 0.0f;
+	PSMTXTrans(font->mFrame.mTex.mMtx[0], font->mScrollX, font->mScrollY, 0.0f);
+	font->mFrame.mTex.mMtxDirty = TRUE;
+	font->mScaleX               = width / GXGetTexObjWidth(&font->mFrame.mTex);
+	font->mScaleY               = height / GXGetTexObjHeight(&font->mFrame.mTex);
+	PSMTXScale(font->mFrame.mTex.mMtx[1], font->mScaleX, font->mScaleY, 1.0f);
+	font->mFrame.mTex.mMtxDirty = TRUE;
+	font->mMode                 = mode;
+	for (s32 i = 0; i < 400; i++) {
+		font->mGlyphs[i].mSprite.Init(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+		font->mGlyphs[i].mSprite.mTex = &font->mGlyphs[i].mTexture;
+		font->mGlyphs[i].mColor       = msgColorTable[0];
+		font->mGlyphs[i].mLine        = 0;
+	}
+	font->mPlacement          = placement;
+	font->mCursorX            = -((font->mFitLine ? font->mData->mWidths[font->mLine] : width) * 0.5f);
+	font->mWindowX            = x;
+	font->mWidth              = width;
+	font->mCursorY            = 0.0f;
+	font->mWindowY            = y;
+	font->mHeight             = height;
+	font->mLineY[font->mLine] = font->mCursorY + (font->mData->mHeights[0] - 22.0f) * 0.5f;
+	font->mTexs.mTex[MSG_TEX_CURSOR]
+	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
+	font->mTexs.mTex[MSG_TEX_DIGIT]
+	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
+	font->mTexs.mTex[MSG_TEX_ICON]
+	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
+	font->mTexs.mTex[MSG_TEX_ARROW]
+	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(117)], 0);
+	font->mTexs.mTex[MSG_TEX_LINE]
+	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(118)], 0);
+#undef MSG_INIT_DESCRIPTOR
+}
 /*
     stwu     r1, -0xb0(r1)
     mflr     r0
@@ -6871,11 +7788,161 @@ CJObj::CJObj(HSD_JObj* jobj)
     blr
 */
 
+static inline s32 MsgCommandLength(const u8* p)
+{
+	switch (*p) {
+	case 0:
+	case 10:
+	case 11:
+	case 24:
+		return 1;
+	case 1:
+	case 2:
+		return 2;
+	case 6:
+		return 6;
+	case 3:
+		return 8;
+	case 4:
+		if (p[5] == 2 || p[5] == 3) {
+			return 8;
+		} else if (p[5] == 4) {
+			return 9;
+		}
+		return 6;
+	case 5:
+	case 13:
+	case 14:
+	case 16:
+	case 17:
+	case 19:
+		return 2;
+	case 20:
+	case 23:
+		return 3;
+	case 18:
+	case 22:
+		return 4;
+	case 15:
+	case 21:
+		return 5;
+	default:
+		if (MsgHasSjisLead(*p)) {
+			return 2;
+		}
+		return 1;
+	}
+}
+
 /**
  * @note Address: 0x80086484
  * @note Size: 0x528
  */
-// CMsgData_Measure
+extern "C" void CMsgData_Measure(CMsgData* data)
+{
+	data->mLineCount                 = 0;
+	data->mCounts[data->mLineCount]  = 0;
+	data->mWidths[data->mLineCount]  = 0.0f;
+	data->mHeights[data->mLineCount] = 0.0f;
+	data->mStyle                     = -1;
+	data->mAlignment                 = 1;
+	f32 size                         = 22.0f;
+	BOOL proportional                = TRUE;
+	s32 done                         = 0;
+	u8* p                            = data->mText;
+	while (!done) {
+		switch (*p) {
+		case 10:
+		case 11:
+			if (data->mHeights[data->mLineCount] == 0.0f) {
+				data->mHeights[data->mLineCount] = size;
+			}
+			data->mLineCount++;
+			data->mCounts[data->mLineCount]  = 0;
+			data->mWidths[data->mLineCount]  = 0.0f;
+			data->mHeights[data->mLineCount] = size;
+			break;
+		case 0:
+			if (data->mHeights[data->mLineCount] == 0.0f) {
+				data->mHeights[data->mLineCount] = 22.0f;
+			}
+			data->mLineCount++;
+			done = 1;
+			break;
+		case 13:
+			size = (s32)p[1];
+			if (size == 255.0f) {
+				size = 22.0f;
+			}
+			if (size > data->mHeights[data->mLineCount]) {
+				data->mHeights[data->mLineCount] = size;
+			}
+			break;
+		case 16:
+			proportional = p[1];
+			break;
+		case 19:
+			data->mAlignment = p[1];
+			break;
+		case 5:
+			data->mStyle = p[1];
+			break;
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 6:
+		case 14:
+		case 15:
+		case 18:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+		case 24:
+			break;
+		default:
+			if (MsgHasSjisLead(*p)) {
+				data->mCounts[data->mLineCount]++;
+				char text[3] = "";
+				text[0]      = p[0];
+				text[1]      = p[1];
+				data->mWidths[data->mLineCount] += fn_801968BC((CGs*)lbl_8025C400.mGs, text, proportional, size);
+			} else if (*p == 17) {
+#if defined(VERSION_JP)
+				TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+				CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
+				data->mWidths[data->mLineCount] += (size / 22.0f) * (GXGetTexObjWidth(&icon) / 14);
+#else
+				TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+				CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
+				data->mWidths[data->mLineCount] += 24.0f * (size / 22.0f);
+#endif
+			} else {
+				data->mCounts[data->mLineCount]++;
+				char text[2] = "";
+				text[0]      = p[0];
+				data->mWidths[data->mLineCount] += fn_801968BC((CGs*)lbl_8025C400.mGs, text, proportional, size);
+			}
+			break;
+		}
+		p += MsgCommandLength(p);
+	}
+	data->mMaxWidth    = 0.0f;
+	data->mMaxHeight   = 0.0f;
+	data->mTotalHeight = 0.0f;
+	for (s32 i = 0; i < data->mLineCount; i++) {
+		if (data->mMaxWidth < data->mWidths[i]) {
+			data->mMaxWidth = data->mWidths[i];
+		}
+		if (data->mMaxHeight < data->mHeights[i]) {
+			data->mMaxHeight = data->mHeights[i];
+		}
+		data->mTotalHeight += data->mHeights[i];
+	}
+}
 /*
     stwu     r1, -0x140(r1)
     mflr     r0
@@ -7249,3 +8316,38 @@ CJObj::CJObj(HSD_JObj* jobj)
     addi     r1, r1, 0x140
     blr
 */
+
+#if defined(VERSION_JP) || defined(VERSION_PAL)
+/**
+ * @note Address: N/A
+ * @note Size: ?
+ */
+// japan and europe only, the graphics state reset usa inlines into Draw
+#if defined(VERSION_JP)
+extern "C" void fn_80086BC4(u8* game)
+#else
+extern "C" void fn_800869E8(u8* game)
+#endif
+{
+	HSD_StateInvalidate(-1);
+#if defined(VERSION_PAL)
+	CGsRenderMode* mode = *(CGsRenderMode**)(game + 0x294);
+	if (mode != NULL)
+		mode->Invalidate();
+	CGsTevStage* stage = *(CGsTevStage**)(game + 0x298);
+	if (stage != NULL)
+		stage->Invalidate();
+	CGsChannel* channel = *(CGsChannel**)(game + 0x29C);
+#else
+	CGsRenderMode* mode = *(CGsRenderMode**)(game + 0x290);
+	if (mode != NULL)
+		mode->Invalidate();
+	CGsTevStage* stage = *(CGsTevStage**)(game + 0x294);
+	if (stage != NULL)
+		stage->Invalidate();
+	CGsChannel* channel = *(CGsChannel**)(game + 0x298);
+#endif
+	if (channel != NULL && !channel->mDirty)
+		channel->mDirty = TRUE;
+}
+#endif

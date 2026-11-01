@@ -1,0 +1,102 @@
+#include "game/xobjfree.h"
+#include "game/xobjflags.h"
+#include "game/cgame.h"
+#include "game/globals.h"
+#include "game/evt.h"
+#include "game/xobjchr.h"
+
+// todo: cleanup
+static inline void TriggerEvent(XObj* object, u32 first, u32 second)
+{
+	const void* script = object->vf128();
+	if (!fn_8009FDE4(lbl_8025C400.mPlayer))
+		fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)object, first, second);
+}
+
+// XObjFree::Release
+/**
+ * @note Address: 0x800DE038
+ * @note Size: 0x28
+ */
+extern "C" void fn_800DE038(XObjFree* object)
+{
+	object->mMatAnim = NULL;
+	fn_800911C0(object);
+}
+
+// XObjFree::vf98
+/**
+ * @note Address: 0x800DE060
+ * @note Size: 0xEC
+ */
+extern "C" void fn_800DE060(XObjFree* object)
+{
+	fn_800928E8(object);
+	if (object->mAttr._00 != NULL)
+		object->mLife = (s16)object->GetObjFlags();
+	object->mMatAnim = NULL;
+	if (object->mJObj != NULL && (object->mStatus.mFlags & 0x1000ULL)) {
+		UnkStageObj* animation = object->mCoord._00;
+		object->SetAnim(animation->_30, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
+	}
+}
+
+// XObjDust::vf140
+/**
+ * @note Address: 0x800DE14C
+ * @note Size: 0x2D8
+ */
+extern "C" BOOL fn_800DE14C(XObjDust* object, const Vec* position, s32 kind)
+{
+	if ((object->GetObjFlags() & 2) && kind == 16) {
+		if (object->GetObjFlags() & 0x10) {
+			object->mAnimId2 = (s32)((u32)object->mAnimId2 + 1);
+			object->SetAnim(object->mAnimId2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			if (object->mAnimId2 >= (s32)((u32)object->mAnimCount - 1)) {
+				object->mStatus.mFlags |= 0x4000000000000000ULL;
+				object->mEventId = kind;
+			}
+		} else
+			return FALSE;
+	} else if ((object->GetObjFlags() & 2) && kind == 56) {
+		if (object->GetObjFlags() & 0x20) {
+			f32 x = position->x, y = position->y, z = position->z;
+			object->mFrom.x = object->mMoveTranslate.x;
+			object->mFrom.y = object->mMoveTranslate.y;
+			object->mFrom.z = object->mMoveTranslate.z;
+			object->mTo.x   = x;
+			object->mTo.y   = y;
+			object->mTo.z   = z;
+			object->mStatus.mFlags |= 0x4000000000000000ULL;
+			object->mEventId = kind;
+			if (object->mStatus.mFlags & 0x00000C0000000000ULL)
+				TriggerEvent(object, object->mEventId, object->mEventArg);
+		} else
+			return FALSE;
+	} else if (object->mStatus.mFlags & 0x0000040000000000ULL) {
+		TriggerEvent(object, (s16)kind, -1);
+	} else
+		return FALSE;
+	return TRUE;
+}
+
+// XObjDust::vf138
+/**
+ * @note Address: 0x800DE424
+ * @note Size: 0x1E4
+ */
+extern "C" void fn_800DE424(XObjDust* object, f32 strength)
+{
+	if (object->GetObjFlags() & 1) {
+		object->mStatus.mFlags |= 0x4000000000000000ULL;
+		if (strength >= (s32)fn_8006EBC8(31) / 100.0f)
+			object->mEventArg = 2001;
+		else
+			object->mEventArg = 2000;
+	} else if (object->mStatus.mFlags & 0x0000080000000000ULL) {
+		if (strength >= (s32)fn_8006EBC8(31) / 100.0f)
+			TriggerEvent(object, -1, 2001);
+		else
+			TriggerEvent(object, -1, 2000);
+	}
+}

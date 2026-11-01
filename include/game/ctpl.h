@@ -12,6 +12,10 @@ typedef struct _GXTlutObj {
 	u8 padding[0xC]; // _00
 } GXTlutObj;
 typedef enum _GXTexMtxType { GX_MTX3x4 = 0, GX_MTX2x4 = 1 } GXTexMtxType;
+extern "C" {
+u16 GXGetTexObjWidth(const GXTexObj* obj);
+u16 GXGetTexObjHeight(const GXTexObj* obj);
+}
 #else
 #include "Dolphin/gx.h"
 #endif

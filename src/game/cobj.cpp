@@ -1,4 +1,5 @@
 #include "game/cobj.h"
+#include "game/cjobjset.h"
 #include "game/gmath.h"
 #include "game/hsd_dobj.h"
 extern "C" {
@@ -10,6 +11,7 @@ extern "C" {
 #include <dolphin/os.h>
 }
 #include <math.h>
+#include "game/xobj.h"
 
 extern "C" {
 void OSReport(const char* msg, ...);
@@ -17,7 +19,6 @@ u32 ARGetSize(void);
 s32 HSD_DevComRequest(s32 file, u32 src, void* dest, u32 size, s32 type, s32 pri, void (*callback)(s32, s32*), s32* args);
 void HSD_MObjSetDefaultClass(HSD_MObjInfo* info);
 void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
-void fn_800D40EC(CXObj* obj);
 void HSD_PObjClearFlags(HSD_PObj* pobj, u32 flags);
 void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags);
 }
@@ -45,25 +46,6 @@ void XCObjSetColors(HSD_JObj* jobj, u32* colors, s32);
 HSD_MObjInfo xCObj = { XCObjInfoInit };
 
 static void ReadDone(s32, s32* state);
-
-// todo: cleanup
-// first anim object on the jobj, whichever kind it is
-static inline HSD_AObj* GetAObj(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj;
-	if (jobj != NULL) {
-		if ((aobj = fn_801908F8(jobj)) != NULL) {
-			return aobj;
-		}
-		if ((aobj = fn_801905D4(jobj)) != NULL) {
-			return aobj;
-		}
-		if ((aobj = fn_801902C4(jobj)) != NULL) {
-			return aobj;
-		}
-	}
-	return NULL;
-}
 
 // todo: cleanup
 static inline void ReleaseJObj(CJObj* obj)
@@ -106,43 +88,6 @@ inline HSD_JObj* CJArchive::LoadJObj()
 			jobj = NULL;
 		}
 		return jobj;
-	}
-	return NULL;
-}
-
-// todo: cleanup
-// anim ids past 1000 wrap around
-inline HSD_AnimJoint* CJArchive::GetAnimJointRoot(s32 id)
-{
-	if (id >= 0) {
-		s32 i = id % 1000;
-		if (i < mNum[0]) {
-			return mAnimJoint != NULL ? mAnimJoint[i] : NULL;
-		}
-	}
-	return NULL;
-}
-
-// todo: cleanup
-inline HSD_MatAnimJoint* CJArchive::GetMatAnimJointRoot(s32 id)
-{
-	if (id >= 0) {
-		s32 i = id % 1000;
-		if (i < mNum[0]) {
-			return mMatAnimJoint != NULL ? mMatAnimJoint[i] : NULL;
-		}
-	}
-	return NULL;
-}
-
-// todo: cleanup
-inline HSD_ShapeAnimJoint* CJArchive::GetShapeAnimJointRoot(s32 id)
-{
-	if (id >= 0) {
-		s32 i = id % 1000;
-		if (i < mNum[0]) {
-			return mShapeAnimJoint != NULL ? mShapeAnimJoint[i] : NULL;
-		}
 	}
 	return NULL;
 }

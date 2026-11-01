@@ -178,7 +178,7 @@ extern "C" s32 CmdSetSoundPitch(s32 cmd, void* arg, void* arg2)
 	if (time <= 0) {
 		time = 1;
 	}
-	unk       = &lbl_8025C400._E7E24;
+	unk       = &lbl_8025C400.mSound;
 	unk->_2BA = id;
 	unk->_188 = time;
 	return 0;

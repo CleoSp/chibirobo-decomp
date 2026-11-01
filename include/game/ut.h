@@ -77,28 +77,9 @@ public:
 };
 typedef char CStatus_size_check[sizeof(CStatus) == 0x8 ? 1 : -1];
 
-// pad state the CPad points at
-struct UnkPadStatus {
-	u8 _00[0x4];  // _00
-	u32 _04;      // _04
-	u8 _08[0xC];  // _08
-	u32 _14;      // _14
-	u8 _18[0x1C]; // _18
-	f32 _34;      // _34
-	f32 _38;      // _38
-	f32 _3C;      // _3C
-	f32 _40;      // _40
-};
+#include "game/cstatus64.h"
 
-class CPad {
-public:
-	UnkPadStatus* mStatus; // _00
-	// _04 vtable
-
-	CPad(u8 port);      // __ct__4CPadFUc in the dol
-	virtual ~CPad() { } // _08
-};
-typedef char CPad_size_check[sizeof(CPad) == 0x8 ? 1 : -1];
+#include "game/cpad.h"
 
 // game/ut.cpp. hsd types go by struct tag since this header can't pull in the hsd headers,
 // Mtx comes with Vec from whatever got included first
@@ -137,6 +118,25 @@ void fn_80190E60(Mtx src, Mtx dst);
 char* fn_801911B4(const char* fmt, ...);
 char* fn_80191268(const char* src, char* dst);
 u32 fn_80191310(const char* str, s32 len);
+}
+
+// the first shape, material or joint anim in a tree, whichever turns up first
+// todo: cleanup
+static inline _HSD_AObj* GetAObj(_HSD_JObj* jobj)
+{
+	_HSD_AObj* aobj;
+	if (jobj != NULL) {
+		if ((aobj = fn_801908F8(jobj)) != NULL) {
+			return aobj;
+		}
+		if ((aobj = fn_801905D4(jobj)) != NULL) {
+			return aobj;
+		}
+		if ((aobj = fn_801902C4(jobj)) != NULL) {
+			return aobj;
+		}
+	}
+	return NULL;
 }
 
 #endif

@@ -1,68 +1,28 @@
 #include "game/cmotioncontrolcamera.h"
 #include "game/cobj.h"
 #include "game/cgame.h"
+#include "game/xchr.h"
+#include "game/xpad.h"
 #include "Version.h"
 #include <math.h>
 #include <string.h>
 
 extern "C" {
 #include <dolphin/os.h>
+#include "game/csound.h"
+#include "game/xobjchr.h"
+#include "game/xaction.h"
+#include "game/cscrn.h"
 }
 
-// game object fields cgame.h doesn't have, by offset
-#define GAME_BYTES  ((u8*)&lbl_8025C400)
-#define GAME_CAMERA ((CMotionControlCamera*)lbl_8025C400._E5D38)
-// japan's flags and player sit lower, europe's flags higher
-#if defined(VERSION_JP)
-#define GAME_FLAGS  (*(u64*)(GAME_BYTES + 0x1AF8))
-#define GAME_PLAYER (*(u8**)(GAME_BYTES + 0x9674))
-#elif defined(VERSION_PAL)
-#define GAME_FLAGS  (*(u64*)(GAME_BYTES + 0x1B18))
-#define GAME_PLAYER (*(u8**)(GAME_BYTES + 0x96BC))
-#else
-#define GAME_FLAGS  (*(u64*)(GAME_BYTES + 0x1B10))
-#define GAME_PLAYER (*(u8**)(GAME_BYTES + 0x96BC))
-#endif
-#if defined(VERSION_JP)
-#define GAME_SCREEN ((void*)(GAME_BYTES + 0x4178))
-#else
-#define GAME_SCREEN ((void*)(GAME_BYTES + 0x4198))
-#endif
-#define GAME_SOUND   ((void*)&lbl_8025C400._E7E24)
-#define GAME_DEMO    (lbl_8025C400._5D080)
-#define GAME_ROOM    (*(s32*)(GAME_BYTES + 0x3444))
-#define GAME_WORD(o) (*(s32*)(GAME_BYTES + (o)))
-
-// player fields past what CameraPlayer covers
-#define PLAYER         ((CameraPlayer*)GAME_PLAYER)
-#define PLAYER_WORD(o) (*(s32*)(GAME_PLAYER + (o)))
-#define PLAYER_PART    ((PlayerPart_12DA0*)(GAME_PLAYER + 0x12DA0))
+#define PLAYER lbl_8025C400.mPlayer
 
 extern "C" {
-f32 fn_8013A558(CCameraActionMap* map);
 void fn_8001D2D0(CCamera* camera);
 void fn_800BADAC(XObj* player);
-void fn_800A30EC(XObj* player, s32 on);
-s32 fn_800D4D54(void* arg);
-void fn_80023438(void* screen, s32 r0, s32 g0, s32 b0, s32 r1, s32 g1, s32 b1, s32 a, f32 x, f32 y, f32 x0, f32 y0, f32 x1, f32 y1, f32 z,
-                 s32 a1, s32 flag);
-void fn_8001E904(void* sound, s32 id, s32 volume);
 }
 
-// something the player keeps at +0x12DA0
-class PlayerPart_12DA0 {
-public:
-	u8 _00[0x50]; // _00
-	// _50 vtable
-
-	virtual void vf08();
-	virtual void vf0C();
-	virtual void vf10();
-	virtual void vf14(s32 arg); // _14
-};
-
 extern "C" {
-void fn_8014872C(CMotionControlCamera* camera);
 f32 fn_80148768(CMotionControlCamera* camera);
 }
 
@@ -71,7 +31,7 @@ CCameraActionMap lbl_805C47DC[2];
 
 inline CInterfaceCameraAction* CMotionControlCamera::GetAction(s32 type)
 {
-	return lbl_8025C400._E7DEC[type];
+	return lbl_8025C400.mCameraTable[type];
 }
 
 // deferred inlining, so these go last to first
@@ -85,13 +45,13 @@ inline bool PlayerCanLook()
 {
 	bool result = false;
 	bool busy   = false;
-	if (PLAYER->mState == 7 || PLAYER->mState == 8 || PLAYER->mState == 9 || PLAYER->mState == 10 || PLAYER->mState == 11
-	    || PLAYER->mState == 12 || PLAYER->mState == 13 || PLAYER->mState == 14 || PLAYER->mState == 15 || PLAYER->mState == 16
-	    || PLAYER->mState == 17 || PLAYER->mState == 18) {
+	if (PLAYER->mLift.mState == 7 || PLAYER->mLift.mState == 8 || PLAYER->mLift.mState == 9 || PLAYER->mLift.mState == 10
+	    || PLAYER->mLift.mState == 11 || PLAYER->mLift.mState == 12 || PLAYER->mLift.mState == 13 || PLAYER->mLift.mState == 14
+	    || PLAYER->mLift.mState == 15 || PLAYER->mLift.mState == 16 || PLAYER->mLift.mState == 17 || PLAYER->mLift.mState == 18) {
 		busy = true;
 	}
-	if (!busy && PLAYER->_AC4 == 0 && PLAYER->_B14 == 0 && PLAYER->_B68 == 0 && PLAYER->_BAC == 0 && PLAYER->_BEC == 0
-	    && PLAYER->_C44 == 0) {
+	if (!busy && PLAYER->mHang.mState == 0 && PLAYER->mJump.mState == 0 && PLAYER->mLadder.mState == 0 && PLAYER->mRope.mState == 0
+	    && PLAYER->mPush.mState == 0 && PLAYER->mTumble.mState == 0) {
 		result = true;
 	}
 	return result;
@@ -140,7 +100,7 @@ void CMotionControlCamera::Init()
 	mFollow.mDivide = 12.0f;
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ClearHideList();
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->SaveCamInfo(NULL);
-	GAME_FLAGS |= 0x1000000000000ULL;
+	lbl_8025C400.mStatus.mFlags |= 0x1000000000000ULL;
 }
 
 /**
@@ -158,78 +118,78 @@ void CMotionControlCamera::RestoreAction()
  */
 void CMotionControlCamera::Update(u32 step)
 {
-	if (GAME_FLAGS & 0x20) {
+	if (lbl_8025C400.mStatus.mFlags & 0x20) {
 		return;
 	}
 
 	CPad pad(0);
-	if (GAME_DEMO == NULL && (GAME_FLAGS & 0x1000000000000ULL)) {
+	if (lbl_8025C400._5D080 == NULL && (lbl_8025C400.mStatus.mFlags & 0x1000000000000ULL)) {
 		CCameraActionScroll2* room = (CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2);
-		if (room->GetLimits(GAME_ROOM) != NULL && !(GAME_FLAGS & 0xC00)) {
+		if (room->GetLimits(lbl_8025C400.mStage) != NULL && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
 			if (mAction == GetAction(CAMACTION_AREA) || mAction == GetAction(CAMACTION_SCROLL) || mAction == GetAction(CAMACTION_MAP)) {
-				if ((pad.mStatus->_14 & 0x20) && !(pad.mStatus->_04 & 0x200)) {
+				if ((pad.mPad->mTrigger & 0x20) && !(pad.mPad->mButton & 0x200)) {
 					PushAction(GetAction(CAMACTION_SCROLL2));
 					((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->HideObjs();
-					GAME_FLAGS |= 2;
+					lbl_8025C400.mStatus.mFlags |= 2;
 				}
 			} else if (mAction == GetAction(CAMACTION_SCROLL2)) {
-				if ((pad.mStatus->_14 & 0x20) || (pad.mStatus->_14 & 0x200)) {
+				if ((pad.mPad->mTrigger & 0x20) || (pad.mPad->mTrigger & 0x200)) {
 					PopAction();
 					((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ShowObjs();
-					GAME_FLAGS &= ~2ULL;
-					PLAYER_PART->vf14(0);
+					lbl_8025C400.mStatus.mFlags &= ~2ULL;
+					((XPad*)PLAYER->mPad)->Update(0);
 				}
 			}
 		}
 	}
 
-	if ((GAME_FLAGS & 0x80000000) && (pad.mStatus->_14 & 0x40) && (pad.mStatus->_04 & 0x200)) {
+	if ((lbl_8025C400.mStatus.mFlags & 0x80000000) && (pad.mPad->mTrigger & 0x40) && (pad.mPad->mButton & 0x200)) {
 		if (mAction != GetAction(CAMACTION_CHASE)) {
 			ChangeAction(CAMACTION_CHASE);
 		} else {
-			GAME_CAMERA->RestoreAction();
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->RestoreAction();
 		}
 	}
 
 	BOOL look = FALSE;
-	if (((pad.mStatus->_14 & 0x800) || (pad.mStatus->_14 & 0x200)) && GAME_DEMO == NULL) {
+	if (((pad.mPad->mTrigger & 0x800) || (pad.mPad->mTrigger & 0x200)) && lbl_8025C400._5D080 == NULL) {
 		bool free = false;
-		if ((GAME_FLAGS & 1) && !(GAME_FLAGS & 0x22)) {
+		if ((lbl_8025C400.mStatus.mFlags & 1) && !(lbl_8025C400.mStatus.mFlags & 0x22)) {
 			bool blocked = false;
-			if ((GAME_WORD(0x331C) != 0 || GAME_WORD(0x3320) != 0) && GAME_WORD(0x3324) == 0) {
+			if ((lbl_8025C400.mDvdStatus != 0 || lbl_8025C400.mPrevDvdStatus != 0) && lbl_8025C400.mDiskOk == 0) {
 				blocked = true;
 			}
 			if (!blocked) {
 				free = true;
 			}
 		}
-		if (free && (PLAYER_WORD(0x980) & 0x20000000) && !(GAME_FLAGS & 0x80)) {
-			if (!(GAME_FLAGS & 0xC00) && PLAYER_WORD(0x95D4) < 0 && PLAYER_WORD(0xD7E4) == 0
-			    && (PLAYER->mState == 0 || fn_800D4D54(GAME_PLAYER + 0xA44) == 0)) {
-				if (pad.mStatus->_14 & 0x200) {
-					if (GAME_FLAGS & 0x100) {
+		if (free && (PLAYER->_980.mFlags & 0x20000000) && !(lbl_8025C400.mStatus.mFlags & 0x80)) {
+			if (!(lbl_8025C400.mStatus.mFlags & 0xC00) && PLAYER->mAttachmentRequest < 0 && PLAYER->mSuitChanged == 0
+			    && (PLAYER->mLift.mState == 0 || fn_800D4D54(&PLAYER->mLift) == 0)) {
+				if (pad.mPad->mTrigger & 0x200) {
+					if (lbl_8025C400.mStatus.mFlags & 0x100) {
 						look = TRUE;
 					}
 				} else {
 					look = TRUE;
 				}
-			} else if (pad.mStatus->_14 & 0x800) {
-				fn_8001E904(GAME_SOUND, 0x85, 0xFF);
+			} else if (pad.mPad->mTrigger & 0x800) {
+				fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x85, 0xFF);
 			}
 		}
 	}
 
 	if (look) {
-		if (!(GAME_FLAGS & 0x100)) {
+		if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
 			if (PlayerCanLook()) {
 				StartEye();
 			} else {
-				fn_8001E904(GAME_SOUND, 0x85, 0xFF);
+				fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x85, 0xFF);
 			}
 		} else {
 			EndEye();
 		}
-		if (PLAYER->_AC4 != 5 && PLAYER->_BAC != 5 && PLAYER->_B68 != 5 && PLAYER->_BEC != 2) {
+		if (PLAYER->mHang.mState != 5 && PLAYER->mRope.mState != 5 && PLAYER->mLadder.mState != 5 && PLAYER->mPush.mState != 2) {
 			PLAYER->_9AA8 = PLAYER->_9AAC;
 		}
 	}
@@ -1961,13 +1921,14 @@ void CMotionControlCamera::UpdateTarget(XObj* obj)
  */
 void CMotionControlCamera::StartEye()
 {
-	if (!(GAME_FLAGS & 0x100)) {
-		GAME_FLAGS |= 0x100;
+	if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
+		lbl_8025C400.mStatus.mFlags |= 0x100;
 		PushAction(GetAction(CAMACTION_EYE));
-		fn_800BADAC((XObj*)GAME_PLAYER);
-		fn_800A30EC((XObj*)GAME_PLAYER, 1);
-		fn_80023438(GAME_SCREEN, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f, 400.0f, 0.15f, 0xFF, 0);
-		fn_8001E904(GAME_SOUND, 4, 0xFF);
+		fn_800BADAC(lbl_8025C400.mPlayer);
+		fn_800A30EC(lbl_8025C400.mPlayer, 1);
+		fn_80023438((CScrnWipe*)lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f,
+		            400.0f, 0.15f, 0xFF, 0);
+		fn_8001E904((CSound*)&lbl_8025C400.mSound, 4, 0xFF);
 	}
 }
 
@@ -1977,12 +1938,13 @@ void CMotionControlCamera::StartEye()
  */
 void CMotionControlCamera::EndEye()
 {
-	if (GAME_FLAGS & 0x100) {
-		GAME_FLAGS &= ~0x300ULL;
+	if (lbl_8025C400.mStatus.mFlags & 0x100) {
+		lbl_8025C400.mStatus.mFlags &= ~0x300ULL;
 		PopAction();
-		fn_800A30EC((XObj*)GAME_PLAYER, 0);
-		fn_80023438(GAME_SCREEN, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f, 500.0f, 0.2f, 0, 1);
-		fn_8001E904(GAME_SOUND, 2, 0xFF);
+		fn_800A30EC(lbl_8025C400.mPlayer, 0);
+		fn_80023438((CScrnWipe*)lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f,
+		            500.0f, 0.2f, 0, 1);
+		fn_8001E904((CSound*)&lbl_8025C400.mSound, 2, 0xFF);
 	}
 }
 
@@ -2110,9 +2072,9 @@ extern "C" f32 fn_80148768(CMotionControlCamera* camera)
  * @note Address: 0x8014872C
  * @note Size: 0x3C
  */
-extern "C" void fn_8014872C(CMotionControlCamera* camera)
+extern "C" void fn_8014872C(CMotionControlCamera* camera, s32 mode)
 {
-	((CCameraActionAreaExM*)CMotionControlCamera::GetAction(CAMACTION_AREA))->vf70();
+	((CCameraActionAreaExM*)CMotionControlCamera::GetAction(CAMACTION_AREA))->vf70(mode);
 }
 
 /**

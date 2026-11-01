@@ -165,9 +165,9 @@ struct HamDish {
 #define STAGE01_PLAYER    ((Stage01Actor*)lbl_8025C400.mPlayer)
 #define STAGE01_ACTORS    ((Stage01Actor**)lbl_8025C400.mObjects)
 #define STAGE01_OBJ_5D080 (&lbl_8025C400._5D080)
-#define STAGE01_PARTICLE  ((CParticle*)lbl_8025C400._9114)
-#define STAGE01_OBJ_8F38  ((void*)lbl_8025C400._8F38)
-#define STAGE01_SOUND     ((void*)&lbl_8025C400._E7E24)
+#define STAGE01_PARTICLE  ((CParticle*)lbl_8025C400.mParticle)
+#define STAGE01_OBJ_8F38  ((void*)lbl_8025C400.mInfoScrn)
+#define STAGE01_SOUND     ((void*)&lbl_8025C400.mSound)
 
 extern "C" {
 s32 fn_8001DF00(void* obj, Vec* pos, s32 arg);
@@ -400,25 +400,6 @@ static inline bool IsLeavingGasPlate(HamObj* slot)
 		return true;
 	}
 	return false;
-}
-
-// first aobj on the joint, whichever kind
-static inline HSD_AObj* GetAObj(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj;
-	if (jobj == NULL) {
-		return NULL;
-	}
-	if ((aobj = fn_801908F8(jobj)) != NULL) {
-		return aobj;
-	}
-	if ((aobj = fn_801905D4(jobj)) != NULL) {
-		return aobj;
-	}
-	if ((aobj = fn_801902C4(jobj)) != NULL) {
-		return aobj;
-	}
-	return NULL;
 }
 
 inline Vec* HamObj::GetPos()

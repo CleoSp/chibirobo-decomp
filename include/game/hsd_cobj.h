@@ -90,4 +90,10 @@ inline f32 HSD_AObjGetEndFrame(HSD_AObj* aobj)
 	return aobj->end_frame;
 }
 
+inline f32 HSD_AObjGetCurrentFrame(HSD_AObj* aobj)
+{
+	AOBJ_H_ASSERT(0x95, aobj);
+	return aobj->curr_frame;
+}
+
 #endif

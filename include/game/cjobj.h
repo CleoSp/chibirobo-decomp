@@ -5,8 +5,8 @@
 #include "game/hsd_jobj.h"
 #include "game/ut.h"
 
-// the dol's jobj wrapper, name from RTTI in shun and stage07. not in ut.h because with
-// pool_data on it puts 0x24 bytes of .rodata in every file that includes it, and hori has none
+// the dol's jobj wrapper, name from RTTI in shun and stage07. the three setters that leave
+// 0x24 bytes of .rodata in every file that sees them are in game/cjobjset.h, hori has none
 
 extern "C" s32 EulerToQuat(Vec* euler, Quaternion* q);
 
@@ -140,20 +140,8 @@ public:
 		mTranslate.z = v.z;
 		HSD_JObjSetTranslate(mJObj, &mTranslate);
 	}
-	virtual void SetTranslate(f32 x, f32 y, f32 z, s32 force) // _34
-	{
-		if (force == 0) {
-			Vec v = { x, y, z };
-			if (!(mTranslate != v)) {
-				return;
-			}
-		}
-		mTranslate.x = x;
-		mTranslate.y = y;
-		mTranslate.z = z;
-		HSD_JObjSetTranslate(mJObj, &mTranslate);
-	}
-	virtual void SetScale(const Vec& v, s32 force) // _38
+	virtual void SetTranslate(f32 x, f32 y, f32 z, s32 force); // _34, in game/cjobjset.h
+	virtual void SetScale(const Vec& v, s32 force)             // _38
 	{
 		if (force == 0 && !(mScale != v)) {
 			return;
@@ -163,20 +151,8 @@ public:
 		mScale.z = v.z;
 		HSD_JObjSetScale(mJObj, &mScale);
 	}
-	virtual void SetScale(f32 x, f32 y, f32 z, s32 force) // _3C
-	{
-		if (force == 0) {
-			Vec v = { x, y, z };
-			if (!(mScale != v)) {
-				return;
-			}
-		}
-		mScale.x = x;
-		mScale.y = y;
-		mScale.z = z;
-		HSD_JObjSetScale(mJObj, &mScale);
-	}
-	virtual void SetRotation(const Vec& v, s32 force) // _40
+	virtual void SetScale(f32 x, f32 y, f32 z, s32 force); // _3C, in game/cjobjset.h
+	virtual void SetRotation(const Vec& v, s32 force)      // _40
 	{
 		if (force == 0 && !(mRotate != v)) {
 			return;
@@ -193,21 +169,8 @@ public:
 			HSD_JObjSetRotation(mJObj, (Quaternion*)&mRotate);
 		}
 	}
-	virtual void SetRotation(f32 x, f32 y, f32 z, s32 force) // _44
-	{
-		if (force == 0) {
-			Vec v = { x, y, z };
-			// retail tests the cached translation here
-			if (!(mTranslate != v)) {
-				return;
-			}
-		}
-		mRotate.x = x;
-		mRotate.y = y;
-		mRotate.z = z;
-		UpdateRotation();
-	}
-	virtual void SetAnimRate(f32 rate, u32 mask) // _48
+	virtual void SetRotation(f32 x, f32 y, f32 z, s32 force); // _44, in game/cjobjset.h
+	virtual void SetAnimRate(f32 rate, u32 mask)              // _48
 	{
 		HSD_JObj* jobj;
 

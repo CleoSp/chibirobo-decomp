@@ -1,25 +1,18 @@
 #include "game/ccameraaction.h"
+extern "C" {
+#include <dolphin/mtx/vec.h>
+}
 #include "game/hsd_jobj.h"
 #include "game/gmath.h"
 #include "sysdolphin/controller.h"
 #include "Version.h"
 #include <math.h>
+#include "game/cgame.h"
+#include "game/xchr.h"
 
 // CGame's camera fields, by offset
-extern "C" u8 lbl_8025C400[];
-#if defined(VERSION_JP)
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1AF8))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x9674))
-#elif defined(VERSION_PAL)
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1B18))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#else
-#define GAME_FLAGS  (*(u64*)(lbl_8025C400 + 0x1B10))
-#define GAME_PLAYER (*(XObj**)(lbl_8025C400 + 0x96BC))
-#endif
 
 extern "C" f32 lbl_8022E6E8[3];
-extern "C" void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 
 // backwards from here, deferred inlining
 
@@ -64,7 +57,7 @@ void CCameraActionChase::Init()
  */
 void CCameraActionChase::vf14()
 {
-	mTarget = GAME_PLAYER;
+	mTarget = lbl_8025C400.mPlayer;
 	if (mTarget != NULL) {
 		mRestDistance = 105.0f;
 		Mtx mtx;
@@ -92,7 +85,7 @@ void CCameraActionChase::SetCamera(CCamera* camera)
 	SetInterest(camera->mInterest);
 	SetDistance(camera->mDistance);
 	SetFov(camera->mFov);
-	mTarget = GAME_PLAYER;
+	mTarget = lbl_8025C400.mPlayer;
 }
 
 /**
@@ -125,18 +118,18 @@ void CCameraActionChase::Update(u32 step)
 	mMode = 3;
 
 	CPad pad(0);
-	u32 leftButton  = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
-	u32 rightButton = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
-	u32 upButton    = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
-	u32 downButton  = (GAME_FLAGS & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
+	u32 leftButton  = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
+	u32 rightButton = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
+	u32 upButton    = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
+	u32 downButton  = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
 
 	{
 		CVec angle = mAngle;
 		f32 pitch  = 0.0f;
 		f32 yaw    = 0.0f;
-		if (pad.mStatus->_04 & rightButton) {
+		if (pad.mPad->mButton & rightButton) {
 			yaw = 1.0f;
-		} else if (pad.mStatus->_04 & leftButton) {
+		} else if (pad.mPad->mButton & leftButton) {
 			yaw = -1.0f;
 		}
 		if (yaw != 0.0f) {
@@ -155,8 +148,8 @@ void CCameraActionChase::Update(u32 step)
 		}
 	}
 
-	u32 up = pad.mStatus->_04 & upButton;
-	if (up || (pad.mStatus->_04 & downButton)) {
+	u32 up = pad.mPad->mButton & upButton;
+	if (up || (pad.mPad->mButton & downButton)) {
 		f32 distance = mDistance;
 		if (up) {
 			distance -= 12.0f * step;
@@ -164,7 +157,7 @@ void CCameraActionChase::Update(u32 step)
 				distance = 60.0f;
 			}
 		}
-		if (pad.mStatus->_04 & downButton) {
+		if (pad.mPad->mButton & downButton) {
 			distance += 12.0f * step;
 		}
 		SetDistance(distance);

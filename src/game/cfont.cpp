@@ -1,8 +1,141 @@
+#include "game/cfont.h"
+#include "Version.h"
+#include "game/mm.h"
+#include <dolphin/os.h>
+#include <string.h>
+#include "game/ut.h"
+
+// a 24x24 I4 glyph, then its character code and advance width
+struct FontGlyph {
+	u8 image[0x120];        // _00
+	u16 code;               // _120
+	s16 width;              // _122
+	u8 _124[0x140 - 0x124]; // _124
+};
+STATIC_ASSERT(sizeof(FontGlyph) == 0x140);
+
+struct FontGlyphRange {
+	FontGlyph* glyphs; // _00
+	u16 first;         // _04
+	u16 end;           // _06
+};
+
+struct FontGlyphCache {
+	FontGlyph* glyphs; // _00
+	u32 next;          // _04
+};
+
+struct FontCharInfo {
+	s32 x;     // _00
+	s32 y;     // _04
+	s32 width; // _08
+};
+
+#if defined(VERSION_JP)
+#define FONT_INIT_LINE(us, jp) jp
+#else
+#define FONT_INIT_LINE(us, jp) us
+#endif
+
+extern "C" {
+extern u16 lbl_8065B860;
+extern OSFontHeader* lbl_8065B864;
+extern BOOL lbl_8065B868;
+extern FontGlyphCache lbl_8065B86C;
+extern FontGlyphRange lbl_802586E0[];
+extern FontCharInfo lbl_80237AD0[];
+extern u8 lbl_802386E0[];
+extern OSFontHeader lbl_80237AA0;
+}
+
+// todo: cleanup, cfont.h's IsSjisLead costs fn_8019E8F4 a bit
+static inline bool IsLeadByte(u8 c)
+{
+	return (c >= 0x81 && c <= 0x9F) || (c >= 0xE0 && c <= 0xFC);
+}
+
+static inline bool UseGlyphCache()
+{
+#if defined(VERSION_JP)
+	return lbl_8065B860 == OS_FONT_ENCODE_SJIS;
+#else
+	return lbl_8065B860 == OS_FONT_ENCODE_SJIS && !lbl_8065B868;
+#endif
+}
+
 /**
  * @note Address: 0x8019E8F4
  * @note Size: 0x34C
  */
-// fn_8019E8F4
+extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
+{
+	void* image;
+	s32 x, y, advance;
+
+	if (font->mDesc.textureHeader == NULL) {
+#if defined(VERSION_JP)
+		fn_8019EC40(font);
+#else
+		fn_8019EC40(font, FALSE);
+#endif
+	}
+	if (UseGlyphCache()) {
+		u16 code = (u8)str[0];
+		if (IsLeadByte(code)) {
+			code = (code << 8) | (u8)str[1];
+		}
+		image = NULL;
+		for (s32 i = 0; lbl_802586E0[i].glyphs != NULL; i++) {
+			if (code >= lbl_802586E0[i].first && code < lbl_802586E0[i].end) {
+				FontGlyph* glyph = &lbl_802586E0[i].glyphs[code - lbl_802586E0[i].first];
+				image            = glyph;
+				advance          = glyph->width;
+				break;
+			}
+		}
+		if (image == NULL) {
+			for (s32 i = 0; i < 50; i++) {
+				if (code == lbl_8065B86C.glyphs[i].code) {
+					image   = &lbl_8065B86C.glyphs[i];
+					advance = lbl_8065B86C.glyphs[i].width;
+					break;
+				}
+			}
+			if (image == NULL) {
+				image = &lbl_8065B86C.glyphs[lbl_8065B86C.next];
+				memset(image, 0, sizeof(FontGlyph));
+				OSGetFontTexel((char*)str, image, 0, 6, &advance);
+				lbl_8065B86C.glyphs[lbl_8065B86C.next].code  = code;
+				lbl_8065B86C.glyphs[lbl_8065B86C.next].width = advance;
+				DCFlushRange(&lbl_8065B86C.glyphs[lbl_8065B86C.next], sizeof(FontGlyph));
+				lbl_8065B86C.next = (lbl_8065B86C.next + 1) % 50;
+			}
+		}
+		y = 0;
+		x = 0;
+#if !defined(VERSION_JP)
+	} else if (lbl_8065B868) {
+		image              = lbl_802386E0;
+		FontCharInfo& info = lbl_80237AD0[(u8)str[0]];
+		x                  = info.x;
+		y                  = info.y;
+		advance            = info.width;
+#endif
+	} else {
+		OSGetFontTexture(str, &image, &x, &y, &advance);
+	}
+
+	font->mImage.data = (char*)image;
+	font->mTex.Init(&font->mDesc, 0);
+	PSMTXTrans(font->mTex.mMtx[0], font->mInvSheetWidth * x, font->mInvSheetHeight * y, 0.0f);
+	font->mTex.mMtxDirty = TRUE;
+	PSMTXScale(font->mTex.mMtx[1], font->mInvCellWidth, font->mInvCellHeight, 1.0f);
+	font->mTex.mMtxDirty = TRUE;
+	if (width != NULL) {
+		*width = advance;
+	}
+	return &font->mTex;
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -239,7 +372,109 @@
  * @note Address: 0x8019EC40
  * @note Size: 0x738
  */
-// fn_8019EC40
+#if defined(VERSION_JP)
+extern "C" void fn_8019EC40(CFont* font)
+#else
+extern "C" void fn_8019EC40(CFont* font, BOOL builtin)
+#endif
+{
+	if (lbl_8065B864 == NULL) {
+		lbl_8065B860 = OSGetFontEncode();
+#if !defined(VERSION_JP)
+		lbl_8065B868 = builtin != FALSE;
+#endif
+		if (UseGlyphCache()) {
+			u32 size     = UseGlyphCache() ? OS_FONT_DATA_SIZE_SJIS : OS_FONT_DATA_SIZE_ANSI;
+			lbl_8065B864 = (OSFontHeader*)mm::Alloc((size + 31) & ~31, "(font I2)");
+			if (lbl_8065B864 == NULL) {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(71, 65), "%s%s", "not enough memory for ROM font\n", "Init");
+			}
+			size       = UseGlyphCache() ? OS_FONT_ROM_SIZE_SJIS : OS_FONT_ROM_SIZE_ANSI;
+			void* temp = mm::Alloc((size + 31) & ~31, "(temp)");
+			if (temp == NULL) {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(77, 71), "%s%s", "not enough memory for ROM font(temp)\n", "Init");
+			}
+			if (OSLoadFont(lbl_8065B864, temp) == 0) {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(81, 75), "%s%s", "internal error on OSLoadFont()\n", "Init");
+			}
+			mm::Free(temp, 1);
+
+			for (FontGlyphRange* range = lbl_802586E0; range->first != range->end; range++) {
+				range->glyphs = (FontGlyph*)mm::Alloc((range->end - range->first) * sizeof(FontGlyph),
+				                                      fn_801911B4("(%04X~%04X)", range->first, range->end));
+				if (range->glyphs != NULL) {
+					u16 code         = range->first;
+					FontGlyph* glyph = range->glyphs;
+					s32 count        = range->end - range->first;
+					for (s32 i = 0; i < count; i++, glyph++, code++) {
+						// big endian, single byte characters are the low byte
+						char* str = code & 0xFF00 ? (char*)&code : (char*)&code + 1;
+						s32 advance;
+						memset(glyph, 0, sizeof(FontGlyph));
+						OSGetFontTexel(str, glyph, 0, 6, &advance);
+						glyph->width = advance;
+						glyph->code  = code;
+						DCFlushRange(glyph, sizeof(FontGlyph));
+					}
+				} else {
+					OSReport("\n!!!HALT!!!\n");
+					OSPanic("cfont.cpp", FONT_INIT_LINE(105, 99), "%s%s",
+					        fn_801911B4("not enough memory for static image (%04X~%04X)\n", range->first, range->end), "Init");
+				}
+			}
+			lbl_8065B86C.glyphs = (FontGlyph*)mm::Alloc(50 * sizeof(FontGlyph), "(dynamic)");
+			if (lbl_8065B86C.glyphs != NULL) {
+				lbl_8065B86C.next = 0;
+				for (s32 i = 0; i < 50; i++) {
+					lbl_8065B86C.glyphs[i].code = 0;
+				}
+			} else {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(118, 112), "%s%s", "not enough memory for dynamic image\n", "Init");
+			}
+#if !defined(VERSION_JP)
+		} else if (lbl_8065B868) {
+			lbl_8065B864 = &lbl_80237AA0;
+#endif
+		} else {
+			u32 size     = UseGlyphCache() ? OS_FONT_SIZE_SJIS : OS_FONT_SIZE_ANSI;
+			lbl_8065B864 = (OSFontHeader*)mm::Alloc(size, "(font I4)");
+			if (lbl_8065B864 == NULL) {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(131, 120), "%s%s", "not enough memory for ROM font\n", "Init");
+			}
+			if (!OSInitFont(lbl_8065B864)) {
+				OSReport("\n!!!HALT!!!\n");
+				OSPanic("cfont.cpp", FONT_INIT_LINE(135, 124), "%s%s", "internal error on OSInitFont()\n", "Init");
+			}
+		}
+	}
+
+	TPLDescriptor desc = { NULL, NULL };
+	desc.textureHeader = &font->mImage;
+	font->mDesc        = desc;
+	if (UseGlyphCache()) {
+		TPLHeader image       = { 24, 24, GX_TF_I4, NULL, GX_CLAMP, GX_CLAMP, GX_LINEAR, GX_LINEAR, 0.0f, 0, 0, 0, 1 };
+		font->mImage          = image;
+		font->mInvSheetWidth  = 0.0f;
+		font->mInvSheetHeight = 0.0f;
+		font->mInvCellWidth   = 1.0f;
+		font->mInvCellHeight  = 1.0f;
+	} else {
+		TPLHeader image       = { 0, 0, GX_TF_I4, NULL, GX_CLAMP, GX_CLAMP, GX_LINEAR, GX_LINEAR, 0.0f, 0, 0, 0, 1 };
+		image.height          = lbl_8065B864->sheetHeight;
+		image.width           = lbl_8065B864->sheetWidth;
+		image.format          = lbl_8065B864->sheetFormat;
+		font->mImage          = image;
+		font->mInvSheetWidth  = 1.0f / lbl_8065B864->sheetWidth;
+		font->mInvSheetHeight = 1.0f / lbl_8065B864->sheetHeight;
+		font->mInvCellWidth   = 1.0f / (lbl_8065B864->cellWidth - 2);
+		font->mInvCellHeight  = 1.0f / (lbl_8065B864->cellHeight - 2);
+	}
+}
 /*
     stwu     r1, -0xa0(r1)
     mflr     r0

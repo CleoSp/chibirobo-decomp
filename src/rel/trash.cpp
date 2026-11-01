@@ -665,14 +665,14 @@ extern "C" void UpdateTrash(u32 frames)
 	}
 
 	CPad pad(0);
-	robot = lbl_8025C400.mPlayer;
+	robot = (XObj*)lbl_8025C400.mPlayer;
 	switch (trashState) {
 	case 0:
 		trashObj = robot->_A64;
-		if (pad.mStatus->_04 & 0x100) {
+		if (pad.mPad->mButton & 0x100) {
 			robot->vf80(9, 0, 0, 0, 0, 0.0f, 1.0f, 0.0f, 10.0f);
 			trashState++;
-		} else if (pad.mStatus->_14 & 0x200) {
+		} else if (pad.mPad->mTrigger & 0x200) {
 			trashState  = 99;
 			trashResult = 4;
 		}
@@ -704,7 +704,7 @@ extern "C" void UpdateTrash(u32 frames)
 		break;
 	case 3: {
 		if (GetAnimFrame(robot->jobj) >= 30.0f && GetAnimFrame(robot->jobj) < 33.0f) {
-			void* obj = &lbl_8025C400._E7E24;
+			void* obj = &lbl_8025C400.mSound;
 			if (!fn_8001E6C8(obj, 0x1B9)) {
 				fn_8001E904(obj, 0x1B9, 0xFF);
 			}
@@ -1367,7 +1367,7 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
 		return 0;
 	}
 	game  = &lbl_8025C400;
-	robot = game->mPlayer;
+	robot = (XObj*)game->mPlayer;
 	if (trashboxIndex != robot->_9D4) {
 		return 0;
 	}
@@ -1452,7 +1452,7 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
  */
 extern "C" s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2)
 {
-	XObj* robot = lbl_8025C400.mPlayer;
+	XObj* robot = (XObj*)lbl_8025C400.mPlayer;
 
 	if (robot->_A64 != NULL) {
 		robot->_A48 = 6;

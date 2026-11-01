@@ -13,6 +13,445 @@ Sections:
 	.sdata2     type:rodata align:16
 	.sbss2      type:bss align:32
 
+game/game.cpp:
+	.text       start:0x800078A0 end:0x80007F5C
+
+game/gamecbase.cpp:
+	.text       start:0x80007F5C end:0x80008070
+
+game/gamecgs.cpp:
+	.text       start:0x80008070 end:0x80008364
+
+game/gamecgschan.cpp:
+	.text       start:0x80008364 end:0x800083F4
+
+game/gamecpadone.cpp:
+	.text       start:0x800083F4 end:0x8000843C
+
+game/gameccamera.cpp:
+	.text       start:0x8000843C end:0x800084EC
+
+game/gameclight.cpp:
+	.text       start:0x800084EC end:0x80008628
+
+game/gamecstopwatch.cpp:
+	.text       start:0x80008628 end:0x80008670
+
+game/gametitle.cpp:
+	.text       start:0x80008670 end:0x8000879C
+
+game/gamexobj.cpp:
+	.text       start:0x8000879C end:0x80008904
+
+game/gamecxobj.cpp:
+	.text       start:0x80008904 end:0x80008C94
+
+game/gamemenuex.cpp:
+	.text       start:0x80008C94 end:0x80008CF8
+
+game/gamemenucursor.cpp:
+	.text       start:0x80008CF8 end:0x80008D58
+
+game/gamecfile.cpp:
+	.text       start:0x80008D58 end:0x80008DA0
+
+game/gamecgenerator.cpp:
+	.text       start:0x80008DA0 end:0x80008E30
+
+game/gamecobjarchive.cpp:
+	.text       start:0x80008E30 end:0x80008E90
+
+game/gamecmsg.cpp:
+	.text       start:0x80008E90 end:0x80008F7C
+
+game/gamemsgcursor.cpp:
+	.text       start:0x80008F7C end:0x80008FD0
+
+game/gamemsgglyph.cpp:
+	.text       start:0x80008FD0 end:0x8000904C
+
+game/gamecmotioncontrolcamera.cpp:
+	.text       start:0x8000904C end:0x800091EC
+
+game/gameccameraactions.cpp:
+	.text       start:0x800091EC end:0x800095E0
+
+game/gameccameraactionarea.cpp:
+	.text       start:0x800095E0 end:0x80009878
+
+game/gamecinterpolation.cpp:
+	.text       start:0x80009878 end:0x800099E8
+
+game/gameccameraactionevt.cpp:
+	.text       start:0x800099E8 end:0x80009EE4
+
+game/gamecinterpolationnone.cpp:
+	.text       start:0x80009EE4 end:0x80009F40
+
+game/gameccameraactionmap.cpp:
+	.text       start:0x80009F40 end:0x8000A280
+
+game/gameccameraactionreset.cpp:
+	.text       start:0x8000A280 end:0x8000A4D8
+
+game/gameinterval.cpp:
+	.text       start:0x8000A4D8 end:0x8000A580
+
+game/gamemic.cpp:
+	.text       start:0x8000A580 end:0x8000A890
+
+game/gamemovie.cpp:
+	.text       start:0x8000ABAC end:0x8000AD54
+
+game/gamecfont.cpp:
+	.text       start:0x8000B354 end:0x8000B3B4
+
+game/gameobjupdate.cpp:
+	.text       start:0x8000C3D4 end:0x8000C48C
+
+game/gamexobjshadow.cpp:
+	.text       start:0x8000CB88 end:0x8000CDDC
+
+game/gamedrawpass.cpp:
+	.text       start:0x8000CDDC end:0x8000D068
+
+game/gamexobjquery.cpp:
+	.text       start:0x8000D068 end:0x8000D154
+
+game/gamemirrorpass.cpp:
+	.text       start:0x8000D740 end:0x8000DA8C
+
+game/gamexobjdraw.cpp:
+	.text       start:0x8000DA8C end:0x8000DAB8
+
+game/gameclightset.cpp:
+	.text       start:0x8000DFB4 end:0x8000DFE4
+
+game/gameccameraset.cpp:
+	.text       start:0x8000F950 end:0x8000F998
+
+game/gamecvec.cpp:
+	.text       start:0x8000F998 end:0x8000FA9C
+
+game/gamereset.cpp:
+	.text       start:0x8000FA9C end:0x8000FB30
+
+game/gamecmenu.cpp:
+	.text       start:0x80010DF8 end:0x80010E50
+
+game/gamedrawlist.cpp:
+	.text       start:0x80011398 end:0x80011594
+
+game/gamelight.cpp:
+	.text       start:0x80011594 end:0x80011734
+
+game/gamecamarea.cpp:
+	.text       start:0x80011734 end:0x80011760
+
+game/gamecoordinfo.cpp:
+	.text       start:0x80012BB0 end:0x80012BF8
+
+game/gamecounter.cpp:
+	.text       start:0x80012BF8 end:0x80012C08
+
+game/gameccameraview.cpp:
+	.text       start:0x80013718 end:0x80013758
+
+game/gameinit.cpp:
+	.text       start:0x8001375C end:0x80013828
+
+game/gameptcllink.cpp:
+	.text       start:0x80013828 end:0x80013890
+
+game/gamefbsubwincam.cpp:
+	.text       start:0x80013890 end:0x80013960
+
+game/gameccameraproj.cpp:
+	.text       start:0x80013960 end:0x8001399C
+
+game/gamefbsubwin.cpp:
+	.text       start:0x800148AC end:0x80014A9C
+
+game/gamefbsubwinfade.cpp:
+	.text       start:0x80014A9C end:0x80014BA0
+
+game/gamefbsubwininit.cpp:
+	.text       start:0x80014BA0 end:0x80014CB4
+
+game/gamefbmirror.cpp:
+	.text       start:0x80014CB4 end:0x80014FF4
+
+game/gamefbmirrorcam.cpp:
+	.text       start:0x80014FF4 end:0x8001542C
+
+game/gamecbasevirt.cpp:
+	.text       start:0x8001542C end:0x80015918
+
+game/gamemain.cpp:
+	.text       start:0x80015918 end:0x80015ACC
+
+game/gameosreport.cpp:
+	.text       start:0x80015ACC end:0x80015B1C
+
+game/cinterpolationnone.cpp:
+	.text       start:0x80015B1C end:0x80015DF8
+
+game/cvectornoneinterpolationdtor.cpp:
+	.text       start:0x80015DF8 end:0x80015F14
+
+game/ccameraactionareaexm.cpp:
+	.text       start:0x80015F14 end:0x80015F88
+
+game/camareainfo.cpp:
+	.text       start:0x80015F88 end:0x80016098
+
+game/cinterfacecameraaction.cpp:
+	.text       start:0x80016098 end:0x800161C8
+
+game/cinterpolationlinear.cpp:
+	.text       start:0x800161C8 end:0x800164A0
+
+game/cvectorlinearinterpolationdtor.cpp:
+	.text       start:0x800164A0 end:0x80016524
+
+game/cvectoreaseinoutinterpolation.cpp:
+	.text       start:0x80016524 end:0x8001684C
+
+game/cvectoreaseinoutinterpolationdtor.cpp:
+	.text       start:0x8001684C end:0x800168D0
+
+game/cvectoreaseoutinterpolation.cpp:
+	.text       start:0x800168D0 end:0x80016BD8
+
+game/cvectoreaseoutinterpolationdtor.cpp:
+	.text       start:0x80016BD8 end:0x80016C5C
+
+game/cinterfacevectorinterpolationdtor.cpp:
+	.text       start:0x80016C5C end:0x80016CA4
+
+game/cinterpolationeaseoutdivide.cpp:
+	.text       start:0x80016CA4 end:0x800170DC
+
+game/cvectoreaseoutdivideinterpolationdtor.cpp:
+	.text       start:0x800170DC end:0x80017160
+
+game/cinterpolationlinearupdate.cpp:
+	.text       start:0x80017160 end:0x8001718C
+
+game/cinterfacecameraactiondtor.cpp:
+	.text       start:0x8001718C end:0x80017214
+
+game/ccameramementodtor.cpp:
+	.text       start:0x80017214 end:0x8001732C
+
+game/cmsgfontdtor.cpp:
+	.text       start:0x8001732C end:0x800173F4
+
+game/cobjvecdtor.cpp:
+	.text       start:0x800173F4 end:0x80017504
+
+game/cjobj.cpp:
+	.text       start:0x80017504 end:0x800183D8
+
+game/cjobjrot.cpp:
+	.text       start:0x800183D8 end:0x80018870
+
+game/attrinfodtor.cpp:
+	.text       start:0x80018870 end:0x80018900
+
+game/ccolordtor.cpp:
+	.text       start:0x80018900 end:0x80018948
+
+game/cshadowdtor.cpp:
+	.text       start:0x80018948 end:0x80018A0C
+
+game/cgsscreendtor.cpp:
+	.text       start:0x80018A0C end:0x80018A9C
+
+game/cprimitivedtor.cpp:
+	.text       start:0x80018A9C end:0x80018DD8
+
+game/cpadexdtor.cpp:
+	.text       start:0x80018DD8 end:0x80018E48
+
+game/cstatus64dtor.cpp:
+	.text       start:0x80018E48 end:0x80018E90
+
+game/cscrnwipecircledtor.cpp:
+	.text       start:0x80018E90 end:0x80018EFC
+
+game/cfboutlinedtor.cpp:
+	.text       start:0x80018EFC end:0x80018F8C
+
+game/cstatusdtor.cpp:
+	.text       start:0x80018FA0 end:0x80018FE8
+
+game/logodtor.cpp:
+	.text       start:0x80018FE8 end:0x800191B4
+
+game/cscrnquakedtor.cpp:
+	.text       start:0x800191B4 end:0x800192A8
+
+game/xobjsdtor.cpp:
+	.text       start:0x800192A8 end:0x800192F0
+
+game/cevtdtor.cpp:
+	.text       start:0x800192F0 end:0x8001941C
+
+game/csounddtor.cpp:
+	.text       start:0x8001941C end:0x80019464
+
+game/xsounddtor.cpp:
+	.text       start:0x80019464 end:0x800194D8
+
+game/memcarddtor.cpp:
+	.text       start:0x800194D8 end:0x80019588
+
+game/cmoviedtor.cpp:
+	.text       start:0x80019588 end:0x800195D0
+
+game/cgameinit.cpp:
+	.text       start:0x800195FC end:0x80019740
+	.ctors      start:0x80200064 end:0x80200068
+
+game/cthread.cpp:
+	.text       start:0x80019740 end:0x80019888
+
+game/fbmirrorexpool.cpp:
+	.text       start:0x80019888 end:0x800198C0
+
+game/fbmirrorexdtor.cpp:
+	.text       start:0x800198C0 end:0x800199C0
+
+game/fbmirrorexctor.cpp:
+	.text       start:0x800199C0 end:0x80019A1C
+
+game/arcacheinfodtor.cpp:
+	.text       start:0x80019A1C end:0x80019A64
+
+game/cgamector.cpp:
+	.text       start:0x80019A64 end:0x8001A11C
+
+game/ccameraactionsctor.cpp:
+	.text       start:0x8001A11C end:0x8001A5A4
+
+game/ccameraactionscrolldtor.cpp:
+	.text       start:0x8001A5A4 end:0x8001A668
+
+game/cinterpolationnonector.cpp:
+	.text       start:0x8001A668 end:0x8001A684
+
+game/ccameraactionladrdtor.cpp:
+	.text       start:0x8001A684 end:0x8001A71C
+
+game/ccameraactionmapctor.cpp:
+	.text       start:0x8001A71C end:0x8001A8AC
+
+game/ccameraactionanimdtor.cpp:
+	.text       start:0x8001A8AC end:0x8001A944
+
+game/ccameraactioneyedtor.cpp:
+	.text       start:0x8001A944 end:0x8001AA44
+
+game/ccameraactionscroll2dtor.cpp:
+	.text       start:0x8001AA44 end:0x8001AADC
+
+game/ccameraactionevtctor.cpp:
+	.text       start:0x8001AADC end:0x8001AE60
+
+game/ccameraactionchasedtor.cpp:
+	.text       start:0x8001AE60 end:0x8001AF24
+
+game/cinterpolationctor.cpp:
+	.text       start:0x8001AF24 end:0x8001AF94
+
+game/ccameraactiondefaultdtor.cpp:
+	.text       start:0x8001AF94 end:0x8001B02C
+
+game/cmsgctor.cpp:
+	.text       start:0x8001B02C end:0x8001B15C
+
+game/cspritedtor.cpp:
+	.text       start:0x8001B15C end:0x8001B200
+
+game/cmsgcursorctor.cpp:
+	.text       start:0x8001B200 end:0x8001B230
+
+game/cursorctor.cpp:
+	.text       start:0x8001B230 end:0x8001B26C
+
+game/xobjctor.cpp:
+	.text       start:0x8001B26C end:0x8001B36C
+
+game/cjanimdtor.cpp:
+	.text       start:0x8001B36C end:0x8001B3C8
+
+game/cjarchivedtor.cpp:
+	.text       start:0x8001B3C8 end:0x8001B410
+
+game/cxobjintpctor.cpp:
+	.text       start:0x8001B410 end:0x8001B5AC
+
+game/cobjarchivector.cpp:
+	.text       start:0x8001B5AC end:0x8001B5EC
+
+game/cgeneratorctor.cpp:
+	.text       start:0x8001B5EC end:0x8001B64C
+
+game/menuexctor.cpp:
+	.text       start:0x8001B64C end:0x8001B68C
+
+game/titlector.cpp:
+	.text       start:0x8001B68C end:0x8001B7F8
+
+game/clightctor.cpp:
+	.text       start:0x8001B7F8 end:0x8001B864
+
+game/cscrnwipedtor.cpp:
+	.text       start:0x8001B864 end:0x8001BA88
+
+game/ctpldtor.cpp:
+	.text       start:0x8001BA88 end:0x8001BB04
+
+game/cfilearchivedtor.cpp:
+	.text       start:0x8001BB04 end:0x8001BB60
+
+game/cbasector.cpp:
+	.text       start:0x8001BB60 end:0x8001BC3C
+
+game/ccameractor.cpp:
+	.text       start:0x8001BC3C end:0x8001BC78
+
+game/cgsctor.cpp:
+	.text       start:0x8001BC78 end:0x8001BE1C
+
+game/ctiledtor.cpp:
+	.text       start:0x8001BE1C end:0x8001BED4
+
+game/cgschannelctor.cpp:
+	.text       start:0x8001BED4 end:0x8001BEF4
+
+game/fbmirrorex.cpp:
+	.text       start:0x8001BEF4 end:0x8001BFBC
+
+game/cpaddtor.cpp:
+	.text       start:0x8001CBDC end:0x8001CC24
+
+game/progressive.cpp:
+	.text       start:0x8001CC24 end:0x8001CC4C
+
+game/cfiletextdtor.cpp:
+	.text       start:0x8001D228 end:0x8001D284
+
+game/cbasesetup.cpp:
+	.text       start:0x8001D284 end:0x8001D8C8
+
+game/cbaseboot.cpp:
+	.text       start:0x8001DC84 end:0x8001DDA0
+
+game/animsfx.cpp:
+	.text       start:0x8001DDE0 end:0x8001E050
+
 game/sound.cpp:
 	.text       start:0x8001E050 end:0x8001FCD0
 	.rodata     start:0x80200DCC end:0x802017C0
@@ -20,13 +459,328 @@ game/sound.cpp:
 	.sdata      start:0x80661048 end:0x80661050
 	.sdata2     start:0x80662F34 end:0x80662F6C
 
+game/soundload.cpp:
+	.text       start:0x8001FCD0 end:0x800200C0
+
+game/cscrnroboeyes.cpp:
+	.text       start:0x80021840 end:0x8002193C
+
+game/cscrnwipe.cpp:
+	.text       start:0x80023804 end:0x80023D60
+
+game/cscrncolordraw.cpp:
+	.text       start:0x80023D60 end:0x80023F8C
+
+game/cscrncolor.cpp:
+	.text       start:0x80023F8C end:0x80024570
+
+game/cscrnquake.cpp:
+	.text       start:0x80024570 end:0x800249F8
+
+game/cptcldust3dtor.cpp:
+	.text       start:0x800249F8 end:0x80024A90
+
+game/cptcl.cpp:
+	.text       start:0x80024A90 end:0x800254D0
+
+game/cptclonedtor.cpp:
+	.text       start:0x800254D0 end:0x800255F0
+
+game/cursorscale.cpp:
+	.text       start:0x800255F0 end:0x80025B84
+
+game/xobjdefaults.cpp:
+	.text       start:0x80025B84 end:0x8002637C
+
+game/cxobjrotate.cpp:
+	.text       start:0x8002637C end:0x80026B98
+
+game/cxobjrot.cpp:
+	.text       start:0x80026B98 end:0x80027004
+
+game/cursor.cpp:
+	.text       start:0x80027004 end:0x80027150
+
+game/logoinit.cpp:
+	.text       start:0x8002810C end:0x80028744
+
+game/xobjdemoupdate.cpp:
+	.text       start:0x80028744 end:0x800289F8
+
+game/xobjdemo.cpp:
+	.text       start:0x800289F8 end:0x80028BF8
+
+game/titlestep.cpp:
+	.text       start:0x8002C2A4 end:0x8002C434
+
+game/titlenocard.cpp:
+	.text       start:0x8002C8E0 end:0x8002CB10
+
+game/titlecardslot.cpp:
+	.text       start:0x8002CB18 end:0x8002CE60
+
+game/titlecardack.cpp:
+	.text       start:0x8002D268 end:0x8002D41C
+
+game/titlecardresult.cpp:
+	.text       start:0x8002D41C end:0x8002D568
+
+game/titleformat.cpp:
+	.text       start:0x8002D568 end:0x8002D8E0
+
+game/titlecardretry.cpp:
+	.text       start:0x8002D8E4 end:0x8002DA2C
+
+game/titlecardfinish.cpp:
+	.text       start:0x8002DA2C end:0x8002DC44
+
+game/titlesave.cpp:
+	.text       start:0x8002DC48 end:0x8002DF7C
+
+game/titlechoice.cpp:
+	.text       start:0x8002E484 end:0x8002E6F4
+
+game/titlecardread.cpp:
+	.text       start:0x8002ED5C end:0x8002F0B4
+
+game/titleinit.cpp:
+	.text       start:0x80031624 end:0x80031820
+
+game/titlereset.cpp:
+	.text       start:0x80031820 end:0x80031940
+
+game/titlestates.cpp:
+	.text       start:0x80031940 end:0x80031C98
+	.ctors      start:0x8020006C end:0x80200070
+
+game/cmenuinline.cpp:
+	.text       start:0x80031C98 end:0x80031D14
+
+game/menuex.cpp:
+	.text       start:0x80031D14 end:0x80031EC0
+
+game/menuexload.cpp:
+	.text       start:0x80031EC0 end:0x80031F88
+
+game/menuexinit.cpp:
+	.text       start:0x80031F88 end:0x8003207C
+
+game/menumctestsub.cpp:
+	.text       start:0x80032414 end:0x80032808
+
+game/menumctestsubinit.cpp:
+	.text       start:0x80032808 end:0x800329D4
+
+game/menumctest.cpp:
+	.text       start:0x800335E8 end:0x80033A20
+
+game/menustageselect.cpp:
+	.text       start:0x80034018 end:0x800343A4
+
+game/menustageselectopen.cpp:
+	.text       start:0x80034A44 end:0x80034B84
+
+game/menustatusflags.cpp:
+	.text       start:0x80034B84 end:0x80034EE4
+
+game/menupclist.cpp:
+	.text       start:0x80034EE4 end:0x80034FA8
+
+game/menupclistpage.cpp:
+	.text       start:0x80034FA8 end:0x800352E4
+
+game/menupcmarked.cpp:
+	.text       start:0x800352E4 end:0x800353A8
+
+game/menupcmarkedpage.cpp:
+	.text       start:0x800353A8 end:0x80035788
+
+game/menustatusitems.cpp:
+	.text       start:0x80035788 end:0x80035AC0
+
+game/menunewest.cpp:
+	.text       start:0x80035AC0 end:0x80035B30
+
+game/menusaveexit.cpp:
+	.text       start:0x8003C524 end:0x8003C6A4
+
+game/menusaveresult.cpp:
+	.text       start:0x8003C6A4 end:0x8003C938
+
+game/menusavereconnect.cpp:
+	.text       start:0x8003C938 end:0x8003CB30
+
+game/menusavenocard.cpp:
+	.text       start:0x8003CB30 end:0x8003CCE8
+
+game/menusaveerror.cpp:
+	.text       start:0x8003CCE8 end:0x8003D088
+
+game/menusaveretry.cpp:
+	.text       start:0x8003D088 end:0x8003D294
+
+game/menusavecheck.cpp:
+	.text       start:0x8003D294 end:0x8003D3F4
+
+game/menusaveformat.cpp:
+	.text       start:0x8003D3F4 end:0x8003D79C
+
+game/menusavewait.cpp:
+	.text       start:0x8003D7A0 end:0x8003D9B4
+
+game/menusavewrite.cpp:
+	.text       start:0x8003D9B4 end:0x8003DD74
+
+game/menusavedone.cpp:
+	.text       start:0x8003DD74 end:0x8003DEA4
+
+game/menusaveoverwrite.cpp:
+	.text       start:0x8003DEA4 end:0x8003E0D4
+
+game/menusavefile.cpp:
+	.text       start:0x8003E0D4 end:0x8003E398
+
+game/menusaveread.cpp:
+	.text       start:0x8003E398 end:0x8003E6F8
+
+game/menusavereread.cpp:
+	.text       start:0x8003E6F8 end:0x8003E7A8
+
+game/menusaveopen.cpp:
+	.text       start:0x8003ED4C end:0x8003F0FC
+
+game/menusaveinit.cpp:
+	.text       start:0x8003F0FC end:0x8003F220
+
+game/menuscrollbar.cpp:
+	.text       start:0x800405BC end:0x80040910
+
+game/menupcicon.cpp:
+	.text       start:0x8004A964 end:0x8004AB98
+
+game/menupcinline.cpp:
+	.text       start:0x8004AB98 end:0x8004AECC
+
+game/menupcexit.cpp:
+	.text       start:0x8004AECC end:0x8004AFBC
+
+game/menupcabort.cpp:
+	.text       start:0x8004D3E0 end:0x8004D674
+
+game/menupccancel.cpp:
+	.text       start:0x8004D674 end:0x8004D8FC
+
+game/menupctext.cpp:
+	.text       start:0x8004F038 end:0x8004F310
+
+game/menupcinit.cpp:
+	.text       start:0x80050828 end:0x800508C0
+
+game/menuflag.cpp:
+	.text       start:0x80053714 end:0x80053770
+
+game/menustatuscode.cpp:
+	.text       start:0x80058B38 end:0x80058DCC
+
+game/menustatusdraw.cpp:
+	.text       start:0x800591F0 end:0x80059428
+
+game/menustatusdelay.cpp:
+	.text       start:0x8005A6BC end:0x8005A77C
+
+game/menustatusbgm.cpp:
+	.text       start:0x8005CEE0 end:0x8005CF7C
+
+game/menustatusinit.cpp:
+	.text       start:0x8005E308 end:0x8005E378
+
+game/menuiteminit.cpp:
+	.text       start:0x80062454 end:0x800624C4
+
+game/menumain.cpp:
+	.text       start:0x80062EC0 end:0x8006316C
+
+game/menumainlayout.cpp:
+	.text       start:0x8006316C end:0x800634C8
+
+game/cmenuupdate.cpp:
+	.text       start:0x800634C8 end:0x80063840
+
+game/cmenu.cpp:
+	.text       start:0x80063840 end:0x80063A54
+
+game/menucursor.cpp:
+	.text       start:0x80063F64 end:0x8006417C
+
+game/menustatusitemsdtor.cpp:
+	.text       start:0x800650A0 end:0x800651A0
+
+game/menusdtor.cpp:
+	.text       start:0x800651A0 end:0x80065620
+
+game/infopoint.cpp:
+	.text       start:0x80066E30 end:0x80067044
+
+game/infoscrnbox.cpp:
+	.text       start:0x80067BC8 end:0x80067E64
+
+game/infoscrnhud.cpp:
+	.text       start:0x80067E64 end:0x80067FD4
+
+game/infoscrnitems.cpp:
+	.text       start:0x80067FD4 end:0x80068248
+
+game/infoscrnwatts.cpp:
+	.text       start:0x80068248 end:0x80068498
+
+game/infoscrnscan.cpp:
+	.text       start:0x80068498 end:0x80068700
+
+game/infoscrntimer.cpp:
+	.text       start:0x80068700 end:0x800689E4
+
+game/infoscrnpoint.cpp:
+	.text       start:0x8006A964 end:0x8006AB2C
+
+game/infoscrnpause.cpp:
+	.text       start:0x8006E8DC end:0x8006E9B4
+
+game/infoscrn.cpp:
+	.text       start:0x8006F2E4 end:0x8006F940
+
+game/infopointinit.cpp:
+	.text       start:0x8006F940 end:0x8006F9CC
+	.ctors      start:0x80200074 end:0x80200078
+
+game/infopointdtor.cpp:
+	.text       start:0x8006F9CC end:0x8006FA14
+
+game/globals.cpp:
+	.text       start:0x8006FA14 end:0x80070BDC
+
+game/stage.cpp:
+	.text       start:0x80070BDC end:0x80071AF4
+	.ctors      start:0x80200078 end:0x8020007C
+
 game/evt.cpp:
-	.text       start:0x80071BD4 end:0x80080DB8
+	.text       start:0x80071AF4 end:0x80080DB8
 	.rodata     start:0x8020E928 end:0x8020F778
 	.data       start:0x8022B600 end:0x8022BD18
 	.sdata      start:0x80661248 end:0x80661264
 	.sbss       start:0x806620E0 end:0x806620E4
 	.sdata2     start:0x80663F28 end:0x80664138
+
+game/evtqueue.cpp:
+	.text       start:0x80080DB8 end:0x800810A8
+
+game/evtinit.cpp:
+	.text       start:0x800810A8 end:0x80081484
+
+game/evtobj.cpp:
+	.text       start:0x80081484 end:0x80081578
+
+game/evtdtor.cpp:
+	.text       start:0x80081CF0 end:0x80081EC8
 
 game/msg.cpp:
 	.text       start:0x80081EC8 end:0x800888A8
@@ -34,6 +788,914 @@ game/msg.cpp:
 	.data       start:0x8022BE50 end:0x8022BFF8
 	.sdata      start:0x806612B0 end:0x806612B8
 	.sdata2     start:0x80664148 end:0x80664270
+
+game/memcardcheck.cpp:
+	.text       start:0x80088E80 end:0x800890EC
+
+game/memcardheader.cpp:
+	.text       start:0x800890EC end:0x80089464
+
+game/memcardload.cpp:
+	.text       start:0x80089464 end:0x800897B0
+
+game/memcardfile.cpp:
+	.text       start:0x800897B0 end:0x800899A8
+
+game/memcardpos.cpp:
+	.text       start:0x800899A8 end:0x80089BE4
+
+game/memcardcamera.cpp:
+	.text       start:0x80089BE4 end:0x80089C1C
+
+game/memcardrestore.cpp:
+	.text       start:0x80089C1C end:0x8008A064
+
+game/memcardcapture.cpp:
+	.text       start:0x8008A064 end:0x8008A474
+
+game/memcardbanner.cpp:
+	.text       start:0x8008A474 end:0x8008A7E4
+
+game/memcardformat.cpp:
+	.text       start:0x8008A7E4 end:0x8008AEBC
+
+game/memcardscan.cpp:
+	.text       start:0x8008AEBC end:0x8008B1F4
+
+game/memcardscanjob.cpp:
+	.text       start:0x8008B1F4 end:0x8008B2D8
+
+game/memcardread.cpp:
+	.text       start:0x8008B7FC end:0x8008BCD8
+
+game/memcardjob.cpp:
+	.text       start:0x8008C15C end:0x8008C2B0
+
+game/memcardinit.cpp:
+	.text       start:0x8008C2B0 end:0x8008C2FC
+	.ctors      start:0x80200080 end:0x80200084
+
+game/cjanim.cpp:
+	.text       start:0x8008C2FC end:0x8008C498
+
+game/xobjevent.cpp:
+	.text       start:0x8008C498 end:0x8008C930
+
+game/xobjclamp.cpp:
+	.text       start:0x8008CD8C end:0x8008D0C4
+
+game/xobjproject.cpp:
+	.text       start:0x8008D0C4 end:0x8008D6F4
+
+game/cvec.cpp:
+	.text       start:0x8008E248 end:0x8008E2C8
+
+game/xobjfloor.cpp:
+	.text       start:0x8008E820 end:0x8008E8F8
+
+game/xobjfloormask.cpp:
+	.text       start:0x8008FF14 end:0x8008FF88
+
+game/xobjanim.cpp:
+	.text       start:0x8009223C end:0x80092618
+
+game/xobjshadow.cpp:
+	.text       start:0x80092618 end:0x80092910
+
+game/xobjdraw.cpp:
+	.text       start:0x80092910 end:0x8009296C
+
+game/xobjanmqueue.cpp:
+	.text       start:0x8009296C end:0x80092D30
+
+game/xobjupdate.cpp:
+	.text       start:0x80092D30 end:0x8009326C
+
+game/xobjmaterial.cpp:
+	.text       start:0x8009326C end:0x80093934
+
+game/xobjtoon.cpp:
+	.text       start:0x80093934 end:0x80093CF0
+
+game/xobjwalk.cpp:
+	.text       start:0x80093CF0 end:0x80093D2C
+
+game/xobjinit.cpp:
+	.text       start:0x80094994 end:0x80094B50
+
+game/xobjcameradtor.cpp:
+	.text       start:0x80094B50 end:0x80094C2C
+
+game/xobjcamera.cpp:
+	.text       start:0x80094C2C end:0x80094E68
+
+game/xobjlightdtor.cpp:
+	.text       start:0x80094E68 end:0x80094EE4
+
+game/xobjlight.cpp:
+	.text       start:0x80094EE4 end:0x800951E0
+
+game/xobjmapdtor.cpp:
+	.text       start:0x800951E0 end:0x80095274
+
+game/ctrigondtor.cpp:
+	.text       start:0x80095274 end:0x800952BC
+
+game/xobjmapcolor.cpp:
+	.text       start:0x800952BC end:0x80095748
+
+game/xobjmap.cpp:
+	.text       start:0x80095748 end:0x80095C28
+
+game/drsmenudtor.cpp:
+	.text       start:0x80095C28 end:0x80095C84
+
+game/octamenureset.cpp:
+	.text       start:0x80095C84 end:0x80095CC0
+
+game/efftrail.cpp:
+	.text       start:0x80096150 end:0x800963E8
+
+game/pointptcl.cpp:
+	.text       start:0x80097C38 end:0x80097E30
+
+game/oxmenu.cpp:
+	.text       start:0x80098CF0 end:0x80099290
+
+game/xobjmatcolor.cpp:
+	.text       start:0x80099290 end:0x80099430
+
+game/xobjchrmenu.cpp:
+	.text       start:0x80099430 end:0x80099524
+
+game/drsmenu.cpp:
+	.text       start:0x8009A444 end:0x8009A7F4
+
+game/atcmenu.cpp:
+	.text       start:0x8009AC7C end:0x8009B088
+
+game/atcmenuopen.cpp:
+	.text       start:0x8009B088 end:0x8009B43C
+
+game/xobjchratc.cpp:
+	.text       start:0x8009B43C end:0x8009B464
+
+game/octamenu.cpp:
+	.text       start:0x8009D214 end:0x8009D35C
+
+game/octamenuopen.cpp:
+	.text       start:0x8009E1D4 end:0x8009E578
+
+game/atcvalues.cpp:
+	.text       start:0x8009E578 end:0x8009E754
+
+game/atcvaluesinit.cpp:
+	.text       start:0x8009F25C end:0x8009F2F0
+
+game/xobjchrlook.cpp:
+	.text       start:0x8009F9BC end:0x8009FBA4
+
+game/xobjchridle.cpp:
+	.text       start:0x8009FBA4 end:0x8009FED8
+
+game/xobjchrfloor.cpp:
+	.text       start:0x8009FED8 end:0x800A01E8
+
+game/xobjchrjoint.cpp:
+	.text       start:0x800A1928 end:0x800A1C00
+
+game/xobjchrhit.cpp:
+	.text       start:0x800A2090 end:0x800A2444
+
+game/xobjchrflash.cpp:
+	.text       start:0x800A2444 end:0x800A2844
+
+game/xobjchrradius.cpp:
+	.text       start:0x800A2844 end:0x800A2AC4
+
+game/xobjchrmove.cpp:
+	.text       start:0x800A2AC4 end:0x800A2DEC
+
+game/xobjchrcamera.cpp:
+	.text       start:0x800A2DEC end:0x800A3008
+
+game/xactstate.cpp:
+	.text       start:0x800A5000 end:0x800A50A0
+
+game/cjobjframe.cpp:
+	.text       start:0x800A50A0 end:0x800A525C
+
+game/cveccopy.cpp:
+	.text       start:0x800A525C end:0x800A5284
+
+game/xobjactive.cpp:
+	.text       start:0x800A5284 end:0x800A52B8
+
+game/xobjchrhide.cpp:
+	.text       start:0x800A52B8 end:0x800A551C
+
+game/xobjchranim.cpp:
+	.text       start:0x800A5B18 end:0x800A63E4
+
+game/xobjchrshadow.cpp:
+	.text       start:0x800A69D0 end:0x800A6B00
+
+game/xobjchrupdateanim.cpp:
+	.text       start:0x800A7984 end:0x800A79A4
+
+game/xobjchrdraw.cpp:
+	.text       start:0x800A9C70 end:0x800AA2B8
+
+game/frameevent.cpp:
+	.text       start:0x800AA8F0 end:0x800AAB18
+
+game/xobjchridlejoint.cpp:
+	.text       start:0x800AC290 end:0x800AC544
+
+game/xobjchrstate.cpp:
+	.text       start:0x800B4068 end:0x800B441C
+
+game/xobjchredge.cpp:
+	.text       start:0x800B441C end:0x800B4560
+
+game/xobjchrut.cpp:
+	.text       start:0x800B4560 end:0x800B5714
+
+game/xobjchrmenusel.cpp:
+	.text       start:0x800B7498 end:0x800B7AFC
+
+game/xobjchrmenuopen.cpp:
+	.text       start:0x800B7AFC end:0x800B7D78
+
+game/xobjchrparts.cpp:
+	.text       start:0x800B7D78 end:0x800B83A4
+
+game/xobjchrrestore.cpp:
+	.text       start:0x800B9E6C end:0x800BA0CC
+
+game/xobjchrreset.cpp:
+	.text       start:0x800BA0CC end:0x800BA2C4
+
+game/xobjchritem.cpp:
+	.text       start:0x800BB434 end:0x800BB6A4
+
+game/xobjchratcanim.cpp:
+	.text       start:0x800BBCEC end:0x800BBD90
+
+game/xobjchrstop.cpp:
+	.text       start:0x800BD314 end:0x800BD404
+
+game/xobjchrjointrot.cpp:
+	.text       start:0x800BD964 end:0x800BDC9C
+
+game/xaction.cpp:
+	.text       start:0x800BDC9C end:0x800BDD10
+
+game/xactioninit.cpp:
+	.text       start:0x800BE32C end:0x800BE35C
+
+game/atcmenudtor.cpp:
+	.text       start:0x800BEA30 end:0x800BEAD4
+
+game/xactpoppershotdtor.cpp:
+	.text       start:0x800BF168 end:0x800BF1FC
+
+game/xobjplugdtor.cpp:
+	.text       start:0x800BF1FC end:0x800BF2A4
+
+game/xobjplugcordnodedtor.cpp:
+	.text       start:0x800BF2A4 end:0x800BF334
+
+game/xobjwireeffdtor.cpp:
+	.text       start:0x800BF334 end:0x800BF394
+
+game/xobjcopterdtor.cpp:
+	.text       start:0x800BF394 end:0x800BF3F4
+
+game/xobjattachmentdtor.cpp:
+	.text       start:0x800BF3F4 end:0x800BF454
+
+game/xobjpopperdtor.cpp:
+	.text       start:0x800BF454 end:0x800BF4B4
+
+game/xobjradardtor.cpp:
+	.text       start:0x800BF4B4 end:0x800BF514
+
+game/xobjoxdtor.cpp:
+	.text       start:0x800BF514 end:0x800BF574
+
+game/oxmenumarkdtor.cpp:
+	.text       start:0x800BF574 end:0x800BF5CC
+
+game/xobjfloorheight.cpp:
+	.text       start:0x800BF5CC end:0x800BF72C
+
+game/xpaddtor.cpp:
+	.text       start:0x800BF72C end:0x800BF818
+
+game/oxmenudtor.cpp:
+	.text       start:0x800BF818 end:0x800BF888
+
+game/cptcldtor.cpp:
+	.text       start:0x800BF888 end:0x800BF8D0
+
+game/xactradarfade.cpp:
+	.text       start:0x800C0BF8 end:0x800C0CE8
+
+game/xactradartarget.cpp:
+	.text       start:0x800C0CE8 end:0x800C0EE0
+
+game/xactradar.cpp:
+	.text       start:0x800C21F0 end:0x800C2404
+
+game/xactpopperring.cpp:
+	.text       start:0x800C2404 end:0x800C267C
+
+game/xactpopper.cpp:
+	.text       start:0x800C3BA4 end:0x800C3E74
+
+game/xactpoppershoot.cpp:
+	.text       start:0x800C501C end:0x800C5320
+
+game/octamenubob.cpp:
+	.text       start:0x800C5320 end:0x800C54C0
+
+game/xobjchrvec.cpp:
+	.text       start:0x800C5C0C end:0x800C5C38
+
+game/xactcopter.cpp:
+	.text       start:0x800C5C38 end:0x800C5D00
+
+game/xacttumblering.cpp:
+	.text       start:0x800C5D00 end:0x800C5FF0
+
+game/xacttumblefade.cpp:
+	.text       start:0x800C5FF0 end:0x800C609C
+
+game/xacttumble.cpp:
+	.text       start:0x800C6F28 end:0x800C6F68
+
+game/xactpushrelease.cpp:
+	.text       start:0x800C7CF0 end:0x800C7F38
+
+game/xactpush.cpp:
+	.text       start:0x800C7F38 end:0x800C81B4
+
+game/xobjchrjointpos.cpp:
+	.text       start:0x800C9E70 end:0x800CA124
+
+game/xactrope.cpp:
+	.text       start:0x800CA124 end:0x800CA224
+
+game/xactladder.cpp:
+	.text       start:0x800CC1D4 end:0x800CC3B4
+
+game/xactjump.cpp:
+	.text       start:0x800CC3B4 end:0x800CC714
+
+game/xactjumpweight.cpp:
+	.text       start:0x800CE414 end:0x800CE42C
+
+game/xacthang.cpp:
+	.text       start:0x800D0780 end:0x800D09B4
+
+game/xactcarry.cpp:
+	.text       start:0x800D0F64 end:0x800D1008
+
+game/xactcarryoffset.cpp:
+	.text       start:0x800D1008 end:0x800D135C
+
+game/xactliftjoint.cpp:
+	.text       start:0x800D339C end:0x800D35AC
+
+game/xactliftfx.cpp:
+	.text       start:0x800D612C end:0x800D65E4
+
+game/xactliftobj.cpp:
+	.text       start:0x800D65E4 end:0x800D67BC
+
+game/xactliftpose.cpp:
+	.text       start:0x800D67BC end:0x800D6A38
+
+game/xactliftitem.cpp:
+	.text       start:0x800D6EC4 end:0x800D7230
+
+game/xactlift.cpp:
+	.text       start:0x800D7230 end:0x800D7860
+
+game/xobjox.cpp:
+	.text       start:0x800D7BFC end:0x800D7FB4
+
+game/xobjradaraim.cpp:
+	.text       start:0x800D7FB4 end:0x800D8328
+
+game/xobjradarturn.cpp:
+	.text       start:0x800D8328 end:0x800D8664
+
+game/xobjradar.cpp:
+	.text       start:0x800D8664 end:0x800D893C
+
+game/xobjradarstate.cpp:
+	.text       start:0x800D893C end:0x800D8AE8
+
+game/xobjradarinit.cpp:
+	.text       start:0x800D9668 end:0x800D96B8
+
+game/xobjpopper.cpp:
+	.text       start:0x800D96B8 end:0x800D9A50
+
+game/xobjpopperanim.cpp:
+	.text       start:0x800D9A50 end:0x800D9D38
+
+game/xobjcopter.cpp:
+	.text       start:0x800D9D38 end:0x800DA07C
+
+game/xobjattachment.cpp:
+	.text       start:0x800DA07C end:0x800DA40C
+
+game/xobjwireeff.cpp:
+	.text       start:0x800DA40C end:0x800DA798
+
+game/xobjplug.cpp:
+	.text       start:0x800DA798 end:0x800DAA9C
+
+game/xobjplugpoint.cpp:
+	.text       start:0x800DB738 end:0x800DB76C
+
+game/xobjpluganchor.cpp:
+	.text       start:0x800DB76C end:0x800DBA98
+
+game/xobjplugrelease.cpp:
+	.text       start:0x800DBA98 end:0x800DBAE4
+
+game/xobjplugload.cpp:
+	.text       start:0x800DBAE4 end:0x800DBBE8
+
+game/xobjpluginit.cpp:
+	.text       start:0x800DC124 end:0x800DC1E0
+
+game/xobjplugnodedraw.cpp:
+	.text       start:0x800DCBA0 end:0x800DCD5C
+
+game/xobjplugcorddraw.cpp:
+	.text       start:0x800DCD5C end:0x800DD0B0
+
+game/xobjplugcordend.cpp:
+	.text       start:0x800DDE78 end:0x800DDEE0
+
+game/xobjplugcordreset.cpp:
+	.text       start:0x800DDEE0 end:0x800DE14C
+
+game/xobjplugcord.cpp:
+	.text       start:0x800DE14C end:0x800DE29C
+
+game/xobjplugcordpointpool.cpp:
+	.text       start:0x800DE29C end:0x800DE2D4
+
+game/xobjplugcordpointdtor.cpp:
+	.text       start:0x800DE2D4 end:0x800DE350
+
+game/xobjplugcordpointctor.cpp:
+	.text       start:0x800DE350 end:0x800DE368
+
+game/xobjplugnodes.cpp:
+	.text       start:0x800DE368 end:0x800DE4AC
+
+game/xobjplugnode.cpp:
+	.text       start:0x800DEB0C end:0x800DECFC
+
+game/inventory.cpp:
+	.text       start:0x800DECFC end:0x800DF400
+
+game/params.cpp:
+	.text       start:0x800DF400 end:0x800DF9FC
+
+game/xobjsounddtor.cpp:
+	.text       start:0x800DF9FC end:0x800DFA5C
+
+game/xobjsound.cpp:
+	.text       start:0x800DFA5C end:0x800DFC70
+
+game/xobjfreedtor.cpp:
+	.text       start:0x800DFC70 end:0x800DFCD0
+
+game/xobjfree.cpp:
+	.text       start:0x800DFCD0 end:0x800E025C
+
+game/xobjfreeevent.cpp:
+	.text       start:0x800E0708 end:0x800E0CD8
+
+game/xobjdustpad.cpp:
+	.text       start:0x800E0CD8 end:0x800E0EC4
+
+game/xobjdustbillboard.cpp:
+	.text       start:0x800E0EC4 end:0x800E13F4
+
+game/xobjdustevent.cpp:
+	.text       start:0x800E13F4 end:0x800E1770
+
+game/xobjdust.cpp:
+	.text       start:0x800E1770 end:0x800E2070
+
+game/xobjhbox.cpp:
+	.text       start:0x800E2070 end:0x800E26A4
+
+game/xobjhboxpart.cpp:
+	.text       start:0x800E3610 end:0x800E3888
+
+game/xobjcoinfall.cpp:
+	.text       start:0x800E3888 end:0x800E3A94
+
+game/xobjcoinparam.cpp:
+	.text       start:0x800E3A94 end:0x800E3B10
+
+game/xobjcoin.cpp:
+	.text       start:0x800E4530 end:0x800E4910
+
+game/xobjflagsdtor.cpp:
+	.text       start:0x800E4910 end:0x800E49D0
+
+game/xobjflagsclear.cpp:
+	.text       start:0x800E49D0 end:0x800E4A6C
+
+game/xobjhboxdtor.cpp:
+	.text       start:0x800E4A6C end:0x800E4ADC
+
+game/xobjcoindtor.cpp:
+	.text       start:0x800E4ADC end:0x800E4BF0
+
+game/xobjflagsinit.cpp:
+	.text       start:0x800E4BF0 end:0x800E4C7C
+	.ctors      start:0x80200084 end:0x80200088
+
+game/xobjletickerdtor.cpp:
+	.text       start:0x800E4C7C end:0x800E4CDC
+
+game/xobjletickermove.cpp:
+	.text       start:0x800E557C end:0x800E58FC
+
+game/xobjletickerclear.cpp:
+	.text       start:0x800E6DD4 end:0x800E70F0
+
+game/xobjletickerdraw.cpp:
+	.text       start:0x800E7800 end:0x800E7B24
+
+game/xobjletickerride.cpp:
+	.text       start:0x800E7B24 end:0x800E7CCC
+
+game/xobjletickerinit.cpp:
+	.text       start:0x800E8A54 end:0x800E8AEC
+
+game/ccameraactionleticker.cpp:
+	.text       start:0x800E8AEC end:0x800E8D4C
+
+game/ccameraactionletickerreset.cpp:
+	.text       start:0x800E8D4C end:0x800E8DC0
+
+game/ccameraactionletickerdtor.cpp:
+	.text       start:0x800E8DC0 end:0x800E8E68
+
+game/ccameraactionletickerget.cpp:
+	.text       start:0x800E8E68 end:0x800E8E80
+
+game/ccameraactionletickerinit.cpp:
+	.text       start:0x800E8E80 end:0x800E8EF8
+	.ctors      start:0x80200088 end:0x8020008C
+
+game/xobjarmydtor.cpp:
+	.text       start:0x800E8EF8 end:0x800E9004
+
+game/xobjarmysfx.cpp:
+	.text       start:0x800E9004 end:0x800E9118
+
+game/xobjarmyshot.cpp:
+	.text       start:0x800E9118 end:0x800E9420
+
+game/xobjarmyhit.cpp:
+	.text       start:0x800E9420 end:0x800E9578
+
+game/xobjarmyshoot.cpp:
+	.text       start:0x800E9AD8 end:0x800E9D9C
+
+game/xobjarmywait.cpp:
+	.text       start:0x800EAB0C end:0x800EACA0
+
+game/xobjarmydraw.cpp:
+	.text       start:0x800EBDB4 end:0x800EC124
+
+game/xobjarmy.cpp:
+	.text       start:0x800EC724 end:0x800EC868
+
+game/xobjarmyinit.cpp:
+	.text       start:0x800EC868 end:0x800EC8B4
+	.ctors      start:0x8020008C end:0x80200090
+
+game/xobjspiderdtor.cpp:
+	.text       start:0x800EC8B4 end:0x800EC9B4
+
+game/xobjspidercoin.cpp:
+	.text       start:0x800EC9F0 end:0x800ED13C
+
+game/xobjspidercarry.cpp:
+	.text       start:0x800ED13C end:0x800ED4FC
+
+game/xobjspiderarea.cpp:
+	.text       start:0x800EDF0C end:0x800EE404
+
+game/xobjspiderslot.cpp:
+	.text       start:0x800F0600 end:0x800F076C
+
+game/xobjspiderdist.cpp:
+	.text       start:0x800F2050 end:0x800F2154
+
+game/xobjspiderhit.cpp:
+	.text       start:0x800F25A8 end:0x800F288C
+
+game/xobjspidercmd.cpp:
+	.text       start:0x800F3F2C end:0x800F430C
+
+game/xobjspiderdamage.cpp:
+	.text       start:0x800F4B4C end:0x800F4C50
+
+game/xobjspidershadow.cpp:
+	.text       start:0x800F560C end:0x800F5948
+
+game/xobjspiderdraw.cpp:
+	.text       start:0x800F5948 end:0x800F59A8
+
+game/xobjspider.cpp:
+	.text       start:0x800F5F88 end:0x800F6140
+
+game/xobjspiderstate.cpp:
+	.text       start:0x800F7064 end:0x800F723C
+	.ctors      start:0x80200090 end:0x80200094
+
+game/xobjspidersmalldtor.cpp:
+	.text       start:0x800F723C end:0x800F72F8
+
+game/xobjspidersmallse.cpp:
+	.text       start:0x800F72F8 end:0x800F7604
+
+game/xobjspidersmallfx.cpp:
+	.text       start:0x800F7604 end:0x800F7794
+
+game/xobjspidersmallgrab.cpp:
+	.text       start:0x800F7C44 end:0x800F800C
+
+game/xobjspidersmallarea.cpp:
+	.text       start:0x800F800C end:0x800F8180
+
+game/xobjspidersmalldist.cpp:
+	.text       start:0x800FAC68 end:0x800FAE80
+
+game/xobjspidersmallhide.cpp:
+	.text       start:0x800FF184 end:0x800FF1C4
+
+game/xobjspidersmallhit.cpp:
+	.text       start:0x80100254 end:0x80100424
+
+game/xobjspidersmallshadow.cpp:
+	.text       start:0x80100424 end:0x80100754
+
+game/xobjspidersmalldraw.cpp:
+	.text       start:0x80100758 end:0x801009E4
+
+game/xobjspidersmallreset.cpp:
+	.text       start:0x8010141C end:0x80101638
+
+game/xobjspidersmallload.cpp:
+	.text       start:0x80101638 end:0x801019D0
+
+game/xobjspidersmallclear.cpp:
+	.text       start:0x80102368 end:0x80102808
+
+game/xobjspidersmallinit.cpp:
+	.text       start:0x80102808 end:0x80102984
+	.ctors      start:0x80200094 end:0x80200098
+
+game/xobjspidersmallstatus.cpp:
+	.text       start:0x80102984 end:0x80102ACC
+
+game/xobjspiderbossdtor.cpp:
+	.text       start:0x80102ACC end:0x80102B44
+
+game/xobjspiderbossse.cpp:
+	.text       start:0x80102B44 end:0x80102C98
+
+game/xobjspiderbossstop.cpp:
+	.text       start:0x8010639C end:0x801063F4
+
+game/xobjspiderbossgetup.cpp:
+	.text       start:0x801063F4 end:0x80106734
+
+game/xobjspiderbossstate.cpp:
+	.text       start:0x80106734 end:0x801067C8
+
+game/xobjspiderbosshit.cpp:
+	.text       start:0x80107A28 end:0x80107BE4
+
+game/xobjspiderbossdraw.cpp:
+	.text       start:0x80108530 end:0x801085AC
+
+game/xobjspiderbossupdate.cpp:
+	.text       start:0x801085AC end:0x80108854
+
+game/xobjspiderbossload.cpp:
+	.text       start:0x80108854 end:0x801088DC
+
+game/xobjspiderbossinit.cpp:
+	.text       start:0x80108E60 end:0x8010912C
+
+game/xobjspiderbossreset.cpp:
+	.text       start:0x8010912C end:0x8010926C
+	.ctors      start:0x80200098 end:0x8020009C
+
+game/xobjactordtor.cpp:
+	.text       start:0x8010926C end:0x801092E4
+
+game/xobjactorse.cpp:
+	.text       start:0x801092E4 end:0x801094FC
+
+game/xobjactorstop.cpp:
+	.text       start:0x801098C4 end:0x801098FC
+
+game/xobjactorlook.cpp:
+	.text       start:0x80109D60 end:0x80109F74
+
+game/xobjactorupdate.cpp:
+	.text       start:0x8010A604 end:0x8010AC48
+
+game/xobjactor3dtor.cpp:
+	.text       start:0x8010AC48 end:0x8010AD64
+
+game/xobjactor3se.cpp:
+	.text       start:0x8010AD64 end:0x8010AFB8
+
+game/xobjactor3ptcl.cpp:
+	.text       start:0x8010B7F4 end:0x8010B83C
+
+game/xobjactor3draw.cpp:
+	.text       start:0x8010C5C8 end:0x8010C670
+
+game/xobjactor3release.cpp:
+	.text       start:0x8010CCF0 end:0x8010CD64
+
+game/xobjactor3reset.cpp:
+	.text       start:0x8010D4F0 end:0x8010D764
+
+game/xobjactor3ride.cpp:
+	.text       start:0x8010D764 end:0x8010DB84
+
+game/xobjactor3cmd.cpp:
+	.text       start:0x8010DB84 end:0x8010DFB8
+
+game/xobjactor3slide.cpp:
+	.text       start:0x8010E410 end:0x8010E780
+
+game/xobjactor3scale.cpp:
+	.text       start:0x8010E780 end:0x8010EB08
+
+game/xobjactor3spider.cpp:
+	.text       start:0x8010F5E0 end:0x8010FE60
+
+game/xobjactor3spiderjank.cpp:
+	.text       start:0x80111774 end:0x80111B1C
+
+game/xobjactor3mtjank.cpp:
+	.text       start:0x80112320 end:0x80112798
+
+game/xobjactor3nezumi.cpp:
+	.text       start:0x80113B30 end:0x80113E00
+
+game/xobjactor3gacha.cpp:
+	.text       start:0x80116D4C end:0x80116FCC
+
+game/xobjactor3door.cpp:
+	.text       start:0x801179EC end:0x80117AAC
+
+game/xobjactor3init.cpp:
+	.text       start:0x80117AAC end:0x80117D44
+	.ctors      start:0x8020009C end:0x802000A0
+
+game/xobjactortoystate.cpp:
+	.text       start:0x80117D44 end:0x80117DC0
+
+game/xobjactortoydtor.cpp:
+	.text       start:0x80117DC0 end:0x80117E78
+
+game/xobjactortoysound.cpp:
+	.text       start:0x80117E78 end:0x8011818C
+
+game/xobjactortoycmd.cpp:
+	.text       start:0x80118724 end:0x801187E0
+
+game/xobjactortoyzobin.cpp:
+	.text       start:0x8011C85C end:0x8011CB9C
+
+game/xobjactortoytrex.cpp:
+	.text       start:0x8011DED4 end:0x8011DFF8
+
+game/xobjactortoyattach.cpp:
+	.text       start:0x80120BB0 end:0x801210E8
+
+game/xobjactortoyevent.cpp:
+	.text       start:0x801210E8 end:0x80121698
+
+game/xobjactortoyupdate.cpp:
+	.text       start:0x80121AA8 end:0x80121CC8
+
+game/xobjactortoyut.cpp:
+	.text       start:0x801241BC end:0x801242C0
+
+game/cjobjctor.cpp:
+	.text       start:0x801242C0 end:0x80124314
+
+game/xobjactortoydraw.cpp:
+	.text       start:0x801248B4 end:0x80124958
+
+game/xobjactortoyread.cpp:
+	.text       start:0x80125184 end:0x80125694
+
+game/xobjactorjennydtor.cpp:
+	.text       start:0x80125694 end:0x80125720
+
+game/xobjactorjennyhead.cpp:
+	.text       start:0x80125720 end:0x80125868
+
+game/xobjactorjennycmd.cpp:
+	.text       start:0x80125868 end:0x80125AB8
+
+game/xobjactorjennyanim.cpp:
+	.text       start:0x8012718C end:0x801275BC
+
+game/xobjactorjennyhide.cpp:
+	.text       start:0x80127A88 end:0x80127D20
+
+game/xobjactorjennyreset.cpp:
+	.text       start:0x80128AFC end:0x80128CA4
+
+game/xobjactormamadtor.cpp:
+	.text       start:0x80128CA4 end:0x80128D1C
+
+game/xobjactormamahead.cpp:
+	.text       start:0x80128D1C end:0x80128E44
+
+game/xobjactormamacmd.cpp:
+	.text       start:0x80128E44 end:0x80129058
+
+game/xobjactormamaupdate.cpp:
+	.text       start:0x8012AA1C end:0x8012AA3C
+
+game/xobjactormamahide.cpp:
+	.text       start:0x8012AA3C end:0x8012ADC8
+
+game/xobjactormamareset.cpp:
+	.text       start:0x8012BA78 end:0x8012BBA4
+
+game/xobjactorpapadtor.cpp:
+	.text       start:0x8012BBA4 end:0x8012BC1C
+
+game/xobjactorpapahead.cpp:
+	.text       start:0x8012BC1C end:0x8012BD68
+
+game/xobjactorpapacmd.cpp:
+	.text       start:0x8012BD68 end:0x8012BF78
+
+game/xobjactorpapahide.cpp:
+	.text       start:0x8012E368 end:0x8012E5F0
+
+game/xobjactorpapareset.cpp:
+	.text       start:0x8012EFAC end:0x8012F0E0
+
+game/xobjactortaodtor.cpp:
+	.text       start:0x8012F0E0 end:0x8012F158
+
+game/xobjactortaohead.cpp:
+	.text       start:0x8012F158 end:0x8012F2A4
+
+game/xobjactortaohide.cpp:
+	.text       start:0x80131800 end:0x80131B20
+
+game/xobjactortaoreset.cpp:
+	.text       start:0x80131B20 end:0x80131CB0
+
+game/xobjactordecadtor.cpp:
+	.text       start:0x80131CB0 end:0x80131D3C
+
+game/xobjactordecahead.cpp:
+	.text       start:0x80131D3C end:0x80131E34
+
+game/xobjactordecacamera.cpp:
+	.text       start:0x80131E34 end:0x8013214C
+
+game/xobjactordecareset.cpp:
+	.text       start:0x801342BC end:0x801343F4
+
+game/xobjreadanmdtor.cpp:
+	.text       start:0x801343F4 end:0x80134478
+
+game/xobjreadwait.cpp:
+	.text       start:0x80134478 end:0x8013484C
 
 game/xobjs.cpp:
 	.text       start:0x8013484C end:0x80135514
@@ -43,14 +1705,106 @@ game/xobjs.cpp:
 	.sdata      start:0x80661830 end:0x80661838
 	.sdata2     start:0x80665938 end:0x80665940
 
+game/xobjsreset.cpp:
+	.text       start:0x80135514 end:0x801355A8
+
+game/xobjfreector.cpp:
+	.text       start:0x801363A4 end:0x801364C4
+
+game/xobjflagsctor.cpp:
+	.text       start:0x801364C4 end:0x80136588
+
+game/xobjspidersmallctor.cpp:
+	.text       start:0x80136588 end:0x80136690
+
+game/xobjspiderctor.cpp:
+	.text       start:0x80136690 end:0x8013674C
+
+game/xobjarmyctor.cpp:
+	.text       start:0x8013674C end:0x80136820
+
+game/xobjactordecactor.cpp:
+	.text       start:0x80136820 end:0x8013690C
+
+game/xobjactorfamilyctor.cpp:
+	.text       start:0x8013690C end:0x80136A54
+
+game/xobjactortoyctor.cpp:
+	.text       start:0x80136A54 end:0x80136B0C
+
+game/xobjletickerctor.cpp:
+	.text       start:0x80136B0C end:0x80136B8C
+
+game/xobjitemctor.cpp:
+	.text       start:0x80136B8C end:0x80136C0C
+
+game/xobjcoinctor.cpp:
+	.text       start:0x80136C0C end:0x80136C8C
+
+game/xobjsoundctor.cpp:
+	.text       start:0x80136C8C end:0x80136D0C
+
+game/xobjactor3pool.cpp:
+	.text       start:0x80136D0C end:0x80136D44
+
+game/xobjactor3ctor.cpp:
+	.text       start:0x80136D44 end:0x80136EA0
+
+game/xobjchrctor.cpp:
+	.text       start:0x80136EA0 end:0x801371F4
+
+game/oxmenumarkctor.cpp:
+	.text       start:0x801371F4 end:0x80137228
+
+game/xobjattachmentctor.cpp:
+	.text       start:0x80137228 end:0x80137354
+
+game/xobjplugctor.cpp:
+	.text       start:0x80137354 end:0x8013742C
+
+game/cscrncolorctor.cpp:
+	.text       start:0x8013742C end:0x80137470
+
+game/xactpoppershotctor.cpp:
+	.text       start:0x80137470 end:0x80137504
+
+game/xobjmapctor.cpp:
+	.text       start:0x80137504 end:0x80137598
+
+game/xobjlightctor.cpp:
+	.text       start:0x80137598 end:0x801375F4
+
+game/xobjcameractor.cpp:
+	.text       start:0x801375F4 end:0x80137658
+
+game/xobjreaddtor.cpp:
+	.text       start:0x80137658 end:0x8013781C
+
+game/xobjreadinit.cpp:
+	.text       start:0x8013781C end:0x80137924
+	.ctors      start:0x802000A0 end:0x802000A4
+
+game/cinterpolationeaseout.cpp:
+	.text       start:0x80137924 end:0x80137BF0
+
+game/ccameraactionareaex.cpp:
+	.text       start:0x80137BF0 end:0x8013A898
+
+game/ccameraactionareaexinit.cpp:
+	.text       start:0x8013A898 end:0x8013A904
+	.ctors      start:0x802000A4 end:0x802000A8
+
+game/ccameraactionareaexdtor.cpp:
+	.text       start:0x8013A904 end:0x8013A9D8
+
 game/ccameraactionarea.cpp:
-	.text       start:0x8013AA2C end:0x8013C434
+	.text       start:0x8013A9D8 end:0x8013C5DC
 	.rodata     start:0x80212F9C end:0x80213018
 	.data       start:0x80234F60 end:0x80234F6C
 	.sdata2     start:0x80665A48 end:0x80665AA0
 
 game/ccameraactionmap2.cpp:
-	.text       start:0x8013C5F4 end:0x80144CA8
+	.text       start:0x8013C5DC end:0x80144CA8
 	.ctors      start:0x802000A8 end:0x802000AC
 	.rodata     start:0x80213018 end:0x80213518
 	.data       start:0x80235010 end:0x802350E8

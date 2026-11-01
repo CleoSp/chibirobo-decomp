@@ -1,0 +1,52 @@
+#include "game/ccard.h"
+#include "game/memcard.h"
+
+static inline BOOL ReadFailed(Memcard* card)
+{
+	card->mCard.Close();
+	return TRUE;
+}
+
+/**
+ * @note Address: 0x80087190
+ * @note Size: 0x378
+ */
+extern "C" BOOL fn_80087190(Memcard* card, SaveFile* file)
+{
+	card->mState     = 12;
+	SaveHeader* save = &file->mData.mHeader;
+	for (s32 copy = 0; copy < 2; ++copy) {
+		card->mCard.Read(file, 0x6000, copy * 0x6000);
+		card->LogResult();
+		if (card->mCard.mResult != CARD_RESULT_READY)
+			return ReadFailed(card);
+		if (save->mSignature != SAVE_SIGNATURE)
+			card->mCard.mResult = -128;
+		card->LogResult();
+		if (card->mCard.mResult != CARD_RESULT_READY) {
+			if (copy == 1)
+				return ReadFailed(card);
+			continue;
+		}
+		u32 checksum = 0;
+		for (u32 i = 0; i < sizeof(SaveData); ++i)
+			checksum += ((u8*)save)[i];
+		if (checksum != file->mChecksum)
+			card->mCard.mResult = -128;
+		card->LogResult();
+		if (card->mCard.mResult != CARD_RESULT_READY) {
+			if (copy == 1)
+				return ReadFailed(card);
+			continue;
+		}
+		if (!IsValidSave(save)) {
+			if (copy == 1) {
+				card->mCard.mResult = -128;
+				return ReadFailed(card);
+			}
+			continue;
+		}
+		break;
+	}
+	return FALSE;
+}

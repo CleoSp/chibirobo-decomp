@@ -1,0 +1,194 @@
+#ifndef _GAME_XCHR_H
+#define _GAME_XCHR_H
+
+#include "game/xobj.h"
+#include "game/ctpl.h"
+#include "game/cptcl.h"
+#include "game/xact.h"
+#include "game/octamenu.h"
+#include "game/xobjattachment.h"
+#include "game/xobjchr.h"
+#include "game/inventory.h"
+
+// chibi robo's own object, XObjChr. the layout comes from the ctor at 0x80134694. offsets
+// are usa, japan is 0x10 lower up to mPlug, see the notes after that
+
+// chibi robo's numbers, watts, happy points and the items he holds
+class Params {
+public:
+	s32 mExperience;      // _00
+	s32 mLevel;           // _04
+	s32 mRank;            // _08
+	f32 mBattery;         // _0C
+	f32 mMaxBattery;      // _10
+	s32 mMoney;           // _14
+	s32 mScrap;           // _18
+	u32 _1C[8];           // _1C
+	Inventory mInventory; // _3C
+	// _440 vtable
+
+	virtual ~Params(); // _08 (weak)
+};
+STATIC_ASSERT(sizeof(Params) == 0x444);
+
+extern "C" {
+s32 fn_800DCE70(Params* stats, s16 id);
+void fn_800DCFCC(Params* stats, s32 delta);
+void fn_800DD044(Params* stats, s32 delta);
+void fn_800DD0BC(Params* stats, s32 delta);
+void fn_800DD0F8(Params* stats, s32 delta);
+void fn_800DD198(Params* stats, s32 delta);
+void fn_800DD234(Params* stats);
+}
+
+// where chibi robo looks, beside the three CJointRots that turn his head
+struct XObjChrLook {
+	BOOL mActive;       // _00
+	s32 mMode;          // _04
+	u8 _08[0x18 - 0x8]; // _08
+	Vec mTarget;        // _18
+	f32 mFade;          // _24, the marker fades in over 0.3 seconds
+	f32 mPhase;         // _28, degrees
+	f32 mPulse;         // _2C, 0 to 2
+	u32 _30;            // _30
+};
+STATIC_ASSERT(sizeof(XObjChrLook) == 0x34);
+
+// a joint that loops its own idle anim
+struct XObjChrIdleJoint {
+	HSD_JObj* mJObj;           // _00
+	HSD_AnimJoint* mAnimJoint; // _04
+	u8* _08;                   // _08, the fobj's ad_head last frame
+};
+STATIC_ASSERT(sizeof(XObjChrIdleJoint) == 0xC);
+
+// a count per attachment, id then value for each of the 9
+struct AttachmentValue {
+	s32 mId;    // _00
+	s32 mValue; // _04
+};
+
+struct AttachmentValues {
+	AttachmentValue mEntries[9]; // _00
+};
+STATIC_ASSERT(sizeof(AttachmentValues) == 0x48);
+
+// the two ring menus side by side
+struct XObjChrMenu {
+	AtcMenu mAtc;           // _00
+	DrsMenu mDrs;           // _298, _280 in japan
+	u8 _530[0x544 - 0x530]; // _530
+	s32 mSel;               // _544, XObjChr _13388
+	s32 mPrevSel;           // _548, put back into mSel when the rings close
+
+	// todo: cleanup
+	u8 IsOpen() const { return mAtc.mOpen != 0 || mDrs.mOpen != 0; }
+};
+
+class XObjChr : public XObj {
+public:
+	// _00-_980 = XObj
+	CStatus _980;              // _980
+	CObjVec _988;              // _988, cleared whenever he stops
+	u8 _9B8[0x9D4 - 0x9B8];    // _9B8
+	s32 _9D4[5];               // _9D4, object table index of what's under each floor group, -1 for none
+	CVec _9E8;                 // _9E8
+	u32 _9F8;                  // _9F8
+	CVec _9FC;                 // _9FC
+	u8 _A0C[0xA2C - 0xA0C];    // _A0C
+	s32 _A2C;                  // _A2C, 3 after his anim goes back to standing
+	u32 _A30;                  // _A30
+	s32 _A34;                  // _A34, flash timer
+	s32 _A38;                  // _A38
+	f32 _A3C;                  // _A3C
+	f32 _A40;                  // _A40
+	XActLift mLift;            // _A44
+	XActHang mHang;            // _AC0
+	XActJump mJump;            // _B10
+	XActLadder mLadder;        // _B64
+	XActRope mRope;            // _BA8
+	XActPush mPush;            // _BE8
+	XActTumble mTumble;        // _C40
+	XActCopter mCopter;        // _C88
+	XActPopper mPopper;        // _CC0
+	XActRadar mRadar;          // _9438
+	f32 _94F8;                 // _94F8, anim frame
+	f32 _94FC;                 // _94FC, last anim frame
+	XObjChrIdleJoint _9500[4]; // _9500
+	s32 _9530;                 // _9530, idle joint cooldown
+	u8 _9534[0x953C - 0x9534]; // _9534
+	CJointRot mJointRot[3];    // _953C
+	XObjChrLook mLook;         // _959C
+	s32 mAttachment;           // _95D0, the AtcMenu pick
+	s32 mAttachmentRequest;    // _95D4, -1 when there's none
+	s32 _95D8;                 // _95D8
+	u8 _95DC[0x960C - 0x95DC]; // _95DC
+	CObjVec _960C;             // _960C
+	CVec _963C;                // _963C
+	Params mParams;            // _964C
+	f32 _9A90;                 // _9A90, zeroed when he hits an XObjHBox
+	u8 _9A94[0x9AA8 - 0x9A94]; // _9A94
+	f32 _9AA8;                 // _9AA8, the cameras put _9AAC back here
+	f32 _9AAC;                 // _9AAC
+	u8 _9AB0[0x9AD0 - 0x9AB0]; // _9AB0
+	XObjPlug mPlug;            // _9AD0
+	XObjCopter mCopterObj;     // _B1B0, _B180 in japan
+	XObjPopper mPopperObj;     // _BB38, _BAF8 in japan
+	XObjRadar mRadarObj;       // _C4C0, _C470 in japan
+	XObjOX mOXObj;             // _CE58, _CDF8 in japan
+	s32 mSuitLoad;             // _D7E0, _D770 in japan
+	BOOL mSuitChanged;         // _D7E4
+	s32 mSuit;                 // _D7E8, the DrsMenu pick
+	s32 mSuitRequest;          // _D7EC
+	s32 mSuitSpecial;          // _D7F0
+	u32 _D7F4;                 // _D7F4
+	XObj mSuitObj[9];          // _D7F8, _D788 in japan
+	HSD_JObj* mSuitJoint[9];   // _12D78
+	u32 _12D9C;                // _12D9C
+	// todo: should be an XPad but japan's ctor schedules worse with it, callers cast for now
+	u8 mPad[0x54];                 // _12DA0, _12CA0 in japan
+	BOOL mPadReset;                // _12DF4, XPad's mReset
+	f32 _12DF8;                    // _12DF8, heading he walks towards
+	AttachmentValues mAttachments; // _12DFC, goes in the save as is
+	XObjChrMenu mMenu;             // _12E44, _12D44 in japan
+	OXMenu mOXMenu;                // _13390, _13260 in japan
+	u32 _146D8;                    // _146D8
+	CPtcl mPtcl;                   // _146DC, _1329C in japan
+	CPtclDust3 mPtcls[50];         // _146F0
+	CTexObj mTex[2];               // _15690
+	u32 _15890;                    // _15890
+	s16 mSavedTarget;              // _15894, _14454 in japan, the lifted object's id while he's reset
+	u16 _15896;                    // _15896
+	s32 mSavedTargetAnim;          // _15898
+	s32 mSavedTargetState;         // _1589C
+	XObj* mPendingTarget;          // _158A0
+	BOOL _158A4;                   // _158A4
+	s32 _158A8;                    // _158A8, saved
+	union {
+		GXColor mItemTint; // _158AC, _1446C in japan, tints the held item and its particles
+		s32 mItemTintWord; // _158AC, the save copies it as a word
+	};
+	f32 mHeadOffset;        // _158B0, _14470 in japan
+	BOOL mHeadOffsetReady;  // _158B4
+	s32 _158B8;             // _158B8, idle mode, 1 looks at the camera, 2 fidgets
+	s32 _158BC;             // _158BC, idle timer
+	u32 _158C0;             // _158C0
+	CVec _158C4;            // _158C4
+	CJAnim mAttachmentAnim; // _158D4, _14494 in japan, the attachment's anims
+	CJAnim mSuitAnim;       // _15958, _14510 in japan, the suit's anims
+
+	// out of line as fn_8014102C
+	void ResetCameraValue()
+	{
+		if (mHang.mState != 5 && mRope.mState != 5 && mLadder.mState != 5 && mPush.mState != 2) {
+			_9AA8 = _9AAC;
+		}
+	}
+
+	// todo: cleanup
+	s32 GetAttachment() const { return mAttachmentRequest >= 0 ? mAttachmentRequest : mAttachment; }
+
+	XObjChr();
+};
+
+#endif

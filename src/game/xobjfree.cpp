@@ -1,0 +1,119 @@
+#include "game/xobjfree.h"
+#include "game/cgame.h"
+#include "game/cgs.h"
+#include "game/hsd_cobj.h"
+#include <math.h>
+
+// todo: cleanup, move these onto CJArchive in cobj.h with GetAnimJointRoot
+static inline HSD_AnimJoint* Joint(CJArchive* archive, s32 id)
+{
+	if (id >= 0) {
+		s32 index = id % 1000;
+		if (index < archive->mNum[0]) {
+			return archive->mAnimJoint != NULL ? archive->mAnimJoint[index] : NULL;
+		}
+	}
+	return NULL;
+}
+
+static inline HSD_MatAnimJoint* Material(CJArchive* archive, s32 id)
+{
+	if (id >= 0) {
+		s32 index = id % 1000;
+		if (index < archive->mNum[0]) {
+			return archive->mMatAnimJoint != NULL ? archive->mMatAnimJoint[index] : NULL;
+		}
+	}
+	return NULL;
+}
+
+static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
+{
+	if (id >= 0) {
+		s32 index = id % 1000;
+		if (index < archive->mNum[0]) {
+			return archive->mShapeAnimJoint != NULL ? archive->mShapeAnimJoint[index] : NULL;
+		}
+	}
+	return NULL;
+}
+
+// XObjFree::vf138
+/**
+ * @note Address: 0x800DD600
+ * @note Size: 0x94
+ */
+extern "C" void fn_800DD600(XObjFree* object, f32 value)
+{
+	fn_8008A6C0(object, value);
+	if (object->mStatus.mFlags & 0x04000000ULL) {
+		f32 remaining = object->mLife - value;
+		object->mLife = remaining;
+		if (remaining <= 0.0f)
+			object->mStatus.mFlags |= 0x2000000000000000ULL;
+	}
+}
+
+// XObjFree::SetAnim, keeps the material anim running across anim changes
+/**
+ * @note Address: 0x800DD694
+ * @note Size: 0x2D8
+ */
+extern "C" void fn_800DD694(XObjFree* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
+                            f32 blend, f32 blendRate)
+{
+	if (object->mStatus.mFlags & 0x1000ULL) {
+		if (force || id != object->mAnimId) {
+			object->mAnimId = id;
+			void* joint     = jointAnim != NULL ? jointAnim : Joint(&object->mArchive, id);
+			void* shape     = shapeAnim != NULL ? shapeAnim : Shape(&object->mArchive, id);
+			f32 materialFrame;
+			if (object->mMatAnim != NULL) {
+				HSD_AObj* animation = fn_801905D4(object->mJObj);
+				materialFrame       = animation != NULL ? HSD_AObjGetCurrentFrame(animation) : 0.0f;
+			} else {
+				materialFrame    = 0.0f;
+				s16 materialId   = object->GetObjFlags();
+				object->mMatAnim = Material(&object->mArchive, materialId);
+			}
+			if (joint != NULL || object->mMatAnim != NULL || shape != NULL) {
+				HSD_JObjRemoveAnimAll(object->mJObj);
+				HSD_JObjAddAnimAll(object->mJObj, (HSD_AnimJoint*)joint, object->mMatAnim, (HSD_ShapeAnimJoint*)shape);
+				HSD_JObjReqAnimAllByFlags(object->mJObj, 0x189, frame);
+				HSD_JObjReqAnimAllByFlags(object->mJObj, 0x16, materialFrame);
+			}
+			force = TRUE;
+		}
+		if (rate != object->mAnimRate || force) {
+			object->mAnimRate     = rate;
+			object->mLastAnimRate = 0.01f + rate;
+		}
+	} else {
+		fn_800902A4(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+	}
+}
+
+// XObjFree::vfC8
+/**
+ * @note Address: 0x800DD96C
+ * @note Size: 0x220
+ */
+extern "C" void fn_800DD96C(XObjFree* object)
+{
+	fn_8009047C(object);
+	if ((object->mStatus.mFlags & 0x4000000000000000ULL) && object->mFlash > 0.0f) {
+		Vec position = { 0.0f, 0.0f, 0.0f };
+		f32 x, y;
+		object->vf10C(&position, &x, &y, NULL, 0);
+		f32 effect      = object->mFlash;
+		f32 innerRadius = 400.0f * effect;
+		f32 outerRadius = 400.0f * (1.0f - effect);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 0, 7, 0);
+		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 2, 4, 15);
+		u32 color = (u32)(255.0f * effect) | 0xFFFFFF00;
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, innerRadius, innerRadius, 0.0f, 0.0f, 0.0f);
+		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outerRadius, outerRadius, 0.0f, 0.0f, 0.0f);
+		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
+		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
+	}
+}

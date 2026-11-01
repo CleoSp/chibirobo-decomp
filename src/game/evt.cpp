@@ -1,44 +1,38 @@
 #include "game/hsd_jobj.h"
 extern "C" {
 #include <sysdolphin/mtx_transform.h>
+#include <sysdolphin/aobj.h>
+#include <sysdolphin/rumble.h>
 }
 #include "game/clight.h"
 #include "game/ccameraaction.h"
+#include "game/ccameraactioneye.h"
 #include "game/cmotioncontrolcamera.h"
+#include "game/cparticle.h"
+#include "game/ctpl.h"
 #include "game/xobjs.h"
 #include <string.h>
+#include <stdlib.h>
 #include "game/ut.h"
 #include <stdio.h>
 #include "game/evt.h"
+#include "game/msg.h"
 #include "game/gmath.h"
+#include "game/globals.h"
 #include "types.h"
 #include "Version.h"
+#include "game/csound.h"
+#include "game/globals.h"
+#include "game/stagedata.h"
+#include "game/xchr.h"
+#include "game/cscrn.h"
+#include "game/inventory.h"
+#include "game/video.h"
+#include "game/cgame.h"
+#include "game/infoscrn.h"
+#include "game/cmovie.h"
 
 class CJObj;
-
-// the script runner. _34/_38 look like a stack and its top, PUSHBP and POPBP park _48 there
-struct CEvt {
-	u32 _00;     // _00, ABORT only resumes a parked script while this is zero
-	u8* _04;     // _04, read pointer
-	u32 _08;     // _08
-	u8 _0C[0x4]; // _0C
-	s32 _10;     // _10, SELECT result
-	u8 _14[0xC]; // _14
-	s32 _20;     // _20
-	u8** _24;    // _24, return stack
-	s32 _28;     // _28
-	u8 _2C[0x8]; // _2C
-	s32* _34;    // _34
-	s32 _38;     // _38
-	u8 _3C[0x8]; // _3C
-	s32* _44;    // _44
-	s32 _48;     // _48
-	u8 _4C[0x8]; // _4C
-	u8* _54;     // _54, WARP raises a flag deep inside it
-	s32 _58;     // _58
-	s16 _5C;     // _5C
-	s16 _5E;     // _5E
-};
 
 // a ring of 128 parked script positions, WAIT fills free slots and ABORT
 // resumes the one at the read index instead of ending the script
@@ -57,19 +51,9 @@ extern "C" UnkEvtQueue lbl_80369A3C;
 
 extern "C" void CEvt_EvalSet(CEvt* evt);
 extern "C" s32 CEvt_Evaluate(CEvt* evt);
-// 4 byte little endian offset at p to a script pointer, null for 0
-extern "C" u8* fn_8006E580(u8* p);
-// same, but for entry idx of an offset table
-extern "C" u8* fn_8006E6D4(s16 idx);
 extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
 
 // the game object
-extern "C" u8 lbl_8025C400[];
-#if defined(VERSION_JP)
-#define GAME_PLAYER (*(u8**)(lbl_8025C400 + 0x9674))
-#else
-#define GAME_PLAYER (*(u8**)(lbl_8025C400 + 0x96BC))
-#endif
 
 /**
  * @note Address: 0x8006FD8C
@@ -395,9 +379,9 @@ extern "C" u8 lbl_8025C400[];
     blr
 */
 
+#define EVT_PLAYER (*lbl_8025C400.mPlayer)
+
 extern "C" s32 GetStageNum(void);
-extern "C" void fn_8000B394(u8* game, s32 stage, s32 arg);
-extern "C" void fn_800DC62C(u8* p);
 
 // WARP, ABORT and RETURN all finish through this
 static inline void CEvt_End(CEvt* evt)
@@ -411,14 +395,9 @@ static inline void CEvt_End(CEvt* evt)
 		*(s32*)(evt->_54 + 0x445C0) = 1;
 #endif
 	}
-	u8* player = GAME_PLAYER;
-#if defined(VERSION_JP)
-	*(s32*)(player + 0x9A78) = 1;
-	fn_800DC62C(player + 0x9678);
-#else
-	*(s32*)(player + 0x9A88) = 1;
-	fn_800DC62C(player + 0x9688);
-#endif
+	Inventory* inventory = &EVT_PLAYER.mParams.mInventory;
+	inventory->mCompact  = TRUE;
+	fn_800DC62C(inventory);
 	evt->_04 = 0;
 }
 
@@ -434,7 +413,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 	if (stage != 10000 && stage != 20000 && stage >= 100) {
 		stage += GetStageNum() - 99;
 	}
-	fn_8000B394(lbl_8025C400, stage, arg);
+	fn_8000B394(&lbl_8025C400, stage, arg);
 	CEvt_End(evt);
 	return 1;
 }
@@ -2464,7 +2443,6 @@ extern "C" EvtTimerTable lbl_8036A050;
 
 #if defined(VERSION_PAL)
 // the refresh rate, 50 or 60
-extern "C" s32 lbl_80660D4C;
 #define FRAMES_PER_SEC lbl_80660D4C
 #else
 #define FRAMES_PER_SEC 60
@@ -2492,25 +2470,6 @@ extern "C" s32 CEvt__cmd_TIMER(CEvt* evt)
 	return 0;
 }
 
-// the sound object inside the game object, see sound.cpp
-#if defined(VERSION_JP)
-#define GAME_SOUND (lbl_8025C400 + 0xE713C)
-#else
-#define GAME_SOUND (lbl_8025C400 + 0xE7E24)
-#endif
-
-extern "C" void fn_8001E1A4(u8* sound, s32 sfx, u16 frames);
-extern "C" void fn_8001E2CC(u8* sound, s32 sfx, u16 frames);
-extern "C" void fn_8001E468(u8* sound, s32 sfx, u8 vol, u16 frames);
-extern "C" void fn_8001E4D4(u8* sound, s32 track);
-extern "C" void fn_8001E504(u8* sound, s32 sfx);
-extern "C" void fn_8001E590(u8* sound, s32 track);
-extern "C" void fn_8001E5C0(u8* sound, s32 sfx, s32 arg2);
-extern "C" void fn_8001E630(u8* sound, s32 track);
-extern "C" BOOL fn_8001E660(u8* sound, s32 sfx);
-extern "C" BOOL fn_8001E6C8(u8* sound, s32 sfx);
-extern "C" BOOL fn_8001E904(u8* sound, s32 sfx, u8 vol);
-extern "C" BOOL fn_801E94E4(s32 sfx);
 extern "C" s32 HSD_AudioPStreamStartChParam(const char* path, u8 vol, s32 channel);
 extern "C" BOOL fn_801EA308(s32 a, s32 b);
 
@@ -2535,13 +2494,13 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 	switch (type) {
 	case 0:
 		if (sfx == -2) {
-			fn_8001E630(GAME_SOUND, -1);
+			fn_8001E630((CSound*)(u8*)&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E660(GAME_SOUND, sfx);
+			fn_8001E660((CSound*)(u8*)&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	case 1:
-		fn_8001E904(GAME_SOUND, sfx, 0xFF);
+		fn_8001E904((CSound*)(u8*)&lbl_8025C400.mSound, sfx, 0xFF);
 		lbl_8065B244._00 = 0;
 		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
 		break;
@@ -2552,15 +2511,15 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
 		break;
 	case 2:
-		fn_8001E1A4(GAME_SOUND, sfx, CEvt_Evaluate(evt) * 2);
+		fn_8001E1A4((CSound*)(u8*)&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 3:
-		fn_8001E2CC(GAME_SOUND, sfx, CEvt_Evaluate(evt) * 2);
+		fn_8001E2CC((CSound*)(u8*)&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 4: {
-		u16 frames = CEvt_Evaluate(evt) * 2;
-		u8 vol     = CEvt_Evaluate(evt);
-		u8* sound  = GAME_SOUND;
+		u16 frames    = CEvt_Evaluate(evt) * 2;
+		u8 vol        = CEvt_Evaluate(evt);
+		CSound* sound = (CSound*)(u8*)&lbl_8025C400.mSound;
 		if (!fn_8001E6C8(sound, sfx)) {
 			fn_8001E904(sound, sfx, vol);
 		} else {
@@ -2570,18 +2529,18 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 	}
 	case 5:
 		if (sfx == -2) {
-			fn_8001E590(GAME_SOUND, -1);
+			fn_8001E590((CSound*)(u8*)&lbl_8025C400.mSound, -1);
 		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
-			fn_8001E5C0(GAME_SOUND, sfx, 0);
+			fn_8001E5C0((CSound*)(u8*)&lbl_8025C400.mSound, sfx, 0);
 		} else {
 			fn_801E94E4(sfx);
 		}
 		break;
 	case 6:
 		if (sfx == -2) {
-			fn_8001E4D4(GAME_SOUND, -1);
+			fn_8001E4D4((CSound*)(u8*)&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E504(GAME_SOUND, sfx);
+			fn_8001E504((CSound*)(u8*)&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	default:
@@ -2809,11 +2768,221 @@ extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
 	latch->_04 = beat;
 }
 
+extern "C" {
+void fn_800664C4(void* hud, u8 enabled, s32 mode);
+void fn_8006613C(void* hud, u8 enabled, s32 mode);
+void fn_80066BFC(void* hud);
+void fn_80066BF0(void* hud);
+void fn_80066B9C(void* hud, s32 value);
+s32 fn_80066A84(void* hud);
+}
+
+struct EvtHudCommand {
+	u8 enabled; // _00
+	s32 mode;   // _04
+};
+
 /**
  * @note Address: 0x80072224
  * @note Size: 0xEF8
  */
-// CEvt__cmd_SCRN
+extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
+{
+	u16 mode = CEvt_Evaluate(evt);
+	switch (mode) {
+	case EVT_ATOM_FADE: {
+		u8 r0    = CEvt_Evaluate(evt);
+		u8 g0    = CEvt_Evaluate(evt);
+		u8 b0    = CEvt_Evaluate(evt);
+		u8 a0    = CEvt_Evaluate(evt);
+		u8 r1    = CEvt_Evaluate(evt);
+		u8 g1    = CEvt_Evaluate(evt);
+		u8 b1    = CEvt_Evaluate(evt);
+		u8 a1    = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		fn_80023EE0((CScrnColor*)lbl_8025C400.mFade, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		break;
+	}
+	case EVT_ATOM_MONO: {
+		u8 r0    = CEvt_Evaluate(evt);
+		u8 g0    = CEvt_Evaluate(evt);
+		u8 b0    = CEvt_Evaluate(evt);
+		u8 a0    = CEvt_Evaluate(evt);
+		u8 r1    = CEvt_Evaluate(evt);
+		u8 g1    = CEvt_Evaluate(evt);
+		u8 b1    = CEvt_Evaluate(evt);
+		u8 a1    = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		fn_80023EE0((CScrnColor*)lbl_8025C400.mColor, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		break;
+	}
+	case EVT_ATOM_WIPE: {
+		s32 type = CEvt_Evaluate(evt);
+		s32 open = CEvt_Evaluate(evt);
+		s32 x    = CEvt_Evaluate(evt);
+		s32 y    = CEvt_Evaluate(evt);
+		s32 w0   = CEvt_Evaluate(evt);
+		s32 h0   = CEvt_Evaluate(evt);
+		u8 r0    = CEvt_Evaluate(evt);
+		u8 g0    = CEvt_Evaluate(evt);
+		u8 b0    = CEvt_Evaluate(evt);
+		u8 a0    = CEvt_Evaluate(evt);
+		s32 w1   = CEvt_Evaluate(evt);
+		s32 h1   = CEvt_Evaluate(evt);
+		u8 r1    = CEvt_Evaluate(evt);
+		u8 g1    = CEvt_Evaluate(evt);
+		u8 b1    = CEvt_Evaluate(evt);
+		u8 a1    = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		switch (type) {
+		case 0:
+			fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCircle, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			break;
+		case 1:
+			fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTile, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			break;
+		default:
+			if (type >= 2000) {
+				if (open) {
+					fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 57.0f, 57.0f, 0.0f, 0.0f, time, a1,
+					            !open);
+				} else {
+					fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 0.0f, 0.0f, 57.0f, 57.0f, time, a1,
+					            !open);
+				}
+			} else if (type >= 1000) {
+				TPLPalette* palette                 = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture                    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+				*(CTexObj*)lbl_8025C400.mWipeTexObj = texture->Init(&palette->descriptorArray[type - 1000], 0);
+				fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTex, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			} else {
+#if defined(VERSION_PAL)
+				const s32 line = 3542;
+#else
+				const s32 line = 3531;
+#endif
+				OSPanic("evt.cpp", line, "%s%s", fn_801911B4("scrn(@WIPE, %d,...) - unresolved!\n", type), "_cmd_SCRN");
+			}
+			break;
+		}
+		break;
+	}
+	case EVT_ATOM_LETTERBOX: {
+		s32 open    = CEvt_Evaluate(evt);
+		s32 height0 = open ? 448 : 314;
+		u8 r0       = CEvt_Evaluate(evt);
+		u8 g0       = CEvt_Evaluate(evt);
+		u8 b0       = CEvt_Evaluate(evt);
+		u8 a0       = CEvt_Evaluate(evt);
+		s32 height1 = open ? 314 : 448;
+		u8 r1       = CEvt_Evaluate(evt);
+		u8 g1       = CEvt_Evaluate(evt);
+		u8 b1       = CEvt_Evaluate(evt);
+		u8 a1       = CEvt_Evaluate(evt);
+		f32 time    = CEvt_Evaluate(evt) / 100.0f;
+		fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTile2, r0, g0, b0, a0, r1, g1, b1, 320.0f, 200.0f, 640.0f, height0, 640.0f, height1, time,
+		            a1, !open);
+		break;
+	}
+	case EVT_ATOM_HUD:
+		switch (CEvt_Evaluate(evt)) {
+		case EVT_HUD_BATTERY: {
+			s32 index                 = CEvt_Evaluate(evt);
+			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 0, 2 }, { 1, 2 }, { 0, 3 }, { 1, 3 } };
+			fn_800664C4(lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			break;
+		}
+		case EVT_HUD_CLOCK: {
+			s32 index                 = CEvt_Evaluate(evt);
+			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 3 }, { 0, 4 }, { 1, 4 } };
+			fn_80066250((InfoScrn*)lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode, 0);
+			break;
+		}
+		case EVT_HUD_SCORE: {
+			s32 index                 = CEvt_Evaluate(evt);
+			EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
+			fn_80066190((InfoScrn*)lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			break;
+		}
+		case 3:
+			CEvt_Evaluate(evt);
+			CEvt_Evaluate(evt);
+			CEvt_Evaluate(evt);
+			CEvt_Evaluate(evt);
+			break;
+		case EVT_HUD_TIMER: {
+			s32 index = CEvt_Evaluate(evt);
+			if (index >= 0) {
+				EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
+				fn_8006613C(lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			} else {
+				switch (index) {
+				case -1:
+					fn_80066BFC(lbl_8025C400.mInfoScrn);
+					break;
+				case -2:
+					fn_80066BF0(lbl_8025C400.mInfoScrn);
+					break;
+				case -3:
+					fn_80066B9C(lbl_8025C400.mInfoScrn, CEvt_Evaluate(evt));
+					break;
+				case -4:
+					evt->_10 = fn_80066A84(lbl_8025C400.mInfoScrn);
+					break;
+				}
+			}
+			break;
+		}
+		}
+		break;
+	case EVT_ATOM_ZBLUR: {
+		u8 a0     = CEvt_Evaluate(evt);
+		u8 a1     = CEvt_Evaluate(evt);
+		s32 near  = CEvt_Evaluate(evt);
+		s32 far   = CEvt_Evaluate(evt);
+		f32 time  = CEvt_Evaluate(evt) / 100.0f;
+		f32 start = a0 / 255.0f;
+		f32 end   = a1 / 255.0f;
+		f32 step;
+		if (time == 0.0f) {
+			start = end;
+			step  = 0.0f;
+		} else {
+			step = (end - start) / (FRAMES_PER_SEC * time);
+		}
+		if (start >= 0.0f)
+			lbl_8025C400._4290 = start;
+		if (end >= 0.0f)
+			lbl_8025C400._4294 = end;
+		if (step < 0.0f)
+			step = -step;
+		lbl_8025C400._4298 = step;
+		lbl_8025C400._429C = near;
+		lbl_8025C400._42A0 = far;
+		break;
+	}
+	case EVT_ATOM_SHAKE: {
+		f32 x0   = CEvt_Evaluate(evt) / 100.0f;
+		f32 y0   = CEvt_Evaluate(evt) / 100.0f;
+		f32 z0   = CEvt_Evaluate(evt) / 100.0f;
+		f32 x1   = CEvt_Evaluate(evt) / 100.0f;
+		f32 y1   = CEvt_Evaluate(evt) / 100.0f;
+		f32 z1   = CEvt_Evaluate(evt) / 100.0f;
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		fn_800242A8((CScrnQuake*)lbl_8025C400.mQuake, x0, y0, z0, x1, y1, z1, time);
+		break;
+	}
+	default:
+#if defined(VERSION_PAL)
+		const s32 line = 3737;
+#else
+		const s32 line = 3726;
+#endif
+		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("scrn(%d,...) - unresolved!\n", mode), "_cmd_SCRN");
+		break;
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x1b0(r1)
     mflr     r0
@@ -3811,456 +3980,6 @@ extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
 */
 
 /**
- * @note Address: 0x8007311C
- * @note Size: 0x64C
- */
-// CEvt__cmd_SCALE
-/*
-    stwu     r1, -0xd0(r1)
-    mflr     r0
-    stw      r0, 0xd4(r1)
-    stfd     f31, 0xc0(r1)
-    psq_st   f31, 0xc8(r1), 0, qr0
-    stfd     f30, 0xb0(r1)
-    psq_st   f30, 0xb8(r1), 0, qr0
-    stfd     f29, 0xa0(r1)
-    psq_st   f29, 0xa8(r1), 0, qr0
-    stfd     f28, 0x90(r1)
-    psq_st   f28, 0x98(r1), 0, qr0
-    stmw     r27, 0x7c(r1)
-    lis      r5, lbl_80207FA0@ha
-    mr       r27, r3
-    mr       r28, r4
-    addi     r31, r5, lbl_80207FA0@l
-    bl       CEvt_Evaluate
-    extsh    r29, r3
-    cmpwi    r29, 0x2710
-    blt      .L_8007321C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
-    li       r5, 0x0
-    mtctr    r0
-    cmpwi    r0, 0x0
-    ble      .L_80073204
-.L_80073184:
-    lha      r0, 0x4(r3)
-    cmpw     r0, r29
-    bne      .L_800731F8
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
-    slwi     r0, r5, 2
-    add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
-    lha      r0, 0x6(r3)
-    addis    r3, r4, 0x1
-    slwi     r0, r0, 2
-    add      r3, r3, r0
-    lwz      r30, -0x67a0(r3)
-    cmplwi   r30, 0x0
-    beq      .L_800731F0
-    lwz      r0, 0x228(r30)
-    li       r4, 0x0
-    lwz      r5, 0x22c(r30)
-    li       r3, 0x1
-    and      r0, r0, r4
-    and      r3, r5, r3
-    xor      r3, r3, r4
-    xor      r0, r0, r4
-    or.      r0, r3, r0
-    beq      .L_800731F0
-    b        .L_80073208
-.L_800731F0:
-    li       r30, 0x0
-    b        .L_80073208
-.L_800731F8:
-    addi     r3, r3, 0x4
-    addi     r5, r5, 0x1
-    bdnz     .L_80073184
-.L_80073204:
-    li       r30, 0x0
-.L_80073208:
-    cmplwi   r30, 0x0
-    bne      .L_80073254
-    li       r30, 0x0
-    b        .L_80073254
-    b        .L_80073254
-.L_8007321C:
-    extsh.   r0, r29
-    blt      .L_80073240
-    lis      r3, lbl_8025C400@ha
-    slwi     r0, r29, 2
-    addi     r3, r3, lbl_8025C400@l
-    addis    r3, r3, 0x1
-    add      r3, r3, r0
-    lwz      r30, -0x67a0(r3)
-    b        .L_80073254
-.L_80073240:
-    cmpwi    r29, -0x1
-    bne      .L_80073250
-    lwz      r30, 0x8(r27)
-    b        .L_80073254
-.L_80073250:
-    mr       r30, r29
-.L_80073254:
-    mr       r3, r27
-    bl       CEvt_Evaluate
-    xoris    r3, r3, 0x8000
-    lis      r0, 0x4330
-    stw      r3, 0x5c(r1)
-    mr       r3, r27
-    lfd      f2, lbl_8065CF88@sda21(r0)
-    stw      r0, 0x58(r1)
-    lfs      f0, lbl_8065CF80@sda21(r0)
-    lfd      f1, 0x58(r1)
-    fsubs    f1, f1, f2
-    fdivs    f31, f1, f0
-    bl       CEvt_Evaluate
-    xoris    r3, r3, 0x8000
-    lis      r0, 0x4330
-    stw      r3, 0x64(r1)
-    mr       r3, r27
-    lfd      f2, lbl_8065CF88@sda21(r0)
-    stw      r0, 0x60(r1)
-    lfs      f0, lbl_8065CF80@sda21(r0)
-    lfd      f1, 0x60(r1)
-    fsubs    f1, f1, f2
-    fdivs    f30, f1, f0
-    bl       CEvt_Evaluate
-    xoris    r0, r3, 0x8000
-    lis      r3, 0x4330
-    stw      r0, 0x6c(r1)
-    clrlwi   r0, r28, 24
-    lfd      f2, lbl_8065CF88@sda21(r0)
-    cmplwi   r0, 0x28
-    stw      r3, 0x68(r1)
-    lfs      f0, lbl_8065CF80@sda21(r0)
-    lfd      f1, 0x68(r1)
-    fsubs    f1, f1, f2
-    fdivs    f29, f1, f0
-    bne      .L_800733FC
-    cmplwi   r30, 0x0
-    beq      .L_8007334C
-    lwz      r0, 0x228(r30)
-    li       r4, 0x0
-    lwz      r5, 0x22c(r30)
-    li       r3, 0x1
-    and      r0, r0, r4
-    and      r3, r5, r3
-    xor      r3, r3, r4
-    xor      r0, r0, r4
-    or.      r0, r3, r0
-    beq      .L_8007334C
-    mr       r3, r30
-    fmr      f1, f31
-    lwz      r12, 0x34(r30)
-    fmr      f2, f30
-    fmr      f3, f29
-    li       r4, 0x0
-    lwz      r12, 0x3c(r12)
-    mtctr    r12
-    bctrl
-    mr       r3, r30
-    bl       fn_8008C8A4
-    mr       r3, r30
-    bl       fn_8008D220
-    b        .L_80073730
-.L_8007334C:
-    mr       r4, r29
-    mr       r5, r29
-    addi     r3, r31, 0x464
-    crclr    cr1eq
-    bl       fn_801911B4
-    bl       strlen
-    addi     r4, r3, 0xd
-    li       r3, 0x0
-    cmplwi   r4, 0x0
-    ble      .L_800733B0
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_8007339C
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_8007339C
-.L_80073394:
-    addi     r3, r3, 0x8
-    bdnz     .L_80073394
-.L_8007339C:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_800733B0
-.L_800733AC:
-    bdnz     .L_800733AC
-.L_800733B0:
-    cmplwi   r4, 0x0
-    li       r3, 0x0
-    ble      .L_80073730
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_800733E4
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_800733E4
-.L_800733DC:
-    addi     r3, r3, 0x8
-    bdnz     .L_800733DC
-.L_800733E4:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_80073730
-.L_800733F4:
-    bdnz     .L_800733F4
-    b        .L_80073730
-.L_800733FC:
-    mr       r3, r27
-    bl       CEvt_Evaluate
-    xoris    r3, r3, 0x8000
-    lis      r0, 0x4330
-    stw      r3, 0x6c(r1)
-    cmplwi   r30, 0x0
-    lfd      f2, lbl_8065CF88@sda21(r0)
-    stw      r0, 0x68(r1)
-    lfs      f0, lbl_8065CF80@sda21(r0)
-    lfd      f1, 0x68(r1)
-    fsubs    f1, f1, f2
-    fdivs    f28, f1, f0
-    beq      .L_80073684
-    lwz      r0, 0x228(r30)
-    li       r4, 0x0
-    lwz      r5, 0x22c(r30)
-    li       r3, 0x1
-    and      r0, r0, r4
-    and      r3, r5, r3
-    xor      r3, r3, r4
-    xor      r0, r0, r4
-    or.      r0, r3, r0
-    beq      .L_80073684
-    lwz      r0, 0x0(r30)
-    cmplwi   r0, 0x0
-    bne      .L_80073540
-    fmuls    f2, f0, f31
-    mr       r4, r29
-    fmuls    f1, f0, f30
-    mr       r8, r29
-    fmuls    f0, f0, f29
-    addi     r3, r31, 0x484
-    fctiwz   f2, f2
-    fctiwz   f1, f1
-    fctiwz   f0, f0
-    stfd     f2, 0x68(r1)
-    stfd     f1, 0x60(r1)
-    lwz      r5, 0x6c(r1)
-    stfd     f0, 0x58(r1)
-    lwz      r6, 0x64(r1)
-    lwz      r7, 0x5c(r1)
-    crclr    cr1eq
-    bl       fn_801911B4
-    bl       strlen
-    addi     r4, r3, 0xd
-    li       r3, 0x0
-    cmplwi   r4, 0x0
-    ble      .L_800734F8
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_800734E4
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_800734E4
-.L_800734DC:
-    addi     r3, r3, 0x8
-    bdnz     .L_800734DC
-.L_800734E4:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_800734F8
-.L_800734F4:
-    bdnz     .L_800734F4
-.L_800734F8:
-    cmplwi   r4, 0x0
-    li       r3, 0x0
-    ble      .L_80073540
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_8007352C
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_8007352C
-.L_80073524:
-    addi     r3, r3, 0x8
-    bdnz     .L_80073524
-.L_8007352C:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_80073540
-.L_8007353C:
-    bdnz     .L_8007353C
-.L_80073540:
-    lfs      f0, lbl_8065CF74@sda21(r0)
-    fcmpu    cr0, f0, f28
-    bne      .L_80073584
-    mr       r3, r30
-    fmr      f1, f31
-    lwz      r12, 0x34(r30)
-    fmr      f2, f30
-    fmr      f3, f29
-    li       r4, 0x0
-    lwz      r12, 0x3c(r12)
-    mtctr    r12
-    bctrl
-    mr       r3, r30
-    bl       fn_8008C8A4
-    mr       r3, r30
-    bl       fn_8008D220
-    b        .L_80073730
-.L_80073584:
-    lis      r3, __vt__4CVec@ha
-    stfs     f31, 0x34(r1)
-    addi     r0, r3, __vt__4CVec@l
-    addi     r3, r1, 0x18
-    stw      r0, 0x40(r1)
-    addi     r4, r1, 0x34
-    addi     r5, r1, 0x28
-    stfs     f30, 0x38(r1)
-    stfs     f29, 0x3c(r1)
-    lwz      r6, 0x128(r30)
-    lwz      r0, 0x12c(r30)
-    stw      r6, 0x28(r1)
-    stw      r0, 0x2c(r1)
-    lwz      r0, 0x130(r30)
-    stw      r0, 0x30(r1)
-    bl       __mi__4CVecCF3Vec
-    lfs      f0, lbl_8065CFC0@sda21(r0)
-    addi     r3, r1, 0x8
-    addi     r4, r1, 0x18
-    fmuls    f1, f0, f28
-    bl       fn_8002442C
-    lis      r3, __vt__4CVec@ha
-    lwz      r5, 0x8(r1)
-    addi     r0, r3, __vt__4CVec@l
-    lwz      r4, 0xc(r1)
-    lwz      r3, 0x10(r1)
-    stw      r5, 0x44(r1)
-    lfs      f0, lbl_8065CF74@sda21(r0)
-    lfs      f1, 0x44(r1)
-    stw      r0, 0x14(r1)
-    fcmpo    cr0, f1, f0
-    stw      r0, 0x24(r1)
-    stw      r0, 0x40(r1)
-    stfs     f31, 0x138(r30)
-    stfs     f30, 0x13c(r30)
-    stw      r4, 0x48(r1)
-    stw      r3, 0x4c(r1)
-    stw      r0, 0x50(r1)
-    stfs     f29, 0x140(r30)
-    bge      .L_80073628
-    fneg     f1, f1
-.L_80073628:
-    lfs      f2, 0x48(r1)
-    lfs      f0, lbl_8065CF74@sda21(r0)
-    stfs     f1, 0x44(r1)
-    fcmpo    cr0, f2, f0
-    bge      .L_80073640
-    fneg     f2, f2
-.L_80073640:
-    lfs      f3, 0x4c(r1)
-    lfs      f0, lbl_8065CF74@sda21(r0)
-    stfs     f2, 0x48(r1)
-    fcmpo    cr0, f3, f0
-    bge      .L_80073658
-    fneg     f3, f3
-.L_80073658:
-    lfs      f0, 0x44(r1)
-    lis      r3, __vt__4CVec@ha
-    addi     r0, r3, __vt__4CVec@l
-    lfs      f1, 0x48(r1)
-    stfs     f0, 0x148(r30)
-    frsp     f0, f3
-    stfs     f1, 0x14c(r30)
-    stfs     f3, 0x4c(r1)
-    stfs     f0, 0x150(r30)
-    stw      r0, 0x50(r1)
-    b        .L_80073730
-.L_80073684:
-    mr       r4, r29
-    mr       r5, r29
-    addi     r3, r31, 0x4b4
-    crclr    cr1eq
-    bl       fn_801911B4
-    bl       strlen
-    addi     r4, r3, 0xd
-    li       r3, 0x0
-    cmplwi   r4, 0x0
-    ble      .L_800736E8
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_800736D4
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_800736D4
-.L_800736CC:
-    addi     r3, r3, 0x8
-    bdnz     .L_800736CC
-.L_800736D4:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_800736E8
-.L_800736E4:
-    bdnz     .L_800736E4
-.L_800736E8:
-    cmplwi   r4, 0x0
-    li       r3, 0x0
-    ble      .L_80073730
-    cmplwi   r4, 0x8
-    subi     r5, r4, 0x8
-    ble      .L_8007371C
-    addi     r0, r5, 0x7
-    srwi     r0, r0, 3
-    mtctr    r0
-    cmplwi   r5, 0x0
-    ble      .L_8007371C
-.L_80073714:
-    addi     r3, r3, 0x8
-    bdnz     .L_80073714
-.L_8007371C:
-    subf     r0, r3, r4
-    mtctr    r0
-    cmplw    r3, r4
-    bge      .L_80073730
-.L_8007372C:
-    bdnz     .L_8007372C
-.L_80073730:
-    li       r3, 0x0
-    psq_l    f31, 0xc8(r1), 0, qr0
-    lfd      f31, 0xc0(r1)
-    psq_l    f30, 0xb8(r1), 0, qr0
-    lfd      f30, 0xb0(r1)
-    psq_l    f29, 0xa8(r1), 0, qr0
-    lfd      f29, 0xa0(r1)
-    psq_l    f28, 0x98(r1), 0, qr0
-    lfd      f28, 0x90(r1)
-    lmw      r27, 0x7c(r1)
-    lwz      r0, 0xd4(r1)
-    mtlr     r0
-    addi     r1, r1, 0xd0
-    blr
-*/
-
-/**
  * @note Address: 0x80073768
  * @note Size: 0x4D0
  */
@@ -4614,10 +4333,197 @@ extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
 */
 
 /**
+ * @note Address: 0x80074614
+ * @note Size: 0x38
+ */
+extern "C" s32 CEvt__cmd_PRINTF(CEvt* evt)
+{
+	// the print itself is compiled out
+	for (s32 i = evt->_48 - 1; i >= 0; i--) { }
+
+	u8 c;
+	u8* str;
+	do {
+		str      = evt->_04;
+		c        = *str;
+		evt->_04 = str + 1;
+	} while (c != 0);
+
+	return 0;
+}
+
+// maps object ids from 10000 up to an index in the game's object table
+struct EvtObjIdEntry {
+	s16 mId;    // _00
+	s16 mIndex; // _02
+};
+struct EvtObjIdTable {
+	s32 mCount;                // _00
+	EvtObjIdEntry mEntry[275]; // _04
+};
+extern "C" EvtObjIdTable lbl_802247B0;
+
+#if defined(VERSION_JP)
+#define PLAYER_CARRY    0xA34
+#define PLAYER_HELD_OBJ 0xA54
+#define PLAYER_BE8      0xBD8
+#else
+#define PLAYER_CARRY    0xA44 // carry state, held object at its _20
+#define PLAYER_HELD_OBJ 0xA64
+#define PLAYER_BE8      0xBE8
+#endif
+
+// POS calls these after moving an object
+extern "C" void fn_800CECFC(u8* carry, s32 arg);
+extern "C" void fn_800C591C(u8* p);
+
+static inline XObj* CEvt_FindObj(s16 id)
+{
+	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
+		if (lbl_802247B0.mEntry[i].mId == id) {
+			XObj* obj = lbl_8025C400.mObjects[lbl_802247B0.mEntry[i].mIndex];
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				return obj;
+			}
+			return NULL;
+		}
+	}
+	return NULL;
+}
+
+/**
+ * @note Address: 0x8006FCAC
+ * @note Size: 0xE0
+ */
+extern "C" void fn_8006FCAC(CEvt*, s16 id, s16 index)
+{
+	if (CEvt_FindObj(id) == NULL) {
+		lbl_802247B0.mEntry[lbl_802247B0.mCount].mId    = id;
+		lbl_802247B0.mEntry[lbl_802247B0.mCount].mIndex = index;
+		++lbl_802247B0.mCount;
+	}
+}
+
+// -1 is the script's own object, anything lower is a pointer
+static inline XObj* CEvt_GetObj(CEvt* evt, s16 id)
+{
+	if (id >= 10000) {
+		XObj* obj = CEvt_FindObj(id);
+		// redundant, but it's in the asm
+		if (obj == NULL) {
+			return NULL;
+		}
+		return obj;
+	}
+	if (id >= 0) {
+		return lbl_8025C400.mObjects[id];
+	}
+	if (id == -1) {
+		return (XObj*)evt->_08;
+	}
+	return (XObj*)id;
+}
+
+static inline s16 CEvt_FindObjIndex(s16 id)
+{
+	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
+		if (lbl_802247B0.mEntry[i].mId == id) {
+			return lbl_802247B0.mEntry[i].mIndex;
+		}
+	}
+	return -1;
+}
+
+static inline void CEvt_ForgetObjId(s16 id)
+{
+	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
+		if (lbl_802247B0.mEntry[i].mId == id) {
+			for (s32 j = i; j < lbl_802247B0.mCount; j++) {
+				lbl_802247B0.mEntry[j].mId    = lbl_802247B0.mEntry[j + 1].mId;
+				lbl_802247B0.mEntry[j].mIndex = lbl_802247B0.mEntry[j + 1].mIndex;
+			}
+			lbl_802247B0.mCount--;
+		}
+	}
+}
+
+// the print is compiled out, only the length loops are left
+static inline void CEvt_Warn(const char* msg)
+{
+	size_t len = strlen(msg) + 13;
+	for (size_t i = 0; i < len; i++) { }
+	for (size_t i = 0; i < len; i++) { }
+}
+
+/**
  * @note Address: 0x80073C38
  * @note Size: 0x9DC
  */
-// CEvt__cmd_PTCL
+extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
+{
+	u32 code = CEvt_Evaluate(evt);
+	s16 type = CEvt_Evaluate(evt);
+	Vec translate, scale;
+	if (type == EVT_ATOM_POS) {
+		translate.x  = CEvt_Evaluate(evt) / 100.0f;
+		translate.y  = CEvt_Evaluate(evt) / 100.0f;
+		translate.z  = CEvt_Evaluate(evt) / 100.0f;
+		scale.x      = CEvt_Evaluate(evt) / 100.0f;
+		scale.y      = CEvt_Evaluate(evt) / 100.0f;
+		scale.z      = CEvt_Evaluate(evt) / 100.0f;
+		f32 angle    = CEvt_Evaluate(evt);
+		Vec rotation = { 0.0f, 0.0f, 0.0f };
+		rotation.y   = DEG2RAD * angle;
+		((CParticle*)lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+	} else if (type == EVT_ATOM_OBJ) {
+		s16 id      = CEvt_Evaluate(evt);
+		XObj* obj   = CEvt_GetObj(evt, id);
+		translate.x = CEvt_Evaluate(evt) / 100.0f;
+		translate.y = CEvt_Evaluate(evt) / 100.0f;
+		translate.z = CEvt_Evaluate(evt) / 100.0f;
+		scale.x     = CEvt_Evaluate(evt) / 100.0f;
+		scale.y     = CEvt_Evaluate(evt) / 100.0f;
+		scale.z     = CEvt_Evaluate(evt) / 100.0f;
+		f32 angle   = CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			translate    = obj->mMoveTranslate + translate;
+			Vec rotation = { 0.0f, 0.0f, 0.0f };
+			rotation.y   = DEG2RAD * angle;
+			((CParticle*)lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+		} else {
+			CEvt_Warn(fn_801911B4("ptcl(..., @OBJ, %d, ...) obj(%d) killed!", id, id));
+		}
+	} else if (type == EVT_ATOM_LEAD) {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		s32 depth = CEvt_Evaluate(evt);
+		if (depth > 16)
+			depth = 16;
+		s32 path[16];
+		for (s32 i = 0; i < depth; i++) {
+			path[i] = CEvt_Evaluate(evt);
+		}
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("ptcl(%d, @LEAD, %d, ...) ... obj(%d) is collision!\n", code, id, id));
+			}
+			((CParticle*)lbl_8025C400.mParticle)->Create(code, 0, GetJointByPath(obj->mJObj, path, depth), TRUE);
+		} else {
+			CEvt_Warn(fn_801911B4("ptcl(..., @LEAD, %d, ...) obj(%d) killed!", id, id));
+		}
+		for (s32 i = 0; i < depth; i++) { }
+	} else if (type == EVT_ATOM_KILL) {
+		((CParticle*)lbl_8025C400.mParticle)->Kill((s32)code);
+	} else {
+#if defined(VERSION_PAL)
+		const s32 line = 3315;
+#else
+		const s32 line = 3304;
+#endif
+		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("ptcl(...) - invalid type - %d!\n", type), "_cmd_PTCL");
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x110(r1)
     mflr     r0
@@ -5318,62 +5224,504 @@ extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
 */
 
 /**
- * @note Address: 0x80074614
- * @note Size: 0x38
+ * @note Address: 0x8007311C
+ * @note Size: 0x64C
  */
-extern "C" s32 CEvt__cmd_PRINTF(CEvt* evt)
+extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
 {
-	// the print itself is compiled out
-	for (s32 i = evt->_48 - 1; i >= 0; i--) { }
-
-	u8 c;
-	u8* str;
-	do {
-		str      = evt->_04;
-		c        = *str;
-		evt->_04 = str + 1;
-	} while (c != 0);
-
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	f32 x     = CEvt_Evaluate(evt) / 100.0f;
+	f32 y     = CEvt_Evaluate(evt) / 100.0f;
+	f32 z     = CEvt_Evaluate(evt) / 100.0f;
+	if (cmd == EVT_CMD_SCALE) {
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			obj->SetScale(x, y, z, 0);
+			fn_8008C8A4(obj);
+			fn_8008D220(obj);
+		} else {
+			CEvt_Warn(fn_801911B4("scale(%d, ...) obj(%d) killed!", id, id));
+		}
+	} else {
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("mscale(%d, %d,%d,%d) ... obj(%d) is collision!", id, (s32)(100.0f * x), (s32)(100.0f * y),
+				                      (s32)(100.0f * z), id));
+			}
+			if (time == 0.0f) {
+				obj->SetScale(x, y, z, 0);
+				fn_8008C8A4(obj);
+				fn_8008D220(obj);
+			} else {
+#if defined(VERSION_PAL)
+				CVec step = (CVec(x, y, z) - obj->mMoveScale) / (lbl_80660D4C * time);
+#else
+				CVec step = (CVec(x, y, z) - obj->mMoveScale) / (60.0f * time);
+#endif
+				obj->mMoveScale.mTarget.Set(x, y, z);
+				step.x = Abs(step.x);
+				step.y = Abs(step.y);
+				step.z = Abs(step.z);
+				obj->mMoveScale.mSpeed.Set(step);
+			}
+		} else {
+			CEvt_Warn(fn_801911B4("mscale(%d, ...) obj(%d) killed!", id, id));
+		}
+	}
 	return 0;
 }
+/*
+    stwu     r1, -0xd0(r1)
+    mflr     r0
+    stw      r0, 0xd4(r1)
+    stfd     f31, 0xc0(r1)
+    psq_st   f31, 0xc8(r1), 0, qr0
+    stfd     f30, 0xb0(r1)
+    psq_st   f30, 0xb8(r1), 0, qr0
+    stfd     f29, 0xa0(r1)
+    psq_st   f29, 0xa8(r1), 0, qr0
+    stfd     f28, 0x90(r1)
+    psq_st   f28, 0x98(r1), 0, qr0
+    stmw     r27, 0x7c(r1)
+    lis      r5, lbl_80207FA0@ha
+    mr       r27, r3
+    mr       r28, r4
+    addi     r31, r5, lbl_80207FA0@l
+    bl       CEvt_Evaluate
+    extsh    r29, r3
+    cmpwi    r29, 0x2710
+    blt      .L_8007321C
+    lis      r3, lbl_802247B0@ha
+    lwzu     r0, lbl_802247B0@l(r3)
+    li       r5, 0x0
+    mtctr    r0
+    cmpwi    r0, 0x0
+    ble      .L_80073204
+.L_80073184:
+    lha      r0, 0x4(r3)
+    cmpw     r0, r29
+    bne      .L_800731F8
+    lis      r3, lbl_802247B0@ha
+    lis      r4, lbl_8025C400@ha
+    addi     r3, r3, lbl_802247B0@l
+    slwi     r0, r5, 2
+    add      r3, r3, r0
+    addi     r4, r4, lbl_8025C400@l
+    lha      r0, 0x6(r3)
+    addis    r3, r4, 0x1
+    slwi     r0, r0, 2
+    add      r3, r3, r0
+    lwz      r30, -0x67a0(r3)
+    cmplwi   r30, 0x0
+    beq      .L_800731F0
+    lwz      r0, 0x228(r30)
+    li       r4, 0x0
+    lwz      r5, 0x22c(r30)
+    li       r3, 0x1
+    and      r0, r0, r4
+    and      r3, r5, r3
+    xor      r3, r3, r4
+    xor      r0, r0, r4
+    or.      r0, r3, r0
+    beq      .L_800731F0
+    b        .L_80073208
+.L_800731F0:
+    li       r30, 0x0
+    b        .L_80073208
+.L_800731F8:
+    addi     r3, r3, 0x4
+    addi     r5, r5, 0x1
+    bdnz     .L_80073184
+.L_80073204:
+    li       r30, 0x0
+.L_80073208:
+    cmplwi   r30, 0x0
+    bne      .L_80073254
+    li       r30, 0x0
+    b        .L_80073254
+    b        .L_80073254
+.L_8007321C:
+    extsh.   r0, r29
+    blt      .L_80073240
+    lis      r3, lbl_8025C400@ha
+    slwi     r0, r29, 2
+    addi     r3, r3, lbl_8025C400@l
+    addis    r3, r3, 0x1
+    add      r3, r3, r0
+    lwz      r30, -0x67a0(r3)
+    b        .L_80073254
+.L_80073240:
+    cmpwi    r29, -0x1
+    bne      .L_80073250
+    lwz      r30, 0x8(r27)
+    b        .L_80073254
+.L_80073250:
+    mr       r30, r29
+.L_80073254:
+    mr       r3, r27
+    bl       CEvt_Evaluate
+    xoris    r3, r3, 0x8000
+    lis      r0, 0x4330
+    stw      r3, 0x5c(r1)
+    mr       r3, r27
+    lfd      f2, lbl_8065CF88@sda21(r0)
+    stw      r0, 0x58(r1)
+    lfs      f0, lbl_8065CF80@sda21(r0)
+    lfd      f1, 0x58(r1)
+    fsubs    f1, f1, f2
+    fdivs    f31, f1, f0
+    bl       CEvt_Evaluate
+    xoris    r3, r3, 0x8000
+    lis      r0, 0x4330
+    stw      r3, 0x64(r1)
+    mr       r3, r27
+    lfd      f2, lbl_8065CF88@sda21(r0)
+    stw      r0, 0x60(r1)
+    lfs      f0, lbl_8065CF80@sda21(r0)
+    lfd      f1, 0x60(r1)
+    fsubs    f1, f1, f2
+    fdivs    f30, f1, f0
+    bl       CEvt_Evaluate
+    xoris    r0, r3, 0x8000
+    lis      r3, 0x4330
+    stw      r0, 0x6c(r1)
+    clrlwi   r0, r28, 24
+    lfd      f2, lbl_8065CF88@sda21(r0)
+    cmplwi   r0, 0x28
+    stw      r3, 0x68(r1)
+    lfs      f0, lbl_8065CF80@sda21(r0)
+    lfd      f1, 0x68(r1)
+    fsubs    f1, f1, f2
+    fdivs    f29, f1, f0
+    bne      .L_800733FC
+    cmplwi   r30, 0x0
+    beq      .L_8007334C
+    lwz      r0, 0x228(r30)
+    li       r4, 0x0
+    lwz      r5, 0x22c(r30)
+    li       r3, 0x1
+    and      r0, r0, r4
+    and      r3, r5, r3
+    xor      r3, r3, r4
+    xor      r0, r0, r4
+    or.      r0, r3, r0
+    beq      .L_8007334C
+    mr       r3, r30
+    fmr      f1, f31
+    lwz      r12, 0x34(r30)
+    fmr      f2, f30
+    fmr      f3, f29
+    li       r4, 0x0
+    lwz      r12, 0x3c(r12)
+    mtctr    r12
+    bctrl
+    mr       r3, r30
+    bl       fn_8008C8A4
+    mr       r3, r30
+    bl       fn_8008D220
+    b        .L_80073730
+.L_8007334C:
+    mr       r4, r29
+    mr       r5, r29
+    addi     r3, r31, 0x464
+    crclr    cr1eq
+    bl       fn_801911B4
+    bl       strlen
+    addi     r4, r3, 0xd
+    li       r3, 0x0
+    cmplwi   r4, 0x0
+    ble      .L_800733B0
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_8007339C
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_8007339C
+.L_80073394:
+    addi     r3, r3, 0x8
+    bdnz     .L_80073394
+.L_8007339C:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_800733B0
+.L_800733AC:
+    bdnz     .L_800733AC
+.L_800733B0:
+    cmplwi   r4, 0x0
+    li       r3, 0x0
+    ble      .L_80073730
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_800733E4
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_800733E4
+.L_800733DC:
+    addi     r3, r3, 0x8
+    bdnz     .L_800733DC
+.L_800733E4:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_80073730
+.L_800733F4:
+    bdnz     .L_800733F4
+    b        .L_80073730
+.L_800733FC:
+    mr       r3, r27
+    bl       CEvt_Evaluate
+    xoris    r3, r3, 0x8000
+    lis      r0, 0x4330
+    stw      r3, 0x6c(r1)
+    cmplwi   r30, 0x0
+    lfd      f2, lbl_8065CF88@sda21(r0)
+    stw      r0, 0x68(r1)
+    lfs      f0, lbl_8065CF80@sda21(r0)
+    lfd      f1, 0x68(r1)
+    fsubs    f1, f1, f2
+    fdivs    f28, f1, f0
+    beq      .L_80073684
+    lwz      r0, 0x228(r30)
+    li       r4, 0x0
+    lwz      r5, 0x22c(r30)
+    li       r3, 0x1
+    and      r0, r0, r4
+    and      r3, r5, r3
+    xor      r3, r3, r4
+    xor      r0, r0, r4
+    or.      r0, r3, r0
+    beq      .L_80073684
+    lwz      r0, 0x0(r30)
+    cmplwi   r0, 0x0
+    bne      .L_80073540
+    fmuls    f2, f0, f31
+    mr       r4, r29
+    fmuls    f1, f0, f30
+    mr       r8, r29
+    fmuls    f0, f0, f29
+    addi     r3, r31, 0x484
+    fctiwz   f2, f2
+    fctiwz   f1, f1
+    fctiwz   f0, f0
+    stfd     f2, 0x68(r1)
+    stfd     f1, 0x60(r1)
+    lwz      r5, 0x6c(r1)
+    stfd     f0, 0x58(r1)
+    lwz      r6, 0x64(r1)
+    lwz      r7, 0x5c(r1)
+    crclr    cr1eq
+    bl       fn_801911B4
+    bl       strlen
+    addi     r4, r3, 0xd
+    li       r3, 0x0
+    cmplwi   r4, 0x0
+    ble      .L_800734F8
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_800734E4
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_800734E4
+.L_800734DC:
+    addi     r3, r3, 0x8
+    bdnz     .L_800734DC
+.L_800734E4:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_800734F8
+.L_800734F4:
+    bdnz     .L_800734F4
+.L_800734F8:
+    cmplwi   r4, 0x0
+    li       r3, 0x0
+    ble      .L_80073540
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_8007352C
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_8007352C
+.L_80073524:
+    addi     r3, r3, 0x8
+    bdnz     .L_80073524
+.L_8007352C:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_80073540
+.L_8007353C:
+    bdnz     .L_8007353C
+.L_80073540:
+    lfs      f0, lbl_8065CF74@sda21(r0)
+    fcmpu    cr0, f0, f28
+    bne      .L_80073584
+    mr       r3, r30
+    fmr      f1, f31
+    lwz      r12, 0x34(r30)
+    fmr      f2, f30
+    fmr      f3, f29
+    li       r4, 0x0
+    lwz      r12, 0x3c(r12)
+    mtctr    r12
+    bctrl
+    mr       r3, r30
+    bl       fn_8008C8A4
+    mr       r3, r30
+    bl       fn_8008D220
+    b        .L_80073730
+.L_80073584:
+    lis      r3, __vt__4CVec@ha
+    stfs     f31, 0x34(r1)
+    addi     r0, r3, __vt__4CVec@l
+    addi     r3, r1, 0x18
+    stw      r0, 0x40(r1)
+    addi     r4, r1, 0x34
+    addi     r5, r1, 0x28
+    stfs     f30, 0x38(r1)
+    stfs     f29, 0x3c(r1)
+    lwz      r6, 0x128(r30)
+    lwz      r0, 0x12c(r30)
+    stw      r6, 0x28(r1)
+    stw      r0, 0x2c(r1)
+    lwz      r0, 0x130(r30)
+    stw      r0, 0x30(r1)
+    bl       __mi__4CVecCF3Vec
+    lfs      f0, lbl_8065CFC0@sda21(r0)
+    addi     r3, r1, 0x8
+    addi     r4, r1, 0x18
+    fmuls    f1, f0, f28
+    bl       fn_8002442C
+    lis      r3, __vt__4CVec@ha
+    lwz      r5, 0x8(r1)
+    addi     r0, r3, __vt__4CVec@l
+    lwz      r4, 0xc(r1)
+    lwz      r3, 0x10(r1)
+    stw      r5, 0x44(r1)
+    lfs      f0, lbl_8065CF74@sda21(r0)
+    lfs      f1, 0x44(r1)
+    stw      r0, 0x14(r1)
+    fcmpo    cr0, f1, f0
+    stw      r0, 0x24(r1)
+    stw      r0, 0x40(r1)
+    stfs     f31, 0x138(r30)
+    stfs     f30, 0x13c(r30)
+    stw      r4, 0x48(r1)
+    stw      r3, 0x4c(r1)
+    stw      r0, 0x50(r1)
+    stfs     f29, 0x140(r30)
+    bge      .L_80073628
+    fneg     f1, f1
+.L_80073628:
+    lfs      f2, 0x48(r1)
+    lfs      f0, lbl_8065CF74@sda21(r0)
+    stfs     f1, 0x44(r1)
+    fcmpo    cr0, f2, f0
+    bge      .L_80073640
+    fneg     f2, f2
+.L_80073640:
+    lfs      f3, 0x4c(r1)
+    lfs      f0, lbl_8065CF74@sda21(r0)
+    stfs     f2, 0x48(r1)
+    fcmpo    cr0, f3, f0
+    bge      .L_80073658
+    fneg     f3, f3
+.L_80073658:
+    lfs      f0, 0x44(r1)
+    lis      r3, __vt__4CVec@ha
+    addi     r0, r3, __vt__4CVec@l
+    lfs      f1, 0x48(r1)
+    stfs     f0, 0x148(r30)
+    frsp     f0, f3
+    stfs     f1, 0x14c(r30)
+    stfs     f3, 0x4c(r1)
+    stfs     f0, 0x150(r30)
+    stw      r0, 0x50(r1)
+    b        .L_80073730
+.L_80073684:
+    mr       r4, r29
+    mr       r5, r29
+    addi     r3, r31, 0x4b4
+    crclr    cr1eq
+    bl       fn_801911B4
+    bl       strlen
+    addi     r4, r3, 0xd
+    li       r3, 0x0
+    cmplwi   r4, 0x0
+    ble      .L_800736E8
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_800736D4
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_800736D4
+.L_800736CC:
+    addi     r3, r3, 0x8
+    bdnz     .L_800736CC
+.L_800736D4:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_800736E8
+.L_800736E4:
+    bdnz     .L_800736E4
+.L_800736E8:
+    cmplwi   r4, 0x0
+    li       r3, 0x0
+    ble      .L_80073730
+    cmplwi   r4, 0x8
+    subi     r5, r4, 0x8
+    ble      .L_8007371C
+    addi     r0, r5, 0x7
+    srwi     r0, r0, 3
+    mtctr    r0
+    cmplwi   r5, 0x0
+    ble      .L_8007371C
+.L_80073714:
+    addi     r3, r3, 0x8
+    bdnz     .L_80073714
+.L_8007371C:
+    subf     r0, r3, r4
+    mtctr    r0
+    cmplw    r3, r4
+    bge      .L_80073730
+.L_8007372C:
+    bdnz     .L_8007372C
+.L_80073730:
+    li       r3, 0x0
+    psq_l    f31, 0xc8(r1), 0, qr0
+    lfd      f31, 0xc0(r1)
+    psq_l    f30, 0xb8(r1), 0, qr0
+    lfd      f30, 0xb0(r1)
+    psq_l    f29, 0xa8(r1), 0, qr0
+    lfd      f29, 0xa0(r1)
+    psq_l    f28, 0x98(r1), 0, qr0
+    lfd      f28, 0x90(r1)
+    lmw      r27, 0x7c(r1)
+    lwz      r0, 0xd4(r1)
+    mtlr     r0
+    addi     r1, r1, 0xd0
+    blr
+*/
 
-// maps object ids from 10000 up to an index in the game's object table
-struct EvtObjIdEntry {
-	s16 mId;    // _00
-	s16 mIndex; // _02
-};
-struct EvtObjIdTable {
-	s32 mCount;                // _00
-	EvtObjIdEntry mEntry[275]; // _04
-};
-extern "C" EvtObjIdTable lbl_802247B0;
-
-#if defined(VERSION_JP)
-#define GAME_OBJ(index) (((XObj**)(lbl_8025C400 + 0x9818))[index])
-#define GAME_CAMERA     (lbl_8025C400 + 0xE5050)
-#define PLAYER_CARRY    0xA34
-#define PLAYER_HELD_OBJ 0xA54
-#define PLAYER_BE8      0xBD8
-#else
-#define GAME_OBJ(index) (((XObj**)(lbl_8025C400 + 0x9860))[index])
-#define GAME_CAMERA     (lbl_8025C400 + 0xE5D38) // CCamera
-#define PLAYER_CARRY    0xA44                    // carry state, held object at its _20
-#define PLAYER_HELD_OBJ 0xA64
-#define PLAYER_BE8      0xBE8
-#endif
-
-// POS calls these after moving an object
-extern "C" void fn_800B5E1C(u8* player);
-extern "C" void fn_8009FCC4(u8* player);
-extern "C" void fn_800CECFC(u8* carry, s32 arg);
-extern "C" void fn_800C591C(u8* p);
-
-static inline XObj* CEvt_FindObj(s16 id)
+static inline XObj* CEvt_FindObjUnchecked(s16 id)
 {
 	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
 		if (lbl_802247B0.mEntry[i].mId == id) {
-			XObj* obj = GAME_OBJ(lbl_802247B0.mEntry[i].mIndex);
-			if (obj != NULL && (obj->mFlags & 1)) {
+			XObj* obj = lbl_8025C400.mObjects[lbl_802247B0.mEntry[i].mIndex];
+			if (obj != NULL) {
 				return obj;
 			}
 			return NULL;
@@ -5382,55 +5730,151 @@ static inline XObj* CEvt_FindObj(s16 id)
 	return NULL;
 }
 
-// -1 is the script's own object, anything lower is a pointer
-static inline XObj* CEvt_GetObj(CEvt* evt, s16 id)
-{
-	if (id >= 10000) {
-		XObj* obj = CEvt_FindObj(id);
-		// redundant, but it's in the asm
-		if (obj == NULL) {
-			return NULL;
-		}
-		return obj;
-	}
-	if (id >= 0) {
-		return GAME_OBJ(id);
-	}
-	if (id == -1) {
-		return (XObj*)evt->_08;
-	}
-	return (XObj*)id;
-}
+extern "C" BOOL fn_80132144(XObj* obj, UnkXObjList* list);
 
-static inline s16 CEvt_FindObjIndex(s16 id)
+/**
+ * @note Address: 0x80073768
+ * @note Size: 0x4D0
+ */
+extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 {
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			return lbl_802247B0.mEntry[i].mIndex;
-		}
-	}
-	return -1;
-}
-
-static inline void CEvt_ForgetObjId(s16 id)
-{
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			for (s32 j = i; j < lbl_802247B0.mCount; j++) {
-				lbl_802247B0.mEntry[j].mId    = lbl_802247B0.mEntry[j + 1].mId;
-				lbl_802247B0.mEntry[j].mIndex = lbl_802247B0.mEntry[j + 1].mIndex;
+	u16 type = CEvt_Evaluate(evt);
+	switch (type) {
+	case EVT_ATOM_ANIM: {
+		s16 id            = CEvt_Evaluate(evt);
+		XObj* obj         = CEvt_GetObj(evt, id);
+		UnkXObjList* list = (UnkXObjList*)CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("read(@ANIM, %d, %s) ... obj(%d) is collision!", id, (const char*)list, id));
 			}
-			lbl_802247B0.mCount--;
+			if (obj->mStatus.mFlags & 0x0008000000000000) {
+				HSD_AObj* anim = GetAObj(obj->mJObj);
+				if (anim != NULL && !(anim->flags & AOBJ_NO_ANIM)) {
+					obj->SetAnim(obj->mAnimId % 1000, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				}
+			}
+			fn_80132144((XObj*)obj, list);
+		} else {
+			CEvt_Warn(fn_801911B4("read(@ANIM, %d, ...) obj(%d) killed!", id, id));
 		}
+		break;
 	}
+	case EVT_ATOM_SFX: {
+		s16 id = CEvt_Evaluate(evt);
+		if (id >= 10000) {
+			CEvt_FindObjUnchecked(id);
+		}
+		const char* name = (const char*)CEvt_Evaluate(evt);
+		fn_8001E044((CSound*)(u8*)&lbl_8025C400.mSound, name);
+		break;
+	}
+	default:
+#if defined(VERSION_PAL)
+		const s32 line = 3379;
+#else
+		const s32 line = 3368;
+#endif
+		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("read(...) - invalid type - %d!\n", type), "_cmd_READ");
+		break;
+	}
+	return 0;
 }
 
-// the print is compiled out, only the length loops are left
-static inline void CEvt_Warn(const char* msg)
+// where WIN puts its message, a screen spot or a point on an object
+struct EvtMsgPosition {
+	f32 x;        // _00
+	f32 y;        // _04
+	XObj* object; // _08
+	Vec offset;   // _0C
+};
+
+static inline EvtMsgPosition* CEvt_MsgPosition(u8* owner)
 {
-	size_t len = strlen(msg) + 13;
-	for (size_t i = 0; i < len; i++) { }
-	for (size_t i = 0; i < len; i++) { }
+#if defined(VERSION_JP)
+	return (EvtMsgPosition*)(owner + 0x43FB0);
+#else
+	return (EvtMsgPosition*)(owner + 0x44600);
+#endif
+}
+
+extern "C" void CMsg_ResetPos(u8* owner);
+extern "C" GXColor lbl_8065A3C0;
+
+/**
+ * @note Address: 0x8006FD8C
+ * @note Size: 0x48C
+ */
+extern "C" s32 CEvt__cmd_WIN(CEvt* evt)
+{
+	switch ((u16)CEvt_Evaluate(evt)) {
+	case 0xCF: {
+		f32 x = CEvt_Evaluate(evt);
+		f32 y = CEvt_Evaluate(evt);
+		if (evt->_54 != NULL) {
+			EvtMsgPosition* pos = CEvt_MsgPosition(evt->_54);
+			pos->x              = x;
+			pos->y              = y;
+			pos->object         = NULL;
+			pos->offset.x = pos->offset.y = pos->offset.z = 0.0f;
+		}
+		break;
+	}
+	case 0xEF:
+		if (evt->_54 != NULL) {
+			EvtMsgPosition* pos = CEvt_MsgPosition(evt->_54);
+			pos->x              = 320.0f;
+			pos->y              = 378.5f;
+			pos->object         = NULL;
+			pos->offset.x = pos->offset.y = pos->offset.z = 0.0f;
+		}
+		break;
+	case 0xD0: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		f32 x     = CEvt_Evaluate(evt) / 100.0f;
+		f32 y     = CEvt_Evaluate(evt) / 100.0f;
+		f32 z     = CEvt_Evaluate(evt) / 100.0f;
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (evt->_54 != NULL) {
+				EvtMsgPosition* pos = CEvt_MsgPosition(evt->_54);
+				pos->object         = obj;
+				pos->offset.x       = x;
+				pos->offset.y       = y;
+				pos->offset.z       = z;
+			}
+		} else {
+			CEvt_Warn(fn_801911B4("win(@OBJ, %d, ...) obj(%d) killed!", id, id));
+		}
+		break;
+	}
+	case 0xDB: {
+		u8 r = CEvt_Evaluate(evt);
+		u8 g = CEvt_Evaluate(evt);
+		u8 b = CEvt_Evaluate(evt);
+		u8 a = CEvt_Evaluate(evt);
+		if (evt->_54 != NULL) {
+			GXColor* color = (GXColor*)(evt->_54 + 0x9B8);
+			color->r       = r;
+			color->g       = g;
+			color->b       = b;
+			color->a       = a;
+		}
+		break;
+	}
+	case 0xD1:
+		if (evt->_54 != NULL) {
+			CMsg_ResetPos(evt->_54);
+			GXColor color = lbl_8065A3C0;
+			GXColor* out  = (GXColor*)(evt->_54 + 0x9B8);
+			out->r        = color.r;
+			out->g        = color.g;
+			out->b        = color.b;
+			out->a        = color.a;
+		}
+		break;
+	}
+	return 0;
 }
 
 /**
@@ -5444,19 +5888,19 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 	f32 x     = CEvt_Evaluate(evt) / 100.0f;
 	f32 y     = CEvt_Evaluate(evt) / 100.0f;
 	f32 z     = CEvt_Evaluate(evt) / 100.0f;
-	if (obj != NULL && (obj->mFlags & 1)) {
-		obj->vf68(x, y, z, 0);
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		obj->SetPos(x, y, z, 0);
 		if (obj->mMoveTranslate.y != obj->_264.y) {
-			obj->mFlags |= 0x0010000000000000;
+			obj->mStatus.mFlags |= 0x0010000000000000;
 		}
 		obj->_264.x = obj->mMoveTranslate.x;
 		obj->_264.y = obj->mMoveTranslate.y;
 		obj->_264.z = obj->mMoveTranslate.z;
-		((CMotionControlCamera*)GAME_CAMERA)->UpdateTarget(obj);
-		u8* player = GAME_PLAYER;
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->UpdateTarget(obj);
+		u8* player = (u8*)lbl_8025C400.mPlayer;
 		if (obj == (XObj*)player) {
-			fn_800B5E1C(player);
-			fn_8009FCC4(player);
+			fn_800B5E1C((XObjChr*)player);
+			fn_8009FCC4((XObjChr*)player);
 			u8* carry = player + PLAYER_CARRY;
 			if (*(XObj**)(carry + 0x20) != NULL) {
 				fn_800CECFC(carry, 1);
@@ -5728,17 +6172,11 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 #define EVT_OWNER_445C0(owner) (*(s32*)((owner) + 0x43F70))
 #define EVT_OWNER_445D4(owner) (*(s32*)((owner) + 0x43F84))
 #define EVT_OWNER_445F8(owner) (*(s32*)((owner) + 0x43FA8))
-#define GAME_SOUND             (lbl_8025C400 + 0xE713C)
 #else
 #define EVT_OWNER_445C0(owner) (*(s32*)((owner) + 0x445C0))
 #define EVT_OWNER_445D4(owner) (*(s32*)((owner) + 0x445D4))
 #define EVT_OWNER_445F8(owner) (*(s32*)((owner) + 0x445F8))
-#define GAME_SOUND             (lbl_8025C400 + 0xE7E24)
 #endif
-
-// out is CEvt _44
-extern "C" void CMsg_Open(u8* owner, u8 cmd, u8* p, s32** out);
-extern "C" BOOL fn_8001E904(u8* sound, s32 sfx, u8 vol);
 
 /**
  * @note Address: 0x800749DC
@@ -5770,11 +6208,11 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 		}
 		owner = evt->_54;
 		if (EVT_OWNER_445C0(owner) != 0) {
-			CMsg_Open(owner, cmd, evt->_04 + 4, &evt->_44);
+			CMsg_Open((CMsg*)owner, cmd, evt->_04 + 4, (MsgFormatArgs*)&evt->_44);
 			EVT_OWNER_445C0(evt->_54) = 0;
 			evt->_04--;
 			if (cmd == EVT_CMD_SELECT) {
-				fn_8001E904(GAME_SOUND, 0x86, 0xFF);
+				fn_8001E904((CSound*)(u8*)&lbl_8025C400.mSound, 0x86, 0xFF);
 			}
 			return 1;
 		}
@@ -5800,12 +6238,6 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 
 extern "C" void fn_8000ABB8(u8* game, const char* path, BOOL loop, s32 arg);
 extern "C" void fn_8000AB90(u8* game);
-// x y w h
-#if defined(VERSION_JP)
-#define GAME_MOVIE_RECT ((f32*)(lbl_8025C400 + 0xFE660))
-#else
-#define GAME_MOVIE_RECT ((f32*)(lbl_8025C400 + 0xFF460))
-#endif
 
 /**
  * @note Address: 0x80074BC4
@@ -5831,13 +6263,13 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
 		// x and y are the center, the rect wants the corner
 		x -= w / 2;
 		y -= h / 2;
-		fn_8000ABB8(lbl_8025C400, path, FALSE, arg);
-		GAME_MOVIE_RECT[0] = x;
-		GAME_MOVIE_RECT[1] = y;
-		GAME_MOVIE_RECT[2] = w;
-		GAME_MOVIE_RECT[3] = h;
+		fn_8000ABB8((u8*)&lbl_8025C400, path, FALSE, arg);
+		lbl_8025C400.mMovieRect[0] = x;
+		lbl_8025C400.mMovieRect[1] = y;
+		lbl_8025C400.mMovieRect[2] = w;
+		lbl_8025C400.mMovieRect[3] = h;
 	} else {
-		fn_8000AB90(lbl_8025C400);
+		fn_8000AB90((u8*)&lbl_8025C400);
 	}
 	return 0;
 }
@@ -5928,7 +6360,72 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
  * @note Address: 0x80074CF4
  * @note Size: 0x760
  */
-// CEvt__cmd_MOVETO
+extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
+{
+	s16 id        = CEvt_Evaluate(evt);
+	XObj* obj     = CEvt_GetObj(evt, id);
+	f32 x         = CEvt_Evaluate(evt) / 100.0f;
+	f32 y         = CEvt_Evaluate(evt) / 100.0f;
+	f32 z         = CEvt_Evaluate(evt) / 100.0f;
+	f32 time      = CEvt_Evaluate(evt) / 100.0f;
+	s32 anim      = CEvt_Evaluate(evt);
+	s16 direction = CEvt_Evaluate(evt);
+	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
+		if (obj->mJObj == NULL) {
+			CEvt_Warn(fn_801911B4("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(100.0f * x), (s32)(100.0f * y),
+			                      (s32)(100.0f * z), (s32)(100.0f * time), anim, direction, id));
+		}
+		u8* player = (u8*)lbl_8025C400.mPlayer;
+		if ((u8*)obj == player) {
+			fn_800C591C(player + PLAYER_BE8);
+		}
+		f32 distance;
+		{
+			CVec target(x, y, z);
+			distance = PSVECDistance(&obj->mMoveTranslate, &target);
+		}
+		if (distance < 0.1f) {
+			obj->SetPos(x, y, z, 0);
+			return 0;
+		}
+		if (time == 0.0f) {
+			obj->SetMoveDir(CVec(x, y, z), distance);
+		} else if (time > 0.0f) {
+			obj->SetMoveDir(CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
+		} else {
+			obj->SetMoveDir(CVec(x, y, z), -time);
+		}
+		if (direction != -1) {
+			f32 yaw;
+			if (direction == -2) {
+				CVec target(x, y, z);
+				yaw = atan2(target.x - obj->mMoveTranslate.x, target.z - obj->mMoveTranslate.z);
+			} else {
+				yaw = DEG2RAD * direction;
+			}
+			obj->SetRotationY(yaw, 0);
+		}
+		if (anim != -1) {
+			if (anim & 0xFFFF0000) {
+				s32 jointId     = anim & 0xFFFF;
+				s32 matId       = anim >> 16;
+				void* jointAnim = obj->vfF0(jointId);
+				void* matAnim   = obj->vfF4(matId);
+				void* shapeAnim = obj->vfF8(jointId);
+				obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
+				if (jointId >= 1000 || matId >= 1000) {
+					obj->mStatus.mFlags |= 0x0008000000000000;
+				}
+			} else {
+				obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			}
+			obj->UpdateAnim(1);
+		}
+	} else if (obj == NULL || !(obj->mStatus.mFlags & 1)) {
+		CEvt_Warn(fn_801911B4("moveto(%d, ...) obj(%d) killed!", id, id));
+	}
+	return 0;
+}
 /*
     stwu     r1, -0xe0(r1)
     mflr     r0
@@ -6446,7 +6943,61 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
  * @note Address: 0x80075454
  * @note Size: 0x62C
  */
-// CEvt__cmd_MOVE
+extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
+{
+	s16 id        = CEvt_Evaluate(evt);
+	XObj* obj     = CEvt_GetObj(evt, id);
+	f32 distance  = CEvt_Evaluate(evt) / 100.0f;
+	f32 time      = CEvt_Evaluate(evt) / 100.0f;
+	s32 anim      = CEvt_Evaluate(evt);
+	s16 direction = CEvt_Evaluate(evt);
+	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
+		if (obj->mJObj == NULL) {
+			// retail's format says %d but passes a float
+			CEvt_Warn(
+			    fn_801911B4("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(100.0f * time), anim, direction, id));
+		}
+		u8* player = (u8*)lbl_8025C400.mPlayer;
+		if ((u8*)obj == player) {
+			fn_800C591C(player + PLAYER_BE8);
+		}
+		Vec target = obj->mMoveTranslate;
+		f32 yaw;
+		if ((u16)(direction + 2) <= 1) {
+			yaw = obj->mMoveRotate.y;
+		} else {
+			yaw = DEG2RAD * direction;
+		}
+		target.x += distance * (f32)sin(yaw);
+		target.z += distance * (f32)cos(yaw);
+		if (time == 0.0f) {
+			obj->SetMoveDir(target, distance);
+		} else if (time > 0.0f) {
+			obj->SetMoveDir(target, distance / (FRAMES_PER_SEC * time));
+		} else {
+			obj->SetMoveDir(target, -time);
+		}
+		if (anim != -1) {
+			if (anim & 0xFFFF0000) {
+				s32 jointId     = anim & 0xFFFF;
+				s32 matId       = anim >> 16;
+				void* jointAnim = obj->vfF0(jointId);
+				void* matAnim   = obj->vfF4(matId);
+				void* shapeAnim = obj->vfF8(jointId);
+				obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
+				if (jointId >= 1000 || matId >= 1000) {
+					obj->mStatus.mFlags |= 0x0008000000000000;
+				}
+			} else {
+				obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			}
+			obj->UpdateAnim(1);
+		}
+	} else if (obj == NULL || !(obj->mStatus.mFlags & 1)) {
+		CEvt_Warn(fn_801911B4("move(%d, ...) obj(%d) killed!", id, id));
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x70(r1)
     mflr     r0
@@ -6882,10 +7433,6 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
     blr
 */
 
-/**
- * @note Address: 0x80075A80
- * @note Size: 0x19C
- */
 // an entry in the game object's menu table
 struct UnkEvtMenu {
 	u8 _00[0x148]; // _00
@@ -6900,24 +7447,23 @@ struct UnkEvtMenu {
 };
 
 #if defined(VERSION_JP)
-#define GAME_MENU_OPEN    (*(s32*)(lbl_8025C400 + 0x8538))
-#define GAME_MENU_TABLE   ((UnkEvtMenu**)(lbl_8025C400 + 0x853C))
 #define PLAYER_MENU_12E44 0x12D44
 #define PLAYER_MENU_130D0 0x12FB8
 #define PLAYER_MENU_130DC 0x12FC4
 #define PLAYER_MENU_13368 0x13238
 #else
-#define GAME_MENU_OPEN    (*(s32*)(lbl_8025C400 + 0x8580))
-#define GAME_MENU_TABLE   ((UnkEvtMenu**)(lbl_8025C400 + 0x8584))
 #define PLAYER_MENU_12E44 0x12E44
 #define PLAYER_MENU_130D0 0x130D0
 #define PLAYER_MENU_130DC 0x130DC
 #define PLAYER_MENU_13368 0x13368
 #endif
 
-extern "C" void fn_800B54A4(u8* player, s32 arg);
 extern "C" void fn_800B53A0(u8* player, s32 arg);
 
+/**
+ * @note Address: 0x80075A80
+ * @note Size: 0x19C
+ */
 extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 {
 	s32 ret = 0;
@@ -6925,7 +7471,7 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 	u8* cmd = evt->_04 - 1;
 	s32 id  = CEvt_Evaluate(evt);
 	if (evt->_20 != 0) {
-		if (GAME_MENU_OPEN != 0) {
+		if (lbl_8025C400._8580 != 0) {
 			evt->_04 = cmd;
 			ret      = 1;
 		} else {
@@ -6934,9 +7480,9 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 	} else if (id == 1000) {
 		s32 arg = CEvt_Evaluate(evt);
 		if (arg >= 0) {
-			fn_800B54A4(GAME_PLAYER, arg);
+			fn_800B54A4(&EVT_PLAYER, arg);
 		} else {
-			u8* player = GAME_PLAYER;
+			u8* player = (u8*)lbl_8025C400.mPlayer;
 			bool busy  = false;
 			if (*(s32*)(player + PLAYER_MENU_12E44) != 0 || *(s32*)(player + PLAYER_MENU_130DC) != 0) {
 				busy = true;
@@ -6946,20 +7492,20 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 			}
 		}
 	} else if (id == 1001) {
-		s32 a                                    = CEvt_Evaluate(evt);
-		s32 b                                    = CEvt_Evaluate(evt);
-		*(s32*)(GAME_PLAYER + PLAYER_MENU_130D0) = a;
-		*(s32*)(GAME_PLAYER + PLAYER_MENU_13368) = b;
+		s32 a                                                  = CEvt_Evaluate(evt);
+		s32 b                                                  = CEvt_Evaluate(evt);
+		*(s32*)((u8*)lbl_8025C400.mPlayer + PLAYER_MENU_130D0) = a;
+		*(s32*)((u8*)lbl_8025C400.mPlayer + PLAYER_MENU_13368) = b;
 	} else {
-		UnkEvtMenu* menu = GAME_MENU_TABLE[id];
+		UnkEvtMenu* menu = (UnkEvtMenu*)lbl_8025C400._8584[id];
 #if defined(VERSION_JP)
 		// no null check in japan
 		menu->vf1C();
-		GAME_MENU_OPEN = 1;
+		lbl_8025C400._8580 = 1;
 #else
 		if (menu != 0) {
 			menu->vf1C();
-			GAME_MENU_OPEN = 1;
+			lbl_8025C400._8580 = 1;
 		}
 #endif
 		evt->_20 = 1;
@@ -6969,22 +7515,16 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 	return ret;
 }
 
+// walked through the lobj next links
+
 /**
  * @note Address: 0x80075C1C
  * @note Size: 0x290
  */
-// CEvt__cmd_LIGHT
-// walked through the lobj next links
-#if defined(VERSION_JP)
-#define GAME_LIGHTS (*(CLight**)(lbl_8025C400 + 0xE7138))
-#else
-#define GAME_LIGHTS (*(CLight**)(lbl_8025C400 + 0xE7E20))
-#endif
-
 extern "C" s32 CEvt__cmd_LIGHT(CEvt* evt)
 {
 	s32 index     = CEvt_Evaluate(evt);
-	CLight* light = GAME_LIGHTS;
+	CLight* light = lbl_8025C400._E7E20;
 	for (s32 i = 0; i < index; i++) {
 		light = (CLight*)light->next;
 		if (light == NULL) {
@@ -7037,13 +7577,13 @@ extern "C" s32 CEvt__cmd_KILL(CEvt* evt)
 {
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
-	if (obj != NULL && (obj->mFlags & 1)) {
-		XObj* held = *(XObj**)(GAME_PLAYER + PLAYER_HELD_OBJ);
-		if (held != NULL && obj == held && (obj->mFlags & 0x0000400000000000)) {
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, can't kill that
 			CEvt_Warn(fn_801911B4("kill(%d) ... obj(%d) lifted!", id, id));
 		} else {
-			obj->vf54();
+			obj->Release();
 			CEvt_ForgetObjId(id);
 		}
 	} else {
@@ -7071,15 +7611,15 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
 	u8 on     = CEvt_Evaluate(evt);
-	if (obj != NULL && (obj->mFlags & 1)) {
-		XObj* held = *(XObj**)(GAME_PLAYER + PLAYER_HELD_OBJ);
-		if (held != NULL && obj == held && (obj->mFlags & 0x0000400000000000)) {
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, leave it be
 			CEvt_Warn(fn_801911B4("disp(%d, %d) ... obj(%d) lifted!", id, on, id));
 		} else if (on) {
-			obj->mFlags |= 0x10000;
+			obj->mStatus.mFlags |= 0x10000;
 		} else {
-			obj->mFlags &= ~0x10000;
+			obj->mStatus.mFlags &= ~0x10000;
 		}
 	} else {
 		CEvt_Warn(fn_801911B4("disp(%d, %d) ... obj(%d) killed!", id, on, id));
@@ -7091,7 +7631,126 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
  * @note Address: 0x80076604
  * @note Size: 0xC08
  */
-// CEvt__cmd_DIR
+extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
+{
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		u8* player = (u8*)lbl_8025C400.mPlayer;
+		if ((u8*)obj == player)
+			fn_800C591C(player + PLAYER_BE8);
+	}
+	if (command == EVT_CMD_DIR) {
+		s16 direction = CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			obj->SetRotationY(DEG2RAD * direction, 0);
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->UpdateTarget(obj);
+			u8* player = (u8*)lbl_8025C400.mPlayer;
+			if ((u8*)obj == player) {
+				fn_800B5E1C((XObjChr*)player);
+				u8* carry = player + PLAYER_CARRY;
+				if (*(XObj**)(carry + 0x20) != NULL) {
+					fn_800CECFC(carry, 1);
+					(*(XObj**)(carry + 0x20))->vfA4(1);
+				}
+			}
+		}
+	} else {
+		u16 mode = CEvt_Evaluate(evt);
+		s32 direction;
+		switch (mode) {
+		case EVT_ATOM_DIR:
+			direction = (s16)CEvt_Evaluate(evt);
+			break;
+		case EVT_ATOM_POS: {
+			f32 x = CEvt_Evaluate(evt) / 100.0f;
+			f32 z = CEvt_Evaluate(evt) / 100.0f;
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				direction = RAD2DEG * (f32)atan2(x - obj->mMoveTranslate.x, z - obj->mMoveTranslate.z);
+			} else {
+				CEvt_Warn(fn_801911B4("mdir(%d, @POS, ...): obj(%d) killed!", id, id));
+			}
+			break;
+		}
+		case EVT_ATOM_OBJ: {
+			s16 targetId = CEvt_Evaluate(evt);
+			XObj* target = CEvt_GetObj(evt, targetId);
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				if (target != NULL && (target->mStatus.mFlags & 1)) {
+					direction
+					    = RAD2DEG
+					    * (f32)atan2(target->mMoveTranslate.x - obj->mMoveTranslate.x, target->mMoveTranslate.z - obj->mMoveTranslate.z);
+				} else {
+					CEvt_Warn(fn_801911B4("mdir(%d, @OBJ, %d, ...): obj(%d) killed!", id, targetId, targetId));
+					direction = RAD2DEG * obj->mMoveRotate.y;
+				}
+			} else {
+				CEvt_Warn(fn_801911B4("mdir(%d, @OBJ, ...): obj(%d) killed!", id, id));
+			}
+			break;
+		}
+		case EVT_ATOM_CAM:
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				CCamera* camera = (CCamera*)lbl_8025C400.mCamera;
+				direction       = RAD2DEG * (f32)atan2(camera->mEye.x - obj->mMoveTranslate.x, camera->mEye.z - obj->mMoveTranslate.z);
+			} else {
+				CEvt_Warn(fn_801911B4("mdir(%d, @CAM, ...): obj(%d) killed!", id, id));
+			}
+			break;
+		default:
+#if defined(VERSION_PAL)
+			const s32 line = 2671;
+#else
+			const s32 line = 2667;
+#endif
+			OSPanic("evt.cpp", line, "%s%s", fn_801911B4("mdir(obj, %d,...) - unresolved!\n", mode), "_cmd_DIR");
+			break;
+		}
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		s32 anim = CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("mdir(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, mode, (s16)direction, (s32)(100.0f * time),
+				                      anim, id));
+			}
+			f32 yaw        = DEG2RAD * (s16)direction;
+			f32 difference = obj->mMoveRotate.y - yaw;
+			while (difference < 0.0f)
+				difference += TWO_PI;
+			while (difference >= TWO_PI)
+				difference -= TWO_PI;
+			if (difference < 0.0017453292f || difference > 6.2814398f) {
+				obj->SetRotationY(yaw, 0);
+			} else {
+				obj->SetRotateY(yaw, time);
+				f32 angle = obj->mMoveRotate.mTarget.y - obj->mMoveRotate.y;
+				if (angle > PI)
+					angle = TWO_PI - angle;
+				obj->mMoveRotate.mSpeed.x = 0.0f;
+				if (angle < 0.0f)
+					angle = -angle;
+				obj->mMoveRotate.mSpeed.y = angle / (FRAMES_PER_SEC * time);
+				obj->mMoveRotate.mSpeed.z = 0.0f;
+				if (anim != -1) {
+					if (anim & 0xFFFF0000) {
+						s32 jointId     = anim & 0xFFFF;
+						s32 matId       = anim >> 16;
+						void* jointAnim = obj->vfF0(jointId);
+						void* matAnim   = obj->vfF4(matId);
+						void* shapeAnim = obj->vfF8(jointId);
+						obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
+						if (jointId >= 1000 || matId >= 1000)
+							obj->mStatus.mFlags |= 0x0008000000000000;
+					} else {
+						obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+					}
+					obj->UpdateAnim(1);
+				}
+			}
+		}
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x50(r1)
     mflr     r0
@@ -7950,7 +8609,49 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
  * @note Address: 0x8007720C
  * @note Size: 0x64C
  */
-// CEvt__cmd_COLOR
+extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
+{
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	u16 mode  = CEvt_Evaluate(evt);
+	u8 r      = CEvt_Evaluate(evt);
+	u8 g      = CEvt_Evaluate(evt);
+	u8 b      = CEvt_Evaluate(evt);
+	f32 time  = CEvt_Evaluate(evt) / 100.0f;
+	if (obj == (XObj*)-2) {
+		for (s32 i = 0; i < lbl_8025C400.mObjectCount; i++) {
+			XObj* current = lbl_8025C400.mObjects[i];
+			if ((current->mStatus.mFlags & 1) && current->mJObj != NULL) {
+				if (mode == EVT_ATOM_MODULATE) {
+					current->vf12C(0, r, g, b, time);
+				} else if (mode == EVT_ATOM_BLEND) {
+					current->vf12C(1, r, g, b, time);
+				}
+			}
+		}
+	} else if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		if (obj->mJObj == NULL) {
+			if (mode == EVT_ATOM_MODULATE) {
+				CEvt_Warn(
+				    fn_801911B4("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b, (s32)(100.0f * time), id));
+			} else {
+				CEvt_Warn(fn_801911B4("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b, (s32)(100.0f * time), id));
+			}
+		}
+		if (mode == EVT_ATOM_MODULATE) {
+			obj->vf12C(0, r, g, b, time);
+		} else if (mode == EVT_ATOM_BLEND) {
+			obj->vf12C(1, r, g, b, time);
+		}
+	} else {
+		if (mode == EVT_ATOM_MODULATE) {
+			CEvt_Warn(fn_801911B4("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
+		} else {
+			CEvt_Warn(fn_801911B4("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
+		}
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -8405,10 +9106,252 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
     blr
 */
 
+extern "C" void fn_80092C88(XObj* obj, s32 anim, f32 frame);
+
+#define EVT_CAMERA_ACTION(type) (((CInterfaceCameraAction**)&lbl_8025C400.mCameraTable)[type])
+
 /**
  * @note Address: 0x80077858
  * @note Size: 0xEFC
  */
+extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
+{
+	CCameraActionEvt* action   = (CCameraActionEvt*)EVT_CAMERA_ACTION(CAMACTION_EVT);
+	CCameraActionAreaExM* area = (CCameraActionAreaExM*)EVT_CAMERA_ACTION(CAMACTION_AREA);
+	CCameraActionReset* reset  = (CCameraActionReset*)EVT_CAMERA_ACTION(CAMACTION_RESET);
+	u16 command                = CEvt_Evaluate(evt);
+	switch (command) {
+	case 211: { // area camera
+		s32 id        = CEvt_Evaluate(evt);
+		s32 direction = CEvt_Evaluate(evt);
+		s32 mode      = CEvt_Evaluate(evt);
+		f32 time      = CEvt_Evaluate(evt) / 100.0f;
+		if (fn_8006F3BC() != NULL && area->vf78(id) != 0) {
+			CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+			camera->ChangeAction(CAMACTION_AREA);
+			fn_80138B2C((CCameraActionArea*)area, id, direction, mode, 0, time);
+			if (mode == 3) {
+				camera->ApplyAction();
+			}
+		}
+		break;
+	}
+	case EVT_ATOM_POS: {
+		f32 x    = CEvt_Evaluate(evt) / 100.0f;
+		f32 y    = CEvt_Evaluate(evt) / 100.0f;
+		f32 z    = CEvt_Evaluate(evt) / 100.0f;
+		s32 mode = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		action->_38 = 11;
+		Vec eye     = { 0.0f, 0.0f, 0.0f };
+		eye.x       = x;
+		eye.y       = y;
+		eye.z       = z;
+		Vec target  = eye;
+		action->SetEye_Interp(mode, target, time);
+		break;
+	}
+	case 240:
+	case 243:
+	case 251:
+	case 252: {
+		s32 axis      = CEvt_Evaluate(evt);
+		f32 degrees   = CEvt_Evaluate(evt);
+		s32 mode      = CEvt_Evaluate(evt);
+		f32 time      = CEvt_Evaluate(evt) / 100.0f;
+		u32 type      = command == 240 ? 2 : 1;
+		BOOL relative = (u16)(command - 251) <= 1 ? true : false;
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		switch (axis) {
+		case 2: {
+			Vec angle  = { 0.0f, 0.0f, 0.0f };
+			angle.y    = DEG2RAD * degrees;
+			Vec target = angle;
+			action->SetAngle_Interp(mode, target, 2, type, relative, time);
+			break;
+		}
+		case 3: {
+			Vec angle  = { 0.0f, 0.0f, 0.0f };
+			angle.x    = DEG2RAD * degrees;
+			Vec target = angle;
+			action->SetAngle_Interp(mode, target, 1, type, relative, time);
+			break;
+		}
+		case 5: {
+			Vec angle  = { 0.0f, 0.0f, 0.0f };
+			angle.z    = DEG2RAD * degrees;
+			Vec target = angle;
+			action->SetAngle_Interp(mode, target, 4, type, relative, time);
+			break;
+		}
+		}
+		break;
+	}
+	case 227: { // interest position
+		f32 x    = CEvt_Evaluate(evt) / 100.0f;
+		f32 y    = CEvt_Evaluate(evt) / 100.0f;
+		f32 z    = CEvt_Evaluate(evt) / 100.0f;
+		s32 mode = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		action->_38  = 11;
+		Vec interest = { 0.0f, 0.0f, 0.0f };
+		interest.x   = x;
+		interest.y   = y;
+		interest.z   = z;
+		Vec target   = interest;
+		action->SetInterest_Interp(mode, target, time);
+		break;
+	}
+	case EVT_ATOM_OBJ: {
+		s32 id    = CEvt_Evaluate(evt);
+		s32 mode  = CEvt_Evaluate(evt);
+		f32 time  = CEvt_Evaluate(evt) / 100.0f;
+		XObj* obj = CEvt_GetObj(evt, (s16)id);
+		if (obj != NULL) {
+			Vec target = obj->GetCameraTarget();
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+			action->_38  = 11;
+			Vec interest = target;
+			action->SetInterest_Interp(mode, interest, time);
+		} else {
+			CEvt_Warn(fn_801911B4("cam(@OBJ, %d, ...): obj(%d) killed!", id, id));
+		}
+		break;
+	}
+	case EVT_ATOM_LEAD: {
+		s32 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, (s16)id);
+		if (obj != NULL) {
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+			action->_38 = 11;
+			action->SetInterest_Interp(3, obj, 0.0f);
+		} else {
+			CEvt_Warn(fn_801911B4("cam(@LEAD, %d): obj(%d) killed!", id, id));
+		}
+		break;
+	}
+	case EVT_ATOM_DISTANCE:
+		CEvt_Evaluate(evt);
+		CEvt_Evaluate(evt);
+		CEvt_Evaluate(evt);
+		break;
+	case 229: { // field of view
+		f32 fov  = CEvt_Evaluate(evt);
+		s32 mode = CEvt_Evaluate(evt);
+		f32 time = CEvt_Evaluate(evt) / 100.0f;
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		action->_38 = action->Get_38() | 8;
+		action->SetFov_Interp(mode, fov, time);
+		break;
+	}
+	case EVT_ATOM_ANIM: {
+		s32 anim = CEvt_Evaluate(evt);
+		CEvt_Evaluate(evt);
+		CEvt_Evaluate(evt);
+		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_ANIM);
+		XObj* obj = (XObj*)lbl_8025C400._9694[0].mObjects;
+		if (obj != NULL && (obj->mStatus.mFlags & 1) != 0) {
+			fn_80092C88(obj, anim, 0.0f);
+		}
+		break;
+	}
+	case EVT_ATOM_RESET: {
+		s32 mode                     = CEvt_Evaluate(evt);
+		f32 time                     = CEvt_Evaluate(evt) / 100.0f;
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		if (camera->IsAction(CAMACTION_EVT)) {
+			reset->mMode = mode;
+			reset->mTime = time;
+			reset->_4C   = FALSE;
+			camera->ChangeAction(CAMACTION_RESET);
+		}
+		break;
+	}
+	case 230: { // finish the active scripted camera
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		if (camera->IsAction(CAMACTION_AREA)) {
+			fn_80138EBC((CCameraActionArea*)EVT_CAMERA_ACTION(CAMACTION_AREA));
+		} else if (camera->IsAction(CAMACTION_EVT)) {
+			reset->mMode = 0;
+			reset->mTime = 0.0f;
+			reset->_4C   = TRUE;
+			camera->ChangeAction(CAMACTION_RESET);
+		}
+		break;
+	}
+	case 236: { // save camera
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		camera->EndEye();
+		s32 slot = CEvt_Evaluate(evt);
+		if (slot >= 0) {
+			camera->CreateMemento(&lbl_8036AA3C[slot]);
+		} else {
+			evt->mCameraMemento = camera->CreateMemento(NULL);
+		}
+		break;
+	}
+	case 237: { // restore camera
+		s32 slot = CEvt_Evaluate(evt);
+		if (slot >= 0) {
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->SetMemento(&lbl_8036AA3C[slot]);
+		} else if (evt->mCameraMemento != NULL) {
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->SetMemento(evt->mCameraMemento);
+			evt->mCameraMemento = NULL;
+		}
+		break;
+	}
+	case 238: {
+		s32 mode = CEvt_Evaluate(evt);
+		if (mode <= 0) {
+			s32 sign = mode >> 31;
+			fn_8014872C((CMotionControlCamera*)lbl_8025C400.mCamera, (mode ^ sign) - sign);
+		}
+		break;
+	}
+	case 232: // first-person controls
+		switch (CEvt_Evaluate(evt)) {
+		case -1:
+			lbl_8025C400.mStatus.mFlags &= ~0x80ULL;
+			break;
+		case -2:
+			lbl_8025C400.mStatus.mFlags |= 0x80ULL;
+			break;
+		case 0:
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->EndEye();
+			break;
+		case 1:
+			((CMotionControlCamera*)lbl_8025C400.mCamera)->StartEye();
+			break;
+		case 2: {
+			f32 degrees                                                        = CEvt_Evaluate(evt);
+			((CCameraActionEye*)EVT_CAMERA_ACTION(CAMACTION_EYE))->mOverride.y = DEG2RAD * degrees;
+			break;
+		}
+		case 3: {
+			f32 degrees                                                        = CEvt_Evaluate(evt);
+			((CCameraActionEye*)EVT_CAMERA_ACTION(CAMACTION_EYE))->mOverride.x = DEG2RAD * degrees;
+			break;
+		}
+		case 4: {
+			f32 fov                                                            = CEvt_Evaluate(evt);
+			((CCameraActionEye*)EVT_CAMERA_ACTION(CAMACTION_EYE))->mOverride.z = fov;
+			break;
+		}
+		}
+		break;
+	default:
+#if defined(VERSION_PAL)
+		OSPanic("evt.cpp", 2515, "%s%s", fn_801911B4("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
+#else
+		OSPanic("evt.cpp", 2511, "%s%s", fn_801911B4("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
+#endif
+		break;
+	}
+	return 0;
+}
+
 // CEvt__cmd_CAMERA
 /*
     stwu     r1, -0x130(r1)
@@ -11510,35 +12453,23 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
     blr
 */
 
-/**
- * @note Address: 0x8007A48C
- * @note Size: 0x4C4
- */
 #if defined(VERSION_JP)
-#define GAME_XOBJ_LIST ((UnkXObjList*)(lbl_8025C400 + 0x964C))
-#define GAME_1B14      (*(u32*)(lbl_8025C400 + 0x1AFC))
-#define XOBJ_80C       0x804
-#elif defined(VERSION_PAL)
-#define GAME_XOBJ_LIST ((UnkXObjList*)(lbl_8025C400 + 0x9694))
-#define GAME_1B14      (*(u32*)(lbl_8025C400 + 0x1B1C))
-#define XOBJ_80C       0x80C
+#define XOBJ_80C 0x804
 #else
-#define GAME_XOBJ_LIST ((UnkXObjList*)(lbl_8025C400 + 0x9694)) // _1CC is the object table
-#define GAME_1B14      (*(u32*)(lbl_8025C400 + 0x1B14))        // flags, BORN raises 0x1000 after a spawn
-#define XOBJ_80C       0x80C                                   // BORN's last arg goes here
+#define XOBJ_80C 0x80C // BORN's last arg goes here
 #endif
-
-extern "C" void* GetSpawnData(s32 index);
-extern "C" void fn_8008C8A4(XObj* obj);
-extern "C" void fn_8008D220(XObj* obj);
 
 // null when the pool is full
 static inline XObj* CEvt_Born(s32 index)
 {
 	CoordInfo info(GetSpawnData(index));
-	return (XObj*)fn_80132698(GAME_XOBJ_LIST, &info, 1, FALSE);
+	return (XObj*)fn_80132698((UnkXObjList*)lbl_8025C400._9694, &info, 1, FALSE);
 }
 
+/**
+ * @note Address: 0x8007A48C
+ * @note Size: 0x4C4
+ */
 extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 {
 	s16 id    = CEvt_Evaluate(evt);
@@ -11555,17 +12486,17 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 	if (obj == NULL) {
 		obj = CEvt_Born(type + 0x16);
 		if (obj != NULL) {
-			GAME_1B14 |= 0x1000;
+			lbl_8025C400.mStatus.mFlags |= 0x1000; // BORN raises it after a spawn
 		}
 	}
-	if (obj != NULL && (obj->mFlags & 1)) {
-		obj->vf68(x, y, z, 0);
-		obj->vf28(DEG2RAD * rot, 0);
-		obj->vf3C(sx, sy, sz, 0);
+	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		obj->SetPos(x, y, z, 0);
+		obj->SetRotationY(DEG2RAD * rot, 0);
+		obj->SetScale(sx, sy, sz, 0);
 		fn_8008C8A4(obj);
 		fn_8008D220(obj);
 		*(s32*)((u8*)obj + XOBJ_80C) = arg;
-		s16 index                    = fn_8013265C(GAME_XOBJ_LIST, (CXObj*)obj);
+		s16 index                    = fn_8013265C((UnkXObjList*)lbl_8025C400._9694, (CXObj*)obj);
 		if (CEvt_FindObj(id) == NULL) {
 			lbl_802247B0.mEntry[lbl_802247B0.mCount].mId    = id;
 			lbl_802247B0.mEntry[lbl_802247B0.mCount].mIndex = index;
@@ -11899,11 +12830,84 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     blr
 */
 
+static inline void EvtQueue_Push(u8* script, u32 owner, s16 tag1, s16 tag2)
+{
+	UnkEvtQueue* queue = &lbl_80369A3C;
+	s32 cursor         = queue->_00;
+	for (s32 i = 0; i < 128; i++, cursor++) {
+		s32 index = cursor % 128;
+		if (queue->_04[index] == NULL) {
+			queue->_04[index]  = script;
+			queue->_208[index] = owner;
+			queue->_408[index] = tag1;
+			queue->_508[index] = tag2;
+			break;
+		}
+	}
+}
+
+static inline void CEvt_Attach(CEvt* evt, u8* script, u32 owner, s16 tag1 = -1, s16 tag2 = -1)
+{
+	if (script == NULL) {
+		return;
+	}
+	if (evt->_04 != NULL && evt->_00 == 0) {
+		EvtQueue_Push(script, owner, tag1, tag2);
+		return;
+	}
+	evt->_04 = NULL;
+	evt->_18 = 0;
+	evt->_1C = 0;
+	evt->_20 = 0;
+	evt->_28 = 0;
+	evt->_38 = 0;
+	evt->_48 = 0;
+	if (evt->_00 == 0) {
+		lbl_80369A3C._00 = 0;
+		for (s32 i = 0; i < 128; i++) {
+			lbl_80369A3C._04[i] = NULL;
+		}
+	}
+	evt->_10 = 0;
+	evt->_14 = 0;
+	evt->_58 = 0;
+	evt->_5C = -1;
+	evt->_5E = -1;
+	evt->_04 = script;
+	evt->_08 = evt->_00 != 0 ? evt->_00 : owner;
+	evt->_5C = tag1;
+	evt->_5E = tag2;
+}
+
 /**
  * @note Address: 0x8007A950
  * @note Size: 0x50C
  */
-// CEvt__cmd_ATTACH
+extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
+{
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	if (command == EVT_CMD_ATTACH) {
+		u8* script = (u8*)CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			CEvt_Attach(&obj->mEvt, script, evt->_00);
+		} else {
+			CEvt_Warn(fn_801911B4("attach(%d, ...): obj(%d) killed!", id, id));
+		}
+	} else if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+		obj->mEvt._04 = NULL;
+		if (obj->mEvt._54 != NULL && obj->mEvt._58 != 0) {
+			obj->mEvt._58                  = 0;
+			EVT_OWNER_445C0(obj->mEvt._54) = 1;
+		}
+		Inventory* inventory = &EVT_PLAYER.mParams.mInventory;
+		inventory->mCompact  = TRUE;
+		fn_800DC62C(inventory);
+	} else {
+		CEvt_Warn(fn_801911B4("detach(%d, ...): obj(%d) killed!", id, id));
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
@@ -12269,7 +13273,53 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
  * @note Address: 0x8007AE5C
  * @note Size: 0x630
  */
-// CEvt__cmd_ANIM2
+extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
+{
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	for (s32 count = 0;; count++) {
+		s32 anim = CEvt_Evaluate(evt);
+		if (anim == -1) {
+			break;
+		}
+		u32 frame = (u16)CEvt_Evaluate(evt);
+		s16 rate  = CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) is collision!", id, anim, frame, rate, id));
+			} else if (count == 0) {
+				obj->mAnmQueue.Clear();
+				if (anim & 0xFFFF0000) {
+					s32 jointId     = anim & 0xFFFF;
+					s32 matId       = anim >> 16;
+					void* jointAnim = obj->vfF0(jointId);
+					void* matAnim   = obj->vfF4(matId);
+					void* shapeAnim = obj->vfF8(jointId);
+					obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, frame, rate / 100.0f, command == EVT_CMD_ANIM1 ? 1 : 0, 10.0f);
+					if (jointId >= 1000 || matId >= 1000) {
+						obj->mStatus.mFlags |= 0x0008000000000000;
+					}
+				} else {
+					obj->SetAnim(anim, FALSE, NULL, NULL, NULL, frame, rate / 100.0f, 0.0f, 10.0f);
+				}
+				obj->UpdateAnim(1);
+			} else {
+				for (s32 i = 0; i < 16; i++) {
+					s32 index = (obj->mAnmQueue.mNext + i) % 16;
+					if (obj->mAnmQueue.mEntry[index].mId == -1) {
+						obj->mAnmQueue.mEntry[index].mId    = anim;
+						obj->mAnmQueue.mEntry[index].mFrame = frame;
+						obj->mAnmQueue.mEntry[index].mRate  = rate;
+						break;
+					}
+				}
+			}
+		} else {
+			CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) killed!", id, anim, frame, rate, id));
+		}
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x50(r1)
     mflr     r0
@@ -12710,7 +13760,51 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
  * @note Address: 0x8007B48C
  * @note Size: 0x5F0
  */
-// CEvt__cmd_ANIM
+extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
+{
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	for (s32 count = 0;; count++) {
+		s32 anim = CEvt_Evaluate(evt);
+		if (anim == -1) {
+			break;
+		}
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL) {
+				CEvt_Warn(fn_801911B4("anim(%d, %d) ... obj(%d) is collision!", id, anim, id));
+			} else if (count == 0) {
+				obj->mAnmQueue.Clear();
+				if (anim & 0xFFFF0000) {
+					s32 jointId     = anim & 0xFFFF;
+					s32 matId       = anim >> 16;
+					void* jointAnim = obj->vfF0(jointId);
+					void* matAnim   = obj->vfF4(matId);
+					void* shapeAnim = obj->vfF8(jointId);
+					obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, command == EVT_CMD_ANIM1 ? 1 : 0, 10.0f);
+					if (jointId >= 1000 || matId >= 1000) {
+						obj->mStatus.mFlags |= 0x0008000000000000;
+					}
+				} else {
+					obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, command == EVT_CMD_ANIM1 ? 1 : 0, 10.0f);
+				}
+				obj->UpdateAnim(1);
+			} else {
+				for (s32 i = 0; i < 16; i++) {
+					s32 index = (obj->mAnmQueue.mNext + i) % 16;
+					if (obj->mAnmQueue.mEntry[index].mId == -1) {
+						obj->mAnmQueue.mEntry[index].mId    = anim;
+						obj->mAnmQueue.mEntry[index].mFrame = 0;
+						obj->mAnmQueue.mEntry[index].mRate  = 100;
+						break;
+					}
+				}
+			}
+		} else {
+			CEvt_Warn(fn_801911B4("anim(%d, %d) ... obj(%d) killed!", id, anim, id));
+		}
+	}
+	return 0;
+}
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
@@ -13240,7 +14334,11 @@ extern "C" s32 CEvt__cmd_SETSP(CEvt* evt)
  * @note Address: 0x8007BE0C
  * @note Size: 0x24
  */
-// CEvt__cmd_POPBP
+extern "C" s32 CEvt__cmd_POPBP(CEvt* evt)
+{
+	evt->_48 = evt->_34[--evt->_38];
+	return 0;
+}
 /*
     lwz      r4, 0x38(r3)
     lwz      r5, 0x34(r3)
@@ -13521,11 +14619,224 @@ extern "C" s32 CEvt__cmd_SET(CEvt* evt)
 	return 0;
 }
 
+extern "C" void fn_8009C2C8(void* attachments, s32 index, s32 value);
+#define EVT_PAD ((CPadOne*)lbl_8025C400.mPadOne[0])
+
+static inline void EvtSetBattery(Params* stats, f32 value)
+{
+	stats->mBattery = value > 0.0f ? value : 0.0f;
+	if (stats->mBattery < 0.0f)
+		stats->mBattery = 0.0f;
+	if (stats->mBattery > stats->mMaxBattery)
+		stats->mBattery = stats->mMaxBattery;
+}
+
 /**
  * @note Address: 0x8007C054
  * @note Size: 0xA58
  */
-// CEvt_EvalSet
+extern "C" void CEvt_EvalSet(CEvt* evt)
+{
+	u8 op = *evt->_04;
+	s32 value;
+	switch (op) {
+	case EVT_EXPR_EQUAL:
+	case EVT_EXPR_NOT_EQUAL:
+	case EVT_EXPR_LESS:
+	case EVT_EXPR_LESS_EQUAL:
+	case EVT_EXPR_GREATER:
+	case EVT_EXPR_GREATER_EQUAL:
+		value = EvalCmp(evt);
+		break;
+	case EVT_EXPR_ADD_ASSIGN:
+	case EVT_EXPR_SUB_ASSIGN:
+	case EVT_EXPR_MUL_ASSIGN:
+	case EVT_EXPR_DIV_ASSIGN:
+	case EVT_EXPR_MOD_ASSIGN:
+	case EVT_EXPR_AND_ASSIGN:
+	case EVT_EXPR_OR_ASSIGN:
+	case EVT_EXPR_XOR_ASSIGN: {
+		evt->_04++;
+		s32 rhs         = CEvt_Evaluate(evt);
+		u8* destination = evt->_04;
+		value           = CEvt_Evaluate(evt);
+		if (op == EVT_EXPR_ADD_ASSIGN)
+			value += rhs;
+		else if (op == EVT_EXPR_SUB_ASSIGN)
+			value -= rhs;
+		else if (op == EVT_EXPR_MUL_ASSIGN)
+			value *= rhs;
+		else if (op == EVT_EXPR_DIV_ASSIGN)
+			value /= rhs;
+		else if (op == EVT_EXPR_MOD_ASSIGN)
+			value %= rhs;
+		else if (op == EVT_EXPR_AND_ASSIGN)
+			value &= rhs;
+		else if (op == EVT_EXPR_OR_ASSIGN)
+			value |= rhs;
+		else if (op == EVT_EXPR_XOR_ASSIGN)
+			value ^= rhs;
+		evt->_04 = destination;
+		break;
+	}
+	default:
+		value = CEvt_Evaluate(evt);
+		break;
+	}
+	{
+		s32 op = *evt->_04;
+		evt->_04++;
+		s32 index;
+		switch (op) {
+		case EVT_EXPR_STACK:
+			index = *evt->_04;
+			evt->_04++;
+			evt->_44[index + evt->_34[evt->_38 - 1]] = value;
+			break;
+		case EVT_EXPR_FLAG:
+			index = CEvt_Evaluate(evt);
+			if (index >= 0 && index < 4096) {
+				if (value != 0) {
+					lbl_8036781C[(u32)index >> 5] |= 1U << (index & 31);
+				} else {
+					lbl_8036781C[(u32)index >> 5] &= ~(1U << (index & 31));
+				}
+			} else if (index != -1 && index != -2 && index != -3) {
+				OSPanic("evt.cpp", 1107, "%s%s", fn_801911B4("Invalid EvalSet flag[%d] - 0~%d\n", index, 4096), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_VAR:
+			index = CEvt_Evaluate(evt);
+			if (index >= 0 && index < 2048) {
+				lbl_80367A2C[index] = value;
+			} else {
+				OSPanic("evt.cpp", 1116, "%s%s", fn_801911B4("Invalid EvalSet var[%d] - 0~%d\n", index, 2048), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_RESULT1:
+			evt->_10 = value;
+			break;
+		case EVT_EXPR_RESULT2:
+			evt->_14 = value;
+			break;
+		case EVT_EXPR_PAD:
+			index = CEvt_Evaluate(evt);
+			if (index == 7) {
+				if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
+					if (value == 1) {
+						if (EVT_PAD->mConnected)
+							HSD_PadRumbleOn(EVT_PAD->mPort);
+					} else if (value == 0) {
+						if (EVT_PAD->mConnected)
+							HSD_PadRumbleOffN(EVT_PAD->mPort);
+						if (EVT_PAD->mConnected)
+							HSD_PadRumbleRemove(EVT_PAD->mPort);
+					} else {
+						if (EVT_PAD->mConnected)
+							HSD_PadRumbleAdd(EVT_PAD->mPort, 0, -2, 128, (void*)value);
+					}
+				}
+			} else {
+				OSPanic("evt.cpp", 1144, "%s%s", fn_801911B4("Invalid EvalSet pad[%d] - %d\n", index, 7), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_BATTERY:
+			index = CEvt_Evaluate(evt);
+			if (index == 0) {
+				EvtSetBattery(&EVT_PLAYER.mParams, value / 100.0f);
+			} else if (index == 1) {
+				Params* stats      = &EVT_PLAYER.mParams;
+				f32 amount         = value / 100.0f;
+				stats->mMaxBattery = amount > 0.0f ? amount : 0.0f;
+				if (stats->mMaxBattery < 0.0f)
+					stats->mMaxBattery = 0.0f;
+				if (stats->mMaxBattery > 999.9f)
+					stats->mMaxBattery = 999.9f;
+				EvtSetBattery(stats, stats->mBattery);
+			} else {
+				OSPanic("evt.cpp", 1157, "%s%s", fn_801911B4("Invalid EvalSet battery[%d] - 0~1\n", index), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_MONEY:
+			fn_800DD044(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mMoney);
+			break;
+		case EVT_EXPR_SCRAP:
+			fn_800DCFCC(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mScrap);
+			break;
+		case EVT_EXPR_ITEM:
+			index = CEvt_Evaluate(evt);
+			if (index >= 0 && index < 159) {
+				fn_800DC9B0(&EVT_PLAYER.mParams.mInventory, index, value, 0);
+			} else {
+				OSPanic("evt.cpp", 1176, "%s%s", fn_801911B4("Invalid EvalSet item[%d] - 0~%d\n", index, 159), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_ATC:
+			index = CEvt_Evaluate(evt);
+			if (index >= 0 && index < 9) {
+				fn_8009C2C8(&EVT_PLAYER.mAttachments, index, value);
+			} else {
+				OSPanic("evt.cpp", 1185, "%s%s", fn_801911B4("Invalid EvalSet atc[%d] - 0~%d\n", index, 9), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_CURRENT_SUIT: {
+			XObjChr& player = EVT_PLAYER;
+			if (player.mSuitChanged == FALSE) {
+				player.mSuitRequest = value;
+				player.mSuitChanged = TRUE;
+			}
+			break;
+		}
+		case EVT_EXPR_EXP:
+			fn_800DD198(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mExperience);
+			break;
+		case EVT_EXPR_LEVEL:
+			fn_800DD0F8(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mLevel);
+			break;
+		case EVT_EXPR_RANK:
+			fn_800DD0BC(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mRank);
+			break;
+		case EVT_EXPR_CURRENT_ATC: {
+			XObjChr& player = EVT_PLAYER;
+			if (value != player.mAttachment) {
+				player.mAttachmentRequest = value;
+				player._95D8              = 0;
+			}
+			break;
+		}
+		case EVT_EXPR_TIME:
+			index = CEvt_Evaluate(evt);
+			if (index == 0) {
+				lbl_8025C400.mTimeState.mMode    = value;
+				lbl_8025C400.mTimeState.mTime    = 0.0f;
+				lbl_8025C400.mTimeState.mRunning = 0;
+			} else if (index == 1) {
+				lbl_8025C400.mTimeState.mRunning = 0;
+				lbl_8025C400.mTimeState.mTime    = value / 100.0f;
+			} else if (index == 2) {
+				lbl_8025C400.mTimeState.mDuration = value / 100.0f;
+			} else {
+				OSPanic("evt.cpp", 1234, "%s%s", fn_801911B4("Invalid EvalSet time[%d] - 0~2\n", index), "EvalSet");
+			}
+			break;
+		case EVT_EXPR_HOLD:
+		case EVT_EXPR_MAP:
+		case EVT_EXPR_ACTOR_NAME:
+		case EVT_EXPR_ITEM_NAME:
+		case EVT_EXPR_USE:
+		case EVT_EXPR_HIT:
+		case EVT_EXPR_STICKER_NAME:
+		case EVT_EXPR_OBJ:
+		case EVT_EXPR_RANDOM:
+		case EVT_EXPR_SIN:
+		case EVT_EXPR_COS:
+			break;
+		default:
+			OSPanic("evt.cpp", 1245, "%s%s", fn_801911B4("Unknown EvalSet op - %d\n", op), "EvalSet");
+			break;
+		}
+	}
+}
 /*
     stwu     r1, -0x30(r1)
     mflr     r0
@@ -14266,11 +15577,442 @@ extern "C" s32 CEvt__cmd_SET(CEvt* evt)
     blr
 */
 
+extern "C" {
+u8 fn_801CD980(u8 port);
+}
+
+static inline s32 EvtRead16(const u8* p)
+{
+	return p[0] + (p[1] << 8);
+}
+
 /**
  * @note Address: 0x8007CAAC
  * @note Size: 0x1D1C
  */
-// CEvt_Evaluate
+extern "C" s32 CEvt_Evaluate(CEvt* evt)
+{
+	s32 op = *evt->_04;
+	evt->_04++;
+	s32 result;
+	switch (op) {
+	case EVT_EXPR_EQUAL:
+	case EVT_EXPR_NOT_EQUAL:
+	case EVT_EXPR_LESS:
+	case EVT_EXPR_LESS_EQUAL:
+	case EVT_EXPR_GREATER:
+	case EVT_EXPR_GREATER_EQUAL:
+	case EVT_EXPR_ADD:
+	case EVT_EXPR_SUB:
+	case EVT_EXPR_MUL:
+	case EVT_EXPR_DIV:
+	case EVT_EXPR_MOD:
+	case EVT_EXPR_AND:
+	case EVT_EXPR_OR:
+	case EVT_EXPR_XOR: {
+		s32 rhs = CEvt_Evaluate(evt);
+		s32 lhs = CEvt_Evaluate(evt);
+		if (op == EVT_EXPR_EQUAL)
+			result = lhs == rhs;
+		if (op == EVT_EXPR_NOT_EQUAL)
+			result = lhs != rhs;
+		if (op == EVT_EXPR_LESS)
+			result = lhs < rhs;
+		if (op == EVT_EXPR_LESS_EQUAL)
+			result = lhs <= rhs;
+		if (op == EVT_EXPR_GREATER)
+			result = lhs > rhs;
+		if (op == EVT_EXPR_GREATER_EQUAL)
+			result = lhs >= rhs;
+		if (op == EVT_EXPR_ADD)
+			result = lhs + rhs;
+		if (op == EVT_EXPR_SUB)
+			result = lhs - rhs;
+		if (op == EVT_EXPR_MUL)
+			result = lhs * rhs;
+		if (op == EVT_EXPR_DIV)
+			result = lhs / rhs;
+		if (op == EVT_EXPR_MOD)
+			result = lhs % rhs;
+		if (op == EVT_EXPR_AND)
+			result = lhs & rhs;
+		if (op == EVT_EXPR_OR)
+			result = lhs | rhs;
+		if (op == EVT_EXPR_XOR)
+			result = lhs ^ rhs;
+		break;
+	}
+	case EVT_EXPR_NOT:
+		result = !CEvt_Evaluate(evt);
+		break;
+	case EVT_EXPR_IMM16:
+		result = (s16)EvtRead16(evt->_04);
+		evt->_04 += 2;
+		break;
+	case EVT_EXPR_IMM32:
+		result = ReadResourceOffset(evt->_04);
+		evt->_04 += 4;
+		break;
+	case EVT_EXPR_ADDRESS_OF: {
+		s32 offset = ReadResourceOffset(evt->_04);
+		evt->_04 += 4;
+		s32 library = fn_8006E66C(evt->_04);
+		if (library != 0)
+			result = (s32)(fn_8006E724(library) + offset);
+		else
+			result = (s32)(fn_8006F490() + offset);
+		break;
+	}
+	case EVT_EXPR_STACK: {
+		s32 index = *evt->_04;
+		evt->_04++;
+		result = evt->_44[index + evt->_34[evt->_38 - 1]];
+		break;
+	}
+	case EVT_EXPR_PARENT_STACK: {
+		s32 index = *evt->_04;
+		evt->_04++;
+		result = evt->_44[index + evt->_34[evt->_38 - 2]];
+		break;
+	}
+	case EVT_EXPR_FLAG:
+		result = CEvt_Evaluate(evt);
+		if (result >= 0 && result < 4096) {
+			result = (lbl_8036781C[(u32)result >> 5] & (1U << (result & 31))) ? 1 : 0;
+		} else if (result == -1)
+			result = 0;
+		else if (result == -2)
+			result = (lbl_8025C400.mStatus.mFlags & 0x2000) ? 1 : 0;
+		else if (result == -3)
+			result = (lbl_8025C400.mStatus.mFlags & 0x8000000000000ULL) ? 1 : 0;
+		else
+			OSPanic("evt.cpp", 686, "%s%s", fn_801911B4("Invalid Evaluate flg[%d] - 0~%d\n", result, 4096), "Evaluate");
+		break;
+	case EVT_EXPR_VAR:
+		result = CEvt_Evaluate(evt);
+		if (result >= 0 && result < 2048)
+			result = lbl_80367A2C[result];
+		else
+			OSPanic("evt.cpp", 694, "%s%s", fn_801911B4("Invalid Evaluate var[%d] - 0~%d\n", result, 2048), "Evaluate");
+		break;
+	case EVT_EXPR_RESULT1:
+		result = evt->_10;
+		break;
+	case EVT_EXPR_RESULT2:
+		result = evt->_14;
+		break;
+	case EVT_EXPR_PAD: {
+		result = CEvt_Evaluate(evt);
+		CPad pad(0);
+		switch (result) {
+		case 0:
+			result = pad.mPad->mDirButton;
+			break;
+		case 1:
+			result = pad.mPad->mDirTrigger;
+			break;
+		case 2:
+			result = 100.0f * pad.mPad->mStickX;
+			break;
+		case 3:
+			result = 100.0f * pad.mPad->mStickY;
+			break;
+		case 4:
+			result = RAD2DEG * WrapAngle(-(f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY));
+			break;
+		case 5: {
+			f32 x  = pad.mPad->mStickX;
+			f32 y  = pad.mPad->mStickY;
+			result = 100.0f * sqrtf(x * x + y * y);
+			break;
+		}
+		case 6:
+			result = RAD2DEG
+			       * WrapAngle(-(f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY) + lbl_8025C400._E5DEC[1]
+			                   - ((XObj*)((u8*)lbl_8025C400.mPlayer))->mMoveRotate.y);
+			break;
+		case 7:
+			if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
+				u8 status = 0;
+				if (pad.mPad->mConnected)
+					status = fn_801CD980(pad.mPad->mPort);
+				result = status == 2;
+			} else
+				result = 0;
+			break;
+		default:
+			OSPanic("evt.cpp", 737, "%s%s", fn_801911B4("Invalid Evaluate pad[%d] - 0~7\n", result), "Evaluate");
+			break;
+		}
+		break;
+	}
+	case EVT_EXPR_BATTERY:
+		result = CEvt_Evaluate(evt);
+		if (result == 0)
+			result = 100.0f * EVT_PLAYER.mParams.mBattery;
+		else if (result == 1)
+			result = 100.0f * EVT_PLAYER.mParams.mMaxBattery;
+		else
+			OSPanic("evt.cpp", 750, "%s%s", fn_801911B4("Invalid Evaluate battery[%d] - 0~1\n", result), "Evaluate");
+		break;
+	case EVT_EXPR_MONEY:
+		result = EVT_PLAYER.mParams.mMoney;
+		break;
+	case EVT_EXPR_SCRAP:
+		result = EVT_PLAYER.mParams.mScrap;
+		break;
+	case EVT_EXPR_ITEM:
+		result = CEvt_Evaluate(evt);
+		if (result >= 0 && result < 159) {
+			s32 index = fn_800DCD30(EVT_PLAYER.mParams.mInventory.mItems, result);
+			result    = index >= 0 ? EVT_PLAYER.mParams.mInventory.mItems[index].mCount : 0;
+		} else
+			OSPanic("evt.cpp", 769, "%s%s", fn_801911B4("Invalid Evaluate item[%d] - 0~%d\n", result, 159), "Evaluate");
+		break;
+	case EVT_EXPR_ATC:
+		result = CEvt_Evaluate(evt);
+		if (result >= 0 && result < 9) {
+			result = fn_8009C1BC(&EVT_PLAYER.mAttachments, result);
+			if (result < 0)
+				result = 0;
+		} else
+			OSPanic("evt.cpp", 778, "%s%s", fn_801911B4("Invalid Evaluate atc[%d] - 0~%d\n", result, 9), "Evaluate");
+		break;
+	case EVT_EXPR_CURRENT_SUIT:
+		result = EVT_PLAYER.mSuit;
+		break;
+	case EVT_EXPR_EXP:
+		result = EVT_PLAYER.mParams.mExperience;
+		break;
+	case EVT_EXPR_LEVEL:
+		result = EVT_PLAYER.mParams.mLevel;
+		break;
+	case EVT_EXPR_RANK:
+		result = EVT_PLAYER.mParams.mRank;
+		break;
+	case EVT_EXPR_HOLD: {
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		if (held != NULL) {
+			if ((s16)held->GetPool() == 24)
+				result = 1000;
+			else if ((s16)held->GetPool() == 8)
+				result = held->GetObjFlags();
+			else
+				result = -1;
+		} else
+			result = -1;
+		break;
+	}
+	case EVT_EXPR_USE:
+		result = evt->_5C;
+		break;
+	case EVT_EXPR_HIT:
+		result = evt->_5E;
+		break;
+	case EVT_EXPR_CURRENT_ATC:
+		result = EVT_PLAYER.GetAttachment();
+		break;
+	case EVT_EXPR_MAP:
+		result = CEvt_Evaluate(evt);
+		if (result >= 0 && result <= 1) {
+			s32 stage = (&lbl_8025C400.mStage)[result];
+			result    = stage;
+			if (stage > GetStageNum())
+				result = stage - GetStageNum() + 99;
+		} else
+			OSPanic("evt.cpp", 827, "%s%s", fn_801911B4("Invalid Evaluate map[%d] - 0~1\n", result), "Evaluate");
+		break;
+	case EVT_EXPR_ACTOR_NAME:
+		result = CEvt_Evaluate(evt);
+		if (result >= 20000)
+			result -= 20000;
+		result = (s32)fn_8006E1D0(result);
+		break;
+	case EVT_EXPR_ITEM_NAME:
+		result = (s32)fn_8006E510(CEvt_Evaluate(evt));
+		break;
+	case EVT_EXPR_STICKER_NAME:
+		result = (s32)fn_8006DDB8(CEvt_Evaluate(evt));
+		break;
+	case EVT_EXPR_TIME:
+		result = CEvt_Evaluate(evt);
+		if (result == 0)
+			result = lbl_8025C400.mTimeState.mMode;
+		else if (result == 1)
+			result = 100.0f * lbl_8025C400.mTimeState.mTime;
+		else if (result == 2)
+			result = 100.0f * lbl_8025C400.mTimeState.mDuration;
+		else
+			OSPanic("evt.cpp", 854, "%s%s", fn_801911B4("Invalid Evaluate time[%d] - 0~2\n", result), "Evaluate");
+		break;
+	case EVT_EXPR_OBJ:
+		result = CEvt_Evaluate(evt);
+		switch (result) {
+		case EVT_ATOM_ANIM:
+		case EVT_ATOM_DIR:
+		case EVT_ATOM_POSX:
+		case EVT_ATOM_POSY:
+		case EVT_ATOM_POSZ:
+		case 235:
+		case 247:
+		case 248: {
+			XObj* obj = CEvt_GetObj(evt, CEvt_Evaluate(evt));
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				switch (result) {
+				case EVT_ATOM_ANIM:
+					result = obj->mAnimId;
+					break;
+				case EVT_ATOM_DIR:
+					result = RAD2DEG * WrapAngle(obj->mMoveRotate.y);
+					break;
+				case EVT_ATOM_POSX:
+					result = 100.0f * obj->mMoveTranslate.x;
+					break;
+				case EVT_ATOM_POSY:
+					result = 100.0f * obj->mMoveTranslate.y;
+					break;
+				case EVT_ATOM_POSZ:
+					result = 100.0f * obj->mMoveTranslate.z;
+					break;
+				case 235:
+					result = (obj->mStatus.mFlags & 0x10000) ? 1 : 0;
+					break;
+				case 247: {
+					Vec pos = { 0.0f, 0.0f, 0.0f };
+					f32 x;
+					obj->vf10C(&pos, &x, NULL, NULL, 0);
+					result = 100.0f * x;
+					break;
+				}
+				case 248: {
+					Vec pos = { 0.0f, 0.0f, 0.0f };
+					f32 y;
+					obj->vf10C(&pos, NULL, &y, NULL, 0);
+					result = 100.0f * y;
+					break;
+				}
+				}
+			} else
+				result = -1;
+			break;
+		}
+		case EVT_ATOM_BONEX:
+		case EVT_ATOM_BONEY:
+		case EVT_ATOM_BONEZ:
+		case 249:
+		case 250: {
+			u8* data  = (u8*)CEvt_Evaluate(evt);
+			XObj* obj = CEvt_GetObj(evt, (s16)EvtRead16(data));
+			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+				s32 depth = (s16)EvtRead16(data + 2);
+				data += 4;
+				s32 path[20];
+				Vec pos;
+				for (s32 i = 0; i < depth; i++, data += 2)
+					path[i] = (s16)EvtRead16(data);
+				switch (result) {
+				case EVT_ATOM_BONEX:
+					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).x;
+					break;
+				case EVT_ATOM_BONEY:
+					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).y;
+					break;
+				case EVT_ATOM_BONEZ:
+					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).z;
+					break;
+				case 249: {
+					pos = fn_8007E7C8((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
+					f32 x;
+					obj->vf10C(&pos, &x, NULL, NULL, 0);
+					result = 100.0f * x;
+					break;
+				}
+				case 250: {
+					pos = fn_8007E7C8((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
+					f32 y;
+					obj->vf10C(&pos, NULL, &y, NULL, 0);
+					result = 100.0f * y;
+					break;
+				}
+				}
+			} else
+				result = -1;
+			break;
+		}
+		case EVT_ATOM_DIRTO: {
+			u8* data   = (u8*)CEvt_Evaluate(evt);
+			XObj* from = CEvt_GetObj(evt, (s16)EvtRead16(data));
+			XObj* to   = CEvt_GetObj(evt, (s16)EvtRead16(data + 2));
+			if (from != NULL && (from->mStatus.mFlags & 1) && to != NULL && (to->mStatus.mFlags & 1)) {
+				f32 angle = (f32)atan2(to->mMoveTranslate.x - from->mMoveTranslate.x, to->mMoveTranslate.z - from->mMoveTranslate.z);
+				result    = RAD2DEG * WrapAngle(angle - from->mMoveRotate.y);
+			} else
+				result = -1;
+			break;
+		}
+		case EVT_ATOM_DISTANCE: {
+			u8* data   = (u8*)CEvt_Evaluate(evt);
+			XObj* from = CEvt_GetObj(evt, (s16)EvtRead16(data));
+			XObj* to   = CEvt_GetObj(evt, (s16)EvtRead16(data + 2));
+			if (from != NULL && (from->mStatus.mFlags & 1) && to != NULL && (to->mStatus.mFlags & 1)) {
+				result = 100.0f * PSVECDistance(&from->mMoveTranslate, &to->mMoveTranslate);
+			} else
+				result = -1;
+			break;
+		}
+		default:
+			OSPanic("evt.cpp", 977, "%s%s", fn_801911B4("Invalid Evaluate obj(...,%d)\n", result), "Evaluate");
+			break;
+		}
+		break;
+	case EVT_EXPR_RANDOM: {
+		s32 max = CEvt_Evaluate(evt);
+		result  = rand() % (max + 1);
+		break;
+	}
+	case EVT_EXPR_SIN:
+		result = 100.0f * (f32)sin(DEG2RAD * (CEvt_Evaluate(evt) / 100.0f));
+		break;
+	case EVT_EXPR_COS:
+		result = 100.0f * (f32)cos(DEG2RAD * (CEvt_Evaluate(evt) / 100.0f));
+		break;
+	case EVT_EXPR_ARRAY_ELEMENT: {
+		result     = (s8)CEvt_Evaluate(evt);
+		s32 index  = CEvt_Evaluate(evt);
+		s32 stride = result;
+		if ((s8)result < 0)
+			stride = -result;
+		u8* p = (u8*)CEvt_Evaluate(evt) + index * stride;
+		switch (result) {
+		case 1:
+			result = *p;
+			break;
+		case -1:
+			result = *(s8*)p;
+			break;
+		case 2:
+			result = (u16)EvtRead16(p);
+			break;
+		case -2:
+			result = (s16)EvtRead16(p);
+			break;
+		case 4:
+		case -4:
+			result = ReadResourceOffset(p);
+			break;
+		default:
+			result = 0;
+			break;
+		}
+		break;
+	}
+	default:
+		OSPanic("evt.cpp", 1023, "%s%s", fn_801911B4("Unknown Evaluate op - %d\n", op), "Evaluate");
+		break;
+	}
+	return result;
+}
+
 /*
     stwu     r1, -0x140(r1)
     mflr     r0
@@ -16357,26 +18099,22 @@ extern "C" s32 CEvt__cmd_SET(CEvt* evt)
     blr
 */
 
+// world position of the joint path leads to, path holds a sibling count per level
 /**
  * @note Address: 0x8007E7C8
  * @note Size: 0x2C
  */
-// fn_8007E7C8
-// world position of the joint path leads to, path holds a sibling count per level
-extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path);
-
 extern "C" CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path)
 {
 	return fn_8007E7F4(obj, depth, path);
 }
 
+extern "C" CVec fn_8007E8A0(CJObj* obj, HSD_JObj* jobj);
+
 /**
  * @note Address: 0x8007E7F4
  * @note Size: 0xAC
  */
-// fn_8007E7F4
-extern "C" CVec fn_8007E8A0(CJObj* obj, HSD_JObj* jobj);
-
 extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path)
 {
 	// CJObj::mJObj, game/cjobj.h would pull 0x24 bytes of .rodata into this file
@@ -16440,11 +18178,6 @@ extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path)
     blr
 */
 
-/**
- * @note Address: 0x8007E8A0
- * @note Size: 0xD8
- */
-// fn_8007E8A0
 // obj is unused. the asserts are jobj.h lines 1148 and 605
 // todo: copied inline, clean up
 // has to return a Vec by value to get the extra word copy before the CVec is built
@@ -16455,6 +18188,10 @@ inline Vec GetJObjWorldPos(HSD_JObj* jobj)
 	return pos;
 }
 
+/**
+ * @note Address: 0x8007E8A0
+ * @note Size: 0xD8
+ */
 extern "C" CVec fn_8007E8A0(CJObj* obj, HSD_JObj* jobj)
 {
 	return GetJObjWorldPos(jobj);
@@ -16468,11 +18205,742 @@ extern "C" void fn_8007E978(void)
 {
 }
 
+extern "C" s32 fn_800665FC(void* hud);
+extern "C" s32 fn_80092B80(XObj* obj);
+
+static inline void EvtWaitFor(CEvt* evt, u8 command, u8* start, s32 ready, s32& yield)
+{
+	if (command == EVT_CMD_WAIT) {
+		if (ready == 0) {
+			evt->_04 = start;
+			yield    = 1;
+		}
+	} else
+		evt->_10 = ready;
+}
+
+static inline bool EvtZero2(const f32* p)
+{
+	return 0.0f == p[0] && 0.0f == p[1];
+}
+
+static inline bool EvtZero3(const f32* p)
+{
+	return 0.0f == p[0] && 0.0f == p[1] && 0.0f == p[2];
+}
+
+static inline bool EvtZero4(const f32* p)
+{
+	return 0.0f == p[0] && 0.0f == p[1] && 0.0f == p[2] && 0.0f == p[3];
+}
+
+struct EvtAreaWaitState {
+	u8 _00[0x68];         // _00
+	void* _68;            // _68
+	void* _6C;            // _6C
+	u8 _70[0x27C - 0x70]; // _70
+	void* _27C;           // _27C
+};
+STATIC_ASSERT(sizeof(EvtAreaWaitState) == 0x280);
+
+extern "C" {
+void fn_800136B4(void* effect, Vec* pos, f32 pitch, f32 yaw, f32 arg1, f32 arg2);
+void fn_80061308(void* object, s32 arg1, s32 arg2);
+}
+
+// todo: pools 4, 5 and 17 keep flag bits right after XObj, no idea what class
+#define EVT_CALL_BITS(pool) (*(u32**)(lbl_8025C400.mPools[pool].mObjects + sizeof(XObj)))
+
+/**
+ * @note Address: 0x80078754
+ * @note Size: 0x1D38
+ */
+extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
+{
+	s32 yield  = 0;
+	u8* start  = evt->_04 - 1;
+	u8* begin  = evt->_04;
+	u16 length = EvtRead16(begin);
+	evt->_04 += 2;
+	u8* end      = begin + length;
+	XObj* target = CEvt_GetObj(evt, (s16)CEvt_Evaluate(evt));
+	s32 count    = 0;
+	s32 args[24];
+	for (s32 i = 0;; i++) {
+		if (evt->_04 >= end)
+			break;
+		if (i < 24) {
+			args[i] = CEvt_Evaluate(evt);
+			count++;
+		}
+	}
+
+	switch ((s32)target) {
+	case -10: {
+		f32 d = args[4], c = args[3], b = args[2], a = args[1];
+		XObj* obj       = CEvt_GetObj(evt, (s16)args[0]);
+		obj->mAnchorX   = obj->mMoveTranslate.x;
+		obj->mAnchorZ   = obj->mMoveTranslate.z;
+		obj->mLimitPosX = a;
+		obj->mLimitNegX = b;
+		obj->mLimitPosZ = c;
+		obj->mLimitNegZ = d;
+		break;
+	}
+	case -11: {
+		s16 id    = args[0];
+		s32 flags = args[1];
+		if (flags == -1) {
+			XObj* obj = CEvt_GetObj(evt, id);
+			obj->_8B0 = 0;
+			obj->_8B0 |= 0x80000000;
+		} else {
+			XObj* obj = CEvt_GetObj(evt, id);
+			obj->_8B0 &= ~0x80000000;
+			obj->_8B0 |= flags;
+		}
+		break;
+	}
+	case -12:
+	case -13:
+	case -14:
+	case -15:
+		if (evt->_1C != 0) {
+			if (lbl_8025C400.mStatus.mFlags & 0x800) {
+				CPad pad(0);
+				fn_80096E38(&lbl_8025C400.mPlayer->mOXMenu, &pad);
+				evt->_04 = start;
+				yield    = 1;
+			} else {
+				evt->_1C = 0;
+				evt->_10 = EVT_PLAYER.mOXMenu._1340;
+			}
+		} else {
+			if (EVT_PLAYER.mAttachmentRequest < 0) {
+				s32 mode = 2;
+				if ((s32)target == -12)
+					mode = 2;
+				else if ((s32)target == -13)
+					mode = 1;
+				else if ((s32)target == -14)
+					mode = 0;
+				else if ((s32)target == -15)
+					mode = 3;
+				fn_800B51FC(&EVT_PLAYER, mode, args[0]);
+				evt->_1C = 1;
+			}
+			evt->_04 = start;
+			yield    = 1;
+		}
+		break;
+	case -16:
+		if (args[0] == 231) {
+			lbl_8025C400._43E0 = args[1];
+			lbl_8025C400._43E4 = args[2];
+			lbl_8025C400._43E8 = args[3];
+			lbl_8025C400._43EC = args[4];
+		} else if (args[0] == 225) {
+			Vec pos = { 0.0f, 0.0f, 0.0f };
+			pos.x   = args[1] / 100.0f;
+			pos.y   = args[2] / 100.0f;
+			pos.z   = args[3] / 100.0f;
+			fn_800136B4(lbl_8025C400.mSubwin, &pos, DEG2RAD * args[4], DEG2RAD * args[5], args[6], args[7]);
+			lbl_8025C400._43D0 = 1;
+			lbl_8025C400._43D4 = 0;
+		} else if (args[0] == 209 || args[0] == 230) {
+			lbl_8025C400._43D0 = 0;
+		}
+		break;
+	case -17: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(5);
+			bits[(u32)id >> 5] |= 1U << (id & 31);
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(5);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = -1;
+		}
+		break;
+	}
+	case -18: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(5);
+			bits[(u32)id >> 5] &= ~(1U << (id & 31));
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(5);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = 0;
+		}
+		break;
+	}
+	case -19: {
+		s16 id   = args[0];
+		evt->_10 = (EVT_CALL_BITS(5)[(u32)id >> 5] & (1U << (id & 31))) != 0;
+		break;
+	}
+	case -20: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(4);
+			bits[(u32)id >> 5] |= 1U << (id & 31);
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(4);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = -1;
+		}
+		break;
+	}
+	case -21: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(4);
+			bits[(u32)id >> 5] &= ~(1U << (id & 31));
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(4);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = 0;
+		}
+		break;
+	}
+	case -22: {
+		s16 id   = args[0];
+		evt->_10 = (EVT_CALL_BITS(4)[(u32)id >> 5] & (1U << (id & 31))) != 0;
+		break;
+	}
+	case -23: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(17);
+			bits[(u32)id >> 5] |= 1U << (id & 31);
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(17);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = -1;
+		}
+		break;
+	}
+	case -24: {
+		s16 id = args[0];
+		if (id > 0) {
+			u32* bits = EVT_CALL_BITS(17);
+			bits[(u32)id >> 5] &= ~(1U << (id & 31));
+		} else if (id == -2) {
+			u32* bits = EVT_CALL_BITS(17);
+			for (s32 i = 0; i < 128; i++)
+				bits[i] = 0;
+		}
+		break;
+	}
+	case -25: {
+		s16 id   = args[0];
+		evt->_10 = (EVT_CALL_BITS(17)[(u32)id >> 5] & (1U << (id & 31))) != 0;
+		break;
+	}
+	case -26: {
+		s16 id    = args[0];
+		s32 bit   = args[1];
+		u64 mask  = (u64)1 << bit;
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL) {
+			obj->mStatus.mFlags |= mask;
+			if (mask & 0x20000) {
+				u32 flags[5] = { 0, 0, 0, 0, 0 };
+				flags[0]     = obj->mStatus.mFlags & 0x800000;
+				flags[1]     = obj->mStatus.mFlags & 0x200000;
+				flags[2]     = obj->mStatus.mFlags & 0x40;
+				flags[3]     = obj->mStatus.mFlags & 0x20000;
+				flags[4]     = obj->mStatus.mFlags & 0x400000;
+				obj->vfD8(flags);
+			}
+			if (mask & ((u64)0x4000 << 32)) {
+				XObjChr* player = lbl_8025C400.mPlayer;
+				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
+					s16 item = obj->GetObjFlags();
+					switch (item) {
+					case 16:
+						player->mAttachment = 4;
+						break;
+					case 21:
+						player->mAttachment = 5;
+						break;
+					case 22:
+						player->mAttachment = 6;
+						break;
+					case 56:
+						player->mAttachment = 7;
+						break;
+					}
+					switch (item) {
+					case 16:
+					case 21:
+					case 22:
+					case 56:
+						if (!fn_800B9758(player)) {
+							evt->_04 = start;
+							yield    = 1;
+						}
+						break;
+					}
+				}
+			}
+		} else
+			CEvt_Warn(fn_801911B4("call(SYSCALL_SET_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+		break;
+	}
+	case -27: {
+		s16 id    = args[0];
+		s32 bit   = args[1];
+		u64 mask  = (u64)1 << bit;
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL) {
+			obj->mStatus.mFlags &= ~mask;
+			if (mask & 0x20000)
+				obj->vfDC(0, 0);
+			if (mask & ((u64)0x4000 << 32)) {
+				XObjChr* player = lbl_8025C400.mPlayer;
+				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
+					s16 item = obj->GetObjFlags();
+					switch (item) {
+					case 16:
+					case 21:
+					case 22:
+					case 56:
+						player->mAttachment = 0;
+						CJAnim* anim        = &player->mAttachmentAnim;
+						anim->Release();
+						break;
+					}
+				}
+			}
+		} else
+			CEvt_Warn(fn_801911B4("call(SYSCALL_CLR_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+		break;
+	}
+	case -28: {
+		s16 id    = args[0];
+		s32 bit   = args[1];
+		u64 mask  = (u64)1 << bit;
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL)
+			evt->_10 = (obj->mStatus.mFlags & mask) ? 1 : 0;
+		else
+			CEvt_Warn(fn_801911B4("call(SYSCALL_CHK_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+		break;
+	}
+	case -29:
+		fn_8006E3FC((s16)args[0], (u16)args[1]);
+		break;
+	case -30:
+		fn_8006E3AC((s16)args[0], (u16)args[1]);
+		break;
+	case -31:
+		evt->_10 = (u16)fn_8006E44C((s16)args[0], (u16)args[1]);
+		break;
+	case -41:
+		lbl_8025C400.mStatus.mFlags |= (u64)1 << args[0];
+		break;
+	case -42:
+		lbl_8025C400.mStatus.mFlags &= ~((u64)1 << args[0]);
+		break;
+	case -43:
+		evt->_10 = (lbl_8025C400.mStatus.mFlags & ((u64)1 << args[0])) ? 1 : 0;
+		break;
+	case -32:
+		lbl_8025C400.mStatus.mFlags |= (u64)0x8000 << 32;
+		break;
+	case -33:
+		lbl_8025C400.mStatus.mFlags &= ~((u64)0x8000 << 32);
+		break;
+	case -37:
+		lbl_8025C400.mStatus.mFlags |= (u64)0x10000 << 32;
+		break;
+	case -38:
+		lbl_8025C400.mStatus.mFlags &= ~((u64)0x10000 << 32);
+		break;
+	case -34:
+		lbl_8025C400.mStatus.mFlags |= (u64)0x20 << 32;
+		break;
+	case -35:
+		lbl_8025C400.mStatus.mFlags &= ~((u64)0x20 << 32);
+		break;
+	case -36:
+		lbl_8025C400.mStatus.mFlags &= ~((u64)0x20 << 32);
+		for (s32 i = 0; i < lbl_8025C400.mObjectCount; i++) {
+			XObj* obj = lbl_8025C400.mObjects[i];
+			if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x20000000)) {
+				lbl_8025C400.mStatus.mFlags |= (u64)0x20 << 32;
+				break;
+			}
+		}
+		break;
+	case -44: {
+		s16 id                 = args[0];
+		s32 areaCount          = lbl_805A054C._20;
+		CamAreaRecord* records = lbl_805A054C._1C;
+		for (s32 i = 0; i < areaCount; i++) {
+			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
+			if (id == record->_2C)
+				record->_2E &= ~0x80;
+		}
+		break;
+	}
+	case -45: {
+		s16 id                 = args[0];
+		s32 areaCount          = lbl_805A054C._20;
+		CamAreaRecord* records = lbl_805A054C._1C;
+		for (s32 i = 0; i < areaCount; i++) {
+			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
+			if (id == record->_2C)
+				record->_2E |= 0x80;
+		}
+		break;
+	}
+	case -39: {
+		s16 result = fn_8006E2D4(args[0]);
+#if defined(VERSION_PAL)
+		if (result == 1)
+			result = 2;
+#endif
+		evt->_10 = result;
+		break;
+	}
+	case -40:
+		evt->_10 = (s16)fn_8006E28C(args[0]);
+		break;
+	case -100:
+		if (count > 0)
+			evt->_10 = fn_8006F338(args[0] + 7, count - 1, &args[1]);
+#if defined(VERSION_PAL)
+		else
+			OSPanic("evt.cpp", 2161, "%s%s", "SYSCALL_STGFUNC, noargs\n", "_cmd_CALL");
+#else
+		else
+			OSPanic("evt.cpp", 2157, "%s%s", "SYSCALL_STGFUNC, noargs\n", "_cmd_CALL");
+#endif
+		break;
+	case -200:
+		fn_80061308(lbl_8025C400._8584[0], args[0], args[1]);
+		break;
+	default:
+		if (target != NULL && (target->mStatus.mFlags & 1)) {
+			s32 result = target->vf124(count, args);
+			if ((s16)target->GetPool() == 2) {
+				if (result == -1 && args[0] != 101)
+					yield = 1;
+				else
+					evt->_10 = result;
+			} else
+				evt->_10 = result;
+			for (s32 i = 0; i < count; i++) { }
+		}
+		break;
+	}
+	return yield;
+}
+
+/**
+ * @note Address: 0x80070304
+ * @note Size: 0x1B9C
+ */
+extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
+{
+	u8* start = evt->_04 - 1;
+	s32 yield = 0;
+	u16 mode  = CEvt_Evaluate(evt);
+	switch (mode) {
+	case EVT_ATOM_TIME: {
+		s32 duration = CEvt_Evaluate(evt);
+		if (command == EVT_CMD_WAIT) {
+			if (evt->_18 == 0) {
+				evt->_18 = (duration / 100) * FRAMES_PER_SEC * 100;
+				evt->_18 += 100.0f * ((duration % 100 * FRAMES_PER_SEC) / 100.0f);
+				evt->_04 = start;
+				yield    = 1;
+			} else {
+				evt->_18 -= step * 100;
+				if (evt->_18 <= 0)
+					evt->_18 = 0;
+				else {
+					evt->_04 = start;
+					yield    = 1;
+				}
+			}
+		} else
+			evt->_10 = 1;
+		break;
+	}
+	case EVT_ATOM_FADE:
+		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400._3E90) != 0, yield);
+		break;
+	case EVT_ATOM_MONO:
+		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400._46DC) != 0, yield);
+		break;
+	case EVT_ATOM_WIPE:
+		EvtWaitFor(
+		    evt, command, start,
+		    (EvtZero2(lbl_8025C400._3EF8) && EvtZero2(lbl_8025C400._3F5C) && EvtZero2(lbl_8025C400._40C0) && EvtZero2(lbl_8025C400._4124))
+		        != 0,
+		    yield);
+		break;
+	case EVT_ATOM_LETTERBOX:
+		EvtWaitFor(evt, command, start, EvtZero2(lbl_8025C400._4188) != 0, yield);
+		break;
+	case 203:
+		if (command != EVT_CMD_WAIT)
+			evt->_10 = 1;
+		break;
+	case EVT_ATOM_ANIM: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		f32 frame = CEvt_Evaluate(evt);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@ANIM, %d) ... obj(%d) is collision!", id, id));
+			HSD_AObj* anim = GetAObj(obj->mJObj);
+			if (anim != NULL) {
+				if (frame >= 0.0f) {
+					HSD_AObj* aobj = GetAObj(obj->mJObj);
+					f32 current    = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
+					EvtWaitFor(evt, command, start, current >= frame, yield);
+				} else
+					EvtWaitFor(evt, command, start, (anim->flags & 0x44000000) != 0, yield);
+			} else if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@ANIM, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_DIR: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@DIR, %d) ... obj(%d) is collision!", id, id));
+			EvtWaitFor(evt, command, start, obj->mMoveRotate.y == obj->mMoveRotate.mTarget.y, yield);
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@DIR, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_MOVE: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@MOVE, %d) ... obj(%d) is collision!", id, id));
+			const Vec& target = *(Vec*)((u8*)&obj->mMoveTranslate + sizeof(CVec));
+			EvtWaitFor(evt, command, start, !(obj->mMoveTranslate != target), yield);
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@MOVE, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_SCALE: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@SCALE, %d) ... obj(%d) is collision!", id, id));
+			EvtWaitFor(evt, command, start, obj->mMoveScale.y == obj->mMoveScale.mTarget.y, yield);
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@SCALE, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_SFX:
+		EvtWaitFor(evt, command, start, !fn_8001E6C8((CSound*)(u8*)&lbl_8025C400.mSound, CEvt_Evaluate(evt)), yield);
+		break;
+	case EVT_ATOM_COLOR: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@COLOR, %d) ... obj(%d) is collision!", id, id));
+			EvtWaitFor(evt, command, start, EvtZero3(&obj->mColorStep[0].mSpeed.x) && EvtZero3(&obj->mColorStep[1].mSpeed.x), yield);
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@COLOR, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_REAL: {
+		s32 index = CEvt_Evaluate(evt);
+		if (index == 1)
+			EvtWaitFor(evt, command, start, fn_800665FC(lbl_8025C400.mInfoScrn), yield);
+		else {
+#if defined(VERSION_PAL)
+			OSPanic("evt.cpp", 4157, "%s%s", fn_801911B4("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
+#else
+			OSPanic("evt.cpp", 4146, "%s%s", fn_801911B4("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
+#endif
+		}
+		break;
+	}
+	case EVT_ATOM_CAM: {
+		s32 ready                    = 1;
+		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		if (camera->IsAction(CAMACTION_RESET))
+			ready = 0;
+		if (camera->IsAction(CAMACTION_AREA)) {
+			EvtAreaWaitState* area = (EvtAreaWaitState*)EVT_CAMERA_ACTION(CAMACTION_AREA);
+			ready                  = !(area->_68 != NULL || area->_27C != NULL || area->_6C != NULL);
+		}
+		if (camera->IsAction(CAMACTION_EVT)) {
+			CCameraActionEvt* action = (CCameraActionEvt*)EVT_CAMERA_ACTION(CAMACTION_EVT);
+			ready                    = !(action->mEyeInterp != NULL || action->mInterestInterp != NULL || action->mDistanceInterp != NULL
+                      || action->mFovInterp != NULL || action->mAngleInterp != NULL);
+		}
+		if (camera->IsAction(CAMACTION_ANIM)) {
+			XObj* obj = (XObj*)lbl_8025C400._9694[0].mObjects;
+			if (obj != NULL && (obj->mStatus.mFlags & 1))
+				ready = !fn_80092B80(obj);
+		}
+		EvtWaitFor(evt, command, start, ready, yield);
+		break;
+	}
+	case EVT_ATOM_READ: {
+		s16 id    = CEvt_Evaluate(evt);
+		XObj* obj = CEvt_GetObj(evt, id);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
+			if (obj->mJObj == NULL)
+				CEvt_Warn(fn_801911B4("wait(@READ, %d) ... obj(%d) is collision!", id, id));
+			EvtWaitFor(evt, command, start, !(obj->mStatus.mFlags & 0x40000000000000ULL) && !(obj->mStatus.mFlags & 0x80000000000000ULL),
+			           yield);
+		} else {
+			CEvt_Warn(fn_801911B4("wait(@READ, %d, ...) obj(%d) killed!", id, id));
+			if (command == EVT_CMD_CHECK)
+				evt->_10 = 1;
+		}
+		break;
+	}
+	case EVT_ATOM_ZBLUR:
+		EvtWaitFor(evt, command, start, !(0.0f != lbl_8025C400._4298), yield);
+		break;
+	case EVT_ATOM_SHAKE:
+		EvtWaitFor(evt, command, start, EvtZero3(lbl_8025C400._967C) != 0, yield);
+		break;
+	case EVT_ATOM_CUE: {
+		s32 beat = lbl_8065B244._00;
+		if (beat != 0) {
+			beat             = lbl_8065B244._04;
+			lbl_8065B244._00 = 0;
+			beat += 1000;
+		}
+		if (command == EVT_CMD_WAIT && beat == 0) {
+			evt->_04 = start;
+			yield    = 1;
+		} else
+			evt->_10 = beat;
+		break;
+	}
+	case EVT_ATOM_MOVIE: {
+		s32 frame = CEvt_Evaluate(evt);
+		s32 ready = (*(s32*)lbl_8025C400.mMovie) == 0;
+		if (!ready && frame >= 0)
+			ready = ((CMovie*)lbl_8025C400.mMovie)->mFrame >= frame;
+		if (command == EVT_CMD_WAIT && ready == 0) {
+			evt->_04 = start;
+			yield    = 1;
+		} else
+			evt->_10 = ready;
+		break;
+	}
+	default:
+		if (command == EVT_CMD_WAIT) {
+#if defined(VERSION_PAL)
+			OSPanic("evt.cpp", 4300, "%s%s", fn_801911B4("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+#else
+			OSPanic("evt.cpp", 4289, "%s%s", fn_801911B4("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+#endif
+		} else {
+#if defined(VERSION_PAL)
+			OSPanic("evt.cpp", 4302, "%s%s", fn_801911B4("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+#else
+			OSPanic("evt.cpp", 4291, "%s%s", fn_801911B4("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+#endif
+		}
+		break;
+	}
+	return yield;
+}
+
+struct EvtCmdEntry {
+	u8 command;                                 // _00
+	u8 _01[3];                                  // _01
+	const char* name;                           // _04
+	s32 (CEvt::*handler)(u8 command, s32 step); // _08
+};
+STATIC_ASSERT(sizeof(EvtCmdEntry) == 0x14);
+extern "C" EvtCmdEntry evtCmdTable[];
+
 /**
  * @note Address: 0x8007E97C
  * @note Size: 0x528
  */
-// CEvt_Update
+extern "C" void CEvt_Update(CEvt* evt, s32 step)
+{
+	if (evt->_04 != NULL) {
+		s32 result = 0;
+		while (result == 0) {
+			u8 command = *evt->_04;
+			evt->_04++;
+			for (s32 i = 1; i < 50; i++) {
+				if (command == evtCmdTable[i].command) {
+					result = (evt->*evtCmdTable[i].handler)(command, step);
+					goto next;
+				}
+			}
+			OSPanic("evt.cpp", 558, "%s%s", fn_801911B4("Unknown event cmd - %d\n", command), "Update");
+		next:;
+		}
+	}
+	if (evt->_00 == 0 && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
+		if (evt->_04 == NULL) {
+			for (s32 i = 0; i < 10; i++) {
+				if (lbl_8036A050._00[i] > 0) {
+					if ((lbl_8036A050._00[i] -= step) <= 0) {
+						u8* script = (u8*)lbl_8036A050._28[i];
+						s32 cursor = lbl_80369A3C._00;
+						for (s32 j = 0; j < 128; j++, cursor++) {
+							s32 index = cursor % 128;
+							if (lbl_80369A3C._04[index] == NULL) {
+								lbl_80369A3C._04[index] = script;
+								break;
+							}
+						}
+						lbl_8036A050._00[i] = 0;
+						lbl_8036A050._28[i] = 0;
+					}
+				}
+			}
+		}
+		if (evt->_04 == NULL) {
+			UnkEvtQueue* queue = &lbl_80369A3C;
+			s32 index          = queue->_00;
+			u8* script         = queue->_04[index];
+			u32 owner          = queue->_208[index];
+			s16 tag1           = queue->_408[index];
+			s16 tag2           = queue->_508[index];
+			queue->_04[index]  = NULL;
+			queue->_00         = (queue->_00 + 1) % 128;
+			if (script != NULL) {
+				CEvt_Attach(evt, script, owner, tag1, tag2);
+			}
+		}
+	}
+}
 /*
     stwu     r1, -0x20(r1)
     mflr     r0

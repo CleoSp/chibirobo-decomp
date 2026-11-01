@@ -174,7 +174,7 @@ extern "C" s32 CmdSetSoundPitch(s32 cmd, void* arg, void* arg2)
 	if (time <= 0) {
 		time = 1;
 	}
-	unk       = &lbl_8025C400._E7E24;
+	unk       = &lbl_8025C400.mSound;
 	unk->_2BA = id;
 	unk->_188 = time;
 	return 0;
@@ -199,11 +199,11 @@ extern "C" void UpdateStage(void* arg)
 	pos.x = 241.83f;
 	pos.y = 220.56f;
 	pos.z = 195.85f;
-	if (fn_8001E6C8(&lbl_8025C400._E7E24, 0x10001D)) {
-		fn_8001E468(&lbl_8025C400._E7E24, 0x10001D, fn_8001DF00(&lbl_8025C400._E7E24, &pos, 0), 0);
+	if (fn_8001E6C8(&lbl_8025C400.mSound, 0x10001D)) {
+		fn_8001E468(&lbl_8025C400.mSound, 0x10001D, fn_8001DF00(&lbl_8025C400.mSound, &pos, 0), 0);
 	}
-	if (fn_8001E6C8(&lbl_8025C400._E7E24, 0x10001E)) {
-		fn_8001E468(&lbl_8025C400._E7E24, 0x10001E, fn_8001DF00(&lbl_8025C400._E7E24, &pos, 0), 0);
+	if (fn_8001E6C8(&lbl_8025C400.mSound, 0x10001E)) {
+		fn_8001E468(&lbl_8025C400.mSound, 0x10001E, fn_8001DF00(&lbl_8025C400.mSound, &pos, 0), 0);
 	}
 }
 

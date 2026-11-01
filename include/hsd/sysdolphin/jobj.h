@@ -168,6 +168,10 @@ void HSD_JObjMakeMatrix(HSD_JObj* jobj);
 void HSD_JObjUnrefThis(HSD_JObj* jobj);
 void HSD_JObjDispAll(HSD_JObj* jobj, Mtx vmtx, u32 flags, u32 rendermode);
 void RecalcParentTrspBits(HSD_JObj* jobj);
+void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
+void HSD_JObjModifyFlags(HSD_JObj* jobj, u32 flags, u32 mask);
+void HSD_JObjReqAnim(HSD_JObj* jobj, f32 frame);
+void HSD_JObjAddAnim(HSD_JObj* jobj, HSD_AnimJoint* an_joint, HSD_MatAnimJoint* mat_joint, HSD_ShapeAnimJoint* sh_joint);
 
 inline struct _HSD_RObj* HSD_JObjGetRObj(HSD_JObj* jobj)
 {

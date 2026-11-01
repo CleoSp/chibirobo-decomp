@@ -14,4 +14,9 @@ void PSVECReflect(Vec* src, Vec* normal, Vec* dst);
 f32 PSVECSquareDistance(Vec* a, Vec* b);
 f32 PSVECDistance(Vec* a, Vec* b);
 
+#ifdef __cplusplus
+// the game's own spelling, the library's c files declare it locally
+extern "C" void PSVECScale(const Vec* src, Vec* dst, f32 scale);
+#endif
+
 #endif
