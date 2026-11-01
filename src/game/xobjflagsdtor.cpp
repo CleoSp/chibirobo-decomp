@@ -33,7 +33,7 @@ extern "C" XObjFlags* fn_800E22A0(XObjFlags* flags, s32 del)
 {
 	if (flags != NULL) {
 		*(void***)((u8*)flags + 0x34) = __vt__9XObjFlags;
-		fn_8000877C((XObj*)flags, 0);
+		__dt__4XObjFv((XObj*)flags, 0);
 		if ((s16)del > 0)
 			::operator delete(flags);
 	}

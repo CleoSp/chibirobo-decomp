@@ -17,7 +17,7 @@ XObjFlags* fn_800E22A0(XObjFlags* flags, s32 del);
 extern "C" XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del)
 {
 	if (part != NULL) {
-		fn_8000877C((XObj*)&part->mObj, -1);
+		__dt__4XObjFv((XObj*)&part->mObj, -1);
 		if ((s16)del > 0)
 			::operator delete(part);
 	}

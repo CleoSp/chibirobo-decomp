@@ -217,9 +217,8 @@ inline Ana* GetNearestAna(f32 x, f32 y, f32 z)
 
 inline void ReleaseHeld(RoboView* mgr)
 {
-	XObj* held = mgr->mHeld;
-	if (held != NULL) {
-		held->mFlags &= ~0x0400000000000000ULL;
+	if (mgr->mHeld != NULL) {
+		mgr->mHeld->mFlags &= ~0x0400000000000000ULL;
 		mgr->mHeld = NULL;
 	}
 	mgr->_A48 = 0;
@@ -594,16 +593,16 @@ extern "C" void InitAnas(void)
 	s32 i;
 	u32 j;
 
-	for (j = 0; j < ANA_NUM; j++) {
-		anas[j].mStatus.mFlags = 0;
-	}
+	tutiAnaObj  = NULL;
+	tutiHutaObj = NULL;
 	for (j = 0; j < ARRAY_COUNT(flowerObjs); j++) {
 		flowerObjs[j] = NULL;
 	}
-	num          = lbl_8025C400.mObjectCount;
-	tutiAnaObj   = NULL;
-	tutiHutaObj  = NULL;
 	activeAnaNum = 0;
+	for (j = 0; j < ANA_NUM; j++) {
+		anas[j].mStatus.mFlags = 0;
+	}
+	num = lbl_8025C400.mObjectCount;
 
 	for (i = 0; i < num; i++) {
 		XObj* obj = lbl_8025C400.mObjects[i];

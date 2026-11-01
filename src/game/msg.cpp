@@ -893,7 +893,7 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 {
 	s32 command = ReadMsgU8(msg);
-	if (command == 255 || command == 254 || command == 253 || command == 252) {
+	if (!(command != 255 && command != 254 && command != 253 && command != 252)) {
 		if (msg->_00 == 0x23) {
 			if (!msg->mFont.mBlink) {
 				s32 mode = -1;
@@ -936,11 +936,13 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 		return msg->mFont.mBlink;
 	}
 #if defined(VERSION_PAL)
-	f32 framesPerSecond = lbl_80660D4C;
+	f32 frames = (command / 10) * (f32)lbl_80660D4C;
+	frames += (command % 10) * (f32)lbl_80660D4C / 10.0f;
 #else
-	f32 framesPerSecond = 60.0f;
+	f32 frames = (command / 10) * (f32)60;
+	frames += (command % 10) * (f32)60 / 10.0f;
 #endif
-	msg->_445CC = framesPerSecond * (command / 10) + (framesPerSecond * (command % 10)) / 10.0f;
+	msg->_445CC = frames;
 	return 0;
 }
 /*
@@ -3041,9 +3043,68 @@ extern "C" void CMsg_ResetPos(CMsg* msg)
  * @note Address: 0x800821DC
  * @note Size: 0x32C
  */
+// spreads the glyphs' wobble phases around the circle
+static inline void ResetGlyphPhases(CMsg* msg)
+{
+	for (int i = 0; i < 400; i++) {
+		msg->mFont.mGlyphs[i].mPhaseX = msg->mFont.mGlyphs[i].mPhaseY = (i * 75) % 360;
+	}
+}
+
+// ResetMsgState spelled out, the glyph loop is an inline of its own here
 extern "C" void fn_800821DC(CMsg* msg)
 {
-	ResetMsgState(msg);
+	msg->mData.mCursor = NULL;
+#if !defined(VERSION_JP)
+	msg->mData.mIconColumns = 0;
+#endif
+	msg->mFont.mActive    = 0;
+	msg->mFont.mFadeIn    = 0;
+	msg->mFont.mFadeOut   = 0;
+	msg->mFont.mBlink     = 0;
+	msg->mFont.mFitLine   = 1;
+	msg->mFont._04_04     = 1;
+	msg->mFont.mCharCount = 0;
+	msg->mFont.mLine      = 0;
+	msg->mFont.mPlacement = 0;
+	Vec zero              = { 0.0f, 0.0f, 0.0f };
+	msg->mFont.mPosition  = zero;
+	msg->mFont.mSize      = 22.0f;
+#if defined(VERSION_JP)
+	msg->mFont.mPrevSize = 22.0f;
+#else
+	msg->mFont.mPrevSize = NAN;
+#endif
+	msg->mFont.mGlyphColor     = msgColorTable[0];
+	msg->mFont.mGlyphAngle     = 0.0f;
+	msg->mFont.mGlyphScaleY    = 1.0f;
+	msg->mFont.mGlyphScaleX    = 1.0f;
+	msg->mFont.mEffect         = 0;
+	msg->mFont.mSelectedLine   = -1;
+	msg->mFont.mOtherSelection = -1;
+	msg->mFont.mAlpha          = 0.0f;
+	msg->mFont.mTextAlpha      = 1.0f;
+	msg->mFont.mHighlightAlpha = 0.0f;
+	msg->mFont._43C6C          = 0;
+	msg->mFont.mBlinkPhase     = 0.0f;
+	msg->mFont.mTexOffset      = 0.0f;
+	ResetGlyphPhases(msg);
+	msg->_445C0 = 1;
+	msg->_445C8 = 0.0f;
+	msg->_445C4 = 0.0f;
+	msg->_445D4 = -1;
+	msg->_445D0 = -1;
+	msg->_445D8 = 0;
+	for (int i = 0; i < 9; i += 3) {
+		for (int j = 0; j < 3; j++) {
+			msg->_445DC[i + j] = 0;
+		}
+	}
+	msg->_445F0 = 0;
+	msg->_445EC = 0;
+	msg->_445E8 = 0;
+	msg->_445F8 = 0;
+	msg->_445FC = -1;
 }
 
 /*

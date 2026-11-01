@@ -23,6 +23,11 @@ public:
 	u8 mIntensity;         // _1F0
 	// _1F4 vtable
 
+	CShadow()
+	{
+		mActive = FALSE;
+		mShadow = NULL;
+	}
 	virtual ~CShadow() { } // _08
 
 	void Init(HSD_LObj* lobj);
