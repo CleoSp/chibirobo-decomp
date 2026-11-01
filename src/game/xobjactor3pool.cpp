@@ -3,7 +3,7 @@
 
 extern "C" {
 extern XObjActor3 lbl_8039CDF0[48];
-XObjActor3* fn_80108424(XObjActor3* object, s32 flags);
+XObjActor3* __dt__10XObjActor3Fv(XObjActor3* object, s32 flags);
 }
 
 /**
@@ -13,5 +13,5 @@ XObjActor3* fn_80108424(XObjActor3* object, s32 flags);
 // todo: weak copy
 extern "C" void fn_80134500()
 {
-	__destroy_arr(lbl_8039CDF0, (ConstructorDestructor*)fn_80108424, sizeof(XObjActor3), ARRAY_SIZE(lbl_8039CDF0));
+	__destroy_arr(lbl_8039CDF0, (ConstructorDestructor*)__dt__10XObjActor3Fv, sizeof(XObjActor3), ARRAY_SIZE(lbl_8039CDF0));
 }

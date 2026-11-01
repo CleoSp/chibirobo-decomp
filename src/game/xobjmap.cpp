@@ -12,7 +12,7 @@ extern const XObjMapJointPath lbl_8065FFD8;
  * @note Address: 0x8009369C
  * @note Size: 0xCC
  */
-extern "C" void fn_8009369C(XObjMap* map, u32 frames)
+extern "C" void Update__7XObjMapFUl(XObjMap* map, u32 frames)
 {
 	fn_80090ED4(map, frames);
 	if ((s32)GetEnvData()[4] == 1) {
@@ -30,7 +30,7 @@ extern "C" void fn_8009369C(XObjMap* map, u32 frames)
  * @note Address: 0x80093768
  * @note Size: 0xC0
  */
-extern "C" void fn_80093768(XObjMap* map)
+extern "C" void Release__7XObjMapFv(XObjMap* map)
 {
 	for (s32 i = 0; i < map->mTrigonCount; ++i)
 		map->mTrigon[i].Release();
@@ -48,7 +48,7 @@ extern "C" void fn_80093768(XObjMap* map)
  * @note Address: 0x80093828
  * @note Size: 0x298
  */
-extern "C" BOOL fn_80093828(XObjMap* map, CoordInfo* info)
+extern "C" BOOL vf9C__7XObjMapFPv(XObjMap* map, CoordInfo* info)
 {
 	if (fn_80091C80(map, info)) {
 		s32 child = 0;
@@ -106,7 +106,7 @@ extern "C" BOOL fn_80093828(XObjMap* map, CoordInfo* info)
  * @note Address: 0x80093AC0
  * @note Size: 0x9C
  */
-extern "C" void fn_80093AC0(XObjMap* map)
+extern "C" void Reset__7XObjMapFv(XObjMap* map)
 {
 	fn_800928E8(map);
 	map->mTrigonCount = 0;
@@ -122,7 +122,7 @@ extern "C" void fn_80093AC0(XObjMap* map)
  * @note Address: 0x80093B5C
  * @note Size: 0x20
  */
-extern "C" void fn_80093B5C(XObjMap* map, u32 id)
+extern "C" void Init__7XObjMapFUl(XObjMap* map, u32 id)
 {
 	fn_800929C4(map, id);
 }

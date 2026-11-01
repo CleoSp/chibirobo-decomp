@@ -15,7 +15,7 @@ extern void* __vt__7CFbBlur[];
  * @note Address: 0x80018C3C
  * @note Size: 0x48
  */
-extern "C" CFbOutline* fn_80018C3C(CFbOutline* outline, s32 flags)
+extern "C" CFbOutline* __dt__10CFbOutlineFv(CFbOutline* outline, s32 flags)
 {
 	if (outline != NULL) {
 		*(void***)((u8*)outline + 0x60) = __vt__10CFbOutline; // _60 vtable
@@ -31,7 +31,7 @@ extern "C" CFbOutline* fn_80018C3C(CFbOutline* outline, s32 flags)
  * @note Address: 0x80018C84
  * @note Size: 0x48
  */
-extern "C" CFbBlur* fn_80018C84(CFbBlur* blur, s32 flags)
+extern "C" CFbBlur* __dt__7CFbBlurFv(CFbBlur* blur, s32 flags)
 {
 	if (blur != NULL) {
 		*(void***)((u8*)blur + 0x40) = __vt__7CFbBlur; // _40 vtable

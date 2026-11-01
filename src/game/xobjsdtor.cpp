@@ -11,7 +11,7 @@ extern "C" void* __vt__5XOBJS[];
  * @note Address: 0x80018FE8
  * @note Size: 0x48
  */
-extern "C" XOBJS* fn_80018FE8(XOBJS* objs, s32 flags)
+extern "C" XOBJS* __dt__5XOBJSFv(XOBJS* objs, s32 flags)
 {
 	if (objs != NULL) {
 		*(void***)((u8*)objs + 0x11D8) = __vt__5XOBJS; // _11D8 vtable

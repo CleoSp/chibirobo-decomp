@@ -7,7 +7,7 @@
  * @note Address: 0x800EFDAC
  * @note Size: 0x4
  */
-extern "C" void fn_800EFDAC(XObjSpider* spider)
+extern "C" void State2__10XObjSpiderFUl(XObjSpider* spider)
 {
 }
 
@@ -15,7 +15,7 @@ extern "C" void fn_800EFDAC(XObjSpider* spider)
  * @note Address: 0x800EFDB0
  * @note Size: 0x2A8
  */
-extern "C" void fn_800EFDB0(XObjSpider* spider, u32 frames)
+extern "C" void State1__10XObjSpiderFUl(XObjSpider* spider, u32 frames)
 {
 	switch (spider->mPhase) {
 	case 0:
@@ -49,7 +49,7 @@ extern "C" void fn_800EFDB0(XObjSpider* spider, u32 frames)
  * @note Address: 0x800F0058
  * @note Size: 0x38
  */
-extern "C" void fn_800F0058(XObjSpider* spider)
+extern "C" void State0__10XObjSpiderFUl(XObjSpider* spider)
 {
 	if (spider->_25C == 11 && (spider->mFlags.mFlags & 0x400000))
 		spider->SetState(4);

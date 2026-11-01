@@ -3,7 +3,7 @@
 
 extern "C" {
 extern XObjSpider lbl_804A06B8[16];
-XObjSpider* fn_800EA30C(XObjSpider* object, s32 flags);
+XObjSpider* __dt__10XObjSpiderFv(XObjSpider* object, s32 flags);
 }
 
 /**
@@ -13,7 +13,7 @@ XObjSpider* fn_800EA30C(XObjSpider* object, s32 flags);
 // todo: weak copy
 extern "C" void fn_80133E84()
 {
-	__destroy_arr(lbl_804A06B8, (ConstructorDestructor*)fn_800EA30C, sizeof(XObjSpider), ARRAY_SIZE(lbl_804A06B8));
+	__destroy_arr(lbl_804A06B8, (ConstructorDestructor*)__dt__10XObjSpiderFv, sizeof(XObjSpider), ARRAY_SIZE(lbl_804A06B8));
 }
 
 /**

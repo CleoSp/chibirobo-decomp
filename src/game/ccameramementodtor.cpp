@@ -12,7 +12,7 @@ extern void* __vt__8CMsgData[];
  * @note Address: 0x80016F54
  * @note Size: 0x48
  */
-extern "C" CInterfaceInterpolation* fn_80016F54(CInterfaceInterpolation* interp, s32 flags)
+extern "C" CInterfaceInterpolation* __dt__23CInterfaceInterpolationFv(CInterfaceInterpolation* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__23CInterfaceInterpolation;
@@ -28,7 +28,7 @@ extern "C" CInterfaceInterpolation* fn_80016F54(CInterfaceInterpolation* interp,
  * @note Address: 0x80016F9C
  * @note Size: 0x88
  */
-extern "C" CCameraMemento* fn_80016F9C(CCameraMemento* memento, s32 flags)
+extern "C" CCameraMemento* __dt__14CCameraMementoFv(CCameraMemento* memento, s32 flags)
 {
 	if (memento != NULL) {
 		*(void***)memento = __vt__14CCameraMemento;
@@ -48,7 +48,7 @@ extern "C" CCameraMemento* fn_80016F9C(CCameraMemento* memento, s32 flags)
  * @note Address: 0x80017024
  * @note Size: 0x48
  */
-extern "C" void* fn_80017024(void* data, s32 flags)
+extern "C" void* __dt__8CMsgDataFv(void* data, s32 flags)
 {
 	if (data != NULL) {
 #if defined(VERSION_JP)

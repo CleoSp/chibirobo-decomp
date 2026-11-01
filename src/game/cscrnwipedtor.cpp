@@ -14,7 +14,7 @@ extern void* __vt__15CScrnWipeCustom[];
  * @note Size: 0x6C
  */
 // todo: weak copy
-extern "C" CScrnRoboeyes* fn_8001B5A4(CScrnRoboeyes* wipe, s32 flags)
+extern "C" CScrnRoboeyes* __dt__13CScrnRoboeyesFv(CScrnRoboeyes* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__13CScrnRoboeyes;
@@ -31,7 +31,7 @@ extern "C" CScrnRoboeyes* fn_8001B5A4(CScrnRoboeyes* wipe, s32 flags)
  * @note Size: 0x6C
  */
 // todo: weak copy
-extern "C" CScrnWipeTile* fn_8001B610(CScrnWipeTile* wipe, s32 flags)
+extern "C" CScrnWipeTile* __dt__13CScrnWipeTileFv(CScrnWipeTile* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__13CScrnWipeTile;
@@ -48,7 +48,7 @@ extern "C" CScrnWipeTile* fn_8001B610(CScrnWipeTile* wipe, s32 flags)
  * @note Size: 0x6C
  */
 // todo: weak copy
-extern "C" CScrnWipeCustom* fn_8001B67C(CScrnWipeCustom* wipe, s32 flags)
+extern "C" CScrnWipeCustom* __dt__15CScrnWipeCustomFv(CScrnWipeCustom* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__15CScrnWipeCustom;
@@ -65,7 +65,7 @@ extern "C" CScrnWipeCustom* fn_8001B67C(CScrnWipeCustom* wipe, s32 flags)
  * @note Size: 0x84
  */
 // todo: weak copy
-extern "C" CScrnWipeTex* fn_8001B6E8(CScrnWipeTex* wipe, s32 flags)
+extern "C" CScrnWipeTex* __dt__12CScrnWipeTexFv(CScrnWipeTex* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__12CScrnWipeTex;
@@ -83,7 +83,7 @@ extern "C" CScrnWipeTex* fn_8001B6E8(CScrnWipeTex* wipe, s32 flags)
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CScrnWipe* fn_8001B76C(CScrnWipe* wipe, s32 flags)
+extern "C" CScrnWipe* __dt__9CScrnWipeFv(CScrnWipe* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__9CScrnWipe;

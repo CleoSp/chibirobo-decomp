@@ -14,7 +14,7 @@ extern "C" XObjAttachment* fn_800BCE44(XObjAttachment* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__14XObjAttachment;
-		fn_8000877C((XObj*)object, 0);
+		__dt__4XObjFv((XObj*)object, 0);
 		if ((s16)flags > 0)
 			::operator delete(object);
 	}

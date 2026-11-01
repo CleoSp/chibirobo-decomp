@@ -101,7 +101,7 @@ public:
 	XObjColorStep mColorStep[2]; // _8B4
 	CJAnim mAnim;                // _8FC, anims from the object's second archive, ids from 1000 up
 
-	XObj(); // fn_8001AFAC, a weak copy
+	XObj(); // __ct__4XObjFv, a weak copy
 
 	virtual ~XObj();        // _08
 	virtual void Release(); // _54
@@ -183,7 +183,7 @@ class CStatus;
 // the object base functions, the units from 0x8008A000 to 0x80093000
 extern "C" {
 // ~XObj, the subclass dtors call it with 0
-XObj* fn_8000877C(XObj* object, s32 flags);
+XObj* __dt__4XObjFv(XObj* object, s32 flags);
 BOOL fn_8008A38C(CJArchive* archive, const char* path);
 void fn_8008A6C0(XObj* object, f32 value);
 CVec fn_8008C274(CXObj* object, s32 floor, const Vec* offset);

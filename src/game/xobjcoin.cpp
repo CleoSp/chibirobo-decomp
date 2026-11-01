@@ -29,7 +29,8 @@ extern "C" void fn_800E1F30(XObjCoin* coin)
 {
 	fn_800928E8(coin);
 	s32 sign       = rand() & 1 ? 1 : -1;
-	coin->mSpin    = (DEG2RAD * (rand() % 360)) * sign;
+	f32 turn       = DEG2RAD * (rand() % 360);
+	coin->mSpin    = turn * sign;
 	HSD_AObj* aobj = GetAObj(coin->mJObj);
 	f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 	if (end > 0.0f) {
@@ -50,8 +51,10 @@ extern "C" void fn_800E1F30(XObjCoin* coin)
 extern "C" s32 fn_800E20F8(XObjCoin* coin)
 {
 	s32 id = coin->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(1) + (u32)id);
+	if (id > 0) {
+		s32 base = fn_8006F390(1);
+		return base + id;
+	}
 	return 0;
 }
 
@@ -74,7 +77,9 @@ extern "C" BOOL fn_800E213C(XObjItem* item, CoordInfo* info)
 extern "C" s32 fn_800E21FC(XObjItem* item)
 {
 	s32 id = item->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(0) + (u32)id);
+	if (id > 0) {
+		s32 base = fn_8006F390(0);
+		return base + id;
+	}
 	return 0;
 }

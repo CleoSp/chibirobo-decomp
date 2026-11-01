@@ -14,7 +14,7 @@ extern void* __vt__8InfoScrn[];
  * @note Address: 0x80018D28
  * @note Size: 0x90
  */
-extern "C" Logo* fn_80018D28(Logo* logo, s32 flags)
+extern "C" Logo* __dt__4LogoFv(Logo* logo, s32 flags)
 {
 	if (logo != NULL) {
 		*(void***)((u8*)logo + 0x200) = __vt__4Logo; // _200 vtable
@@ -31,7 +31,7 @@ extern "C" Logo* fn_80018D28(Logo* logo, s32 flags)
  * @note Address: 0x80018DB8
  * @note Size: 0x5C
  */
-extern "C" CScrnFade* fn_80018DB8(CScrnFade* fade, s32 flags)
+extern "C" CScrnFade* __dt__9CScrnFadeFv(CScrnFade* fade, s32 flags)
 {
 	if (fade != NULL) {
 		*(void***)((u8*)fade + 0x30) = __vt__9CScrnFade; // _30 vtable
@@ -48,7 +48,7 @@ extern "C" CScrnFade* fn_80018DB8(CScrnFade* fade, s32 flags)
  * @note Address: 0x80018E14
  * @note Size: 0x48
  */
-extern "C" CScrnColor* fn_80018E14(CScrnColor* color, s32 flags)
+extern "C" CScrnColor* __dt__10CScrnColorFv(CScrnColor* color, s32 flags)
 {
 	if (color != NULL) {
 		*(void***)((u8*)color + 0x30) = __vt__10CScrnColor; // _30 vtable
@@ -64,7 +64,7 @@ extern "C" CScrnColor* fn_80018E14(CScrnColor* color, s32 flags)
  * @note Address: 0x80018E5C
  * @note Size: 0x98
  */
-extern "C" InfoScrn* fn_80018E5C(InfoScrn* info, s32 flags)
+extern "C" InfoScrn* __dt__8InfoScrnFv(InfoScrn* info, s32 flags)
 {
 	if (info != NULL) {
 		*(void***)((u8*)info + 0x1D8) = __vt__8InfoScrn; // _1D8 vtable

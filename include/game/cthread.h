@@ -17,7 +17,7 @@ public:
 	u32 mStackSize;   // _31C
 	// _320 vtable
 
-	virtual ~CThread() { } // _08 (weak), the DOL has no __dt__7CThreadFv, fn_8001950C is a weak copy
+	virtual ~CThread() { } // _08 (weak), the DOL has no __dt__7CThreadFv, __dt__7CThreadFv is a weak copy
 
 	// todo: cleanup, card jobs and the movie all start threads like this
 	inline void Start(OSThreadStartFunction entry, void* arg, u8* stack, u32 size)

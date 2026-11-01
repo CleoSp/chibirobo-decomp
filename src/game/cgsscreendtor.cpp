@@ -11,7 +11,7 @@ extern void* __vt__13CGsRenderMode[];
  * @note Address: 0x8001874C
  * @note Size: 0x48
  */
-extern "C" CGsScreen* fn_8001874C(CGsScreen* screen, s32 flags)
+extern "C" CGsScreen* __dt__9CGsScreenFv(CGsScreen* screen, s32 flags)
 {
 	if (screen != NULL) {
 		*(void***)((u8*)screen + sizeof(CGsScreen) - 4) = __vt__9CGsScreen; // _40 vtable, _44 in europe
@@ -27,7 +27,7 @@ extern "C" CGsScreen* fn_8001874C(CGsScreen* screen, s32 flags)
  * @note Address: 0x80018794
  * @note Size: 0x48
  */
-extern "C" CGsRenderMode* fn_80018794(CGsRenderMode* mode, s32 flags)
+extern "C" CGsRenderMode* __dt__13CGsRenderModeFv(CGsRenderMode* mode, s32 flags)
 {
 	if (mode != NULL) {
 		*(void***)((u8*)mode + 0x30) = __vt__13CGsRenderMode; // _30 vtable

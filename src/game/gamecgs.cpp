@@ -6,8 +6,8 @@ void operator delete(void* object);
 
 extern "C" {
 extern void* __vt__3CGs[];
-CGsTevStage* fn_80008344(CGsTevStage* stage, s32 flags);
-CGsChannel* fn_8000838C(CGsChannel* channel, s32 flags);
+CGsTevStage* __dt__11CGsTevStageFv(CGsTevStage* stage, s32 flags);
+CGsChannel* __dt__10CGsChannelFv(CGsChannel* channel, s32 flags);
 }
 
 /**
@@ -15,7 +15,7 @@ CGsChannel* fn_8000838C(CGsChannel* channel, s32 flags);
  * @note Size: 0x2F4
  */
 // todo: weak copy
-extern "C" CGs* fn_80008050(CGs* gs, s32 flags)
+extern "C" CGs* __dt__3CGsFv(CGs* gs, s32 flags)
 {
 	if (gs != NULL) {
 		*(void***)((u8*)gs + sizeof(CGs) - 4) = __vt__3CGs;
@@ -34,8 +34,8 @@ extern "C" CGs* fn_80008050(CGs* gs, s32 flags)
 		gs->mSprite.CSprite::~CSprite();
 		gs->mTex.CTexObj::~CTexObj();
 		gs->mFont.CFont::~CFont();
-		__destroy_arr(gs->mChannels, (ConstructorDestructor*)fn_8000838C, sizeof(CGsChannel), 4);
-		__destroy_arr(gs->mTevStages, (ConstructorDestructor*)fn_80008344, sizeof(CGsTevStage), 2);
+		__destroy_arr(gs->mChannels, (ConstructorDestructor*)__dt__10CGsChannelFv, sizeof(CGsChannel), 4);
+		__destroy_arr(gs->mTevStages, (ConstructorDestructor*)__dt__11CGsTevStageFv, sizeof(CGsTevStage), 2);
 		gs->mRenderMode.CGsRenderMode::~CGsRenderMode();
 		gs->mScreen.CGsScreen::~CGsScreen();
 		if ((s16)flags > 0)

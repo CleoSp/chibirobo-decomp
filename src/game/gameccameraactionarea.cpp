@@ -25,7 +25,7 @@ STATIC_ASSERT(sizeof(CCameraActionAreaDtor) == 0x268);
  * @note Size: 0x298
  */
 // todo: weak copy
-extern "C" CCameraActionAreaDtor* fn_800095C0(CCameraActionAreaDtor* area, s32 flags)
+extern "C" CCameraActionAreaDtor* __dt__17CCameraActionAreaFv(CCameraActionAreaDtor* area, s32 flags)
 {
 	if (area != NULL) {
 		*(void***)((u8*)area + 0x3C) = __vt__17CCameraActionArea;

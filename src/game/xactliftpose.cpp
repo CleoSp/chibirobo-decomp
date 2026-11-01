@@ -46,7 +46,7 @@ extern "C" void fn_800D4294(XObjChr* player, s32 animation, f32 blend)
  */
 extern "C" HSD_Generator* fn_800D42F4(CGame* game, u32 bank, u32 id, u8 type, HSD_JObj* joint, BOOL keep)
 {
-	return ((CParticle*)game->mParticle)->Create((bank << 16) | id, type, joint, keep);
+	return ((CParticle*)game->mParticle)->Create(id | (bank << 16), type, joint, keep);
 }
 
 /**

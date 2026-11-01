@@ -1,9 +1,14 @@
 #include "game/xobjactor.h"
-#include "game/gmath.h"
 
 extern "C" {
 // a zero vec in the tu's rodata
 extern Vec lbl_8020B2F0;
+// Keep the shared constant pool at its original addresses.
+extern const f32 lbl_8065E120;
+extern const f32 lbl_8065E154;
+extern const f32 lbl_8065E158;
+extern const f32 lbl_8065E15C;
+extern const f32 lbl_8065E160;
 }
 
 /**
@@ -81,7 +86,7 @@ extern "C" void fn_80107620(XObjActor* actor)
 // the head's turn limits
 extern "C" f32 fn_80107690(XObjActor* actor)
 {
-	return -20.0f * DEG2RAD;
+	return lbl_8065E154;
 }
 
 /**
@@ -90,7 +95,7 @@ extern "C" f32 fn_80107690(XObjActor* actor)
  */
 extern "C" f32 fn_80107698(XObjActor* actor)
 {
-	return 20.0f * DEG2RAD;
+	return lbl_8065E158;
 }
 
 /**
@@ -99,7 +104,7 @@ extern "C" f32 fn_80107698(XObjActor* actor)
  */
 extern "C" f32 fn_801076A0(XObjActor* actor)
 {
-	return -80.0f * DEG2RAD;
+	return lbl_8065E15C;
 }
 
 /**
@@ -108,7 +113,7 @@ extern "C" f32 fn_801076A0(XObjActor* actor)
  */
 extern "C" f32 fn_801076A8(XObjActor* actor)
 {
-	return 80.0f * DEG2RAD;
+	return lbl_8065E160;
 }
 
 /**
@@ -163,7 +168,7 @@ extern "C" void fn_8010771C(CXObj* object, f32 rate)
 	actor->_998.mFlags |= 0x80;
 	actor->mLookMode  = 0;
 	actor->mLookRate  = rate;
-	actor->mLookAngle = 0.0f;
+	actor->mLookAngle = lbl_8065E120;
 	actor->_998.mFlags &= ~0x400;
-	actor->_AB0 = 0.0f;
+	actor->_AB0 = lbl_8065E120;
 }

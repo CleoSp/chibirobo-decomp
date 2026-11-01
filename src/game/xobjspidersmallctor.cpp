@@ -21,7 +21,7 @@ XObjSpiderBoss::XObjSpiderBoss()
 // todo: weak copy
 extern "C" void fn_80133DD8()
 {
-	__destroy_arr(lbl_804ADE48, (ConstructorDestructor*)fn_800F49F0, sizeof(XObjSpiderSmall), ARRAY_SIZE(lbl_804ADE48));
+	__destroy_arr(lbl_804ADE48, (ConstructorDestructor*)__dt__15XObjSpiderSmallFv, sizeof(XObjSpiderSmall), ARRAY_SIZE(lbl_804ADE48));
 }
 
 /**

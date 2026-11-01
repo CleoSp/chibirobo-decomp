@@ -12,7 +12,8 @@ extern void* __vt__10ARPreCache[];
  * @note Address: 0x80019480
  * @note Size: 0x8C
  */
-extern "C" BOOL fn_80019480(CThread* thread, OSThreadStartFunction func, void* arg, u32 stackSize, OSPriority prio, u16 attr)
+extern "C" BOOL Create__7CThreadFPFPv_PvPvUllUs(CThread* thread, OSThreadStartFunction func, void* arg, u32 stackSize, OSPriority prio,
+                                                u16 attr)
 {
 	thread->mStack     = (u8*)OSAllocFromHeap(__OSCurrHeap, stackSize);
 	thread->mStackSize = stackSize;
@@ -28,7 +29,7 @@ extern "C" BOOL fn_80019480(CThread* thread, OSThreadStartFunction func, void* a
  * @note Address: 0x8001950C
  * @note Size: 0x48
  */
-extern "C" CThread* fn_8001950C(CThread* thread, s32 flags)
+extern "C" CThread* __dt__7CThreadFv(CThread* thread, s32 flags)
 {
 	if (thread != NULL) {
 		*(void***)((u8*)thread + 0x320) = __vt__7CThread; // _320 vtable
@@ -44,7 +45,7 @@ extern "C" CThread* fn_8001950C(CThread* thread, s32 flags)
  * @note Address: 0x80019554
  * @note Size: 0x74
  */
-extern "C" ARPreCache* fn_80019554(ARPreCache* cache, s32 flags)
+extern "C" ARPreCache* __dt__10ARPreCacheFv(ARPreCache* cache, s32 flags)
 {
 	if (cache != NULL) {
 		*(void***)((u8*)cache + 0x1E4) = __vt__10ARPreCache; // _1E4 vtable

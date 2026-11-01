@@ -17,7 +17,7 @@ public:
 	CLight mLights[8];  // _B24
 	s32 mLightAnims[8]; // _25E4
 
-	virtual ~XObjDemo(); // _08, fn_80008B38
+	virtual ~XObjDemo(); // _08, __dt__8XObjDemoFv
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjDemo) == 0x25F8);

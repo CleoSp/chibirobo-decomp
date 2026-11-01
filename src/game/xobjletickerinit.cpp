@@ -6,7 +6,7 @@ extern "C" AnimSfxEvent lbl_8022A034[];
  * @note Address: 0x800E6410
  * @note Size: 0x98
  */
-extern "C" void fn_800E6410(XObjLeticker* leticker)
+extern "C" void Reset__12XObjLetickerFv(XObjLeticker* leticker)
 {
 	fn_800928E8(leticker);
 	leticker->mLinkedCount = 0;

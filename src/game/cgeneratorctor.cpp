@@ -13,7 +13,7 @@ extern void* __vt__5CFile[];
  * @note Address: 0x8001B32C
  * @note Size: 0x10
  */
-extern "C" CVec* fn_8001B32C(CVec* vec)
+extern "C" CVec* __ct__4CVecFv(CVec* vec)
 {
 	*(void***)((u8*)vec + 0xC) = __vt__4CVec; // _0C vtable
 	return vec;
@@ -24,7 +24,7 @@ extern "C" CVec* fn_8001B32C(CVec* vec)
  * @note Address: 0x8001B33C
  * @note Size: 0x20
  */
-extern "C" CGenerator* fn_8001B33C(CGenerator* gen)
+extern "C" CGenerator* __ct__10CGeneratorFv(CGenerator* gen)
 {
 	*(void***)((u8*)gen + 0x8) = __vt__10CGenerator; // _08 vtable
 	gen->mId                   = -1;
@@ -37,7 +37,7 @@ extern "C" CGenerator* fn_8001B33C(CGenerator* gen)
  * @note Address: 0x8001B35C
  * @note Size: 0x30
  */
-extern "C" CFile* fn_8001B35C(CFile* file)
+extern "C" CFile* __ct__5CFileFv(CFile* file)
 {
 	*(void***)((u8*)file + 0xE8) = __vt__5CFile; // _E8 vtable
 	file->mArchive               = NULL;

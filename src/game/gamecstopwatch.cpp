@@ -9,7 +9,7 @@ extern "C" void* __vt__10CStopwatch[];
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CStopwatch* fn_80008608(CStopwatch* stopwatch, s32 flags)
+extern "C" CStopwatch* __dt__10CStopwatchFv(CStopwatch* stopwatch, s32 flags)
 {
 	if (stopwatch != NULL) {
 		*(void***)((u8*)stopwatch + 0x38) = __vt__10CStopwatch;

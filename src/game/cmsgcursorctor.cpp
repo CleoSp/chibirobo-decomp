@@ -1,7 +1,7 @@
 #include "game/hsd_jobj.h"
 #include "game/msg.h"
 
-extern "C" Cursor* fn_8001AF70(Cursor* cursor);
+extern "C" Cursor* __ct__6CursorFv(Cursor* cursor);
 
 // todo: weak copy
 /**
@@ -10,6 +10,6 @@ extern "C" Cursor* fn_8001AF70(Cursor* cursor);
  */
 extern "C" MsgCursor* __ct__9MsgCursorFv(MsgCursor* cursor)
 {
-	fn_8001AF70(&cursor->mCursor);
+	__ct__6CursorFv(&cursor->mCursor);
 	return cursor;
 }

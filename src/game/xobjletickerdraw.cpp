@@ -5,7 +5,7 @@
  * @note Address: 0x800E51BC
  * @note Size: 0x324
  */
-extern "C" void fn_800E51BC(XObjLeticker* leticker)
+extern "C" void vfAC__12XObjLetickerFv(XObjLeticker* leticker)
 {
 	leticker->vfB0(NULL);
 	switch (leticker->mState) {

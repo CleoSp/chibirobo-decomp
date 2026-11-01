@@ -78,7 +78,7 @@ extern "C" f32 fn_80135278(CInterpolationEaseInOut* interp)
 extern "C" bool fn_80135280(CInterpolationEaseInOut* interp, f32 dt)
 {
 	interp->mTime -= dt;
-	if (interp->mTime < interp->mDuration * 0.5f) {
+	if (interp->mTime < interp->mDuration / 2) {
 		interp->mSpeed -= interp->mAccel * dt;
 	} else {
 		interp->mSpeed += interp->mAccel * dt;

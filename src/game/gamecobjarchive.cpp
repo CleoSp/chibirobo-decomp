@@ -9,7 +9,7 @@ extern "C" void* __vt__11CObjArchive[];
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" CObjArchive* fn_80008E10(CObjArchive* archive, s32 flags)
+extern "C" CObjArchive* __dt__11CObjArchiveFv(CObjArchive* archive, s32 flags)
 {
 	if (archive != NULL) {
 		*(void***)((u8*)archive + 0x134) = __vt__11CObjArchive;

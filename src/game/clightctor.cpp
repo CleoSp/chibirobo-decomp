@@ -14,7 +14,7 @@ extern void* __vt__7CCamera[];
  * @note Size: 0x6C
  */
 // todo: weak copy
-extern "C" CLight* fn_8001B538(CLight* light)
+extern "C" CLight* __ct__6CLightFv(CLight* light)
 {
 	*(void***)((u8*)light + 0x354)                           = __vt__6CLight;
 	*(void***)((u8*)&light->mPosition + 0xC)                 = __vt__4CVec;

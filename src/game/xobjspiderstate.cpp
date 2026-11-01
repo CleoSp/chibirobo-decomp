@@ -4,7 +4,7 @@
  * @note Address: 0x800F4818
  * @note Size: 0x50
  */
-extern "C" void fn_800F4818(XObjSpider* spider)
+extern "C" void vf94__10XObjSpiderFv(XObjSpider* spider)
 {
 	fn_800F4350(spider);
 	spider->SetState(0);
@@ -15,7 +15,7 @@ extern "C" void fn_800F4818(XObjSpider* spider)
  * @note Address: 0x800F4868
  * @note Size: 0x58
  */
-extern "C" void fn_800F4868(XObjSpider* spider, u32 id)
+extern "C" void Init__10XObjSpiderFUl(XObjSpider* spider, u32 id)
 {
 	fn_800929C4(spider, id);
 	fn_800F4350(spider);
@@ -37,9 +37,9 @@ extern "C" u8 lbl_8022AA10[];
  * @note Size: 0x130
  */
 // todo: hand rolled __sinit, really the table's initializer, needs the handlers as methods
-extern "C" void fn_800F48C0()
+extern "C" void __sinit_xobjspider_cpp()
 {
 	*(XObjSpiderFuncs*)(lbl_8022AA10 + 0x240) = *(XObjSpiderFuncs*)(lbl_8022AA10 + 0x1C8);
 }
 
-__declspec(section ".ctors") extern void (*const sSpiderFuncsInit)() = fn_800F48C0;
+__declspec(section ".ctors") extern void (*const sSpiderFuncsInit)() = __sinit_xobjspider_cpp;

@@ -4,6 +4,13 @@ extern "C" {
 }
 #include "game/cvec.h"
 
+extern "C" {
+// Keep the shared constant pool at its original addresses.
+extern const f32 lbl_8065D968;
+extern const f32 lbl_8065D930;
+extern const f32 lbl_8065D934;
+}
+
 // todo: cleanup
 static inline void CopyPosition(XObjPlugCordNode* node, XObjPlugCordPoint* point)
 {
@@ -23,20 +30,20 @@ extern "C" void fn_800DC43C(XObjPlugCordNode* node, XObjPlugCordPoint* points, s
 	case 1:
 		node->mIndex = (s32)((u32)count - 2);
 		CopyPosition(node, &points[node->mIndex]);
-		node->mStep.Start(0.5f, 0.2f, time);
+		node->mStep.Start(lbl_8065D968, lbl_8065D930, time);
 		node->mDir = points[node->mIndex - 1].mPos - points[node->mIndex].mPos;
 		node->mDir.Normalize();
 		node->mState    = 1;
-		node->mDistance = 0.0f;
+		node->mDistance = lbl_8065D934;
 		break;
 	case -1:
 		node->mIndex = 0;
 		CopyPosition(node, &points[node->mIndex]);
-		node->mStep.Start(0.5f, 0.2f, time);
+		node->mStep.Start(lbl_8065D968, lbl_8065D930, time);
 		node->mDir = points[node->mIndex + 1].mPos - points[node->mIndex].mPos;
 		node->mDir.Normalize();
 		node->mState    = 1;
-		node->mDistance = 0.0f;
+		node->mDistance = lbl_8065D934;
 		break;
 	}
 }

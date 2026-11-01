@@ -5,7 +5,7 @@
 extern "C" {
 // the five mirrors, a global in CGame's file
 extern FbMirrorEx lbl_8035FA24[5];
-FbMirrorEx* fn_80019600(FbMirrorEx* mirror, s32 flags);
+FbMirrorEx* __dt__10FbMirrorExFv(FbMirrorEx* mirror, s32 flags);
 }
 
 // todo: weak copy
@@ -15,5 +15,5 @@ FbMirrorEx* fn_80019600(FbMirrorEx* mirror, s32 flags);
  */
 extern "C" void fn_800195C8(void)
 {
-	__destroy_arr(lbl_8035FA24, (ConstructorDestructor*)fn_80019600, sizeof(FbMirrorEx), 5);
+	__destroy_arr(lbl_8035FA24, (ConstructorDestructor*)__dt__10FbMirrorExFv, sizeof(FbMirrorEx), 5);
 }

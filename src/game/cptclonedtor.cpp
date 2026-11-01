@@ -11,7 +11,7 @@ extern void* __vt__10CPtclDust2[];
  * @note Size: 0x88
  */
 // todo: weak copy
-extern "C" CPtclOne* fn_80025030(CPtclOne* ptcl, s32 flags)
+extern "C" CPtclOne* __dt__8CPtclOneFv(CPtclOne* ptcl, s32 flags)
 {
 	if (ptcl != NULL) {
 		*(void***)((u8*)ptcl + 0x4C) = __vt__8CPtclOne;
@@ -30,7 +30,7 @@ extern "C" CPtclOne* fn_80025030(CPtclOne* ptcl, s32 flags)
  * @note Size: 0x98
  */
 // todo: weak copy
-extern "C" CPtclDust2* fn_800250B8(CPtclDust2* ptcl, s32 flags)
+extern "C" CPtclDust2* __dt__10CPtclDust2Fv(CPtclDust2* ptcl, s32 flags)
 {
 	if (ptcl != NULL) {
 		*(void***)((u8*)ptcl + 0x4C) = __vt__10CPtclDust2;

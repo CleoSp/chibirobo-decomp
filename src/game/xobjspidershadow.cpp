@@ -7,7 +7,7 @@
  * @note Address: 0x800F2E44
  * @note Size: 0x33C
  */
-extern "C" void fn_800F2E44(XObjSpider* spider, const Vec* origin, f32 opacity)
+extern "C" void vfBC__10XObjSpiderFP3Vecf(XObjSpider* spider, const Vec* origin, f32 opacity)
 {
 	if (!(spider->mStatus.mFlags & 8ULL))
 		return;

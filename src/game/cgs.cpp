@@ -203,7 +203,7 @@ static inline const char* GetGlyph(CGs* gs, const char* text, TextGlyph* glyph)
 #if defined(VERSION_JP)
 		if (IsSjisLead(*text)) {
 #else
-		if (gs->_17A4 && IsSjisLead(*text)) {
+		if (gs->_17A4 && (IsSjisLead(*text) & 1)) {
 #endif
 			glyph->mStr[0] = *text;
 			glyph->mStr[1] = *++text;
@@ -430,9 +430,10 @@ static inline void GsChanInit(CGsChannel* ch, s32 chan, GsChanCtrl ctrl, GXColor
 // every active light's id
 static inline s32 GsGetLightMask()
 {
+	s32 i;
 	s32 mask = 0;
 	s32 n    = HSD_LObjGetNbActive();
-	for (s32 i = 0; i < n; i++) {
+	for (i = 0; i < n; i++) {
 		if (HSD_LObjGetActiveByIndex(i) != NULL) {
 			mask |= HSD_Index2LightID(i);
 		}
@@ -440,15 +441,21 @@ static inline s32 GsGetLightMask()
 	return mask;
 }
 
-static inline GXColor GsMulColor(GXColor a, GXColor b)
+static inline GXColor GsZeroColor()
 {
 	GXColor c = { 0, 0, 0, 0 };
-	a.r       = (u32)(a.r * b.r) / 255;
-	a.g       = (u32)(a.g * b.g) / 255;
-	a.b       = (u32)(a.b * b.b) / 255;
-	a.a       = (u32)(a.a * b.a) / 255;
-	c         = a;
 	return c;
+}
+// Construct the result before entering the channel multiplication, preserving
+// the original temporary order alongside the two input colors.
+static inline GXColor GsMulColor(GXColor& a, GXColor b, GXColor c)
+{
+	c.r = (u32)(a.r * b.r) / 255;
+	c.g = (u32)(a.g * b.g) / 255;
+	c.b = (u32)(a.b * b.b) / 255;
+	c.a = (u32)(a.a * b.a) / 255;
+	a   = c;
+	return a;
 }
 
 // HSD_PEDesc flag bits
@@ -499,8 +506,9 @@ extern "C" void fn_8019B850(CGsScreen* screen, s32 mode, u16 hor, u16 ver)
 	GXAdjustForOverscan(lbl_80237728[screen->mMode], screen, hor, ver);
 	screen->viWidth   = 660;
 	screen->viXOrigin = (720 - screen->viWidth) / 2;
-	if ((screen->viTVMode & 3) == 1) {
-		screen->viYOrigin = screen->viYOrigin / 2;
+	// viTVMode is a VITVMode in the sdk, the hsd header has it as a u32
+	if (((s32)screen->viTVMode & 3) == 1) {
+		screen->viYOrigin /= 2;
 	}
 	HSD_VISetConfigure(screen);
 	HSD_CObjSetReferenceSize(screen->fbWidth, screen->efbHeight);
@@ -1817,7 +1825,8 @@ extern "C" s32 fn_8019957C(CGs* gs, s32 matSrc, u32 rgba)
 			if (color0->amb_src == GX_SRC_REG) {
 				HSD_LObj* lobj = HSD_LObjGetCurrentByType(LOBJ_AMBIENT);
 				if (lobj != NULL) {
-					GXColor amb = GsMulColor(color, lobj->color);
+					GXColor amb = lobj->color;
+					GsMulColor(amb, color, GsZeroColor());
 					GsChanSetAmbColor(color0, amb);
 					GsChanSetAmbColor(&gs->mChannels[2], amb);
 				}
@@ -2269,10 +2278,12 @@ extern "C" void fn_80197800(CGs* gs, CTexObj* tex, u32 color0, u32 color1, u32 c
 
 	// negative size means use the texture's own
 	if (w < 0.0f) {
-		w = GXGetTexObjWidth(tex);
+		u16 size = GXGetTexObjWidth(tex);
+		w        = size;
 	}
 	if (h < 0.0f) {
-		h = GXGetTexObjHeight(tex);
+		u16 size = GXGetTexObjHeight(tex);
+		h        = size;
 	}
 
 	SetFlatTransform(gs, &gs->mSprite2, x, y, z, w, h, rx, ry, rz);
@@ -2835,18 +2846,13 @@ extern "C" void fn_80196C0C(CGs* gs, f32 width)
 #endif
 }
 
-/**
- * @note Address: 0x801968BC
- * @note Size: 0x350
- */
 // how wide the widest line of the text is
-extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 size)
+static inline f32 GetTextWidth(CGs* gs, const char* text, BOOL proportional, f32 size, f32 halfSize)
 {
 	CFont font;
 	s32 charWidth;
 	f32 width[2] = { 0.0f, 0.0f };
 	TextGlyph glyph;
-	f32 halfSize  = 0.5f * size;
 	const char* p = text;
 
 	while ((p = GetGlyph(gs, p, &glyph)) != NULL) {
@@ -2869,7 +2875,7 @@ extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 siz
 			}
 #else
 			} else if (gs->_17A4) {
-				if (IsSjisLead(glyph.mStr[0])) {
+				if (IsSjisLead(glyph.mStr[0]) & 1) {
 					width[0] += size * gs->_17A8;
 				} else {
 					width[0] += halfSize * gs->_17A8;
@@ -2887,6 +2893,15 @@ extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 siz
 	}
 	return width[1];
 }
+/**
+ * @note Address: 0x801968BC
+ * @note Size: 0x350
+ */
+extern "C" f32 fn_801968BC(CGs* gs, const char* text, BOOL proportional, f32 size)
+{
+	return GetTextWidth(gs, text, proportional, size, 0.5f * size);
+}
+
 /*
     stwu     r1, -0x1a0(r1)
     mflr     r0
@@ -3326,6 +3341,7 @@ extern "C" void fn_80196518(CBase* gs, u32 color, const char* format, f32 x, f32
 // background color isn't zero
 extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char* text, f32 x, f32 y, f32 z, f32 size, f32 height)
 {
+	f32 offsX;
 	f32 curX = x;
 	f32 curY = y;
 	TextGlyph glyph;
@@ -3338,9 +3354,13 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 	static TextChar sChars[256];
 	static TextChar* sCur;
 
-	f32 textWidth = fn_801968BC(gs, text, proportional, size);
+	f32 textWidth = GetTextWidth(gs, text, proportional, size, 0.5f * size);
 
-	s32 count = 0;
+	f32 centerX = x + textWidth / 2.0f;
+	f32 centerY = y - lineHeight;
+	f32 scaleX  = size / 2.0f;
+	f32 scaleY  = lineHeight / 2.0f;
+	s32 count   = 0;
 	while ((text = GetGlyph(gs, text, &glyph)) != NULL) {
 		if (glyph.mStr[0] == '\0') {
 			continue;
@@ -3376,9 +3396,9 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		}
 #endif
 
-		f32 offsX = curX - x;
-		f32 u     = 2.0f * (offsX / size) + 1.0f - textWidth / size;
-		f32 v     = 2.0f * (-(curY - y) / lineHeight) + 1.0f;
+		offsX = curX - x;
+		f32 u = 2.0f * (offsX / size) + 1.0f - textWidth / size;
+		f32 v = 2.0f * (-(curY - y) / lineHeight) + 1.0f;
 #if defined(VERSION_JP)
 		if (!proportional && wide && charWidth < size) {
 			u += (size - charWidth) * 0.5f / size;
@@ -3387,23 +3407,23 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		if (gs->_17A4) {
 			// with fixed widths a character narrower than its cell gets centered in it
 			if (!proportional && wide && charWidth < size) {
-				u += (size - charWidth) * 0.5f / size;
+				u += (size - charWidth) / 2.0f / size;
 			}
 		} else if (!proportional) {
-			u += (size - charWidth) * 0.5f / size;
+			u += (size - charWidth) / 2.0f / size;
 		}
 #endif
 
-		sCur->mSprite.SetTrans(x + textWidth * 0.5f, y - lineHeight, z);
-		sCur->mSprite.SetScale(size * 0.5f, lineHeight * 0.5f, 1.0f);
+		sCur->mSprite.SetTrans(centerX, centerY, z);
+		sCur->mSprite.SetScale(scaleX, scaleY, 1.0f);
 		sCur->mSprite.SetRot(gs->mTextRot.x, gs->mTextRot.y, gs->mTextRot.z);
 		SetCenter(&sCur->mSprite, u, v, 0.0f);
 		SetColor(&sCur->mSprite, glyph.mColor);
 		SetBillboard(&sCur->mSprite, gs->_29C);
 
 		if (sCur->mHasBg = glyph.mBgColor != 0) {
-			sCur->mBg.SetTrans(x + textWidth * 0.5f, y - lineHeight, z);
-			sCur->mBg.SetScale(advance * 0.5f, lineHeight * 0.5f, 1.0f);
+			sCur->mBg.SetTrans(centerX, centerY, z);
+			sCur->mBg.SetScale(advance / 2.0f, scaleY, 1.0f);
 			sCur->mBg.SetRot(gs->mTextRot.x, gs->mTextRot.y, gs->mTextRot.z);
 			SetCenter(&sCur->mBg, 2.0f * (offsX / advance) + 1.0f - textWidth / advance, v, 0.0f);
 			SetColor(&sCur->mBg, glyph.mBgColor);

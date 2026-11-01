@@ -7,7 +7,7 @@
  * @note Size: 0x1C
  */
 // CInterpolationNone's Start
-extern "C" bool fn_8001585C(CInterpolationNone* interp, f32 from, f32 to, f32 time)
+extern "C" bool Start__18CInterpolationNoneFfff(CInterpolationNone* interp, f32 from, f32 to, f32 time)
 {
 	interp->mTime  = 1.0f;
 	interp->mValue = to;
@@ -20,7 +20,7 @@ extern "C" bool fn_8001585C(CInterpolationNone* interp, f32 from, f32 to, f32 ti
  * @note Size: 0x24
  */
 // CInterpolationNone's Step, retail sets the time again here
-extern "C" bool fn_80015878(CInterpolationNone* interp, f32 dt)
+extern "C" bool Step__18CInterpolationNoneFf(CInterpolationNone* interp, f32 dt)
 {
 	interp->mTime = 1.0f;
 	return interp->mTime <= 0.0f;
@@ -31,7 +31,7 @@ extern "C" bool fn_80015878(CInterpolationNone* interp, f32 dt)
  * @note Size: 0x2C
  */
 // CInterpolationNone's Update
-extern "C" bool fn_8001589C(CInterpolationNone* interp, u32 step, f32 dt)
+extern "C" bool Update__18CInterpolationNoneFUlf(CInterpolationNone* interp, u32 step, f32 dt)
 {
 	return interp->Step(dt);
 }
@@ -41,7 +41,7 @@ extern "C" bool fn_8001589C(CInterpolationNone* interp, u32 step, f32 dt)
  * @note Size: 0x8
  */
 // CInterpolationNone's Get
-extern "C" f32 fn_800158C8(CInterpolationNone* interp)
+extern "C" f32 Get__18CInterpolationNoneFv(CInterpolationNone* interp)
 {
 	return interp->mValue;
 }
@@ -51,7 +51,7 @@ extern "C" f32 fn_800158C8(CInterpolationNone* interp)
  * @note Size: 0xCC
  */
 // CVectorNoneInterpolation's Start
-extern "C" bool fn_800158D0(CVectorNoneInterpolation* interp, const Vec& from, const Vec& to, f32 time)
+extern "C" bool Start__24CVectorNoneInterpolationF3Vec3Vecf(CVectorNoneInterpolation* interp, const Vec& from, const Vec& to, f32 time)
 {
 	if (time < 0.0f)
 		return false;
@@ -66,7 +66,7 @@ extern "C" bool fn_800158D0(CVectorNoneInterpolation* interp, const Vec& from, c
  * @note Size: 0xB4
  */
 // CVectorNoneInterpolation's Step
-extern "C" bool fn_8001599C(CVectorNoneInterpolation* interp, f32 dt)
+extern "C" bool Step__24CVectorNoneInterpolationFf(CVectorNoneInterpolation* interp, f32 dt)
 {
 	bool x = interp->mAxes[0].Step(dt);
 	bool y = interp->mAxes[1].Step(dt);
@@ -79,7 +79,7 @@ extern "C" bool fn_8001599C(CVectorNoneInterpolation* interp, f32 dt)
  * @note Size: 0x2C
  */
 // CVectorNoneInterpolation's Update
-extern "C" bool fn_80015A50(CVectorNoneInterpolation* interp, u32 step, f32 dt)
+extern "C" bool Update__24CVectorNoneInterpolationFUlf(CVectorNoneInterpolation* interp, u32 step, f32 dt)
 {
 	return interp->Step(dt);
 }
@@ -89,7 +89,7 @@ extern "C" bool fn_80015A50(CVectorNoneInterpolation* interp, u32 step, f32 dt)
  * @note Size: 0xBC
  */
 // CVectorNoneInterpolation's Get
-extern "C" Vec fn_80015A7C(CVectorNoneInterpolation* interp)
+extern "C" Vec Get__24CVectorNoneInterpolationFv(CVectorNoneInterpolation* interp)
 {
 	return CVec(interp->mAxes[0].Get(), interp->mAxes[1].Get(), interp->mAxes[2].Get());
 }

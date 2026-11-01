@@ -4,7 +4,7 @@ void operator delete(void* object);
 
 extern "C" {
 extern void* __vt__10MenuCursor[];
-Cursor* fn_8000871C(Cursor* cursor, s32 flags);
+Cursor* __dt__6CursorFv(Cursor* cursor, s32 flags);
 }
 
 /**
@@ -12,11 +12,11 @@ Cursor* fn_8000871C(Cursor* cursor, s32 flags);
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" MenuCursor* fn_80008CD8(MenuCursor* cursor, s32 flags)
+extern "C" MenuCursor* __dt__10MenuCursorFv(MenuCursor* cursor, s32 flags)
 {
 	if (cursor != NULL) {
 		*(void***)((u8*)cursor + 0x34) = __vt__10MenuCursor;
-		fn_8000871C(cursor, 0);
+		__dt__6CursorFv(cursor, 0);
 		if ((s16)flags > 0)
 			::operator delete(cursor);
 	}

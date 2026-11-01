@@ -9,7 +9,7 @@ extern "C" void* __vt__21CCameraActionLeticker[];
  * @note Size: 0xA8
  */
 // todo: weak copy
-extern "C" CCameraActionLeticker* fn_800E6818(CCameraActionLeticker* camera, s32 flags)
+extern "C" CCameraActionLeticker* __dt__21CCameraActionLetickerFv(CCameraActionLeticker* camera, s32 flags)
 {
 	if (camera != NULL) {
 		*(void***)((u8*)camera + 0x3C) = __vt__21CCameraActionLeticker;

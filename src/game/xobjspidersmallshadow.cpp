@@ -11,7 +11,7 @@
  * @note Size: 0x330
  */
 // the shadow, a disc with a soft edge
-extern "C" void fn_800FDBBC(XObjSpiderSmall* spider, const Vec* origin, f32 opacity)
+extern "C" void vfBC__15XObjSpiderSmallFP3Vecf(XObjSpiderSmall* spider, const Vec* origin, f32 opacity)
 {
 	if (!(spider->mStatus.mFlags & 8ULL)) {
 		return;

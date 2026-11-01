@@ -7,7 +7,7 @@ extern void* __vt__4CVec[];
 extern void* __vt__5CXObj[];
 extern void* __vt__9CJArchive[];
 extern void* __vt__7CObjVec[];
-CXObj* fn_8001B1DC(CXObj* obj);
+CXObj* __ct__5CXObjFv(CXObj* obj);
 }
 
 // todo: weak copy
@@ -15,9 +15,9 @@ CXObj* fn_8001B1DC(CXObj* obj);
  * @note Address: 0x8001B150
  * @note Size: 0x8C
  */
-extern "C" CXObjIntp* fn_8001B150(CXObjIntp* obj)
+extern "C" CXObjIntp* __ct__9CXObjIntpFv(CXObjIntp* obj)
 {
-	fn_8001B1DC(obj);
+	__ct__5CXObjFv(obj);
 	*(void***)((u8*)obj + 0x34)                   = __vt__9CXObjIntp; // _34 vtable
 	*(void***)((u8*)&obj->mIntp + 0x34)           = __vt__5CJObj;
 	*(void***)((u8*)&obj->mIntp.mTranslate + 0xC) = __vt__4CVec;
@@ -41,7 +41,7 @@ extern "C" CXObjIntp* fn_8001B150(CXObjIntp* obj)
  * @note Address: 0x8001B1DC
  * @note Size: 0x110
  */
-extern "C" CXObj* fn_8001B1DC(CXObj* obj)
+extern "C" CXObj* __ct__5CXObjFv(CXObj* obj)
 {
 	*(void***)((u8*)obj + 0x34)                             = __vt__5CJObj; // _34 vtable
 	*(void***)((u8*)&obj->mTranslate + 0xC)                 = __vt__4CVec;

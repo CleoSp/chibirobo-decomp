@@ -5,7 +5,7 @@
  * @note Address: 0x800E980C
  * @note Size: 0x370
  */
-extern "C" void fn_800E980C(XObjArmy* army)
+extern "C" void vfC0__8XObjArmyFv(XObjArmy* army)
 {
 	CGs* gs = (CGs*)lbl_8025C400.mGs;
 	for (u32 i = 0; i < 5; ++i) {

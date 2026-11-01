@@ -2517,9 +2517,10 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 		fn_8001E2CC((CSound*)(u8*)&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 4: {
-		u16 frames    = CEvt_Evaluate(evt) * 2;
-		u8 vol        = CEvt_Evaluate(evt);
-		CSound* sound = (CSound*)(u8*)&lbl_8025C400.mSound;
+		CSound* sound;
+		u16 frames = CEvt_Evaluate(evt) * 2;
+		u8 vol     = CEvt_Evaluate(evt);
+		sound      = (CSound*)(u8*)&lbl_8025C400.mSound;
 		if (!fn_8001E6C8(sound, sfx)) {
 			fn_8001E904(sound, sfx, vol);
 		} else {
@@ -5799,7 +5800,6 @@ static inline EvtMsgPosition* CEvt_MsgPosition(u8* owner)
 }
 
 extern "C" void CMsg_ResetPos(u8* owner);
-extern "C" GXColor lbl_8065A3C0;
 
 /**
  * @note Address: 0x8006FD8C
@@ -5816,7 +5816,9 @@ extern "C" s32 CEvt__cmd_WIN(CEvt* evt)
 			pos->x              = x;
 			pos->y              = y;
 			pos->object         = NULL;
-			pos->offset.x = pos->offset.y = pos->offset.z = 0.0f;
+			pos->offset.x       = 0.0f;
+			pos->offset.y       = 0.0f;
+			pos->offset.z       = 0.0f;
 		}
 		break;
 	}
@@ -5826,7 +5828,9 @@ extern "C" s32 CEvt__cmd_WIN(CEvt* evt)
 			pos->x              = 320.0f;
 			pos->y              = 378.5f;
 			pos->object         = NULL;
-			pos->offset.x = pos->offset.y = pos->offset.z = 0.0f;
+			pos->offset.x       = 0.0f;
+			pos->offset.y       = 0.0f;
+			pos->offset.z       = 0.0f;
 		}
 		break;
 	case 0xD0: {
@@ -5854,23 +5858,16 @@ extern "C" s32 CEvt__cmd_WIN(CEvt* evt)
 		u8 b = CEvt_Evaluate(evt);
 		u8 a = CEvt_Evaluate(evt);
 		if (evt->_54 != NULL) {
-			GXColor* color = (GXColor*)(evt->_54 + 0x9B8);
-			color->r       = r;
-			color->g       = g;
-			color->b       = b;
-			color->a       = a;
+			GXColor color                 = { r, g, b, a };
+			*(GXColor*)(evt->_54 + 0x9B8) = color;
 		}
 		break;
 	}
 	case 0xD1:
 		if (evt->_54 != NULL) {
 			CMsg_ResetPos(evt->_54);
-			GXColor color = lbl_8065A3C0;
-			GXColor* out  = (GXColor*)(evt->_54 + 0x9B8);
-			out->r        = color.r;
-			out->g        = color.g;
-			out->b        = color.b;
-			out->a        = color.a;
+			GXColor color                 = { 0, 0, 0, 0x80 };
+			*(GXColor*)(evt->_54 + 0x9B8) = color;
 		}
 		break;
 	}
@@ -5897,11 +5894,12 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 		obj->_264.y = obj->mMoveTranslate.y;
 		obj->_264.z = obj->mMoveTranslate.z;
 		((CMotionControlCamera*)lbl_8025C400.mCamera)->UpdateTarget(obj);
+		u8* carry;
 		u8* player = (u8*)lbl_8025C400.mPlayer;
 		if (obj == (XObj*)player) {
 			fn_800B5E1C((XObjChr*)player);
 			fn_8009FCC4((XObjChr*)player);
-			u8* carry = player + PLAYER_CARRY;
+			carry = player + PLAYER_CARRY;
 			if (*(XObj**)(carry + 0x20) != NULL) {
 				fn_800CECFC(carry, 1);
 				(*(XObj**)(carry + 0x20))->vfA4(1);
@@ -6360,66 +6358,69 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
  * @note Address: 0x80074CF4
  * @note Size: 0x760
  */
+// the y turn that faces from at to
+static inline f32 CEvt_Angle(const Vec& from, const Vec& to)
+{
+	return atan2(to.x - from.x, to.z - from.z);
+}
+
 extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 {
-	s16 id        = CEvt_Evaluate(evt);
-	XObj* obj     = CEvt_GetObj(evt, id);
-	f32 x         = CEvt_Evaluate(evt) / 100.0f;
-	f32 y         = CEvt_Evaluate(evt) / 100.0f;
-	f32 z         = CEvt_Evaluate(evt) / 100.0f;
-	f32 time      = CEvt_Evaluate(evt) / 100.0f;
-	s32 anim      = CEvt_Evaluate(evt);
-	s16 direction = CEvt_Evaluate(evt);
+	s16 id    = CEvt_Evaluate(evt);
+	XObj* obj = CEvt_GetObj(evt, id);
+	f32 x     = CEvt_Evaluate(evt) / 100.0f;
+	f32 y     = CEvt_Evaluate(evt) / 100.0f;
+	f32 z     = CEvt_Evaluate(evt) / 100.0f;
+	f32 time  = CEvt_Evaluate(evt) / 100.0f;
+	s32 anim  = CEvt_Evaluate(evt);
+	s16 dir   = CEvt_Evaluate(evt);
 	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 		if (obj->mJObj == NULL) {
-			CEvt_Warn(fn_801911B4("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(100.0f * x), (s32)(100.0f * y),
-			                      (s32)(100.0f * z), (s32)(100.0f * time), anim, direction, id));
+			CEvt_Warn(fn_801911B4("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(x * 100.0f), (s32)(y * 100.0f),
+			                      (s32)(z * 100.0f), (s32)(time * 100.0f), anim, dir, id));
 		}
 		u8* player = (u8*)lbl_8025C400.mPlayer;
-		if ((u8*)obj == player) {
+		if (obj == (XObj*)player) {
 			fn_800C591C(player + PLAYER_BE8);
 		}
-		f32 distance;
-		{
-			CVec target(x, y, z);
-			distance = PSVECDistance(&obj->mMoveTranslate, &target);
-		}
+		f32 distance = PSVECDistance(&obj->mMoveTranslate, &CVec(x, y, z));
 		if (distance < 0.1f) {
+			// already there
 			obj->SetPos(x, y, z, 0);
-			return 0;
-		}
-		if (time == 0.0f) {
-			obj->SetMoveDir(CVec(x, y, z), distance);
-		} else if (time > 0.0f) {
-			obj->SetMoveDir(CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
 		} else {
-			obj->SetMoveDir(CVec(x, y, z), -time);
-		}
-		if (direction != -1) {
-			f32 yaw;
-			if (direction == -2) {
-				CVec target(x, y, z);
-				yaw = atan2(target.x - obj->mMoveTranslate.x, target.z - obj->mMoveTranslate.z);
+			if (time == 0.0f) {
+				obj->SetMoveDir(&CVec(x, y, z), distance);
+			} else if (time > 0.0f) {
+				obj->SetMoveDir(&CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
 			} else {
-				yaw = DEG2RAD * direction;
+				obj->SetMoveDir(&CVec(x, y, z), -time);
 			}
-			obj->SetRotationY(yaw, 0);
-		}
-		if (anim != -1) {
-			if (anim & 0xFFFF0000) {
-				s32 jointId     = anim & 0xFFFF;
-				s32 matId       = anim >> 16;
-				void* jointAnim = obj->vfF0(jointId);
-				void* matAnim   = obj->vfF4(matId);
-				void* shapeAnim = obj->vfF8(jointId);
-				obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
-				if (jointId >= 1000 || matId >= 1000) {
-					obj->mStatus.mFlags |= 0x0008000000000000;
+			if (dir != -1) {
+				f32 yaw;
+				// -2 faces where it's going
+				if (dir == -2) {
+					yaw = CEvt_Angle(obj->mMoveTranslate, CVec(x, y, z));
+				} else {
+					yaw = DEG2RAD * dir;
 				}
-			} else {
-				obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				obj->SetRotationY(yaw, 0);
 			}
-			obj->UpdateAnim(1);
+			if (anim != -1) {
+				if (anim & 0xFFFF0000) {
+					s32 jointId     = anim & 0xFFFF;
+					s32 matId       = anim >> 16;
+					void* jointAnim = obj->vfF0(jointId);
+					void* matAnim   = obj->vfF4(matId);
+					void* shapeAnim = obj->vfF8(jointId);
+					obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
+					if (jointId >= 1000 || matId >= 1000) {
+						obj->mStatus.mFlags |= 0x0008000000000000;
+					}
+				} else {
+					obj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				}
+				obj->UpdateAnim(1);
+			}
 		}
 	} else if (obj == NULL || !(obj->mStatus.mFlags & 1)) {
 		CEvt_Warn(fn_801911B4("moveto(%d, ...) obj(%d) killed!", id, id));
@@ -6945,37 +6946,32 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 {
-	s16 id        = CEvt_Evaluate(evt);
-	XObj* obj     = CEvt_GetObj(evt, id);
-	f32 distance  = CEvt_Evaluate(evt) / 100.0f;
-	f32 time      = CEvt_Evaluate(evt) / 100.0f;
-	s32 anim      = CEvt_Evaluate(evt);
-	s16 direction = CEvt_Evaluate(evt);
+	s16 id       = CEvt_Evaluate(evt);
+	XObj* obj    = CEvt_GetObj(evt, id);
+	f32 distance = CEvt_Evaluate(evt) / 100.0f;
+	f32 time     = CEvt_Evaluate(evt) / 100.0f;
+	s32 anim     = CEvt_Evaluate(evt);
+	s16 dir      = CEvt_Evaluate(evt);
 	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 		if (obj->mJObj == NULL) {
 			// retail's format says %d but passes a float
-			CEvt_Warn(
-			    fn_801911B4("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(100.0f * time), anim, direction, id));
+			CEvt_Warn(fn_801911B4("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(time * 100.0f), anim, dir, id));
 		}
 		u8* player = (u8*)lbl_8025C400.mPlayer;
-		if ((u8*)obj == player) {
+		if (obj == (XObj*)player) {
 			fn_800C591C(player + PLAYER_BE8);
 		}
 		Vec target = obj->mMoveTranslate;
-		f32 yaw;
-		if ((u16)(direction + 2) <= 1) {
-			yaw = obj->mMoveRotate.y;
-		} else {
-			yaw = DEG2RAD * direction;
-		}
+		// -1 and -2 keep the way it faces
+		f32 yaw = (dir == -1 || dir == -2) ? obj->mMoveRotate.y : DEG2RAD * dir;
 		target.x += distance * (f32)sin(yaw);
 		target.z += distance * (f32)cos(yaw);
 		if (time == 0.0f) {
-			obj->SetMoveDir(target, distance);
+			obj->SetMoveDir(&target, distance);
 		} else if (time > 0.0f) {
-			obj->SetMoveDir(target, distance / (FRAMES_PER_SEC * time));
+			obj->SetMoveDir(&target, distance / (FRAMES_PER_SEC * time));
 		} else {
-			obj->SetMoveDir(target, -time);
+			obj->SetMoveDir(&target, -time);
 		}
 		if (anim != -1) {
 			if (anim & 0xFFFF0000) {
@@ -13273,6 +13269,20 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
  * @note Address: 0x8007AE5C
  * @note Size: 0x630
  */
+// puts an anim in the first free slot after the one playing
+static inline void CEvt_QueueAnim(XObj* obj, s32 anim, u16 frame, s16 rate)
+{
+	for (int i = 0; i < 16; i++) {
+		int index = (obj->mAnmQueue.mNext + i) % 16;
+		if (obj->mAnmQueue.mEntry[index].mId == -1) {
+			obj->mAnmQueue.mEntry[index].mId    = anim;
+			obj->mAnmQueue.mEntry[index].mFrame = frame;
+			obj->mAnmQueue.mEntry[index].mRate  = rate;
+			return;
+		}
+	}
+}
+
 extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 {
 	s16 id    = CEvt_Evaluate(evt);
@@ -13282,13 +13292,16 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 		if (anim == -1) {
 			break;
 		}
-		u32 frame = (u16)CEvt_Evaluate(evt);
+		u16 frame = CEvt_Evaluate(evt);
 		s16 rate  = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
 				CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) is collision!", id, anim, frame, rate, id));
 			} else if (count == 0) {
-				obj->mAnmQueue.Clear();
+				obj->mAnmQueue.mNext = 0;
+				for (int i = 0; i < 16; i++) {
+					obj->mAnmQueue.mEntry[i].mId = -1;
+				}
 				if (anim & 0xFFFF0000) {
 					s32 jointId     = anim & 0xFFFF;
 					s32 matId       = anim >> 16;
@@ -13304,15 +13317,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 				}
 				obj->UpdateAnim(1);
 			} else {
-				for (s32 i = 0; i < 16; i++) {
-					s32 index = (obj->mAnmQueue.mNext + i) % 16;
-					if (obj->mAnmQueue.mEntry[index].mId == -1) {
-						obj->mAnmQueue.mEntry[index].mId    = anim;
-						obj->mAnmQueue.mEntry[index].mFrame = frame;
-						obj->mAnmQueue.mEntry[index].mRate  = rate;
-						break;
-					}
-				}
+				CEvt_QueueAnim(obj, anim, frame, rate);
 			}
 		} else {
 			CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) killed!", id, anim, frame, rate, id));

@@ -11,11 +11,11 @@ extern void* __vt__12XObjLeticker[];
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" XObjLeticker* fn_800E25AC(XObjLeticker* leticker, s32 del)
+extern "C" XObjLeticker* __dt__12XObjLetickerFv(XObjLeticker* leticker, s32 del)
 {
 	if (leticker != NULL) {
 		*(void***)((u8*)leticker + 0x34) = __vt__12XObjLeticker;
-		fn_8000877C((XObj*)leticker, 0);
+		__dt__4XObjFv((XObj*)leticker, 0);
 		if ((s16)del > 0)
 			::operator delete(leticker);
 	}

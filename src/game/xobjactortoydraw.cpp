@@ -4,7 +4,7 @@
  * @note Address: 0x801220A8
  * @note Size: 0xA4
  */
-extern "C" void fn_801220A8(XObjActorToy* object)
+extern "C" void vfC8__12XObjActorToyFv(XObjActorToy* object)
 {
 	fn_80107600(object);
 	if (object->mFirst.mStatus.mFlags & 0x10000ULL)

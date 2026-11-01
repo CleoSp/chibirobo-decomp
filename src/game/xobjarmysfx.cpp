@@ -6,7 +6,7 @@
  * @note Address: 0x800E6A5C
  * @note Size: 0x114
  */
-extern "C" void fn_800E6A5C(XObjArmy* army)
+extern "C" void vf148__8XObjArmyFv(XObjArmy* army)
 {
 	u8 volume;
 	if (army->mFlags.mFlags & 0x100)

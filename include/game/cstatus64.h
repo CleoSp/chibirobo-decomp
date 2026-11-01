@@ -7,6 +7,8 @@
 // its own header since cgame.h can't take ut.h (cpad.h's CPad clashes with ut.h's)
 class CStatus64 {
 public:
+	CStatus64() { mFlags = 0; }
+
 	u64 mFlags; // _00
 	// _08 vtable
 

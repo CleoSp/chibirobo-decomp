@@ -11,11 +11,11 @@ extern void* __vt__7CTexObj[];
 extern void* __vt__8XObjDemo[];
 extern void* __vt__7CCamera[];
 extern void* __vt__4CVec[];
-Cursor* fn_8001AF70(Cursor* cursor);
-XObj* fn_8001AFAC(XObj* obj);
-XObjDemo* fn_8001B4B4(XObjDemo* demo);
+Cursor* __ct__6CursorFv(Cursor* cursor);
+XObj* __ct__4XObjFv(XObj* obj);
+XObjDemo* __ct__8XObjDemoFv(XObjDemo* demo);
 CTexObj* __ct__7CTexObjFv(CTexObj* tex);
-CLight* fn_8001B538(CLight* light);
+CLight* __ct__6CLightFv(CLight* light);
 void* __dt__7CTexObjFv(void* tex, s32 flags);
 void* __dt__6CLightFv(void* light, s32 flags);
 }
@@ -25,9 +25,9 @@ void* __dt__6CLightFv(void* light, s32 flags);
  * @note Address: 0x8001B3CC
  * @note Size: 0x3C
  */
-extern "C" MenuCursor* fn_8001B3CC(MenuCursor* cursor)
+extern "C" MenuCursor* __ct__10MenuCursorFv(MenuCursor* cursor)
 {
-	fn_8001AF70(cursor);
+	__ct__6CursorFv(cursor);
 	*(void***)((u8*)cursor + 0x34) = __vt__10MenuCursor; // _34 vtable
 	return cursor;
 }
@@ -37,15 +37,15 @@ extern "C" MenuCursor* fn_8001B3CC(MenuCursor* cursor)
  * @note Address: 0x8001B408
  * @note Size: 0xAC
  */
-extern "C" Title* fn_8001B408(Title* title)
+extern "C" Title* __ct__5TitleFv(Title* title)
 {
 #if defined(VERSION_JP)
 	*(void***)((u8*)title + 0x3C24) = __vt__5Title; // _3C24 vtable
 #else
 	*(void***)((u8*)title + 0x3C48) = __vt__5Title; // _3C48 vtable
 #endif
-	fn_8001AF70(&title->mCursor);
-	fn_8001B4B4(&title->mDemo);
+	__ct__6CursorFv(&title->mCursor);
+	__ct__8XObjDemoFv(&title->mDemo);
 	CTpl* tpl                          = &title->mTpl;
 	*(void***)((u8*)tpl + 0xE8)        = __vt__5CFile; // the inlined CFile ctor
 	tpl->mArchive                      = NULL;
@@ -64,9 +64,9 @@ extern "C" Title* fn_8001B408(Title* title)
  * @note Address: 0x8001B4B4
  * @note Size: 0x84
  */
-extern "C" XObjDemo* fn_8001B4B4(XObjDemo* demo)
+extern "C" XObjDemo* __ct__8XObjDemoFv(XObjDemo* demo)
 {
-	fn_8001AFAC(demo);
+	__ct__4XObjFv(demo);
 	*(void***)((u8*)demo + 0x34)            = __vt__8XObjDemo; // _34 vtable
 	*(void***)((u8*)&demo->mCamera + 0x190) = __vt__7CCamera;
 	*(void***)((u8*)&demo->mCamera + 0xA0)  = __vt__4CVec;
@@ -74,6 +74,6 @@ extern "C" XObjDemo* fn_8001B4B4(XObjDemo* demo)
 	*(void***)((u8*)&demo->mCamera + 0xC0)  = __vt__4CVec;
 	*(void***)((u8*)&demo->mCamera + 0xD0)  = __vt__4CVec;
 	*(void***)((u8*)&demo->mCamera + 0x124) = __vt__4CVec;
-	__construct_array(demo->mLights, (ConstructorDestructor)fn_8001B538, (ConstructorDestructor)__dt__6CLightFv, sizeof(CLight), 8);
+	__construct_array(demo->mLights, (ConstructorDestructor)__ct__6CLightFv, (ConstructorDestructor)__dt__6CLightFv, sizeof(CLight), 8);
 	return demo;
 }

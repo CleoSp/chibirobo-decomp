@@ -34,7 +34,7 @@ extern "C" XObjPlug* fn_800BCC4C(XObjPlug* plug, s32 flags)
 		*(void***)((u8*)plug + 0x34) = __vt__8XObjPlug;
 		fn_800BCD84(&plug->mWire, -1);
 		DestroyCord(&plug->mCord);
-		fn_8000877C(plug, 0);
+		__dt__4XObjFv(plug, 0);
 		if ((s16)flags > 0)
 			::operator delete(plug);
 	}

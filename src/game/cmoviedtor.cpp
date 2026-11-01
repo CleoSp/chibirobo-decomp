@@ -10,7 +10,7 @@ extern void* __vt__6CMovie[];
  * @note Address: 0x800192C8
  * @note Size: 0x48
  */
-extern "C" CMovie* fn_800192C8(CMovie* movie, s32 flags)
+extern "C" CMovie* __dt__6CMovieFv(CMovie* movie, s32 flags)
 {
 	if (movie != NULL) {
 		*(void***)((u8*)movie + 0xB4) = __vt__6CMovie; // _B4 vtable

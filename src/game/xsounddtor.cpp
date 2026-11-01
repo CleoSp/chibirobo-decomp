@@ -13,7 +13,7 @@ extern void* __vt__6XSound[];
  * @note Address: 0x800191A4
  * @note Size: 0x74
  */
-extern "C" XSound* fn_800191A4(XSound* sound, s32 flags)
+extern "C" XSound* __dt__6XSoundFv(XSound* sound, s32 flags)
 {
 	if (sound != NULL) {
 		*(void***)sound = __vt__6XSound;

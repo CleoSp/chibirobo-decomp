@@ -14,7 +14,7 @@ extern void* __vt__7Memcard[];
  * @note Address: 0x80019218
  * @note Size: 0x4C
  */
-extern "C" CCard* fn_80019218(CCard* card, s32 flags)
+extern "C" CCard* __dt__5CCardFv(CCard* card, s32 flags)
 {
 	if (card != NULL) {
 		*(void***)((u8*)card + 0xA020) = __vt__5CCard; // _A020 vtable
@@ -30,7 +30,7 @@ extern "C" CCard* fn_80019218(CCard* card, s32 flags)
  * @note Address: 0x80019264
  * @note Size: 0x64
  */
-extern "C" Memcard* fn_80019264(Memcard* memcard, s32 flags)
+extern "C" Memcard* __dt__7MemcardFv(Memcard* memcard, s32 flags)
 {
 	if (memcard != NULL) {
 		*(void***)((u8*)memcard + 0x16A20) = __vt__7Memcard; // _16A20 vtable

@@ -9,7 +9,7 @@ extern "C" void* __vt__18CInterpolationNone[];
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CInterpolationNone* fn_80009EC4(CInterpolationNone* interp, s32 flags)
+extern "C" CInterpolationNone* __dt__18CInterpolationNoneFv(CInterpolationNone* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__18CInterpolationNone;

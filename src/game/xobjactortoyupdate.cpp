@@ -18,7 +18,7 @@ void fn_80119774(XObjActorToy* object, u32 frames);
  * @note Address: 0x8011F29C
  * @note Size: 0x220
  */
-extern "C" void fn_8011F29C(XObjActorToy* object, u32 frames)
+extern "C" void vf148__12XObjActorToyFUl(XObjActorToy* object, u32 frames)
 {
 	fn_80107750(object, frames);
 	switch (object->GetKind()) {

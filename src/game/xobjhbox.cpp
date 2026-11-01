@@ -48,9 +48,20 @@ extern "C" void fn_800DF9A0(XObjDust* dust)
 extern "C" s32 fn_800DFB24(XObjDust* dust)
 {
 	s32 id = dust->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(2) + (u32)id);
+	if (id > 0) {
+		s32 base = fn_8006F390(2);
+		return base + id;
+	}
 	return 0;
+}
+
+// runs the box's script, unless the robot is busy
+static inline void SendEvt(XObjHBox* box, s32 msg)
+{
+	const void* script = box->vf128();
+	if (!fn_8009FDE4(lbl_8025C400.mPlayer)) {
+		fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)box, -1, msg);
+	}
 }
 
 /**
@@ -67,10 +78,7 @@ extern "C" u32 fn_800DFB68(XObjHBox* box, s32 unused, u32 flags)
 	box->mStatus.mFlags |= 0x4000000000000000ULL;
 	box->mPart.mHit = 1.0f;
 	fn_8001E904((CSound*)&lbl_8025C400.mSound, 285, 255);
-	const void* script = box->vf128();
-	if (!fn_8009FDE4(lbl_8025C400.mPlayer)) {
-		fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)box, -1, -1);
-	}
+	SendEvt(box, -1);
 	HSD_AudioSFXKeyOff(box->mPart.mSfx);
 	return 0;
 }

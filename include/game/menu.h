@@ -437,8 +437,8 @@ void fn_80033A68(MenuStageSelect* menu);
 // the hand over a menu, MenuEx's
 class MenuCursor : public Cursor {
 public:
-	MenuCursor();          // fn_8001B3CC
-	virtual ~MenuCursor(); // _08, fn_80008CD8
+	MenuCursor();          // __ct__10MenuCursorFv
+	virtual ~MenuCursor(); // _08, __dt__10MenuCursorFv
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(MenuCursor) == 0x978);
@@ -459,8 +459,8 @@ public:
 	MenuCursor mCursor; // _28, _38 in japan
 	// _9B0 vtable, then 4 bytes of padding
 
-	MenuEx() { }          // fn_8001B38C
-	virtual ~MenuEx() { } // _08, fn_80008C74
+	MenuEx() { }          // __ct__6MenuExFv
+	virtual ~MenuEx() { } // _08, __dt__6MenuExFv
 };
 STATIC_ASSERT(sizeof(MenuEx) == 0x9B8);
 

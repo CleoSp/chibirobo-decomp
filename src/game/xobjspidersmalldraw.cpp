@@ -5,7 +5,7 @@
  * @note Size: 0x28C
  */
 // draws the spider, then its fx_spider_01 where the fx is
-extern "C" void fn_800FDEF0(XObjSpiderSmall* spider)
+extern "C" void vfAC__15XObjSpiderSmallFv(XObjSpiderSmall* spider)
 {
 	spider->vfB0(NULL);
 	u8 index = spider->mFxIndex;

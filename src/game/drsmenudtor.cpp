@@ -17,7 +17,7 @@ static inline void SetVtable(OctaMenu* menu, void** vtable)
  * @note Address: 0x80093B7C
  * @note Size: 0x5C
  */
-extern "C" DrsMenu* fn_80093B7C(DrsMenu* menu, s32 flags)
+extern "C" DrsMenu* __dt__7DrsMenuFv(DrsMenu* menu, s32 flags)
 {
 	if (menu != NULL) {
 		SetVtable(menu, __vt__7DrsMenu);

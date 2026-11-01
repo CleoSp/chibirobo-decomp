@@ -11,7 +11,7 @@ extern void* __vt__7CStatus[];
  * @note Address: 0x80018CE0
  * @note Size: 0x48
  */
-extern "C" CStatus* fn_80018CE0(CStatus* status, s32 flags)
+extern "C" CStatus* __dt__7CStatusFv(CStatus* status, s32 flags)
 {
 	if (status != NULL) {
 		*(void***)((u8*)status + 0x4) = __vt__7CStatus; // _04 vtable

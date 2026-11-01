@@ -13,7 +13,7 @@ extern void* __vt__4CVec[];
  * @note Size: 0x10
  */
 // todo: weak copy
-extern "C" CStopwatch* fn_8001B97C(CStopwatch* watch)
+extern "C" CStopwatch* __ct__10CStopwatchFv(CStopwatch* watch)
 {
 	*(void***)((u8*)watch + 0x38) = __vt__10CStopwatch;
 	return watch;
@@ -24,7 +24,7 @@ extern "C" CStopwatch* fn_8001B97C(CStopwatch* watch)
  * @note Size: 0x2C
  */
 // todo: weak copy
-extern "C" CCamera* fn_8001B98C(CCamera* camera)
+extern "C" CCamera* __ct__7CCameraFv(CCamera* camera)
 {
 	*(void***)((u8*)camera + 0x190)           = __vt__7CCamera;
 	*(void***)((u8*)&camera->mEye + 0xC)      = __vt__4CVec;

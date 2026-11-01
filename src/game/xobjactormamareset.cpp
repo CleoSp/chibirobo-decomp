@@ -10,7 +10,7 @@ extern XObjActorMama::StateFunc lbl_8022D5E8;
  * @note Address: 0x8012926C
  * @note Size: 0xB0
  */
-extern "C" void fn_8012926C(XObjActorMama* object)
+extern "C" void vf15C__13XObjActorMamaFv(XObjActorMama* object)
 {
 	XObjChr* player = lbl_8025C400.mPlayer;
 	if (player->_980.mFlags & 0x40000000) {
@@ -34,7 +34,7 @@ extern "C" void fn_8012926C(XObjActorMama* object)
  * @note Address: 0x8012931C
  * @note Size: 0x24
  */
-extern "C" void fn_8012931C(XObjActorMama* object)
+extern "C" void vf150__13XObjActorPapaFv(XObjActorMama* object)
 {
 	object->mState = NULL;
 }
@@ -43,7 +43,7 @@ extern "C" void fn_8012931C(XObjActorMama* object)
  * @note Address: 0x80129340
  * @note Size: 0x58
  */
-extern "C" void fn_80129340(XObjActorMama* object, u32 frames)
+extern "C" void vf14C__13XObjActorPapaFUl(XObjActorMama* object, u32 frames)
 {
 	if (object->mState != NULL)
 		(object->*object->mState)(frames);

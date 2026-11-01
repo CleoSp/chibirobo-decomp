@@ -4,7 +4,7 @@
  * @note Address: 0x800F3180
  * @note Size: 0x4
  */
-extern "C" void fn_800F3180(XObjSpider* spider)
+extern "C" void vfB8__10XObjSpiderFv(XObjSpider* spider)
 {
 }
 
@@ -12,7 +12,7 @@ extern "C" void fn_800F3180(XObjSpider* spider)
  * @note Address: 0x800F3184
  * @note Size: 0x5C
  */
-extern "C" void fn_800F3184(XObjSpider* spider)
+extern "C" void vfAC__10XObjSpiderFv(XObjSpider* spider)
 {
 	spider->vfB0(NULL);
 	bool sideways = false;

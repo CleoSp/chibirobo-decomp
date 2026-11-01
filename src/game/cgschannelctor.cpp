@@ -11,7 +11,7 @@ extern void* __vt__11CGsTevStage[];
  * @note Size: 0x10
  */
 // todo: weak copy
-extern "C" CGsChannel* fn_8001BC14(CGsChannel* channel)
+extern "C" CGsChannel* __ct__10CGsChannelFv(CGsChannel* channel)
 {
 	*(void***)((u8*)channel + 0x34) = __vt__10CGsChannel;
 	return channel;
@@ -22,7 +22,7 @@ extern "C" CGsChannel* fn_8001BC14(CGsChannel* channel)
  * @note Size: 0x10
  */
 // todo: weak copy
-extern "C" CGsTevStage* fn_8001BC24(CGsTevStage* stage)
+extern "C" CGsTevStage* __ct__11CGsTevStageFv(CGsTevStage* stage)
 {
 	*(void***)((u8*)stage + 0x94) = __vt__11CGsTevStage;
 	return stage;

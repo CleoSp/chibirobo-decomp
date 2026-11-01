@@ -22,10 +22,10 @@ extern void* __vt__7CSphere[];
 extern void* __vt__9CCylinder[];
 extern void* __vt__6CTorus[];
 // the weak ctors and dtors of CGs's arrays
-CGsTevStage* fn_8001BC24(CGsTevStage* stage);
-CGsTevStage* fn_80008344(CGsTevStage* stage, s32 flags);
-CGsChannel* fn_8001BC14(CGsChannel* channel);
-CGsChannel* fn_8000838C(CGsChannel* channel, s32 flags);
+CGsTevStage* __ct__11CGsTevStageFv(CGsTevStage* stage);
+CGsTevStage* __dt__11CGsTevStageFv(CGsTevStage* stage, s32 flags);
+CGsChannel* __ct__10CGsChannelFv(CGsChannel* channel);
+CGsChannel* __dt__10CGsChannelFv(CGsChannel* channel, s32 flags);
 }
 
 /**
@@ -33,14 +33,16 @@ CGsChannel* fn_8000838C(CGsChannel* channel, s32 flags);
  * @note Size: 0x1A4
  */
 // todo: weak copy
-extern "C" CGs* fn_8001B9B8(CGs* gs)
+extern "C" CGs* __ct__3CGsFv(CGs* gs)
 {
 	*(void***)((u8*)gs + sizeof(CGs) - 4)                 = __vt__3CGs;
 	*(void***)((u8*)&gs->mScreen + sizeof(CGsScreen) - 4) = __vt__9CGsScreen;
 	gs->mScreen.mMode                                     = -1;
 	*(void***)((u8*)&gs->mRenderMode + 0x30)              = __vt__13CGsRenderMode;
-	__construct_array(gs->mTevStages, (ConstructorDestructor)fn_8001BC24, (ConstructorDestructor)fn_80008344, sizeof(CGsTevStage), 2);
-	__construct_array(gs->mChannels, (ConstructorDestructor)fn_8001BC14, (ConstructorDestructor)fn_8000838C, sizeof(CGsChannel), 4);
+	__construct_array(gs->mTevStages, (ConstructorDestructor)__ct__11CGsTevStageFv, (ConstructorDestructor)__dt__11CGsTevStageFv,
+	                  sizeof(CGsTevStage), 2);
+	__construct_array(gs->mChannels, (ConstructorDestructor)__ct__10CGsChannelFv, (ConstructorDestructor)__dt__10CGsChannelFv,
+	                  sizeof(CGsChannel), 4);
 	*(void***)((u8*)&gs->mFont + 0x13C)        = __vt__5CFont;
 	*(void***)((u8*)&gs->mFont.mTex + 0xFC)    = __vt__7CTexObj;
 	gs->mFont.mDesc.textureHeader              = NULL;

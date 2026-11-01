@@ -40,7 +40,7 @@ extern "C" void fn_8010CDDC(f32 x, f32 y, f32 z)
  * @note Address: 0x8010CE80
  * @note Size: 0x294
  */
-extern "C" void fn_8010CE80(XObjActor3* object, u32 speed)
+extern "C" void Kind15__10XObjActor3FUl(XObjActor3* object, u32 speed)
 {
 	switch (object->_B80) {
 	case 0:
@@ -77,7 +77,7 @@ extern "C" void fn_8010CE80(XObjActor3* object, u32 speed)
  * @note Address: 0x8010D114
  * @note Size: 0x27C
  */
-extern "C" void fn_8010D114(XObjActor3* object, u32 speed)
+extern "C" void Kind14__10XObjActor3FUl(XObjActor3* object, u32 speed)
 {
 	switch (object->_BEC) {
 	case 0:

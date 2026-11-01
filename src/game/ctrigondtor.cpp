@@ -10,7 +10,7 @@ extern void* __vt__7CTrigon[];
  * @note Address: 0x800931C8
  * @note Size: 0x48
  */
-extern "C" CTrigon* fn_800931C8(CTrigon* object, s32 flags)
+extern "C" CTrigon* __dt__7CTrigonFv(CTrigon* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x18) = __vt__7CTrigon;

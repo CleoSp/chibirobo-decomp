@@ -11,7 +11,7 @@ extern u32 lbl_8065B2BC;
  * @note Address: 0x800F373C
  * @note Size: 0x15C
  */
-extern "C" void fn_800F373C(XObjSpider* spider)
+extern "C" void Reset__10XObjSpiderFv(XObjSpider* spider)
 {
 	fn_800928E8(spider);
 	spider->mSfx.mEvents = lbl_8022AB90;
@@ -44,7 +44,7 @@ extern "C" void fn_800F373C(XObjSpider* spider)
  * @note Address: 0x800F3898
  * @note Size: 0x5C
  */
-extern "C" BOOL fn_800F3898(XObjSpider* spider, CoordInfo* info)
+extern "C" BOOL vf9C__10XObjSpiderFPv(XObjSpider* spider, CoordInfo* info)
 {
 	if (fn_80091C80(spider, info)) {
 		spider->mFlags.mFlags &= ~0x04000000U;

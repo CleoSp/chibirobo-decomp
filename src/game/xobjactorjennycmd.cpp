@@ -63,6 +63,6 @@ extern "C" s32 fn_8012305C(XObjActorJenny* object, s32 count, s32* command)
  * @note Address: 0x801232A8
  * @note Size: 0x4
  */
-extern "C" void fn_801232A8()
+extern "C" void StateIdle__14XObjActorJennyFUl()
 {
 }

@@ -11,21 +11,21 @@ extern "C" BOOL fn_80087854(Memcard* card, char* name, BOOL create)
 		card->mState = 7;
 		card->mCard.Create(name, 0xC000);
 		card->LogResult();
-		switch (card->mCard.mResult) {
-		case CARD_RESULT_READY:
-			break;
-		case CARD_RESULT_EXIST:
-			card->mState = 8;
-			card->mCard.Open(name);
-			card->LogResult();
-			if (card->mCard.mResult != CARD_RESULT_READY) {
+		if (card->mCard.mResult != CARD_RESULT_READY) {
+			switch (card->mCard.mResult) {
+			case CARD_RESULT_EXIST:
+				card->mState = 8;
+				card->mCard.Open(name);
+				card->LogResult();
+				if (card->mCard.mResult != CARD_RESULT_READY) {
+					card->mCard.Unmount();
+					return TRUE;
+				}
+				break;
+			default:
 				card->mCard.Unmount();
 				return TRUE;
 			}
-			break;
-		default:
-			card->mCard.Unmount();
-			return TRUE;
 		}
 	} else {
 		card->mState = 8;

@@ -4,7 +4,7 @@
  * @note Address: 0x800E8564
  * @note Size: 0x194
  */
-extern "C" void fn_800E8564(XObjArmy* army)
+extern "C" void State8564__8XObjArmyFv(XObjArmy* army)
 {
 	switch (army->mStep) {
 	case 0:

@@ -16,7 +16,7 @@ static inline void PlaceChild(XObj* child, const Vec& position)
  * @note Address: 0x80122978
  * @note Size: 0x64
  */
-extern "C" void fn_80122978(XObjActorToy* object)
+extern "C" void Release__12XObjActorToyFv(XObjActorToy* object)
 {
 	object->mFirst.Release();
 	object->mSecond.Release();
@@ -29,7 +29,7 @@ extern "C" void fn_80122978(XObjActorToy* object)
  * @note Address: 0x801229DC
  * @note Size: 0x1E8
  */
-extern "C" bool fn_801229DC(XObjActorToy* object, const CoordInfo& info)
+extern "C" bool vf9C__12XObjActorToyFPv(XObjActorToy* object, const CoordInfo& info)
 {
 	switch (object->GetKind()) {
 	case 15:
@@ -64,7 +64,7 @@ extern "C" bool fn_801229DC(XObjActorToy* object, const CoordInfo& info)
  * @note Address: 0x80122BC4
  * @note Size: 0x174
  */
-extern "C" void fn_80122BC4(XObjActorToy* object)
+extern "C" void Reset__12XObjActorToyFv(XObjActorToy* object)
 {
 	const u8* definitions = lbl_8022C7E0;
 	fn_801081F0(object);
@@ -112,7 +112,7 @@ extern "C" void fn_80122BC4(XObjActorToy* object)
  * @note Address: 0x80122D38
  * @note Size: 0x60
  */
-extern "C" void fn_80122D38(XObjActorToy* object)
+extern "C" void vf94__12XObjActorToyFv(XObjActorToy* object)
 {
 	fn_80108014(object);
 	object->mLoad = 0;
@@ -125,7 +125,7 @@ extern "C" void fn_80122D38(XObjActorToy* object)
  * @note Address: 0x80122D98
  * @note Size: 0x74
  */
-extern "C" void fn_80122D98(XObjActorToy* object, s32 argument)
+extern "C" void Init__12XObjActorToyFUl(XObjActorToy* object, s32 argument)
 {
 	fn_801083F0(object, argument);
 	object->mLoad = 0;
@@ -138,7 +138,7 @@ extern "C" void fn_80122D98(XObjActorToy* object, s32 argument)
  * @note Address: 0x80122E0C
  * @note Size: 0x24
  */
-extern "C" void fn_80122E0C(XObjActorJenny* object)
+extern "C" void vf150__14XObjActorJennyFv(XObjActorJenny* object)
 {
 	object->mState = NULL;
 }
@@ -147,7 +147,7 @@ extern "C" void fn_80122E0C(XObjActorJenny* object)
  * @note Address: 0x80122E30
  * @note Size: 0x58
  */
-extern "C" void fn_80122E30(XObjActorJenny* object, u32 frames)
+extern "C" void vf14C__14XObjActorJennyFUl(XObjActorJenny* object, u32 frames)
 {
 	if (object->mState != NULL)
 		(object->*object->mState)(frames);

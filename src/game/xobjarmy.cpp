@@ -11,7 +11,7 @@ extern AnimSfxEvent lbl_8022A5FC[];
  * @note Address: 0x800EA17C
  * @note Size: 0x144
  */
-extern "C" void fn_800EA17C(XObjArmy* army)
+extern "C" void Reset__8XObjArmyFv(XObjArmy* army)
 {
 	fn_800928E8(army);
 	lbl_8065B2A8        = 0;

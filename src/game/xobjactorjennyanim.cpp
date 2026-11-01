@@ -4,7 +4,7 @@
  * @note Address: 0x80124980
  * @note Size: 0x430
  */
-extern "C" void fn_80124980(XObjActorJenny* object, u32 frames)
+extern "C" void UpdateAnim__14XObjActorJennyFUl(XObjActorJenny* object, u32 frames)
 {
 	object->CXObjIntp::UpdateAnim(frames);
 	CJObj joint;

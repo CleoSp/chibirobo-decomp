@@ -14,7 +14,7 @@ extern void* __vt__4CVec[];
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CGenerator* fn_80008D80(CGenerator* generator, s32 flags)
+extern "C" CGenerator* __dt__10CGeneratorFv(CGenerator* generator, s32 flags)
 {
 	if (generator != NULL) {
 		*(void***)((u8*)generator + 0x8) = __vt__10CGenerator;
@@ -29,7 +29,7 @@ extern "C" CGenerator* fn_80008D80(CGenerator* generator, s32 flags)
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CVec* dtor_80008DC8(CVec* vec, s32 flags)
+extern "C" CVec* __dt__4CVecFv(CVec* vec, s32 flags)
 {
 	if (vec != NULL) {
 		*(void***)((u8*)vec + 0xC) = __vt__4CVec;

@@ -29,7 +29,7 @@ extern Dust2Rotations lbl_801FF240;
  * @note Address: 0x800245F0
  * @note Size: 0x10
  */
-extern "C" void fn_800245F0(CPtclOne* ptcl)
+extern "C" void Init__8CPtclOneFv(CPtclOne* ptcl)
 {
 	ptcl->mActive = FALSE;
 	ptcl->mTex    = NULL;
@@ -39,7 +39,7 @@ extern "C" void fn_800245F0(CPtclOne* ptcl)
  * @note Address: 0x80024600
  * @note Size: 0x1D8
  */
-extern "C" void fn_80024600(CPtclDust3* ptcl, CGs* gs)
+extern "C" void Draw__10CPtclDust3FP3CGs(CPtclDust3* ptcl, CGs* gs)
 {
 	if (ptcl->mActive == FALSE) {
 		return;
@@ -74,7 +74,7 @@ static inline void Move(CVec& pos, Vec offset)
  * @note Address: 0x800247D8
  * @note Size: 0x15C
  */
-extern "C" void fn_800247D8(CPtclDust3* ptcl, u32 frames)
+extern "C" void Update__10CPtclDust3FUl(CPtclDust3* ptcl, u32 frames)
 {
 	if (ptcl->mActive == FALSE) {
 		return;
@@ -99,7 +99,7 @@ extern "C" void fn_800247D8(CPtclDust3* ptcl, u32 frames)
  * @note Address: 0x80024934
  * @note Size: 0x1E8
  */
-extern "C" void fn_80024934(CPtclDust2* ptcl, CGs* gs)
+extern "C" void Draw__10CPtclDust2FP3CGs(CPtclDust2* ptcl, CGs* gs)
 {
 	if (ptcl->mActive == FALSE) {
 		return;
@@ -128,7 +128,7 @@ extern "C" void fn_80024934(CPtclDust2* ptcl, CGs* gs)
  * @note Address: 0x80024B1C
  * @note Size: 0x184
  */
-extern "C" void fn_80024B1C(CPtclDust2* ptcl, u32 frames)
+extern "C" void Update__10CPtclDust2FUl(CPtclDust2* ptcl, u32 frames)
 {
 	if (ptcl->mActive == FALSE) {
 		return;
@@ -174,7 +174,7 @@ extern "C" void fn_80024CA0(CPtcl* ptcl)
  * @note Address: 0x80024D80
  * @note Size: 0x4
  */
-extern "C" void fn_80024D80(CPtclOne* ptcl, CGs* gs)
+extern "C" void Draw__8CPtclOneFP3CGs(CPtclOne* ptcl, CGs* gs)
 {
 }
 
@@ -196,7 +196,7 @@ extern "C" void fn_80024D84(CPtcl* ptcl, u32 frames)
  * @note Address: 0x80024E08
  * @note Size: 0x4
  */
-extern "C" void fn_80024E08(CPtclOne* ptcl, u32 frames)
+extern "C" void Update__8CPtclOneFUl(CPtclOne* ptcl, u32 frames)
 {
 }
 

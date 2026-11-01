@@ -12,7 +12,7 @@ extern void* __vt__6CStack[];
 extern void* __vt__9CAnmQueue[];
 extern void* __vt__9CJArchive[];
 extern void* __vt__6CJAnim[];
-CXObjIntp* fn_8001B150(CXObjIntp* obj);
+CXObjIntp* __ct__9CXObjIntpFv(CXObjIntp* obj);
 }
 
 // todo: weak copy, CEvt's call data and stacks are still untyped in evt.h
@@ -20,9 +20,9 @@ CXObjIntp* fn_8001B150(CXObjIntp* obj);
  * @note Address: 0x8001AFAC
  * @note Size: 0x100
  */
-extern "C" XObj* fn_8001AFAC(XObj* obj)
+extern "C" XObj* __ct__4XObjFv(XObj* obj)
 {
-	fn_8001B150(obj);
+	__ct__9CXObjIntpFv(obj);
 	*(void***)((u8*)obj + 0x34)                          = __vt__4XObj; // _34 vtable
 	*(void***)((u8*)&obj->mStatus + 0x8)                 = __vt__9CStatus64;
 	*(u32*)((u8*)&obj->mStatus + 0x4)                    = 0;

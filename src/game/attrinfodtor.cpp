@@ -11,7 +11,7 @@ extern void* __vt__9CAnmQueue[];
  * @note Address: 0x800185B0
  * @note Size: 0x48
  */
-extern "C" AttrInfo* fn_800185B0(AttrInfo* info, s32 flags)
+extern "C" AttrInfo* __dt__8AttrInfoFv(AttrInfo* info, s32 flags)
 {
 	if (info != NULL) {
 		*(void***)((u8*)info + 0x8) = __vt__8AttrInfo; // _08 vtable
@@ -27,7 +27,7 @@ extern "C" AttrInfo* fn_800185B0(AttrInfo* info, s32 flags)
  * @note Address: 0x800185F8
  * @note Size: 0x48
  */
-extern "C" CAnmQueue* fn_800185F8(CAnmQueue* queue, s32 flags)
+extern "C" CAnmQueue* __dt__9CAnmQueueFv(CAnmQueue* queue, s32 flags)
 {
 	if (queue != NULL) {
 		*(void***)((u8*)queue + 0x84) = __vt__9CAnmQueue; // _84 vtable

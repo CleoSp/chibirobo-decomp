@@ -12,7 +12,7 @@ extern void* __vt__4CEvt[];
  * @note Address: 0x80019030
  * @note Size: 0x48
  */
-extern "C" CEvtData* fn_80019030(CEvtData* data, s32 flags)
+extern "C" CEvtData* __dt__8CEvtDataFv(CEvtData* data, s32 flags)
 {
 	if (data != NULL) {
 		*(void***)((u8*)data + 0x8) = __vt__8CEvtData; // _8 vtable
@@ -28,7 +28,7 @@ extern "C" CEvtData* fn_80019030(CEvtData* data, s32 flags)
  * @note Address: 0x80019078
  * @note Size: 0x48
  */
-extern "C" CStack* fn_80019078(CStack* stack, s32 flags)
+extern "C" CStack* __dt__6CStackFv(CStack* stack, s32 flags)
 {
 	if (stack != NULL) {
 		*(void***)((u8*)stack + 0xC) = __vt__6CStack; // _C vtable
@@ -45,7 +45,7 @@ extern "C" CStack* fn_80019078(CStack* stack, s32 flags)
  * @note Address: 0x800190C0
  * @note Size: 0x9C
  */
-extern "C" CEvt* fn_800190C0(CEvt* evt, s32 flags)
+extern "C" CEvt* __dt__4CEvtFv(CEvt* evt, s32 flags)
 {
 	if (evt != NULL) {
 		*(void***)((u8*)evt + 0x64) = __vt__4CEvt; // _64 vtable

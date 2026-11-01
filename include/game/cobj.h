@@ -132,9 +132,14 @@ public:
 	// _00-_80 = CJArchive
 	s32 mLoading; // _80, fn_8008A38C's step
 
-	virtual ~CJAnim();      // _08
+	virtual ~CJAnim() { }   // _08, inline, retail keeps a weak copy
 	virtual void Clear();   // _0C
 	virtual void Release(); // _18
+
+	// anims past 1000 come from this archive instead of the model's
+	void* GetAnimJoint(s32 id) { return mAnimJoint != NULL ? mAnimJoint[id % 1000] : NULL; }
+	void* GetMatAnimJoint(s32 id) { return mMatAnimJoint != NULL ? mMatAnimJoint[id % 1000] : NULL; }
+	void* GetShapeAnimJoint(s32 id) { return mShapeAnimJoint != NULL ? mShapeAnimJoint[id % 1000] : NULL; }
 };
 
 // a value with a target and a per frame speed to step it there
@@ -143,7 +148,7 @@ public:
 	CVec mTarget; // _10
 	CVec mSpeed;  // _20
 
-	bool Step(u32 frames);
+	u8 Step(u32 frames);
 
 	// puts it at a value with nowhere to go
 	void Reset(f32 x, f32 y, f32 z)

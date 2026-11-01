@@ -43,7 +43,7 @@ STATIC_ASSERT(sizeof(CEvtDtor) == sizeof(CEvt));
  * @note Size: 0x168
  */
 // todo: weak copy
-extern "C" XObj* fn_8000877C(XObj* object, s32 flags)
+extern "C" XObj* __dt__4XObjFv(XObj* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__4XObj;

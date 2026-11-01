@@ -8,7 +8,7 @@ extern "C" void* __vt__29CInterfaceVectorInterpolation[];
  * @note Address: 0x8001699C
  * @note Size: 0x48
  */
-extern "C" CInterfaceVectorInterpolation* fn_8001699C(CInterfaceVectorInterpolation* interp, s32 flags)
+extern "C" CInterfaceVectorInterpolation* __dt__29CInterfaceVectorInterpolationFv(CInterfaceVectorInterpolation* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__29CInterfaceVectorInterpolation;

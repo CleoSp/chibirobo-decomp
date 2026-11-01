@@ -14,7 +14,7 @@ STATIC_ASSERT(sizeof(JointPose) == 0x30);
  * @note Address: 0x8011B6C8
  * @note Size: 0x124
  */
-extern "C" void fn_8011B6C8(JointPose* pose, HSD_JObj* joint)
+extern "C" void Attach__5CJObjFP9_HSD_JObj(JointPose* pose, HSD_JObj* joint)
 {
 	pose->mJObj = joint;
 	HSD_JObjGetTranslation(pose->mJObj, &pose->mTranslate);

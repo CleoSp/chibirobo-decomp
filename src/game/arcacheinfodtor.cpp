@@ -8,7 +8,7 @@ extern "C" void* __vt__11ARCacheInfo[];
  * @note Address: 0x8001975C
  * @note Size: 0x48
  */
-extern "C" ARCacheInfo* fn_8001975C(ARCacheInfo* info, s32 flags)
+extern "C" ARCacheInfo* __dt__11ARCacheInfoFv(ARCacheInfo* info, s32 flags)
 {
 	if (info != NULL) {
 		*(void***)((u8*)info + 0x4008) = __vt__11ARCacheInfo; // _4008 vtable

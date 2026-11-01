@@ -11,7 +11,7 @@ extern void* __vt__5CJObj[];
  * @note Address: 0x80017134
  * @note Size: 0x88
  */
-extern "C" CObjVec* fn_80017134(CObjVec* obj, s32 flags)
+extern "C" CObjVec* __dt__7CObjVecFv(CObjVec* obj, s32 flags)
 {
 	if (obj != NULL) {
 		*(void***)((u8*)obj + 0xC) = __vt__7CObjVec; // _0C vtable
@@ -30,7 +30,7 @@ extern "C" CObjVec* fn_80017134(CObjVec* obj, s32 flags)
  * @note Address: 0x800171BC
  * @note Size: 0x88
  */
-extern "C" CJObj* fn_800171BC(CJObj* obj, s32 flags)
+extern "C" CJObj* __dt__5CJObjFv(CJObj* obj, s32 flags)
 {
 	if (obj != NULL) {
 		*(void***)((u8*)obj + 0x34) = __vt__5CJObj; // _34 vtable

@@ -9,8 +9,8 @@ extern "C" {
 extern void* __vt__5Title[];
 extern void* __vt__6Cursor[];
 CTexObj* __dt__7CTexObjFv(CTexObj* tex, s32 flags);
-XObjDemo* fn_80008B38(XObjDemo* demo, s32 flags);
-Cursor* fn_8000871C(Cursor* cursor, s32 flags);
+XObjDemo* __dt__8XObjDemoFv(XObjDemo* demo, s32 flags);
+Cursor* __dt__6CursorFv(Cursor* cursor, s32 flags);
 }
 
 /**
@@ -18,7 +18,7 @@ Cursor* fn_8000871C(Cursor* cursor, s32 flags);
  * @note Size: 0xCC
  */
 // todo: weak copy
-extern "C" Title* fn_80008650(Title* title, s32 flags)
+extern "C" Title* __dt__5TitleFv(Title* title, s32 flags)
 {
 	if (title != NULL) {
 #if defined(VERSION_JP)
@@ -28,8 +28,8 @@ extern "C" Title* fn_80008650(Title* title, s32 flags)
 #endif
 		__destroy_arr(title->mTex, (ConstructorDestructor*)__dt__7CTexObjFv, sizeof(CTexObj), 6);
 		title->mTpl.CTpl::~CTpl();
-		fn_80008B38(&title->mDemo, -1);
-		fn_8000871C(&title->mCursor, -1);
+		__dt__8XObjDemoFv(&title->mDemo, -1);
+		__dt__6CursorFv(&title->mCursor, -1);
 		if ((s16)flags > 0)
 			::operator delete(title);
 	}
@@ -41,11 +41,11 @@ extern "C" Title* fn_80008650(Title* title, s32 flags)
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" Cursor* fn_8000871C(Cursor* cursor, s32 flags)
+extern "C" Cursor* __dt__6CursorFv(Cursor* cursor, s32 flags)
 {
 	if (cursor != NULL) {
 		*(void***)((u8*)cursor + 0x34) = __vt__6Cursor;
-		fn_8000877C(cursor, 0);
+		__dt__4XObjFv(cursor, 0);
 		if ((s16)flags > 0)
 			::operator delete(cursor);
 	}

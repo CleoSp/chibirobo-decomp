@@ -4,7 +4,7 @@
  * @note Address: 0x800E13C4
  * @note Size: 0x7C
  */
-extern "C" s32 fn_800E13C4(XObjCoin* coin, s32 count, const u32* args)
+extern "C" s32 fn_800E13C4(XObjCoin* coin, s32 count, u32* args)
 {
 	if (count < 1)
 		return 0;

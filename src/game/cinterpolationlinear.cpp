@@ -5,7 +5,7 @@
  * @note Address: 0x80015F08
  * @note Size: 0xCC
  */
-extern "C" bool fn_80015F08(CVectorLinearInterpolation* interp, Vec from, Vec to, f32 time)
+extern "C" bool Start__26CVectorLinearInterpolationF3Vec3Vecf(CVectorLinearInterpolation* interp, Vec from, Vec to, f32 time)
 {
 	if (time < 0.0f) {
 		return false;
@@ -20,7 +20,7 @@ extern "C" bool fn_80015F08(CVectorLinearInterpolation* interp, Vec from, Vec to
  * @note Address: 0x80015FD4
  * @note Size: 0x30
  */
-extern "C" bool fn_80015FD4(CInterpolationLinear* interp, f32 from, f32 to, f32 time)
+extern "C" bool Start__20CInterpolationLinearFfff(CInterpolationLinear* interp, f32 from, f32 to, f32 time)
 {
 	// a zero time gets through and divides by zero
 	if (time < 0.0f) {
@@ -36,7 +36,7 @@ extern "C" bool fn_80015FD4(CInterpolationLinear* interp, f32 from, f32 to, f32 
  * @note Address: 0x80016004
  * @note Size: 0xB4
  */
-extern "C" bool fn_80016004(CVectorLinearInterpolation* interp, f32 dt)
+extern "C" bool Step__26CVectorLinearInterpolationFf(CVectorLinearInterpolation* interp, f32 dt)
 {
 	bool x = interp->mAxes[0].Step(dt);
 	bool y = interp->mAxes[1].Step(dt);
@@ -48,7 +48,7 @@ extern "C" bool fn_80016004(CVectorLinearInterpolation* interp, f32 dt)
  * @note Address: 0x800160B8
  * @note Size: 0x38
  */
-extern "C" bool fn_800160B8(CInterpolationLinear* interp, f32 dt)
+extern "C" bool Step__20CInterpolationLinearFf(CInterpolationLinear* interp, f32 dt)
 {
 	interp->mTime -= dt;
 	interp->mValue = interp->mSpeed * dt + interp->mValue;
@@ -59,7 +59,7 @@ extern "C" bool fn_800160B8(CInterpolationLinear* interp, f32 dt)
  * @note Address: 0x800160F0
  * @note Size: 0x2C
  */
-extern "C" bool fn_800160F0(CVectorLinearInterpolation* interp, u32 step, f32 dt)
+extern "C" bool Update__26CVectorLinearInterpolationFUlf(CVectorLinearInterpolation* interp, u32 step, f32 dt)
 {
 	return interp->Step(dt);
 }
@@ -68,7 +68,7 @@ extern "C" bool fn_800160F0(CVectorLinearInterpolation* interp, u32 step, f32 dt
  * @note Address: 0x8001611C
  * @note Size: 0xBC
  */
-extern "C" Vec fn_8001611C(CVectorLinearInterpolation* interp)
+extern "C" Vec Get__26CVectorLinearInterpolationFv(CVectorLinearInterpolation* interp)
 {
 	return CVec(interp->mAxes[0].Get(), interp->mAxes[1].Get(), interp->mAxes[2].Get());
 }
@@ -77,7 +77,7 @@ extern "C" Vec fn_8001611C(CVectorLinearInterpolation* interp)
  * @note Address: 0x800161D8
  * @note Size: 0x8
  */
-extern "C" f32 fn_800161D8(CInterpolationLinear* interp)
+extern "C" f32 Get__20CInterpolationLinearFv(CInterpolationLinear* interp)
 {
 	return interp->mValue;
 }

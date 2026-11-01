@@ -10,7 +10,7 @@ extern "C" void* __vt__20CMotionControlCamera[];
  * @note Size: 0x1A0
  */
 // todo: weak copy
-extern "C" CMotionControlCamera* fn_8000902C(CMotionControlCamera* camera, s32 flags)
+extern "C" CMotionControlCamera* __dt__20CMotionControlCameraFv(CMotionControlCamera* camera, s32 flags)
 {
 	if (camera != NULL) {
 		*(void***)((u8*)camera + 0x1F4) = __vt__20CMotionControlCamera;

@@ -8,7 +8,7 @@ extern "C" void* __vt__6CJAnim[];
  * @note Address: 0x8001B0AC
  * @note Size: 0x5C
  */
-extern "C" CJAnim* fn_8001B0AC(CJAnim* anim, s32 flags)
+extern "C" CJAnim* __dt__6CJAnimFv(CJAnim* anim, s32 flags)
 {
 	if (anim != NULL) {
 		*(void***)((u8*)anim + sizeof(CJArchive) - 4) = __vt__6CJAnim; // _7C vtable, _74 in japan

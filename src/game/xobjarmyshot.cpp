@@ -10,7 +10,7 @@ extern "C" {
  * @note Address: 0x800E6B70
  * @note Size: 0x308
  */
-extern "C" void fn_800E6B70(XObjArmyShot* shot)
+extern "C" void Update__8ArmyShotFUl(XObjArmyShot* shot)
 {
 	if (!shot->mActive)
 		return;

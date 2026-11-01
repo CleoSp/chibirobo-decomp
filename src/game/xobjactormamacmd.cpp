@@ -13,7 +13,7 @@ static inline CXObj* CommandTarget(s16 id)
  * @note Address: 0x80126638
  * @note Size: 0x210
  */
-extern "C" s32 fn_80126638(XObjActorMama* object, s32 count, s32* command)
+extern "C" s32 vf124__13XObjActorMamaFlPl(XObjActorMama* object, s32 count, s32* command)
 {
 	fn_801070A4(object, count, command);
 	switch (command[0]) {
@@ -60,6 +60,6 @@ extern "C" s32 fn_80126638(XObjActorMama* object, s32 count, s32* command)
  * @note Address: 0x80126848
  * @note Size: 0x4
  */
-extern "C" void fn_80126848()
+extern "C" void StateNone__13XObjActorMamaFUl()
 {
 }

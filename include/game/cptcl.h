@@ -25,9 +25,9 @@ public:
 	// _4C vtable
 
 	virtual ~CPtclOne() { }          // _08 (weak)
-	virtual void Reset();            // _0C, fn_800245F0
-	virtual void Update(u32 frames); // _10, fn_80024E08
-	virtual void Draw(CGs* gs);      // _14, fn_80024D80
+	virtual void Reset();            // _0C, Init__8CPtclOneFv
+	virtual void Update(u32 frames); // _10, Update__8CPtclOneFUl
+	virtual void Draw(CGs* gs);      // _14, Draw__8CPtclOneFP3CGs
 };
 typedef char CPtclOne_size_check[sizeof(CPtclOne) == 0x50 ? 1 : -1];
 
@@ -35,16 +35,16 @@ typedef char CPtclOne_size_check[sizeof(CPtclOne) == 0x50 ? 1 : -1];
 class CPtclDust3 : public CPtclOne {
 public:
 	virtual ~CPtclDust3() { }        // _08 (weak)
-	virtual void Update(u32 frames); // _10, fn_800247D8
-	virtual void Draw(CGs* gs);      // _14, fn_80024600
+	virtual void Update(u32 frames); // _10, Update__10CPtclDust3FUl
+	virtual void Draw(CGs* gs);      // _14, Draw__10CPtclDust3FP3CGs
 };
 
 // a puff that falls
 class CPtclDust2 : public CPtclOne {
 public:
 	virtual ~CPtclDust2() { }        // _08 (weak)
-	virtual void Update(u32 frames); // _10, fn_80024B1C
-	virtual void Draw(CGs* gs);      // _14, fn_80024934
+	virtual void Update(u32 frames); // _10, Update__10CPtclDust2FUl
+	virtual void Draw(CGs* gs);      // _14, Draw__10CPtclDust2FP3CGs
 };
 
 // a pool of particles of one kind, the array lives in the owner

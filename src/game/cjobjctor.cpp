@@ -10,7 +10,7 @@ extern void* __vt__4CVec[];
  * @note Size: 0x54
  */
 // todo: weak copy
-extern "C" CJObj* fn_80121AB4(CJObj* object)
+extern "C" CJObj* __ct__5CJObjFv(CJObj* object)
 {
 	*(void***)((u8*)object + 0x34)             = __vt__5CJObj;
 	*(void***)((u8*)&object->mTranslate + 0xC) = __vt__4CVec;

@@ -13,7 +13,7 @@ public:
 	f32 mAngle;      // _980, _970 in japan
 	f32 mAngleSpeed; // _984, it spins, the scale setters flip y for screen space
 
-	virtual ~Cursor(); // _08, fn_8000871C
+	virtual ~Cursor(); // _08, __dt__6CursorFv
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(Cursor) == 0x978);
@@ -101,7 +101,7 @@ public:
 #endif
 	// _3C48 vtable, _3C24 in japan
 
-	virtual ~Title(); // _08, fn_80008650
+	virtual ~Title(); // _08, __dt__5TitleFv
 
 	// todo: cleanup
 	void SetMode(s32 mode)

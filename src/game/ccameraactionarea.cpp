@@ -12,7 +12,7 @@ extern "C" {
 #include "game/cgs.h"
 }
 
-// the area action at 0xE7DF0 in the game object, fn_800095C0 puts __vt__17CCameraActionArea back
+// the area action at 0xE7DF0 in the game object, __dt__17CCameraActionAreaFv puts __vt__17CCameraActionArea back
 class CCameraActionArea : public CCameraActionAreaExM {
 public:
 	f32 _40;                                       // _40, transition time

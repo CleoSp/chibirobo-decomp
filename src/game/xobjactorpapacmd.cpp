@@ -13,7 +13,7 @@ static inline CXObj* CommandTarget(s16 id)
  * @note Address: 0x8012955C
  * @note Size: 0x210
  */
-extern "C" s32 fn_8012955C(XObjActorPapa* object, s32 count, s32* command)
+extern "C" s32 vf124__13XObjActorPapaFlPl(XObjActorPapa* object, s32 count, s32* command)
 {
 	fn_801070A4(object, count, command);
 	switch (command[0]) {

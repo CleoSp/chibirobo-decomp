@@ -99,15 +99,15 @@ void psInitDataBankLoad(s32 bank, s32* cmdBank, s32* texBank, void* ref, s32* fo
  */
 void psInitDataBankLocate(s32* cmdBank, s32* texBank, s32* formBank)
 {
-	s32* group;
+	s32 i;
 	s32 num2;
-	s32* groups;
+	s32* group;
 	s32* ptr;
 	s32 num;
 	s32* base;
 	s32 version;
 	s32 j;
-	s32 i;
+	s32* groups;
 
 	version = *(u16*)cmdBank;
 	switch (version) {
@@ -161,20 +161,19 @@ void psInitDataBankLocate(s32* cmdBank, s32* texBank, s32* formBank)
 			group++;
 		}
 
-		group = groups;
-		for (k = 0; k < num_groups; group++, k++) {
-			HSD_PSTexGroup* tg = (HSD_PSTexGroup*)group[0];
+		for (k = 0; k < num_groups; k++) {
+			HSD_PSTexGroup* tg = (HSD_PSTexGroup*)groups[k];
 			if (tg == NULL) {
 				continue;
 			}
 			{
 				s32 ti;
-				for (ti = 0; (u32)ti < ((HSD_PSTexGroup*)group[0])->num; ti++) {
-					if (((HSD_PSTexGroup*)group[0])->texTable[ti] != NULL) {
-						((HSD_PSTexGroup*)group[0])->texTable[ti] = (u8*)((u32)((HSD_PSTexGroup*)group[0])->texTable[ti] + (u32)texBank);
+				for (ti = 0; (u32)ti < ((HSD_PSTexGroup*)groups[k])->num; ti++) {
+					if (((HSD_PSTexGroup*)groups[k])->texTable[ti] != NULL) {
+						((HSD_PSTexGroup*)groups[k])->texTable[ti] += (u32)texBank;
 					}
 				}
-				tg = (HSD_PSTexGroup*)group[0];
+				tg = (HSD_PSTexGroup*)groups[k];
 			}
 			{
 				u32 fmt = tg->fmt;
@@ -185,24 +184,20 @@ void psInitDataBankLocate(s32* cmdBank, s32* texBank, s32* formBank)
 			if (tg->palflag & 1) {
 				i = tg->num;
 				if (tg->texTable[i] != NULL) {
-					tg->texTable[i] = (u8*)((u32)tg->texTable[i] + (u32)texBank);
+					tg->texTable[i] += (u32)texBank;
 				}
 			} else if (tg->palnum != 0) {
 				i = tg->num;
-				for (; (u32)i < ((HSD_PSTexGroup*)group[0])->num + ((HSD_PSTexGroup*)group[0])->palnum; i++) {
-					HSD_PSTexGroup* tg2 = (HSD_PSTexGroup*)group[0];
-					u8** entry          = &tg2->texTable[i];
-					if (*entry != NULL) {
-						*entry = (u8*)((u32)*entry + (u32)texBank);
+				for (; (u32)i < ((HSD_PSTexGroup*)groups[k])->num + ((HSD_PSTexGroup*)groups[k])->palnum; i++) {
+					if (((HSD_PSTexGroup*)groups[k])->texTable[i] != NULL) {
+						((HSD_PSTexGroup*)groups[k])->texTable[i] += (u32)texBank;
 					}
 				}
 			} else {
 				i = tg->num;
-				for (; (u32)i < ((HSD_PSTexGroup*)group[0])->num * 2; i++) {
-					HSD_PSTexGroup* tg2 = (HSD_PSTexGroup*)group[0];
-					u8** entry          = &tg2->texTable[i];
-					if (*entry != NULL) {
-						*entry = (u8*)((u32)*entry + (u32)texBank);
+				for (; (u32)i < ((HSD_PSTexGroup*)groups[k])->num * 2; i++) {
+					if (((HSD_PSTexGroup*)groups[k])->texTable[i] != NULL) {
+						((HSD_PSTexGroup*)groups[k])->texTable[i] += (u32)texBank;
 					}
 				}
 			}
@@ -882,6 +877,11 @@ void psDeletePntJObjwithParticle(HSD_Particle* pp)
 	}
 }
 
+static inline HSD_Particle* _psListGetNext(HSD_Particle* pp)
+{
+	return pp->next;
+}
+
 /**
  * @note Address: N/A
  * @note Size: 0x114
@@ -894,7 +894,7 @@ void psKillGeneratorChild(HSD_Generator* gp)
 
 	pp = _psListGetFirst(gp->linkNo);
 	while (pp != NULL) {
-		HSD_Particle* next = pp->next;
+		HSD_Particle* next = _psListGetNext(pp);
 		if (pp->idnum == idnum && pp->gen != NULL && pp->gen == gp) {
 			if (pp->gen != NULL) {
 				pp->gen->numChild--;

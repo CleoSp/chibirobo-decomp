@@ -8,7 +8,7 @@ extern "C" void* __vt__10CPtclDust3[];
  * @note Size: 0x98
  */
 // todo: weak copy
-extern "C" CPtclDust3* fn_80024558(CPtclDust3* ptcl, s32 flags)
+extern "C" CPtclDust3* __dt__10CPtclDust3Fv(CPtclDust3* ptcl, s32 flags)
 {
 	if (ptcl != NULL) {
 		*(void***)((u8*)ptcl + 0x4C) = __vt__10CPtclDust3;

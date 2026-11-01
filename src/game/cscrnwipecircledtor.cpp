@@ -9,7 +9,7 @@ extern "C" void* __vt__15CScrnWipeCircle[];
  * @note Address: 0x80018BD0
  * @note Size: 0x6C
  */
-extern "C" CScrnWipeCircle* fn_80018BD0(CScrnWipeCircle* wipe, s32 flags)
+extern "C" CScrnWipeCircle* __dt__15CScrnWipeCircleFv(CScrnWipeCircle* wipe, s32 flags)
 {
 	if (wipe != NULL) {
 		*(void***)((u8*)wipe + 0x30) = __vt__15CScrnWipeCircle; // _30 vtable

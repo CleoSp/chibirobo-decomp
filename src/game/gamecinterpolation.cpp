@@ -14,7 +14,7 @@ extern void* __vt__27CInterpolationEaseOutDivide[];
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CInterpolationLinear* fn_80009858(CInterpolationLinear* interp, s32 flags)
+extern "C" CInterpolationLinear* __dt__20CInterpolationLinearFv(CInterpolationLinear* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__20CInterpolationLinear;
@@ -30,7 +30,7 @@ extern "C" CInterpolationLinear* fn_80009858(CInterpolationLinear* interp, s32 f
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CInterpolationEaseInOut* fn_800098B4(CInterpolationEaseInOut* interp, s32 flags)
+extern "C" CInterpolationEaseInOut* __dt__23CInterpolationEaseInOutFv(CInterpolationEaseInOut* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__23CInterpolationEaseInOut;
@@ -46,7 +46,7 @@ extern "C" CInterpolationEaseInOut* fn_800098B4(CInterpolationEaseInOut* interp,
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CInterpolationEaseOut* fn_80009910(CInterpolationEaseOut* interp, s32 flags)
+extern "C" CInterpolationEaseOut* __dt__21CInterpolationEaseOutFv(CInterpolationEaseOut* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__21CInterpolationEaseOut;
@@ -62,7 +62,7 @@ extern "C" CInterpolationEaseOut* fn_80009910(CInterpolationEaseOut* interp, s32
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" CInterpolationEaseOutDivide* fn_8000996C(CInterpolationEaseOutDivide* interp, s32 flags)
+extern "C" CInterpolationEaseOutDivide* __dt__27CInterpolationEaseOutDivideFv(CInterpolationEaseOutDivide* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__27CInterpolationEaseOutDivide;

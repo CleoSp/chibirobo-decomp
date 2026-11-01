@@ -10,7 +10,7 @@ extern XObjActorJenny::StateFunc lbl_8022D388;
  * @note Address: 0x801262F0
  * @note Size: 0x12C
  */
-extern "C" void fn_801262F0(XObjActorJenny* object)
+extern "C" void vf15C__14XObjActorJennyFv(XObjActorJenny* object)
 {
 	XObjChr* player = lbl_8025C400.mPlayer;
 	if (player->_980.mFlags & 0x40000000) {
@@ -40,7 +40,7 @@ extern "C" void fn_801262F0(XObjActorJenny* object)
  * @note Address: 0x8012641C
  * @note Size: 0x24
  */
-extern "C" void fn_8012641C(XObjActorJenny* object)
+extern "C" void vf150__13XObjActorMamaFv(XObjActorJenny* object)
 {
 	object->mState = NULL;
 }
@@ -49,7 +49,7 @@ extern "C" void fn_8012641C(XObjActorJenny* object)
  * @note Address: 0x80126440
  * @note Size: 0x58
  */
-extern "C" void fn_80126440(XObjActorJenny* object, u32 frames)
+extern "C" void vf14C__13XObjActorMamaFUl(XObjActorJenny* object, u32 frames)
 {
 	if (object->mState != NULL)
 		(object->*object->mState)(frames);

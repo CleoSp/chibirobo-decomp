@@ -9,7 +9,7 @@ extern Vec lbl_8020AE68;
  * @note Address: 0x800FD9EC
  * @note Size: 0x14
  */
-extern "C" s32 fn_800FD9EC(XObjSpiderSmall* spider, s32 unused, s32 value)
+extern "C" s32 vf100__15XObjSpiderSmallFll(XObjSpiderSmall* spider, s32 unused, s32 value)
 {
 	spider->mSpiderStatus.mFlags |= 1;
 	return value;
@@ -20,7 +20,7 @@ extern "C" s32 fn_800FD9EC(XObjSpiderSmall* spider, s32 unused, s32 value)
  * @note Size: 0xBC
  */
 // hit from pos
-extern "C" void fn_800FDA00(XObjSpiderSmall* spider, const Vec* pos, f32 strength)
+extern "C" void vf138__15XObjSpiderSmallFPC3Vecf(XObjSpiderSmall* spider, const Vec* pos, f32 strength)
 {
 	u32 flags = spider->mSpiderStatus.mFlags;
 	if (flags & 2) {
@@ -88,7 +88,7 @@ extern "C" s32 fn_800FDABC(XObjSpiderSmall* spider, s32 count, const s32* args)
  * @note Address: 0x800FDBB0
  * @note Size: 0x4
  */
-extern "C" void fn_800FDBB0(XObjSpiderSmall* spider)
+extern "C" void vfC0__15XObjSpiderSmallFv(XObjSpiderSmall* spider)
 {
 }
 
@@ -96,7 +96,7 @@ extern "C" void fn_800FDBB0(XObjSpiderSmall* spider)
  * @note Address: 0x800FDBB4
  * @note Size: 0x4
  */
-extern "C" void fn_800FDBB4(XObjSpiderSmall* spider)
+extern "C" void vfCC__15XObjSpiderSmallFv(XObjSpiderSmall* spider)
 {
 }
 
@@ -104,6 +104,6 @@ extern "C" void fn_800FDBB4(XObjSpiderSmall* spider)
  * @note Address: 0x800FDBB8
  * @note Size: 0x4
  */
-extern "C" void fn_800FDBB8(XObjSpiderSmall* spider)
+extern "C" void vfC8__15XObjSpiderSmallFv(XObjSpiderSmall* spider)
 {
 }

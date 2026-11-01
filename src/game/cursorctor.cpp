@@ -3,7 +3,7 @@
 
 extern "C" {
 extern void* __vt__6Cursor[];
-XObj* fn_8001AFAC(XObj* obj);
+XObj* __ct__4XObjFv(XObj* obj);
 }
 
 // todo: weak copy
@@ -11,9 +11,9 @@ XObj* fn_8001AFAC(XObj* obj);
  * @note Address: 0x8001AF70
  * @note Size: 0x3C
  */
-extern "C" Cursor* fn_8001AF70(Cursor* cursor)
+extern "C" Cursor* __ct__6CursorFv(Cursor* cursor)
 {
-	fn_8001AFAC(cursor);
+	__ct__4XObjFv(cursor);
 	*(void***)((u8*)cursor + 0x34) = __vt__6Cursor; // _34 vtable
 	return cursor;
 }

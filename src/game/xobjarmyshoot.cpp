@@ -11,7 +11,7 @@ extern s32 lbl_8065B2A4;
  * @note Address: 0x800E7530
  * @note Size: 0x2C4
  */
-extern "C" void fn_800E7530(XObjArmy* army)
+extern "C" void Shoot__8XObjArmyFv(XObjArmy* army)
 {
 	CVec pos, vel;
 	s32 path[6] = { 0, 0, 4, 0, 0, 0 };

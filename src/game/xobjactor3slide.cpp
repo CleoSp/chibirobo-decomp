@@ -22,7 +22,7 @@ static inline Vec PlacedPos(XObjActor3* actor)
  * @note Size: 0x370
  */
 // slides 10 to the left from 0.42 of the day and back at half the day
-extern "C" void fn_8010BC0C(XObjActor3* actor, u32 frames)
+extern "C" void Kind18__10XObjActor3FUl(XObjActor3* actor, u32 frames)
 {
 	f32 time = lbl_8025C400.mTimeState.mTime;
 	switch (actor->_B80) {

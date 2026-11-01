@@ -3,7 +3,7 @@
 
 extern "C" {
 extern XObjArmy lbl_804924E8[21];
-XObjArmy* fn_800E6950(XObjArmy* object, s32 flags);
+XObjArmy* __dt__8XObjArmyFv(XObjArmy* object, s32 flags);
 }
 
 /**
@@ -13,7 +13,7 @@ XObjArmy* fn_800E6950(XObjArmy* object, s32 flags);
 // todo: weak copy
 extern "C" void fn_80133F40()
 {
-	__destroy_arr(lbl_804924E8, (ConstructorDestructor*)fn_800E6950, sizeof(XObjArmy), ARRAY_SIZE(lbl_804924E8));
+	__destroy_arr(lbl_804924E8, (ConstructorDestructor*)__dt__8XObjArmyFv, sizeof(XObjArmy), ARRAY_SIZE(lbl_804924E8));
 }
 
 /**

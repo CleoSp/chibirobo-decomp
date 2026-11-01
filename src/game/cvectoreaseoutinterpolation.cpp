@@ -5,7 +5,7 @@
  * @note Address: 0x80016610
  * @note Size: 0xD0
  */
-extern "C" bool fn_80016610(CVectorEaseOutInterpolation* interp, Vec from, Vec to, f32 time)
+extern "C" bool Start__27CVectorEaseOutInterpolationF3Vec3Vecf(CVectorEaseOutInterpolation* interp, Vec from, Vec to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
@@ -20,7 +20,7 @@ extern "C" bool fn_80016610(CVectorEaseOutInterpolation* interp, Vec from, Vec t
  * @note Address: 0x800166E0
  * @note Size: 0xC8
  */
-extern "C" bool fn_800166E0(CVectorEaseOutInterpolation* interp, u32 step, f32 dt)
+extern "C" bool Update__27CVectorEaseOutInterpolationFUlf(CVectorEaseOutInterpolation* interp, u32 step, f32 dt)
 {
 	bool x = interp->mAxes[0].Update(step, dt);
 	bool y = interp->mAxes[1].Update(step, dt);
@@ -32,7 +32,7 @@ extern "C" bool fn_800166E0(CVectorEaseOutInterpolation* interp, u32 step, f32 d
  * @note Address: 0x800167A8
  * @note Size: 0xB4
  */
-extern "C" bool fn_800167A8(CVectorEaseOutInterpolation* interp, f32 dt)
+extern "C" bool Step__27CVectorEaseOutInterpolationFf(CVectorEaseOutInterpolation* interp, f32 dt)
 {
 	bool x = interp->mAxes[0].Step(dt);
 	bool y = interp->mAxes[1].Step(dt);
@@ -44,7 +44,7 @@ extern "C" bool fn_800167A8(CVectorEaseOutInterpolation* interp, f32 dt)
  * @note Address: 0x8001685C
  * @note Size: 0xBC
  */
-extern "C" Vec fn_8001685C(CVectorEaseOutInterpolation* interp)
+extern "C" Vec Get__27CVectorEaseOutInterpolationFv(CVectorEaseOutInterpolation* interp)
 {
 	return CVec(interp->mAxes[0].Get(), interp->mAxes[1].Get(), interp->mAxes[2].Get());
 }

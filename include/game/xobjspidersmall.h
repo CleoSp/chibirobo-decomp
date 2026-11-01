@@ -116,7 +116,7 @@ struct XObjSpiderSmallWork {
 };
 
 extern "C" {
-XObjSpiderSmall* fn_800F49F0(XObjSpiderSmall* spider, s32 flags);
+XObjSpiderSmall* __dt__15XObjSpiderSmallFv(XObjSpiderSmall* spider, s32 flags);
 void fn_800F4DB8(XObjSpiderSmallFx* fx, const Vec* pos);
 u8 fn_800F5678(XObjSpiderSmall* spider);
 u8 fn_800F5684(XObjSpiderSmall* spider);

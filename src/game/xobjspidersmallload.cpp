@@ -6,7 +6,7 @@
  * @note Size: 0x398
  */
 // vf9C, also takes back what the spider was doing the last time the stage was left
-extern "C" BOOL fn_800FEDD0(XObjSpiderSmall* spider, const CoordInfo& info)
+extern "C" BOOL vf9C__15XObjSpiderSmallFPv(XObjSpiderSmall* spider, const CoordInfo& info)
 {
 	XObjSpiderSmallWork* work = &lbl_8037E7D0;
 	if (fn_80091C80(spider, &info)) {

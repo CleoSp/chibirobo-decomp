@@ -9,7 +9,7 @@ extern "C" void* __vt__9CoordInfo[];
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CoordInfo* fn_80012A34(CoordInfo* info, s32 flags)
+extern "C" CoordInfo* __dt__9CoordInfoFv(CoordInfo* info, s32 flags)
 {
 	if (info != NULL) {
 		*(void***)((u8*)info + 0x4) = __vt__9CoordInfo;

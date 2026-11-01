@@ -13,7 +13,7 @@ extern void* __vt__10CGsChannel[];
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CGsTevStage* fn_80008344(CGsTevStage* stage, s32 flags)
+extern "C" CGsTevStage* __dt__11CGsTevStageFv(CGsTevStage* stage, s32 flags)
 {
 	if (stage != NULL) {
 		*(void***)((u8*)stage + 0x94) = __vt__11CGsTevStage;
@@ -28,7 +28,7 @@ extern "C" CGsTevStage* fn_80008344(CGsTevStage* stage, s32 flags)
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CGsChannel* fn_8000838C(CGsChannel* channel, s32 flags)
+extern "C" CGsChannel* __dt__10CGsChannelFv(CGsChannel* channel, s32 flags)
 {
 	if (channel != NULL) {
 		*(void***)((u8*)channel + 0x34) = __vt__10CGsChannel;

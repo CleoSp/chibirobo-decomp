@@ -3,7 +3,7 @@
 
 extern "C" {
 extern XObjLeticker lbl_80467330[12];
-XObjLeticker* fn_800E25AC(XObjLeticker* object, s32 flags);
+XObjLeticker* __dt__12XObjLetickerFv(XObjLeticker* object, s32 flags);
 }
 
 /**
@@ -13,7 +13,7 @@ XObjLeticker* fn_800E25AC(XObjLeticker* object, s32 flags);
 // todo: weak copy
 extern "C" void fn_80134300()
 {
-	__destroy_arr(lbl_80467330, (ConstructorDestructor*)fn_800E25AC, sizeof(XObjLeticker), ARRAY_SIZE(lbl_80467330));
+	__destroy_arr(lbl_80467330, (ConstructorDestructor*)__dt__12XObjLetickerFv, sizeof(XObjLeticker), ARRAY_SIZE(lbl_80467330));
 }
 
 /**

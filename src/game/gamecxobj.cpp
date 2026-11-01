@@ -54,13 +54,13 @@ extern "C" CXObj* __dt__5CXObjFv(CXObj* object, s32 flags)
  * @note Size: 0xF4
  */
 // todo: weak copy
-extern "C" XObjDemo* fn_80008B38(XObjDemo* demo, s32 flags)
+extern "C" XObjDemo* __dt__8XObjDemoFv(XObjDemo* demo, s32 flags)
 {
 	if (demo != NULL) {
 		*(void***)((u8*)demo + 0x34) = __vt__8XObjDemo;
 		__destroy_arr(demo->mLights, (ConstructorDestructor*)__dt__6CLightFv, sizeof(CLight), 8);
 		demo->mCamera.CCamera::~CCamera();
-		fn_8000877C(demo, 0);
+		__dt__4XObjFv(demo, 0);
 		if ((s16)flags > 0)
 			::operator delete(demo);
 	}

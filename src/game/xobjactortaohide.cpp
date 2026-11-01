@@ -6,7 +6,7 @@
  * @note Address: 0x8012EFF4
  * @note Size: 0x320
  */
-extern "C" void fn_8012EFF4(XObjActorTao* object)
+extern "C" void Drop__12XObjActorTaoFv(XObjActorTao* object)
 {
 	u32 flags = object->_C8C.mFlags;
 	s32 kind  = -1;
