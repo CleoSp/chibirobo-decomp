@@ -338,15 +338,16 @@ inline void SavedObjFlagList::Apply(s32 mode)
 	s32 i;
 
 	if (mode != 0) {
+		s32 j;
 		if (mNum <= 0) {
 			return;
 		}
-		for (i = 0; i < mNum; i++) {
-			if (mEntries[i].mId == -1) {
+		for (j = 0; j < mNum; j++) {
+			if (mEntries[j].mId == -1) {
 				break;
 			}
-			UnkObj* obj = GetObjById(mEntries[i].mId);
-			if (mEntries[i].mFlags & 1) {
+			UnkObj* obj = GetObjById(mEntries[j].mId);
+			if (mEntries[j].mFlags & 1) {
 				obj->mFlags |= 0x10000ULL;
 			}
 		}
@@ -1454,7 +1455,6 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
  */
 extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 argc, s32* args)
 {
-	// NONMATCHING: clear pass register allocation
 	savedObjFlags.Apply(args[0]);
 	return 0;
 }

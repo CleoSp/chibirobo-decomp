@@ -20,11 +20,17 @@ HSD_Generator* fn_801E4C58(int linkNo, int bank, int kind, HSD_JObj* jobj);
 // one generator the game keeps track of, by the id it was made from
 class CGenerator {
 public:
+	CGenerator()
+	{
+		mId  = -1;
+		mGen = NULL;
+	}
+
 	s32 mId;             // _00
 	HSD_Generator* mGen; // _04
 	// _08 vtable
 
-	virtual ~CGenerator(); // _08
+	virtual ~CGenerator() { } // _08
 
 	void Kill()
 	{
@@ -52,7 +58,7 @@ public:
 	CGenerator mGenerators[CPARTICLE_GEN_NUM]; // _3C4
 	// _544 vtable
 
-	virtual ~CParticle(); // _08
+	virtual ~CParticle() { } // _08
 
 	void KillAll();
 	void Kill(HSD_Generator* gen);

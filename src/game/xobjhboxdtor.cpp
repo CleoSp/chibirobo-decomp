@@ -17,7 +17,7 @@ extern "C" XObjHBox* fn_800E239C(XObjHBox* box, s32 del)
 	if (box != NULL) {
 		*(void***)((u8*)box + 0x34) = __vt__8XObjHBox;
 		fn_800E240C(&box->mPart, -1);
-		fn_8000877C((XObj*)box, 0);
+		__dt__4XObjFv((XObj*)box, 0);
 		if ((s16)del > 0)
 			::operator delete(box);
 	}

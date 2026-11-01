@@ -112,17 +112,17 @@ public:
 		_20.y = y;
 		_20.z = z;
 	}
-	virtual void SetEye(Vec* v) { SetEye(v->x, v->y, v->z); }           // _38
-	virtual void SetInterest(Vec* v) { SetInterest(v->x, v->y, v->z); } // _3C
-	virtual void fn_5_168(Vec* v) { fn_5_1A0(v->x, v->y, v->z); }       // _40
-	virtual void fn_5_1B0(f32 v) { _30 = v; }                           // _44
-	virtual void SetFov(f32 v) { _34 = v; }                             // _48
-	virtual void fn_5_1C0(f32 v) { _20.z = v; }                         // _4C
-	virtual s32 GetMode() { return 0; }                                 // _50
-	virtual s32 GetFlags() { return _38; }                              // _54
-	virtual f32 GetEaseDivisor() { return 12.0f; }                      // _58
-	virtual s32 fn_5_1C8() { return 0; }                                // _5C
-	virtual s32 fn_5_1D0() { return 0; }                                // _60
+	virtual void SetEye(const Vec& v) { SetEye(v.x, v.y, v.z); }           // _38
+	virtual void SetInterest(const Vec& v) { SetInterest(v.x, v.y, v.z); } // _3C
+	virtual void fn_5_168(const Vec& v) { fn_5_1A0(v.x, v.y, v.z); }       // _40
+	virtual void fn_5_1B0(f32 v) { _30 = v; }                              // _44
+	virtual void SetFov(f32 v) { _34 = v; }                                // _48
+	virtual void fn_5_1C0(f32 v) { _20.z = v; }                            // _4C
+	virtual s32 GetMode() { return 0; }                                    // _50
+	virtual s32 GetFlags() { return _38; }                                 // _54
+	virtual f32 GetEaseDivisor() { return 12.0f; }                         // _58
+	virtual s32 fn_5_1C8() { return 0; }                                   // _5C
+	virtual s32 fn_5_1D0() { return 0; }                                   // _60
 };
 
 inline Vec MakeVec(f32 x, f32 y, f32 z)
@@ -245,6 +245,8 @@ struct Shot {
 
 // where the player is aiming and what's under it
 struct FighterAim {
+	FighterAim() { _18 = NULL; }
+
 	Vec _00;   // _00
 	f32 _0C;   // _0C
 	f32 _10;   // _10
@@ -273,7 +275,6 @@ struct ShotList {
 };
 
 struct Fighter {
-	Fighter() { _F4._18 = NULL; }
 	~Fighter() { }
 
 	UnkDolObj* _00; // _00
@@ -352,7 +353,7 @@ extern "C" s32 fn_8006F654(const char* name);
 extern "C" const char* fn_8006DBF0(s32 id);
 extern "C" f32 fn_801968BC(void* game, const char* text, s32 a, f32 size);
 extern "C" void fn_80197E90(void* game, s32 r, s32 g, s32 b, s32 a, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v, f32 rot);
-extern "C" void fn_80196610(void* game, s32 color, const char* text, ...);
+extern "C" void fn_80196610(void* game, s32 color, const char* text, f32 x, f32 y, f32 z, f32 sx, f32 sy, ...);
 extern "C" f64 sin(f64 x);
 extern "C" f64 cos(f64 x);
 
@@ -371,6 +372,14 @@ struct UnkGame_96BC {
 	u8 _9660[0x9794]; // _9660
 	s32 _12DF4;       // _12DF4
 };
+
+inline void ResetModelFlags(UnkGame_96BC* model)
+{
+	model->_980 = 0;
+	model->_980 |= 0x20000000;
+	model->_980 |= 7;
+	model->_12DF4 = 1;
+}
 
 // shadow offsets for the hud captions
 f32 captionShadowX[4] = { -2.0f, 2.0f, 2.0f, -2.0f };
@@ -3258,16 +3267,10 @@ extern "C" s32 GetShotEvent(void)
  */
 extern "C" void EndFighter(void)
 {
-	UnkGame_96BC* model;
-
 	if (fighterWork._00 == NULL) {
 		return;
 	}
-	model       = GAME_FIELD(UnkGame_96BC*, 0x96BC);
-	model->_980 = 0;
-	model->_980 |= 0x20000000;
-	model->_980 |= 7;
-	model->_12DF4 = 1;
+	ResetModelFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC));
 	HSD_JObjClearMtxFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC)->_00);
 	((CMotionControlCamera*)(lbl_8025C400 + 0xE5D38))->ChangeAction(GAME_FIELD(CInterfaceCameraAction*, 0xE5F0C));
 	if (fn_8001E6C8(lbl_8025C400 + 0xE7E24, 0x20004)) {
@@ -3672,14 +3675,13 @@ extern "C" void SetSpeedRateTable(u8* rates)
  */
 extern "C" void AddMato(UnkDolObj* obj, s32 id)
 {
-	MatoList* list = &matoList;
 	Mato* item;
 	s32 kind;
 
-	if (list->_00 >= ARRAY_SIZE(list->_2C)) {
+	if (matoList._00 >= ARRAY_SIZE(matoList._2C)) {
 		return;
 	}
-	item      = &list->_2C[list->_00++];
+	item      = &matoList._2C[matoList._00++];
 	item->_04 = obj;
 	item->_00 = id;
 	item->_1C = 0;
@@ -7407,14 +7409,14 @@ void fighter::CCameraActionFighter::Update()
 		v.x = v.y = v.z = 0.0f;
 		v.z             = 80.0f;
 		PSMTXMultVec(_40, &v, &v);
-		SetInterest(&v);
+		SetInterest(v);
 		v.x = v.z = 0.0f;
-		SetEye(&v);
+		SetEye(v);
 	} else {
 		PSMTXMultVec(_40, &_50, &v);
-		SetEye(&v);
+		SetEye(v);
 		PSMTXMultVec(_40, &_44, &v);
-		SetInterest(&v);
+		SetInterest(v);
 	}
 }
 

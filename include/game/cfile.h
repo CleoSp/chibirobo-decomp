@@ -13,8 +13,8 @@ class CFile : public DVDFileInfo {
 public:
 	CFile()
 	{
-		mEntrynum = -1;
 		mArchive  = NULL;
+		mEntrynum = -1;
 		mBuffer   = NULL;
 		mResult   = 0;
 		mState    = 1;

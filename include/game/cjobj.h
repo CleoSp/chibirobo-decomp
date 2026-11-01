@@ -5,8 +5,8 @@
 #include "game/hsd_jobj.h"
 #include "game/ut.h"
 
-// the dol's jobj wrapper, name from RTTI in shun and stage07. the three setters that leave
-// 0x24 bytes of .rodata in every file that sees them are in game/cjobjset.h, hori has none
+// the dol's jobj wrapper, name from RTTI in shun and stage07. the three setters that build
+// a Vec on the stack are in game/cjobjset.h, only the files that use them include it
 
 extern "C" s32 EulerToQuat(Vec* euler, Quaternion* q);
 

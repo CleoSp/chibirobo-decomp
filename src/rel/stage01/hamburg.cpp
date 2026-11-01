@@ -162,6 +162,17 @@ struct HamDish {
 	HamObj* _08[4];    // _08
 };
 
+static inline void AddToHamDish(HamDish* group, HamObj* slot)
+{
+	s32 i;
+	for (i = 0; i < 4; i++) {
+		if (group->_08[i] == NULL) {
+			group->_08[i] = slot;
+			break;
+		}
+	}
+}
+
 #define STAGE01_PLAYER    ((Stage01Actor*)lbl_8025C400.mPlayer)
 #define STAGE01_ACTORS    ((Stage01Actor**)lbl_8025C400.mObjects)
 #define STAGE01_OBJ_5D080 (&lbl_8025C400._5D080)
@@ -312,22 +323,6 @@ static Stage01Actor* tempActors[4];
 static CStatus yakiResultFlags;
 static u8 putDownActive;
 
-// todo: cleanup
-static inline HSD_JObj* FindChild(HSD_JObj* jobj, s32 index)
-{
-	if (jobj == NULL) {
-		return NULL;
-	}
-	jobj = jobj == NULL ? NULL : jobj->child;
-	for (; index > 0; index--) {
-		jobj = jobj == NULL ? NULL : jobj->next;
-		if (jobj == NULL) {
-			return NULL;
-		}
-	}
-	return jobj;
-}
-
 static inline bool IsActive(Stage01Actor* actor)
 {
 	if (actor == NULL) {
@@ -389,6 +384,12 @@ static inline HamObj* FindHamObjByActorInline(Stage01Actor* actor)
 		}
 	}
 	return NULL;
+}
+
+// the hamburger the player is carrying, if any
+static inline HamObj* FindHeldHamObj(Stage01Actor* held)
+{
+	return FindHamObjByActorInline(held);
 }
 
 static inline bool IsLeavingGasPlate(HamObj* slot)
@@ -838,7 +839,7 @@ extern "C" void InitStage(u32 arg)
  */
 extern "C" s32 CheckYakiResult(void)
 {
-	s32 i;
+	u32 i;
 	s32 result;
 	Stage01Actor* player;
 	HamObj* slot;
@@ -854,8 +855,8 @@ extern "C" s32 CheckYakiResult(void)
 
 	result = 0;
 	if (result == 0 && !(yakiResultFlags.mFlags & 2)) {
-		slot = hamObjs;
-		for (i = 0; i < 9 && result == 0; i++, slot++) {
+		for (i = 0; i < 9 && result == 0; i++) {
+			slot = &hamObjs[i];
 			if (IsActive(slot->mActor) && slot->mActor->_238.mKind->_00 == 0x1F9 && slot->_28[0] / 600 + 1 >= 3
 			    && slot->_28[1] / 600 + 1 >= 3) {
 				result = 1;
@@ -867,8 +868,8 @@ extern "C" s32 CheckYakiResult(void)
 	}
 
 	if (result == 0 && !(yakiResultFlags.mFlags & 4)) {
-		slot = hamObjs;
-		for (i = 0; i < 9 && result == 0; i++, slot++) {
+		for (i = 0; i < 9 && result == 0; i++) {
+			slot = &hamObjs[i];
 			if (IsActive(slot->mActor) && slot->mActor->_238.mKind->_00 == 0x1F9
 			    && (slot->_28[0] / 600 + 1 >= 5 || slot->_28[1] / 600 + 1 >= 5)) {
 				result = 2;
@@ -1177,7 +1178,6 @@ extern "C" void SetYakiRates(u8* data)
  */
 extern "C" s32 PutHeldHamObjOnDish(s32 id)
 {
-	s32 i;
 	Stage01Actor* player = STAGE01_PLAYER;
 	HamObj* slot;
 	HamDish* group;
@@ -1186,19 +1186,14 @@ extern "C" s32 PutHeldHamObjOnDish(s32 id)
 		return -1;
 	}
 
-	slot = FindHamObjByActorInline(player->_A64);
+	slot = FindHeldHamObj(player->_A64);
 	if (slot == NULL) {
 		return -1;
 	}
 
 	group     = FindHamDish(id);
 	slot->_34 = group;
-	for (i = 0; i < 4; i++) {
-		if (group->_08[i] == NULL) {
-			group->_08[i] = slot;
-			break;
-		}
-	}
+	AddToHamDish(group, slot);
 
 	if (player->_A48 == 4) {
 		player->_A48 = 6;
@@ -1877,6 +1872,8 @@ extern "C" HamObj* FindFreeHamObj(void)
  */
 extern "C" HamObj* FindFacingHamburg(void)
 {
+	f32 dist;
+	f32 c;
 	HamObj* best = NULL;
 	f32 bestDist = 0.0f;
 	u32 i;
@@ -1885,11 +1882,11 @@ extern "C" HamObj* FindFacingHamburg(void)
 		HamObj* slot        = &hamObjs[i];
 		Stage01Actor* actor = slot->mActor;
 		if (IsActive(actor) && (actor->_228 & 0x100000000ULL) && slot->_30 <= 0 && actor->_238.mKind->_00 == 0x1F9) {
-			f32 dist  = PSVECDistance(&STAGE01_PLAYER->_C8, &actor->_C8);
+			dist      = PSVECDistance(&STAGE01_PLAYER->_C8, &actor->_C8);
 			Vec* pos  = slot->GetPos();
 			Vec* ppos = &STAGE01_PLAYER->_C8;
 			f32 angle = atan2(pos->x - ppos->x, pos->z - ppos->z);
-			f32 c     = cos(angle - STAGE01_PLAYER->_FC);
+			c         = cos(angle - STAGE01_PLAYER->_FC);
 			if ((f32)cos(0.7853982f) < c && dist < 15.0f && (best == NULL || dist < bestDist)) {
 				best     = slot;
 				bestDist = dist;
@@ -2029,7 +2026,17 @@ extern "C" HamObj* FindFacingHamburg(void)
  */
 extern "C" HamObj* FindHamObjByActor(Stage01Actor* actor)
 {
-	return FindHamObjByActorInline(actor);
+	s32 i;
+	if (actor == NULL) {
+		return NULL;
+	}
+	for (i = 0; i < 9; i++) {
+		Stage01Actor* current = hamObjs[i].mActor;
+		if (current != NULL && current->_258 == actor->_258) {
+			return &hamObjs[i];
+		}
+	}
+	return NULL;
 }
 
 // FindHamObjByActor
@@ -2073,7 +2080,7 @@ extern "C" HamObj* FindHamObj(s32 id)
 {
 	s32 i;
 	if (id < 0) {
-		return FindHamObjByActorInline(STAGE01_PLAYER->_A64);
+		return FindHeldHamObj(STAGE01_PLAYER->_A64);
 	}
 	for (i = 0; i < 9; i++) {
 		if (hamObjs[i].mActor != NULL && id == hamObjs[i]._08) {
@@ -2625,14 +2632,27 @@ void HamObj::StateStackLand()
 	}
 }
 
+static inline bool IsHeldBy(Stage01Actor* actor, Stage01Actor* player)
+{
+	bool held = false;
+	if (player->_A48 != 0 && player->_A64 == actor) {
+		held = true;
+	}
+	return held;
+}
+
+static inline Stage01Actor* GetHamPlayer()
+{
+	return STAGE01_PLAYER;
+}
+
 /**
  * @note Address: stage01 .text 0x2350
  * @note Size: 0x9C4
  */
 void HamObj::StatePutDown()
 {
-	Stage01Actor* player = STAGE01_PLAYER;
-	Vec pos;
+	Stage01Actor* player = GetHamPlayer();
 	s32 level;
 
 	switch (mStateTime) {
@@ -2646,13 +2666,13 @@ void HamObj::StatePutDown()
 			break;
 		}
 
-		if (IsHeld(mActor)) {
-			STAGE01_PLAYER->_A64 = NULL;
+		if (IsHeldBy(mActor, player)) {
+			GetHamPlayer()->_A64 = NULL;
 		}
 		mActor->_228 &= ~0x400000000000000ULL;
-		_18 = player->_FC;
-		_20 = 2.0f;
-		pos = mActor->_C8;
+		_18     = player->_FC;
+		_20     = 2.0f;
+		Vec pos = mActor->_C8;
 		pos.x += 5.0f * (f32)sin(_18);
 		pos.z += 5.0f * (f32)cos(_18);
 
@@ -2662,7 +2682,7 @@ void HamObj::StatePutDown()
 			pos.y = _34->_00->_C8.y;
 			pos.z = _34->_00->_C8.z;
 			_30   = CountHamDishObjs(_34);
-			pos.y = mActor->_238.GetSize().y + 2.0f * _30;
+			pos.y = GetStackHeight();
 			mActor->vf_78(&pos, _20);
 			SetState(NULL);
 			STAGE01_PARTICLE->Kill(_3C);
@@ -2681,7 +2701,7 @@ void HamObj::StatePutDown()
 				pos.y     = base->mActor->_C8.y;
 				base->_00 = this;
 				_30       = base->_30 + 1;
-				pos.y     = mActor->_238.GetSize().y + 2.0f * _30;
+				pos.y     = GetStackHeight();
 				mActor->vf_78(&pos, _20);
 				SetState(&HamObj::StateStackLand);
 				UpdateHamPickupFlags();
@@ -2691,7 +2711,7 @@ void HamObj::StatePutDown()
 
 		UpdateHamPickupFlags();
 		_30   = 0;
-		pos.y = mActor->_238.GetSize().y + 2.0f * _30;
+		pos.y = GetStackHeight();
 		mActor->vf_78(&pos, _20);
 		mStateTime++;
 		break;
@@ -2700,8 +2720,8 @@ void HamObj::StatePutDown()
 		if (PSVECDistance(&mActor->_C8, &mActor->_D8) <= 0.001f) {
 			UpdateHamPickupFlags();
 			if (IsOnGasPlate(mActor)) {
-				pos   = mActor->_C8;
-				pos.y = mActor->_238.GetSize().y;
+				Vec pos = mActor->_C8;
+				pos.y   = mActor->_238.GetSize().y;
 				mActor->vf_78(&pos, 10.0f);
 				StartSlide(5.0f, 0.2f, _18);
 			} else {
@@ -3445,7 +3465,7 @@ void HamObj::StateFlip()
 			SetState(NULL);
 		}
 		break;
-	default:
+	case 2:
 		break;
 	}
 }
@@ -3728,7 +3748,7 @@ extern "C" void HamObj_StartSlide(HamObj* slot, f32 speed, f32 f, f32 angle)
 extern "C" void HamObj_StartFlip(HamObj* slot, u32 time)
 {
 	slot->_14 = time;
-	slot->_18 = atan2(slot->mActor->_C8.x - STAGE01_PLAYER->_C8.x, slot->mActor->_C8.z - STAGE01_PLAYER->_C8.z);
+	slot->_18 = AngleFrom(&STAGE01_PLAYER->_C8, &slot->mActor->_C8);
 	slot->SetState(&HamObj::StateFlip);
 }
 
@@ -3840,9 +3860,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
 		}
 
 		if (slot->_3C == 0) {
-			static const s32 path[] = { 0 };
-			HSD_JObj* jobj          = FindChild(slot->mActor->_00, path[0]);
-			slot->_3C               = STAGE01_PARTICLE->Create(0x78, 0, jobj, 1);
+			s32 path[]     = { 0 };
+			HSD_JObj* jobj = GetJointByPath(slot->mActor->_00, path, 1);
+			slot->_3C      = STAGE01_PARTICLE->Create(0x78, 0, jobj, 1);
 		}
 	}
 
@@ -3861,7 +3881,8 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
 			slot->StartSlide(0.0f, 0.5f, angle);
 		}
 
-		if (!putDownActive && !(slot->mActor->_228 & 0x100000000ULL) && (slot->_00 == NULL || slot->_30 == slot->_00->_30)) {
+		if (!putDownActive && !(slot->mActor->_228 & 0x100000000ULL)
+		    && (slot->_00 == NULL || (slot->_00 != NULL && slot->_30 == slot->_00->_30))) {
 			slot->mActor->_228 |= 0x100000000ULL;
 		}
 	}

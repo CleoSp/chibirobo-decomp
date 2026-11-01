@@ -1,93 +1,166 @@
 #ifndef _GAME_XOBJSPIDER_H
 #define _GAME_XOBJSPIDER_H
 
-#include "game/xobj.h"
-#include "game/csound.h"
+#include "game/scr.h"
 
-// a carried model, drawn with the object 0x13C model the spider claimed a slot for
-struct CarryInfo {
-	CVec mPos;           // _00
-	CVec _10;            // _10
-	f32 mAngle;          // _20
-	u8 _24[0x30 - 0x24]; // _24
-	CStatus mFlags;      // _30, 1 drawn
+// XObjSpider, game/xobjspider.cpp, the small spiders that walk the floor and the walls.
+// the class name is from its vtable, nothing else has a name in the dol. offsets are usa
+
+// __vt__7AnimSfx, plays the sounds an animation has at its frames. game/sound.cpp has the
+// methods, and no destructor, so the objects that hold one don't destroy it
+// one entry of an AnimSfx table, the sound an animation plays at a frame
+struct AnimSfxEntry {
+	s32 mAnim;    // _00, -1 ends the table
+	f32 mFrame;   // _04
+	u8 _08[0x10]; // _08
 };
-STATIC_ASSERT(sizeof(CarryInfo) == 0x38);
 
-// the spiders, offsets are usa, pal has 4 more bytes before _9C8 and 4 after the sfx
+class AnimSfx {
+public:
+	AnimSfxEntry* mTable; // _00
+	s32 mAnim;            // _04
+	f32 mFrame;           // _08
+	// _0C vtable
+
+	virtual void vf08();                           // _08
+	virtual void Play(s32 id, s32 vol, f32 frame); // _0C
+};
+
+// what an object is read from, game/xobjs.h has it but needs game/cobj.h, __vt__9CoordInfo
+class CoordInfo {
+public:
+	void* _00; // _00
+	// _04 vtable
+
+	CoordInfo(void* value)
+	    : _00(value)
+	{
+	}
+	virtual ~CoordInfo() { } // _08
+};
+
+// another object the spider holds on one of its joints
+struct UnkSpiderTie {
+	HSD_JObj* mJoint; // _00
+	XObj* mObj;       // _04
+	Mtx mMtx;         // _08
+};
+
+// one thing the spider moves and draws through another object's model, 0x3C bytes
+struct UnkSpiderPart {
+	CVec mPos;       // _00
+	CVec _10;        // _10
+	f32 mRotY;       // _20
+	f32 _24;         // _24
+	s32 mState;      // _28
+	s32 _2C;         // _2C
+	CStatus mStatus; // _30, 1 while it's shown
+	XObj* mObj;      // _38
+};
+
 class XObjSpider : public XObj {
 public:
-	typedef void (XObjSpider::*Func)(u32 frames);
+	f32 mDir;              // _980, the way it walks
+	f32 mSpeed;            // _984
+	f32 _988;              // _988
+	f32 _98C;              // _98C
+	f32 mTurnSpeed;        // _990
+	u8 _994[0x4];          // _994
+	f32 mThreadAlpha;      // _998, 0 to 1
+	f32 mRadius;           // _99C
+	f32 mFallSpeed;        // _9A0
+	s32 mState;            // _9A4
+	s32 mStep;             // _9A8
+	s32 mTimer;            // _9AC
+	CStatus mStatus;       // _9B0
+	s32 mPrevState;        // _9B8
+	s32 mWait;             // _9BC
+	f32 _9C0;              // _9C0
+	f32 _9C4;              // _9C4
+	Vec mHitPos;           // _9C8
+	Vec mHome;             // _9D4, y is the floor
+	f32 mHitDist;          // _9E0
+	s32 mWall;             // _9E4, 2 to 5 while it's on a wall
+	s32 mLife;             // _9E8
+	s32 mMaxLife;          // _9EC
+	Vec mWallPos;          // _9F0
+	Vec _9FC;              // _9FC
+	Vec _A08;              // _A08
+	Vec _A14;              // _A14
+	u8 _A20[0xC];          // _A20
+	Vec mShotTo;           // _A2C, where the part is shot at
+	f32 _A38;              // _A38
+	u8 _A3C[0x4];          // _A3C
+	f32 _A40;              // _A40
+	s32 _A44;              // _A44
+	s32 _A48;              // _A48
+	Vec mArea;             // _A4C, the corner of the floor it stays on
+	f32 mAreaW;            // _A58
+	f32 mAreaD;            // _A5C
+	Vec _A60;              // _A60
+	f32 _A6C;              // _A6C
+	s32 mArgs[6];          // _A70, what the last event command said
+	s32 _A88;              // _A88
+	UnkSpiderPart mPart;   // _A8C
+	UnkSpiderPart mPart2;  // _AC8
+	u8 mCarry;             // _B04, which of the carried objects, 0xFF for none
+	u8 _B05[0xB];          // _B05
+	s16 _B10;              // _B10
+	s32 _B14[4];           // _B14
+	s32 _B24[3];           // _B24
+	u8 _B30[0x20];         // _B30
+	s16 _B50;              // _B50
+	s32 _B54;              // _B54
+	s16 _B58;              // _B58
+	XObj* _B5C;            // _B5C
+	s32 _B60;              // _B60
+	Mtx _B64;              // _B64
+	s32 _B94;              // _B94
+	s32 _B98;              // _B98
+	s32 _B9C;              // _B9C
+	s32 mRumble;           // _BA0
+	s32 mRumbleTimer;      // _BA4
+	AnimSfx mSe;           // _BA8
+	UnkSpiderTie mTies[8]; // _BB8
 
-	// _00-_980 = XObj
-	u8 _980[0x984 - 0x980]; // _980
-	f32 mSpeed;             // _984
-	u8 _988[0x99C - 0x988]; // _988
-	f32 mRadius;            // _99C, shadow size, also kept off the area edges
-	u8 _9A0[0x9A4 - 0x9A0]; // _9A0
-	s32 mState;             // _9A4
-	s32 mPhase;             // _9A8
-	s32 mCounter;           // _9AC
-	CStatus mFlags;         // _9B0
-	s32 mPrevState;         // _9B8
-#if defined(VERSION_PAL)
-	u8 _9BC[0x9CC - 0x9BC]; // _9BC
-#else
-	u8 _9BC[0x9C8 - 0x9BC]; // _9BC
-#endif
-	Vec mHitPos;            // _9C8, where it was hit from
-	Vec mHome;              // _9D4
-	f32 mHitStrength;       // _9E0
-	s32 mCarryMode;         // _9E4, 3 carries it on its side
-	s32 mHits;              // _9E8, hits left
-	u8 _9EC[0xA4C - 0x9EC]; // _9EC
-	Vec mAreaPos;           // _A4C, corner of the area it stays in
-	f32 mAreaWidth;         // _A58
-	f32 mAreaDepth;         // _A5C
-	Vec mStartPos;          // _A60
-	u32 _A6C;               // _A6C
-	s32 mCommand;           // _A70, from the event scripts, 0 once handled
-	s32 mArgs[5];           // _A74
-	u32 _A88;               // _A88
-	CarryInfo mCarry;       // _A8C
-	u32 _AC4;               // _AC4
-	CarryInfo _AC8;         // _AC8
-	XObj* mSlotObj;         // _B00
-	u8 mSlot;               // _B04, 255 for none
-	u8 _B05[0xB58 - 0xB05]; // _B05
-	s16 mEffectId;          // _B58
-	u16 _B5A;               // _B5A
-	XObj* mEffect;          // _B5C
-	s32 mEffectOn;          // _B60
-	u8 _B64[0xBA8 - 0xB64]; // _B64
-	AnimSfx mSfx;           // _BA8
-#if defined(VERSION_PAL)
-	u8 _BB8[0xD7C - 0xBB8]; // _BB8
-#else
-	u8 _BB8[0xD78 - 0xBB8]; // _BB8
-#endif
+	virtual void Init(u32 id);                 // _90
+	virtual void vf94();                       // _94
+	virtual void Reset();                      // _98
+	virtual BOOL vf9C(void* info);             // _9C
+	virtual void Update(u32 frames);           // _A4
+	virtual void vfAC();                       // _AC
+	virtual void vfB8();                       // _B8
+	virtual void vfBC(Vec* pos, f32 scale);    // _BC
+	virtual void vfC0();                       // _C0
+	virtual void vfC8();                       // _C8
+	virtual void vfCC();                       // _CC
+	virtual s32 vf100(s32 a, s32 b);           // _100
+	virtual void vf138(const Vec* pos, f32 f); // _138
+	virtual void vf148();                      // _148, plays the sounds along the anim
+
+	// the states, sStates has them by number
+	void State0(u32 frames);
+	void State1(u32 frames);
+	void State2(u32 frames);
+	void State3(u32 frames);
+	void State4(u32 frames);
+	void State5(u32 frames);
+	void State6(u32 frames);
+	void State7(u32 frames);
+	void State8(u32 frames);
+	void State9(u32 frames);
+
+	// XObj's _25C, scr.h has it in its padding
+	s32 Get25C() const { return *(s32*)&_25C[0]; }
 
 	void SetState(s32 state)
 	{
-		mPhase     = 0;
-		mCounter   = 0;
+		mStep      = 0;
+		mTimer     = 0;
 		mPrevState = mState;
 		mState     = state;
 	}
-
-	XObjSpider();
 };
-#if defined(VERSION_JP)
-STATIC_ASSERT(sizeof(XObjSpider) == 0xD68);
-#elif defined(VERSION_PAL)
-STATIC_ASSERT(sizeof(XObjSpider) == 0xD80);
-#else
-STATIC_ASSERT(sizeof(XObjSpider) == 0xD78);
-#endif
-
-extern "C" {
-// draws a CarryInfo with the claimed slot's model
-void fn_800EAB58(CarryInfo* carry, u8 slot, bool sideways);
-}
+typedef char XObjSpider_size_check[sizeof(XObjSpider) == 0xD78 ? 1 : -1];
 
 #endif

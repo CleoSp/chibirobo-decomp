@@ -15,7 +15,7 @@ extern "C" XObjCamera* fn_80092AA4(XObjCamera* object, s32 flags)
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__10XObjCamera;
 		object->mCamera.CCamera::~CCamera();
-		fn_8000877C(object, 0);
+		__dt__4XObjFv(object, 0);
 		if ((s16)flags > 0)
 			::operator delete(object);
 	}

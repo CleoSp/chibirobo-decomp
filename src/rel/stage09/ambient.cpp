@@ -34,10 +34,19 @@ s32 CmdAddAna(s32 cmd, s32 argc, s32* argv);
 s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* argv);
 }
 
+class AmbientSeq;
+extern "C" void AmbientSeq_Update(AmbientSeq* seq, s32 dt);
+
 // one running sound script, commands are pairs or triples of ints
 class AmbientSeq {
 public:
 	AmbientSeq() { data = NULL; }
+	void Clear()
+	{
+		data = NULL;
+		pos  = 0;
+		wait = 0;
+	}
 
 	s32* data; // _00
 	s32 pos;   // _04
@@ -51,11 +60,33 @@ struct AmbientPlayer {
 	s32* _80;            // _80
 	s32 _84;             // _84
 
+	void UpdateSeqs(s32 dt)
+	{
+		u32 i;
+		for (i = 0; i < 10; i++) {
+			AmbientSeq* seq = &seqs[i];
+			if (seq->data != NULL) {
+				AmbientSeq_Update(seq, dt);
+			}
+		}
+	}
+
+	void Clear()
+	{
+		u32 i;
+		for (i = 0; i < 10; i++) {
+			seqs[i].Clear();
+		}
+		_00 = 0;
+		_80 = NULL;
+		_84 = 0;
+	}
+
 	void Start(s32* data)
 	{
-		AmbientSeq* seq = seqs;
 		u32 i;
-		for (i = 0; i < 10; i++, seq++) {
+		for (i = 0; i < 10; i++) {
+			AmbientSeq* seq = &seqs[i];
 			if (seq->data == NULL) {
 				seq->data = data;
 				seq->pos  = 0;
@@ -733,7 +764,6 @@ extern "C" void UpdateStage(s32 dt)
 {
 	void* sound = SOUND();
 	Vec pos;
-	u32 i;
 
 	if (fn_8001E6C8(sound, 0x12001A) != 0) {
 		HSD_AudioSFXSetPanByID(0x12001A, 0);
@@ -748,12 +778,7 @@ extern "C" void UpdateStage(s32 dt)
 		fn_8001E468(sound, 0x60005, fn_8001DF00(sound, &pos, 4), 0);
 	}
 	if (!ambient._00) {
-		for (i = 0; i < 10; i++) {
-			AmbientSeq* seq = &ambient.seqs[i];
-			if (seq->data != NULL) {
-				AmbientSeq_Update(seq, dt);
-			}
-		}
+		ambient.UpdateSeqs(dt);
 		if (ambient._80 != NULL) {
 			ambient._7C -= dt;
 			if (ambient._7C <= 0) {
@@ -888,18 +913,7 @@ extern "C" void UpdateStage(s32 dt)
  */
 extern "C" void InitStage(s32 dt)
 {
-	u32 i;
-
-	// NONMATCHING: retail loads the zero before mtctr and keeps it in r4, base in r5, regalloc only
-	for (i = 0; i < 10; i++) {
-		AmbientSeq* seq = &ambient.seqs[i];
-		seq->data       = NULL;
-		seq->pos        = 0;
-		seq->wait       = 0;
-	}
-	ambient._00 = 0;
-	ambient._80 = NULL;
-	ambient._84 = 0;
+	ambient.Clear();
 	InitAnas();
 }
 

@@ -86,6 +86,8 @@ struct Stage07Game {
 	s32 mPoolEntrySize;           // _985C (JP: _9814)
 	Stage07Actor* mActors[0x400]; // _9860 (JP: _9818)
 	s32 mActorCount;              // _A860 (JP: _A818)
+
+	Stage07Actor* GetActor(s32 index) const { return mActors[index]; }
 };
 
 #define STAGE07_GAME ((Stage07Game*)lbl_8025C400)
@@ -262,7 +264,7 @@ extern "C" void UpdateStage(void* arg)
 
 	if (fn_8001E6C8(obj, 0x1000D)) {
 		for (i = 0; i < STAGE07_GAME->mActorCount; i++) {
-			actor = STAGE07_GAME->mActors[i];
+			actor = STAGE07_GAME->GetActor(i);
 			if ((actor->_228 & 1) && (actor->_228 & 0x10000) && *actor->_238 == 0xD0) {
 				PSVECDistance(STAGE07_FIELD_E5DDC, &actor->_C8);
 				fn_8001E468(obj, 0x1000D, fn_8001DF00(obj, &actor->_C8, 1), 0);

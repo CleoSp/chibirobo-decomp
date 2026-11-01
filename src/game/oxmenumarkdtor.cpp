@@ -11,7 +11,7 @@ void operator delete(void* object);
 extern "C" OXMenuMark* fn_800BCFC4(OXMenuMark* mark, s32 flags)
 {
 	if (mark != NULL) {
-		fn_8000877C(&mark->mObj, -1);
+		__dt__4XObjFv(&mark->mObj, -1);
 		if ((s16)flags > 0)
 			::operator delete(mark);
 	}

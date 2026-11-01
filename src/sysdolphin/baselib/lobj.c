@@ -50,14 +50,14 @@ HSD_LObjInfo hsdLObj = { LObjInfoInit };
 
 static HSD_LObjInfo* default_class = NULL;
 
-static HSD_SList* current_lights;
+static HSD_SList* current_lights = NULL;
 static HSD_LObj* active_lights[MAX_GXLIGHT];
 static s32 nb_active_lights = 0;
 
-static s32 lightmask_diffuse;
-static s32 lightmask_specular;
-static s32 lightmask_attnfunc;
-static s32 lightmask_alpha;
+static s32 lightmask_diffuse  = 0;
+static s32 lightmask_specular = 0;
+static s32 lightmask_attnfunc = 0;
+static s32 lightmask_alpha    = 0;
 
 HSD_WObj* HSD_LObjGetPositionWObj(HSD_LObj*);
 HSD_WObj* HSD_LObjGetInterestWObj(HSD_LObj*);

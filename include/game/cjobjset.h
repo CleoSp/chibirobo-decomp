@@ -3,34 +3,50 @@
 
 #include "game/cjobj.h"
 
-// the three CJObj setters that build a Vec on the stack. the aggregate leaves a 0xC template
-// in .rodata of every file that sees it and most files that know CJObj have none, so only
-// the ones that emit or inline these include this. kept in this order, the templates then
-// land in .rodata the way retail has them
+// the three CJObj setters that compare against a Vec built on the stack. retail copies a
+// zeroed Vec and fills in x, y and z, a static zero gets that code without a .rodata
+// template. only the files that emit or inline these include this, kept in this order
 
 #pragma push
 #pragma pool_data on
 
+static inline Vec MakeJObjVec(const Vec& zero, f32 x, f32 y, f32 z)
+{
+	Vec v = zero;
+	v.x   = x;
+	v.y   = y;
+	v.z   = z;
+	return v;
+}
+
 inline void CJObj::SetRotation(f32 x, f32 y, f32 z, s32 force)
 {
 	if (force == 0) {
-		Vec v = { x, y, z };
+		static Vec zero;
 		// retail tests the cached translation here
-		if (!(mTranslate != v)) {
+		if (!(mTranslate != MakeJObjVec(zero, x, y, z))) {
 			return;
 		}
 	}
 	mRotate.x = x;
 	mRotate.y = y;
 	mRotate.z = z;
-	UpdateRotation();
+
+	if (mJObj->flags & USE_QUATERNION) {
+		Quaternion q;
+		EulerToQuat(&mRotate, &q);
+		HSD_JObjSetRotation(mJObj, &q);
+	} else {
+		// a CVec passed off as a quaternion, w ends up being its vtable pointer
+		HSD_JObjSetRotation(mJObj, (Quaternion*)&mRotate);
+	}
 }
 
 inline void CJObj::SetScale(f32 x, f32 y, f32 z, s32 force)
 {
 	if (force == 0) {
-		Vec v = { x, y, z };
-		if (!(mScale != v)) {
+		static Vec zero;
+		if (!(mScale != MakeJObjVec(zero, x, y, z))) {
 			return;
 		}
 	}
@@ -43,8 +59,8 @@ inline void CJObj::SetScale(f32 x, f32 y, f32 z, s32 force)
 inline void CJObj::SetTranslate(f32 x, f32 y, f32 z, s32 force)
 {
 	if (force == 0) {
-		Vec v = { x, y, z };
-		if (!(mTranslate != v)) {
+		static Vec zero;
+		if (!(mTranslate != MakeJObjVec(zero, x, y, z))) {
 			return;
 		}
 	}

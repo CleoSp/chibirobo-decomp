@@ -12,7 +12,7 @@ extern "C" XObjSpiderBoss* fn_80100264(XObjSpiderBoss* spider, s32 flags)
 	if (spider != NULL) {
 		*(void***)((u8*)spider + 0x34) = __vt__14XObjSpiderBoss;
 		spider->mSpiderStatus.CStatus::~CStatus();
-		fn_8000877C(spider, 0);
+		__dt__4XObjFv(spider, 0);
 		if ((s16)flags > 0) {
 			::operator delete(spider);
 		}
