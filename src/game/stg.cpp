@@ -52,7 +52,7 @@ u16 GXGetTexObjWidth(const GXTexObj* obj);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
 CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width);
 }
-extern "C" u32 lbl_8036781C[];
+extern "C" u32 gEvtFlags[];
 
 // japan has no language setting, its text is always japanese
 static inline bool IsJapanese()
@@ -1504,7 +1504,7 @@ extern "C" BOOL fn_80051C60()
 {
 	BOOL found = FALSE;
 	u32 id     = fn_8006DCFC(3);
-	if (lbl_8036781C[id / 32] & (1 << (id % 32))) {
+	if (gEvtFlags[id / 32] & (1 << (id % 32))) {
 		found = TRUE;
 	}
 	return found;
@@ -3664,7 +3664,7 @@ extern "C" void State0__6MenuPCFUl(MenuPC* menu)
 	}
 }
 
-extern "C" s32 lbl_80367A2C[];
+extern "C" s32 gEvtVars[];
 
 static inline s16 MenuHistoryValue(int i)
 {
@@ -3675,9 +3675,9 @@ static inline void RestorePCHistory(MenuPC* menu)
 {
 	if (menu->mHistoryCount > 0) {
 		for (int i = 0; i < menu->mHistoryCount; i++) {
-			lbl_80367A2C[menu->mHistoryStart + i + menu->mHistoryCount] = MenuHistoryValue(i);
+			gEvtVars[menu->mHistoryStart + i + menu->mHistoryCount] = MenuHistoryValue(i);
 		}
-		lbl_80367A2C[196] = menu->_384;
+		gEvtVars[196] = menu->_384;
 	}
 }
 
@@ -4223,11 +4223,11 @@ extern "C" void State7__6MenuPCFUl(MenuPC* menu, u32 frames)
 					menu->mDisplayScrap = scrap;
 					menu->mYesNo        = 2;
 					fn_8001E904(&lbl_8025C400.mSound, 0x30009, 0xFF);
-					lbl_80367A2C[menu->mCatalogBase + entry->mItem] = 1;
-					menu->mExitState                                = item;
-					s16& quantity                                   = entry->mCount;
-					s16 value                                       = quantity;
-					s32 remaining                                   = value;
+					gEvtVars[menu->mCatalogBase + entry->mItem] = 1;
+					menu->mExitState                            = item;
+					s16& quantity                               = entry->mCount;
+					s16 value                                   = quantity;
+					s32 remaining                               = value;
 					if (value > 0)
 						remaining = value - 1;
 					quantity = remaining;

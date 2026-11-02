@@ -18,7 +18,7 @@ inline void* operator new(size_t, void* storage)
  */
 extern "C" void fn_8007FDDC()
 {
-	__destroy_arr(lbl_8036AA3C, (ConstructorDestructor*)fn_80016F9C, sizeof(CCameraMemento), 4);
+	__destroy_arr(sEvtCameraMementos, (ConstructorDestructor*)fn_80016F9C, sizeof(CCameraMemento), 4);
 }
 
 // todo: weak copy

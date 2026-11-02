@@ -209,8 +209,8 @@ extern "C" void Update__5CGameFUl(CGame* game, u32 frames)
 		fn_8006D548(&game->mInfoScrn, frames);
 		game->mSubwin.Update(frames);
 		for (i = 0; i < 5; i++) {
-			if (!IsMirrorOff(&lbl_8035FA24[i])) {
-				Update__8FbMirrorFUl(&lbl_8035FA24[i], frames);
+			if (!IsMirrorOff(&sFbMirrors[i])) {
+				Update__8FbMirrorFUl(&sFbMirrors[i], frames);
 			}
 		}
 	}

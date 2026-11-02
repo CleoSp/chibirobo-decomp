@@ -13,9 +13,9 @@ static inline void ClearScript(CEvt* evt)
 
 static inline void ClearQueue()
 {
-	lbl_80369A3C.mRead = 0;
+	sEvtQueue.mRead = 0;
 	for (u32 i = 0; i < 128; ++i) {
-		lbl_80369A3C.mScript[i] = NULL;
+		sEvtQueue.mScript[i] = NULL;
 	}
 }
 
@@ -37,14 +37,14 @@ extern "C" void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s16 argument0, s
 	if (script == NULL)
 		return;
 	if (evt->mData.mScript != NULL && evt->_00 == 0) {
-		s32 cursor = lbl_80369A3C.mRead;
+		s32 cursor = sEvtQueue.mRead;
 		for (s32 i = 0; i < 128; ++i) {
 			s32 index = cursor % 128;
-			if (lbl_80369A3C.mScript[index] == NULL) {
-				lbl_80369A3C.mScript[index]  = script;
-				lbl_80369A3C.mContext[index] = context;
-				lbl_80369A3C.mArg0[index]    = argument0;
-				lbl_80369A3C.mArg1[index]    = argument1;
+			if (sEvtQueue.mScript[index] == NULL) {
+				sEvtQueue.mScript[index]  = script;
+				sEvtQueue.mContext[index] = context;
+				sEvtQueue.mArg0[index]    = argument0;
+				sEvtQueue.mArg1[index]    = argument1;
 				return;
 			}
 			++cursor;
@@ -80,8 +80,8 @@ extern "C" void fn_8007F040(CEvt* evt, BOOL clearTimers, BOOL clearGlobal)
 	if (evt->_00 == 0) {
 		if (clearTimers) {
 			for (u32 i = 0; i < 10; ++i) {
-				lbl_8036A050.mFrames[i] = 0;
-				lbl_8036A050.mValue[i]  = 0;
+				sEvtTimer.mFrames[i] = 0;
+				sEvtTimer.mValue[i]  = 0;
 			}
 		}
 		ClearQueue();

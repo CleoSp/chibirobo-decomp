@@ -609,7 +609,7 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 	anim |= ReadMsgU8(msg) << 16;
 	anim |= ReadMsgU8(msg) << 24;
 	if (flags & 1) {
-		anim = lbl_80367A2C[anim];
+		anim = gEvtVars[anim];
 	}
 	void* state = &lbl_8025C400.mEvt.mData;
 	XObj* obj   = *(void**)state != NULL ? fn_8007F570(state, id) : NULL;
@@ -693,9 +693,9 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
     stw      r3, 0x804(r28)
     or       r29, r29, r0
     beq      .L_80080638
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEvtVars@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEvtVars@l
     lwzx     r29, r3, r0
 .L_80080638:
     lis      r3, lbl_8025C400@ha
@@ -2012,7 +2012,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 			value |= ReadMsgU8(msg) << 16;
 			value |= ReadMsgU8(msg) << 24;
 			if (flags & 1) {
-				value = lbl_80367A2C[value];
+				value = gEvtVars[value];
 			}
 			msg->_445D8 = value;
 			waiting     = FALSE;
@@ -2362,9 +2362,9 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     stw      r3, 0x804(r31)
     or       r5, r5, r0
     beq      .L_8008193C
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEvtVars@ha
     slwi     r0, r5, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEvtVars@l
     lwzx     r5, r3, r0
 .L_8008193C:
     addis    r3, r31, 0x4

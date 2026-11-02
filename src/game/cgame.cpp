@@ -476,7 +476,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		game->mCMsgs[i].SetColor(lbl_80659EC0);
 	}
 	for (s32 i = 0; i < 5; i++) {
-		FbMirrorEx* mirror = &lbl_8035FA24[i];
+		FbMirrorEx* mirror = &sFbMirrors[i];
 		if (mirror->IsUsed()) {
 			if (mirror->mJoint != NULL) {
 				mirror->mJoint   = NULL;

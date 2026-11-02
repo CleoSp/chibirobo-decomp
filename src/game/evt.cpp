@@ -47,7 +47,7 @@ struct UnkEvtQueue {
 };
 STATIC_ASSERT(sizeof(UnkEvtQueue) == 0x614);
 
-extern "C" UnkEvtQueue lbl_80369A3C;
+extern "C" UnkEvtQueue sEvtQueue;
 
 extern "C" void CEvt_EvalSet(CEvt* evt);
 extern "C" s32 CEvt_Evaluate(CEvt* evt);
@@ -2439,7 +2439,7 @@ struct EvtTimerTable {
 	s32 _00[10]; // _00, frames left, 0 is a free slot
 	s32 _28[10]; // _28
 };
-extern "C" EvtTimerTable lbl_8036A050;
+extern "C" EvtTimerTable sEvtTimer;
 
 #if defined(VERSION_PAL)
 // the refresh rate, 50 or 60
@@ -2461,9 +2461,9 @@ extern "C" s32 CEvt__cmd_TIMER(CEvt* evt)
 		frames = 1;
 	}
 	for (s32 i = 0; i < 10; i++) {
-		if (lbl_8036A050._00[i] == 0) {
-			lbl_8036A050._00[i] = frames;
-			lbl_8036A050._28[i] = value;
+		if (sEvtTimer._00[i] == 0) {
+			sEvtTimer._00[i] = frames;
+			sEvtTimer._28[i] = value;
 			break;
 		}
 	}
@@ -9286,7 +9286,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		camera->EndEye();
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
-			camera->CreateMemento(&lbl_8036AA3C[slot]);
+			camera->CreateMemento(&sEvtCameraMementos[slot]);
 		} else {
 			evt->mCameraMemento = camera->CreateMemento(NULL);
 		}
@@ -9295,7 +9295,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 	case 237: { // restore camera
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
-			lbl_8025C400.mMotionControlCamera.SetMemento(&lbl_8036AA3C[slot]);
+			lbl_8025C400.mMotionControlCamera.SetMemento(&sEvtCameraMementos[slot]);
 		} else if (evt->mCameraMemento != NULL) {
 			lbl_8025C400.mMotionControlCamera.SetMemento(evt->mCameraMemento);
 			evt->mCameraMemento = NULL;
@@ -10199,9 +10199,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x0
     blt      .L_800784E0
-    lis      r4, lbl_8036AA3C@ha
+    lis      r4, sEvtCameraMementos@ha
     slwi     r5, r3, 6
-    addi     r0, r4, lbl_8036AA3C@l
+    addi     r0, r4, sEvtCameraMementos@l
     mr       r3, r25
     add      r4, r0, r5
     bl       fn_80148B00
@@ -10218,11 +10218,11 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     cmpwi    r3, 0x0
     blt      .L_8007852C
     lis      r5, lbl_8025C400@ha
-    lis      r4, lbl_8036AA3C@ha
+    lis      r4, sEvtCameraMementos@ha
     addi     r6, r5, lbl_8025C400@l
     slwi     r5, r3, 6
     addis    r3, r6, 0xe
-    addi     r0, r4, lbl_8036AA3C@l
+    addi     r0, r4, sEvtCameraMementos@l
     add      r4, r0, r5
     addi     r3, r3, 0x5d38
     bl       fn_801487CC
@@ -12275,9 +12275,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_8007A1D0
     b        .L_8007A474
 .L_8007A228:
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     lwz      r0, 0x40(r1)
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraActionAreaEx@l
     lis      r3, __vt__11CamAreaInfo@ha
     lwz      r5, 0x20(r4)
     extsh    r6, r0
@@ -12305,9 +12305,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_8007A254
     b        .L_8007A474
 .L_8007A290:
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     lwz      r0, 0x40(r1)
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraActionAreaEx@l
     lis      r3, __vt__11CamAreaInfo@ha
     lwz      r5, 0x20(r4)
     extsh    r6, r0
@@ -12832,7 +12832,7 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 
 static inline void EvtQueue_Push(u8* script, u32 owner, s16 tag1, s16 tag2)
 {
-	UnkEvtQueue* queue = &lbl_80369A3C;
+	UnkEvtQueue* queue = &sEvtQueue;
 	s32 cursor         = queue->_00;
 	for (s32 i = 0; i < 128; i++, cursor++) {
 		s32 index = cursor % 128;
@@ -12863,9 +12863,9 @@ static inline void CEvt_Attach(CEvt* evt, u8* script, u32 owner, s16 tag1 = -1, 
 	evt->mFrames.mCount = 0;
 	evt->mValues.mCount = 0;
 	if (evt->_00 == 0) {
-		lbl_80369A3C._00 = 0;
+		sEvtQueue._00 = 0;
 		for (s32 i = 0; i < 128; i++) {
-			lbl_80369A3C._04[i] = NULL;
+			sEvtQueue._04[i] = NULL;
 		}
 	}
 	evt->_10           = 0;
@@ -13015,9 +13015,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     lwz      r0, 0x7a4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007AB48
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, sEvtQueue@ha
     li       r0, 0x80
-    addi     r5, r4, lbl_80369A3C@l
+    addi     r5, r4, sEvtQueue@l
     lwz      r8, 0x0(r5)
     mtctr    r0
 .L_8007AAE8:
@@ -13031,9 +13031,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     lwz      r0, 0x4(r4)
     cmplwi   r0, 0x0
     bne      .L_8007AB3C
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, sEvtQueue@ha
     slwi     r7, r7, 1
-    addi     r5, r4, lbl_80369A3C@l
+    addi     r5, r4, sEvtQueue@l
     li       r0, -0x1
     add      r4, r5, r9
     stw      r3, 0x4(r4)
@@ -13059,8 +13059,8 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     cmplwi   r0, 0x0
     bne      .L_8007AC08
     li       r0, 0x4
-    lis      r4, lbl_80369A3C@ha
-    stwu     r5, lbl_80369A3C@l(r4)
+    lis      r4, sEvtQueue@ha
+    stwu     r5, sEvtQueue@l(r4)
     mtctr    r0
 .L_8007AB84:
     stw      r5, 0x4(r4)
@@ -14238,7 +14238,7 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
 extern "C" s32 CEvt__cmd_ABORT(CEvt* evt)
 {
 	if (evt->_00 == 0) {
-		UnkEvtQueue* queue = &lbl_80369A3C;
+		UnkEvtQueue* queue = &sEvtQueue;
 		s32 idx            = queue->_00;
 		u8* script         = queue->_04[idx];
 		u32 val08          = queue->_208[idx];
@@ -14270,7 +14270,7 @@ extern "C" s32 CEvt__cmd_RETURN(CEvt* evt)
 	}
 	// nothing to return to, end the script like ABORT
 	if (evt->_00 == 0) {
-		UnkEvtQueue* queue = &lbl_80369A3C;
+		UnkEvtQueue* queue = &sEvtQueue;
 		s32 idx            = queue->_00;
 		u8* script         = queue->_04[idx];
 		u32 val08          = queue->_208[idx];
@@ -14703,9 +14703,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 4096) {
 				if (value != 0) {
-					lbl_8036781C[(u32)index >> 5] |= 1U << (index & 31);
+					gEvtFlags[(u32)index >> 5] |= 1U << (index & 31);
 				} else {
-					lbl_8036781C[(u32)index >> 5] &= ~(1U << (index & 31));
+					gEvtFlags[(u32)index >> 5] &= ~(1U << (index & 31));
 				}
 			} else if (index != -1 && index != -2 && index != -3) {
 				OSPanic("evt.cpp", 1107, "%s%s", fn_801911B4("Invalid EvalSet flag[%d] - 0~%d\n", index, 4096), "EvalSet");
@@ -14714,7 +14714,7 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 		case EVT_EXPR_VAR:
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 2048) {
-				lbl_80367A2C[index] = value;
+				gEvtVars[index] = value;
 			} else {
 				OSPanic("evt.cpp", 1116, "%s%s", fn_801911B4("Invalid EvalSet var[%d] - 0~%d\n", index, 2048), "EvalSet");
 			}
@@ -15111,9 +15111,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bge      .L_8007C448
     cmpwi    r31, 0x0
     beq      .L_8007C420
-    lis      r4, lbl_8036781C@ha
+    lis      r4, gEvtFlags@ha
     rlwinm   r6, r3, 29, 3, 29
-    addi     r5, r4, lbl_8036781C@l
+    addi     r5, r4, gEvtFlags@l
     clrlwi   r0, r3, 27
     li       r3, 0x1
     lwzx     r4, r5, r6
@@ -15122,9 +15122,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     stwx     r0, r5, r6
     b        .L_8007CA98
 .L_8007C420:
-    lis      r4, lbl_8036781C@ha
+    lis      r4, gEvtFlags@ha
     rlwinm   r6, r3, 29, 3, 29
-    addi     r5, r4, lbl_8036781C@l
+    addi     r5, r4, gEvtFlags@l
     clrlwi   r0, r3, 27
     li       r3, 0x1
     lwzx     r4, r5, r6
@@ -15158,9 +15158,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     blt      .L_8007C4BC
     cmpwi    r3, 0x800
     bge      .L_8007C4BC
-    lis      r4, lbl_80367A2C@ha
+    lis      r4, gEvtVars@ha
     slwi     r0, r3, 2
-    addi     r3, r4, lbl_80367A2C@l
+    addi     r3, r4, gEvtVars@l
     stwx     r31, r3, r0
     b        .L_8007CA98
 .L_8007C4BC:
@@ -15684,7 +15684,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_FLAG:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 4096) {
-			result = (lbl_8036781C[(u32)result >> 5] & (1U << (result & 31))) ? 1 : 0;
+			result = (gEvtFlags[(u32)result >> 5] & (1U << (result & 31))) ? 1 : 0;
 		} else if (result == -1)
 			result = 0;
 		else if (result == -2)
@@ -15697,7 +15697,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_VAR:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 2048)
-			result = lbl_80367A2C[result];
+			result = gEvtVars[result];
 		else
 			OSPanic("evt.cpp", 694, "%s%s", fn_801911B4("Invalid Evaluate var[%d] - 0~%d\n", result, 2048), "Evaluate");
 		break;
@@ -16314,9 +16314,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007CEF8
     cmpwi    r31, 0x1000
     bge      .L_8007CEF8
-    lis      r3, lbl_8036781C@ha
+    lis      r3, gEvtFlags@ha
     rlwinm   r0, r31, 29, 3, 29
-    addi     r3, r3, lbl_8036781C@l
+    addi     r3, r3, gEvtFlags@l
     clrlwi   r4, r31, 27
     li       r5, 0x1
     lwzx     r0, r3, r0
@@ -16395,9 +16395,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007CFF8
     cmpwi    r31, 0x800
     bge      .L_8007CFF8
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEvtVars@ha
     slwi     r0, r31, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEvtVars@l
     lwzx     r31, r3, r0
     b        .L_8007E7A4
 .L_8007CFF8:
@@ -18585,8 +18585,8 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		break;
 	case -44: {
 		s16 id                 = args[0];
-		s32 areaCount          = lbl_805A054C._20;
-		CamAreaRecord* records = lbl_805A054C._1C;
+		s32 areaCount          = gCameraActionAreaEx._20;
+		CamAreaRecord* records = gCameraActionAreaEx._1C;
 		for (s32 i = 0; i < areaCount; i++) {
 			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
 			if (id == record->_2C)
@@ -18596,8 +18596,8 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 	}
 	case -45: {
 		s16 id                 = args[0];
-		s32 areaCount          = lbl_805A054C._20;
-		CamAreaRecord* records = lbl_805A054C._1C;
+		s32 areaCount          = gCameraActionAreaEx._20;
+		CamAreaRecord* records = gCameraActionAreaEx._1C;
 		for (s32 i = 0; i < areaCount; i++) {
 			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
 			if (id == record->_2C)
@@ -18917,25 +18917,25 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
 	if (evt->_00 == 0 && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
 		if (evt->mData.mScript == NULL) {
 			for (s32 i = 0; i < 10; i++) {
-				if (lbl_8036A050._00[i] > 0) {
-					if ((lbl_8036A050._00[i] -= step) <= 0) {
-						u8* script = (u8*)lbl_8036A050._28[i];
-						s32 cursor = lbl_80369A3C._00;
+				if (sEvtTimer._00[i] > 0) {
+					if ((sEvtTimer._00[i] -= step) <= 0) {
+						u8* script = (u8*)sEvtTimer._28[i];
+						s32 cursor = sEvtQueue._00;
 						for (s32 j = 0; j < 128; j++, cursor++) {
 							s32 index = cursor % 128;
-							if (lbl_80369A3C._04[index] == NULL) {
-								lbl_80369A3C._04[index] = script;
+							if (sEvtQueue._04[index] == NULL) {
+								sEvtQueue._04[index] = script;
 								break;
 							}
 						}
-						lbl_8036A050._00[i] = 0;
-						lbl_8036A050._28[i] = 0;
+						sEvtTimer._00[i] = 0;
+						sEvtTimer._28[i] = 0;
 					}
 				}
 			}
 		}
 		if (evt->mData.mScript == NULL) {
-			UnkEvtQueue* queue = &lbl_80369A3C;
+			UnkEvtQueue* queue = &sEvtQueue;
 			s32 index          = queue->_00;
 			u8* script         = queue->_04[index];
 			u32 owner          = queue->_208[index];
@@ -19029,8 +19029,8 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     lwz      r0, 0x4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007EBD4
-    lis      r3, lbl_8036A050@ha
-    addi     r9, r3, lbl_8036A050@l
+    lis      r3, sEvtTimer@ha
+    addi     r9, r3, sEvtTimer@l
 .L_8007EAAC:
     lwz      r0, 0x0(r9)
     cmpwi    r0, 0x0
@@ -19038,9 +19038,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     subf.    r0, r30, r0
     stw      r0, 0x0(r9)
     bgt      .L_8007EBC4
-    lis      r3, lbl_80369A3C@ha
+    lis      r3, sEvtQueue@ha
     li       r0, 0x20
-    addi     r4, r3, lbl_80369A3C@l
+    addi     r4, r3, sEvtQueue@l
     lwz      r7, 0x28(r9)
     lwz      r8, 0x0(r4)
     li       r6, 0x0
@@ -19117,9 +19117,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     lwz      r0, 0x4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007EE84
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, sEvtQueue@ha
     li       r3, 0x0
-    addi     r30, r4, lbl_80369A3C@l
+    addi     r30, r4, sEvtQueue@l
     lwz      r0, 0x0(r30)
     addi     r4, r30, 0x4
     addi     r5, r30, 0x208
@@ -19240,8 +19240,8 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     cmplwi   r3, 0x0
     bne      .L_8007EE44
     li       r3, 0x4
-    lis      r4, lbl_80369A3C@ha
-    stwu     r5, lbl_80369A3C@l(r4)
+    lis      r4, sEvtQueue@ha
+    stwu     r5, sEvtQueue@l(r4)
     mtctr    r3
 .L_8007EDC0:
     stw      r5, 0x4(r4)

@@ -17,9 +17,9 @@ struct EvtObjIdTable {
 };
 
 extern "C" {
-extern CEvtQueueEx lbl_80369A3C;
-extern CEvtTimer lbl_8036A050;
-// the event's own object, dtk has it inside lbl_8036A050
+extern CEvtQueueEx sEvtQueue;
+extern CEvtTimer sEvtTimer;
+// the event's own object, dtk has it inside sEvtTimer
 extern XObj lbl_8036A0B0;
 // script names for objects
 extern EvtObjIdTable lbl_802247B0;
