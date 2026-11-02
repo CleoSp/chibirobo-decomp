@@ -73,8 +73,8 @@ HSD_JObjInfo hsdJObj = { JObjInfoInit };
 // .sbss comes out last declaration first, so these run backwards
 static HSD_JObj* current_jobj;
 static void (*ptcltgt_callback)(HSD_JObj*, s32);
-static void (*dptcl_callback)(int, int lo, int hi, HSD_JObj* jobj);
 static void (*jsound_callback)(s32);
+static void (*dptcl_callback)(int, int lo, int hi, HSD_JObj* jobj);
 static HSD_SList* ufc_callbacks;
 static HSD_ClassInfo* default_class;
 
@@ -1939,18 +1939,18 @@ void HSD_JObjSetMtxDirtySub(HSD_JObj* jobj)
  * @note Address: 0x801C8CDC
  * @note Size: 0x8
  */
-void HSD_JObjSetJSoundCallback(void (*callback)(s32))
+void HSD_JObjSetDPtclCallback(DPCtlCallback cb)
 {
-	jsound_callback = callback;
+	dptcl_callback = cb;
 }
 
 /**
  * @note Address: 0x801C8CE4
  * @note Size: 0x8
  */
-void HSD_JObjSetDPtclCallback(DPCtlCallback cb)
+void HSD_JObjSetJSoundCallback(void (*callback)(s32))
 {
-	dptcl_callback = cb;
+	jsound_callback = callback;
 }
 
 /**

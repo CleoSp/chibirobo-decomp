@@ -36,8 +36,8 @@ s32 HSD_SynthSFXBankClear(s32 bank);
 s32 HSD_SynthSFXGetPendingLoadCount();
 s32 HSD_SynthSFXLoad(const char* name, s32 bank, void (*callback)(s32, s32), s32 arg);
 BOOL fn_801E8C18(void* data);
-void HSD_JObjSetDPtclCallback(void (*callback)(int, int, int, HSD_JObj*));
-void fn_8001FCBC(int sfx, int low, int high, HSD_JObj* joint);
+void HSD_JObjSetJSoundCallback(void (*callback)(s32));
+void fn_8001FCBC(s32 sfx);
 extern const char* stageSfxTable[];
 void OSReport(const char* format, ...);
 void OSPanic(const char* file, int line, const char* format, ...);
@@ -182,7 +182,7 @@ extern "C" void fn_8001FC54(XSound* sound)
 	sound->mStageBank   = HSD_SynthSFXNewBank(0x280000);
 	sound->mLoadState   = 0;
 	sound->mSampleReady = 0;
-	HSD_JObjSetDPtclCallback(fn_8001FCBC);
+	HSD_JObjSetJSoundCallback(fn_8001FCBC);
 }
 
 /**
@@ -190,7 +190,7 @@ extern "C" void fn_8001FC54(XSound* sound)
  * @note Size: 0x38
  */
 // particle sounds from joint anims
-extern "C" void fn_8001FCBC(int sfx, int low, int high, HSD_JObj* joint)
+extern "C" void fn_8001FCBC(s32 sfx)
 {
 	fn_8001E904(&lbl_8025C400.mSound, sfx, 255);
 }
