@@ -125,7 +125,7 @@ void HSD_PadRumblePauseAll(void)
  * @note Address: 0x801CDC34
  * @note Size: 0x80
  */
-void fn_801CDC34(void)
+void HSD_PadRumbleActiveAll(void)
 {
 	int i;
 

@@ -35,7 +35,7 @@ void fn_800B2BD0(XObjPlug* plug, BOOL reset);
 CVec fn_800BAD80(CJObj* obj, s32 depth, s32* path);
 void fn_800BB3D0(CXObj* obj, s32 depth, s32* path, f32 angle);
 void fn_800C7810(CJObj* obj, s32 depth, s32* path, const Vec& pos);
-void fn_800C9B74(HSD_JObj* jobj, f32 angle);
+void HSD_JObjSetRotationY__FP9_HSD_JObjf(HSD_JObj* jobj, f32 angle);
 void fn_800C9C34(XObj* obj);
 void fn_800C9D54(XActJump* act, f32 strength);
 void fn_800CDBA8(XActHang* act);
@@ -511,7 +511,7 @@ void fn_800C7BC4(XActLadder* act, s32 anim, HSD_AObj* aobj, u32 frames, f32 fram
 			f32 turn        = HSD_JObjGetRotationY(joint);
 			f32 facing      = HSD_JObjGetRotationY(act->mOwner->mJObj);
 			act->mOwner->SetRotationY(facing + turn, 0);
-			fn_800C9B74(joint, 0.0f);
+			HSD_JObjSetRotationY__FP9_HSD_JObjf(joint, 0.0f);
 			s32 path2[] = { 0 };
 			CVec d      = fn_8007E7C8(act->mOwner, 1, path2) - act->mOwner->mMoveTranslate;
 			f32 angle   = HSD_JObjGetRotationY(act->mOwner->mJObj);
@@ -725,7 +725,7 @@ void fn_800C7BC4(XActLadder* act, s32 anim, HSD_AObj* aobj, u32 frames, f32 fram
  * @note Address: 0x800C9B74
  * @note Size: 0xC0
  */
-void fn_800C9B74(HSD_JObj* jobj, f32 angle)
+void HSD_JObjSetRotationY__FP9_HSD_JObjf(HSD_JObj* jobj, f32 angle)
 {
 	HSD_JObjSetRotationY(jobj, angle);
 }
@@ -874,7 +874,7 @@ Vec fn_800CE9A8(XActLift* act, XObj* target)
  * @note Address: 0x800D0D3C
  * @note Size: 0x90
  */
-void fn_800D0D3C(HSD_JObj* jobj)
+void HSD_JObjClearMtxFlags__FP9_HSD_JObj(HSD_JObj* jobj)
 {
 	HSD_JObjClearMtxFlags(jobj);
 }
@@ -883,7 +883,7 @@ void fn_800D0D3C(HSD_JObj* jobj)
  * @note Address: 0x800D0E8C
  * @note Size: 0xC0
  */
-void fn_800D0E8C(HSD_JObj* jobj, MtxPtr mtx)
+void HSD_JObjCopyMtx__FP9_HSD_JObjPA4_f(HSD_JObj* jobj, MtxPtr mtx)
 {
 	HSD_JObjCopyMtx(jobj, mtx);
 }

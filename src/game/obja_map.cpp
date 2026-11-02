@@ -56,7 +56,7 @@ extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
 void XObjMap::vfA4(u32 frames)
 {
 	// NONMATCHING: induction pointer difference, see XObjLight::Update
-	fn_80090ED4(this, frames);
+	vfA4__4XObjFUl(this, frames);
 	if (GetLightMode() == 1) {
 		for (int i = 0; i < mLightNum; i++) {
 			if (GetLightDesc(i) != NULL && GetLightAnimNum(i) > 0) {
@@ -83,7 +83,7 @@ void XObjMap::Release()
 			}
 		}
 	}
-	fn_800911C0(this);
+	Release__4XObjFv(this);
 }
 
 // a floor for every child of the root joint that has triangles, sorted from the highest down
@@ -94,7 +94,7 @@ void XObjMap::Release()
 BOOL XObjMap::vf9C(const CoordInfo& info)
 {
 	// NONMATCHING: the dol copies a zero path template before storing the index
-	if (fn_80091C80(this, &info)) {
+	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
 		int i;
 		int j;
 		int n = 0;
@@ -153,7 +153,7 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
  */
 void XObjMap::vf98()
 {
-	fn_800928E8(this);
+	vf98__4XObjFv(this);
 	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
 		mTrigonOrder[i] = 0;
@@ -170,5 +170,5 @@ void XObjMap::vf98()
  */
 void XObjMap::vf90(u32 id)
 {
-	fn_800929C4(this, id);
+	vf90__4XObjFUl(this, id);
 }

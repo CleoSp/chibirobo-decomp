@@ -27,9 +27,9 @@ void PSMTXRotRad(Mtx m, char axis, f32 rad);
 // geometry, joint and string helpers, backwards for deferred inlining
 
 extern "C" {
-HSD_DObj* fn_801905A4(HSD_DObj* dobj);
-HSD_PObj* fn_801905BC(HSD_DObj* dobj);
-HSD_MObj* fn_801908E0(HSD_DObj* dobj);
+HSD_DObj* HSD_DObjGetNext__FP9_HSD_DObj(HSD_DObj* dobj);
+HSD_PObj* HSD_DObjGetPObj__FP9_HSD_DObj(HSD_DObj* dobj);
+HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj);
 }
 
 // half width characters and their full width twins, two bytes each in shift jis
@@ -322,7 +322,7 @@ extern "C" HSD_AObj* fn_801908F8(HSD_JObj* jobj)
  * @note Address: 0x801908E0
  * @note Size: 0x18
  */
-extern "C" HSD_MObj* fn_801908E0(HSD_DObj* dobj)
+extern "C" HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj)
 {
 	return dobj != NULL ? dobj->mobj : NULL;
 }
@@ -335,8 +335,8 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
 {
 	HSD_AObj* aobj = NULL;
 	for (; jobj != NULL; jobj = jobj->child) {
-		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = fn_801905A4(dobj)) {
-			HSD_MObj* mobj = fn_801908E0(dobj);
+		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext__FP9_HSD_DObj(dobj)) {
+			HSD_MObj* mobj = HSD_DObjGetMObj__FP9_HSD_DObj(dobj);
 			if (mobj != NULL) {
 				if (mobj->aobj != NULL) {
 					return mobj->aobj;
@@ -531,7 +531,7 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
     b        .L_80190850
 .L_80190808:
     mr       r3, r27
-    bl       fn_801908E0
+    bl       HSD_DObjGetMObj__FP9_HSD_DObj
     cmplwi   r3, 0x0
     beq      .L_80190844
     lwz      r0, 0x14(r3)
@@ -548,7 +548,7 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
     b        .L_80190878
 .L_80190844:
     mr       r3, r27
-    bl       fn_801905A4
+    bl       HSD_DObjGetNext__FP9_HSD_DObj
     mr       r27, r3
 .L_80190850:
     cmplwi   r27, 0x0
@@ -605,7 +605,7 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
  * @note Address: 0x801905BC
  * @note Size: 0x18
  */
-extern "C" HSD_PObj* fn_801905BC(HSD_DObj* dobj)
+extern "C" HSD_PObj* HSD_DObjGetPObj__FP9_HSD_DObj(HSD_DObj* dobj)
 {
 	return dobj != NULL ? dobj->pobj : NULL;
 }
@@ -614,7 +614,7 @@ extern "C" HSD_PObj* fn_801905BC(HSD_DObj* dobj)
  * @note Address: 0x801905A4
  * @note Size: 0x18
  */
-extern "C" HSD_DObj* fn_801905A4(HSD_DObj* dobj)
+extern "C" HSD_DObj* HSD_DObjGetNext__FP9_HSD_DObj(HSD_DObj* dobj)
 {
 	return dobj != NULL ? dobj->next : NULL;
 }
@@ -627,8 +627,8 @@ extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
 {
 	HSD_AObj* aobj = NULL;
 	for (; jobj != NULL; jobj = jobj->child) {
-		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = fn_801905A4(dobj)) {
-			HSD_PObj* pobj = fn_801905BC(dobj);
+		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext__FP9_HSD_DObj(dobj)) {
+			HSD_PObj* pobj = HSD_DObjGetPObj__FP9_HSD_DObj(dobj);
 			if (pobj != NULL && (aobj = pobj->aobj) != NULL) {
 				return aobj;
 			}
@@ -810,7 +810,7 @@ extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
     b        .L_80190500
 .L_801904D4:
     mr       r3, r26
-    bl       fn_801905BC
+    bl       HSD_DObjGetPObj__FP9_HSD_DObj
     cmplwi   r3, 0x0
     beq      .L_801904F4
     lwz      r3, 0x18(r3)
@@ -819,7 +819,7 @@ extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
     b        .L_80190524
 .L_801904F4:
     mr       r3, r26
-    bl       fn_801905A4
+    bl       HSD_DObjGetNext__FP9_HSD_DObj
     mr       r26, r3
 .L_80190500:
     cmplwi   r26, 0x0

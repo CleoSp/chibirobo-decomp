@@ -16,7 +16,7 @@ extern "C" void fn_8010706C(void* object)
  * @note Address: 0x80107084
  * @note Size: 0x1C
  */
-extern "C" Vec fn_80107084(XObjActor* actor)
+extern "C" Vec GetCameraTarget__9XObjActorFv(XObjActor* actor)
 {
 	return actor->mMoveTranslate;
 }
@@ -25,6 +25,6 @@ extern "C" Vec fn_80107084(XObjActor* actor)
  * @note Address: 0x801070A0
  * @note Size: 0x4
  */
-extern "C" void fn_801070A0(XObjActor* actor)
+extern "C" void vf130__9XObjActorFv(XObjActor* actor)
 {
 }

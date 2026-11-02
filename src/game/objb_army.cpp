@@ -252,7 +252,7 @@ extern "C" {
  * @note Address: 0x800E6FD0
  * @note Size: 0x560
  */
-s32 fn_800E6FD0(XObjArmy* obj, s32 argc, s32* args)
+s32 vf124__8XObjArmyFlPl(XObjArmy* obj, s32 argc, s32* args)
 {
 	if (argc < 1) {
 		return -1;
@@ -521,7 +521,7 @@ void XObjArmy::vfC0()
  */
 void XObjArmy::vfA4(u32 frames)
 {
-	fn_80090ED4(this, frames);
+	vfA4__4XObjFUl(this, frames);
 	if (mFunc) {
 		(this->*mFunc)();
 	}
@@ -582,7 +582,7 @@ void XObjArmy::vfA4(u32 frames)
  */
 void XObjArmy::vf98()
 {
-	fn_800928E8(this);
+	vf98__4XObjFv(this);
 	sHitCount      = 0;
 	sTarget        = NULL;
 	sStatus.mFlags = 0;

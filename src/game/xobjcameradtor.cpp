@@ -10,7 +10,7 @@ extern void* __vt__10XObjCamera[];
  * @note Address: 0x80092AA4
  * @note Size: 0xDC
  */
-extern "C" XObjCamera* fn_80092AA4(XObjCamera* object, s32 flags)
+extern "C" XObjCamera* __dt__10XObjCameraFv(XObjCamera* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__10XObjCamera;

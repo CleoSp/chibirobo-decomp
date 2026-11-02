@@ -6,7 +6,7 @@ void operator delete(void* object);
 extern "C" {
 extern void* __vt__8XObjCoin[];
 extern void* __vt__8XObjItem[];
-XObjFlags* fn_800E22A0(XObjFlags* flags, s32 del);
+XObjFlags* __dt__9XObjFlagsFv(XObjFlags* flags, s32 del);
 }
 
 /**
@@ -14,7 +14,7 @@ XObjFlags* fn_800E22A0(XObjFlags* flags, s32 del);
  * @note Size: 0x54
  */
 // todo: weak copy
-extern "C" XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del)
+extern "C" XObjHBoxPart* __dt__12XObjHBoxPartFv(XObjHBoxPart* part, s32 del)
 {
 	if (part != NULL) {
 		__dt__4XObjFv((XObj*)&part->mObj, -1);
@@ -29,11 +29,11 @@ extern "C" XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del)
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" XObjCoin* fn_800E2460(XObjCoin* coin, s32 del)
+extern "C" XObjCoin* __dt__8XObjCoinFv(XObjCoin* coin, s32 del)
 {
 	if (coin != NULL) {
 		*(void***)((u8*)coin + 0x34) = __vt__8XObjCoin;
-		fn_800E22A0(coin, 0);
+		__dt__9XObjFlagsFv(coin, 0);
 		if ((s16)del > 0)
 			::operator delete(coin);
 	}
@@ -45,11 +45,11 @@ extern "C" XObjCoin* fn_800E2460(XObjCoin* coin, s32 del)
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" XObjItem* fn_800E24C0(XObjItem* item, s32 del)
+extern "C" XObjItem* __dt__8XObjItemFv(XObjItem* item, s32 del)
 {
 	if (item != NULL) {
 		*(void***)((u8*)item + 0x34) = __vt__8XObjItem;
-		fn_800E22A0(item, 0);
+		__dt__9XObjFlagsFv(item, 0);
 		if ((s16)del > 0)
 			::operator delete(item);
 	}

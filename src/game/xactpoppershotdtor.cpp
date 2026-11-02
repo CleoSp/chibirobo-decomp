@@ -4,7 +4,7 @@
 void operator delete(void* object);
 extern "C" {
 extern void* __vt__5CPtcl[];
-void* fn_800250B8(void* object, s32 flags);
+void* __dt__10CPtclDust2Fv(void* object, s32 flags);
 }
 
 /**
@@ -17,7 +17,7 @@ extern "C" XActPopperShot* fn_800BCBB8(XActPopperShot* shot, s32 flags)
 	if (shot != NULL) {
 		// retail checks the member addresses too
 		if (&shot->mPtcl != NULL) {
-			__destroy_arr(shot->mPtcls, (ConstructorDestructor*)fn_800250B8, sizeof(CPtclOne), 40);
+			__destroy_arr(shot->mPtcls, (ConstructorDestructor*)__dt__10CPtclDust2Fv, sizeof(CPtclDust2), 40);
 			if (&shot->mPtcl != NULL)
 				*(void***)((u8*)&shot->mPtcl + sizeof(CPtcl) - 4) = __vt__5CPtcl;
 		}

@@ -72,7 +72,7 @@ Vec XObjActorDeca::GetCameraTarget()
 		target.y -= 0.5f;
 		return target;
 	}
-	return fn_80107084(this);
+	return GetCameraTarget__9XObjActorFv(this);
 }
 
 /**
@@ -85,7 +85,7 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 	XObjChr* player = lbl_8025C400.GetPlayer();
 	CJObj jobj;
 	CVec target;
-	fn_801070A4(this, count, command);
+	vf124__9XObjActorFlPl(this, count, command);
 	switch (command[0]) {
 	case 1:
 		switch (command[1]) {
@@ -351,7 +351,7 @@ void XObjActorDeca::UpdateAnim(u32 frames)
  */
 void XObjActorDeca::vfA4(u32 frames)
 {
-	fn_80107DE0(this, frames);
+	vfA4__9XObjActorFUl(this, frames);
 }
 
 /**

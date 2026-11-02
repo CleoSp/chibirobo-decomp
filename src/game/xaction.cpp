@@ -6,7 +6,7 @@
  * @note Size: 0x18
  */
 // XAction::Reset
-extern "C" void fn_800BB708(XAction* action)
+extern "C" void Reset__7XActionFv(XAction* action)
 {
 	action->mState  = 0;
 	action->_0C     = 0;
@@ -18,7 +18,7 @@ extern "C" void fn_800BB708(XAction* action)
  * @note Address: 0x800BB720
  * @note Size: 0x8
  */
-extern "C" s32 fn_800BB720(XObj* object)
+extern "C" s32 vf148__9XObjFlagsFv(XObj* object)
 {
 	return object->_260;
 }
@@ -28,7 +28,7 @@ extern "C" s32 fn_800BB720(XObj* object)
  * @note Size: 0x54
  */
 // XObjAttachment::Hide
-extern "C" void fn_800BB728(XObjAttachment* attachment)
+extern "C" void Hide__14XObjAttachmentFv(XObjAttachment* attachment)
 {
 	attachment->mVisible = FALSE;
 	if (attachment->mStatus.mFlags & 1ULL)

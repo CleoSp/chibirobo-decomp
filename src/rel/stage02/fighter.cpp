@@ -76,6 +76,8 @@ struct UnkDolObj {
 	s32 _B6C;            // _B6C
 };
 
+class CCamera;
+
 class CInterfaceCameraAction {
 public:
 	CVec _00; // _00
@@ -85,16 +87,16 @@ public:
 	f32 _34;  // _34
 	s32 _38;  // _38
 
-	virtual ~CInterfaceCameraAction() { }    // _08
-	virtual void fn_5_C0() { }               // _0C
-	virtual void Update() = 0;               // _10
-	virtual void fn_5_C8() { }               // _14
-	virtual void fn_5_C4() { }               // _18
-	virtual void Init() { }                  // _1C
-	virtual void fn_5_CC() { }               // _20
-	virtual void fn_5_D0() { }               // _24
-	virtual void fn_5_D4() { }               // _28
-	virtual void SetEye(f32 x, f32 y, f32 z) // _2C
+	virtual ~CInterfaceCameraAction() { }       // _08
+	virtual void PreviousUpdate() { }           // _0C
+	virtual void Update() = 0;                  // _10
+	virtual void vf14() { }                     // _14
+	virtual void SetCamera(CCamera* camera) { } // _18
+	virtual void Init() { }                     // _1C
+	virtual void vf20() { }                     // _20
+	virtual void vf24() { }                     // _24
+	virtual void vf28() { }                     // _28
+	virtual void SetEye(f32 x, f32 y, f32 z)    // _2C
 	{
 		_00.x = x;
 		_00.y = y;
@@ -106,7 +108,7 @@ public:
 		_10.y = y;
 		_10.z = z;
 	}
-	virtual void fn_5_1A0(f32 x, f32 y, f32 z) // _34
+	virtual void SetAngle(f32 x, f32 y, f32 z) // _34
 	{
 		_20.x = x;
 		_20.y = y;
@@ -114,15 +116,15 @@ public:
 	}
 	virtual void SetEye(const Vec& v) { SetEye(v.x, v.y, v.z); }           // _38
 	virtual void SetInterest(const Vec& v) { SetInterest(v.x, v.y, v.z); } // _3C
-	virtual void fn_5_168(const Vec& v) { fn_5_1A0(v.x, v.y, v.z); }       // _40
-	virtual void fn_5_1B0(f32 v) { _30 = v; }                              // _44
+	virtual void SetAngle(const Vec& v) { SetAngle(v.x, v.y, v.z); }       // _40
+	virtual void SetDistance(f32 v) { _30 = v; }                           // _44
 	virtual void SetFov(f32 v) { _34 = v; }                                // _48
-	virtual void fn_5_1C0(f32 v) { _20.z = v; }                            // _4C
+	virtual void SetAngleZ(f32 v) { _20.z = v; }                           // _4C
 	virtual s32 GetMode() { return 0; }                                    // _50
 	virtual s32 GetFlags() { return _38; }                                 // _54
 	virtual f32 GetEaseDivisor() { return 12.0f; }                         // _58
-	virtual s32 fn_5_1C8() { return 0; }                                   // _5C
-	virtual s32 fn_5_1D0() { return 0; }                                   // _60
+	virtual s32 vf5C() { return 0; }                                       // _5C
+	virtual s32 GetTarget() { return 0; }                                  // _60
 };
 
 inline Vec MakeVec(f32 x, f32 y, f32 z)
@@ -547,7 +549,7 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt);
  * @note Address: stage02 .text 0x168
  * @note Size: 0x38
  */
-// fn_5_168
+// CInterfaceCameraAction::SetAngle(const Vec&)
 /*
     stwu     r1, -0x10(r1)
     mflr     r0

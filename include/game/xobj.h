@@ -255,27 +255,27 @@ extern "C" {
 XObj* __dt__4XObjFv(XObj* object, s32 flags);
 BOOL fn_8008A38C(CJAnim* anim, const char* path);
 // the default vf138
-void fn_8008A6C0(XObj* object, const Vec* position, f32 strength);
+void vf138__4XObjFRC3Vecf(XObj* object, const Vec* position, f32 strength);
 CVec fn_8008C274(CXObj* object, s32 floor, const Vec* offset);
 // the default vf12C
-void fn_8008A820(XObj* object, s32 blend, u8 red, u8 green, u8 blue, f32 time);
+void vf12C__4XObjFlUcUcUcf(XObj* object, s32 blend, u8 red, u8 green, u8 blue, f32 time);
 void fn_8008C8A4(XObj* object);
 void fn_8008D220(XObj* object);
-void fn_800902A4(XObj* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
-                 f32 blendRate);
-void fn_8009047C(XObj* object);
-void fn_8009056C(XObj* object, const Vec* origin, f32 opacity);
-void fn_80090864(XObj* object);
-void fn_800908C0(XObj* object, f32 (*view)[4]);
-void fn_80090ED4(XObj* object, u32 frames);
-void fn_800911C0(XObj* object);
-void fn_80091834(CXObj* object, BOOL enabled, u8 mode);
+void SetAnim__4XObjFliPvPvPvffff(XObj* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
+                                 f32 blend, f32 blendRate);
+void vfC8__4XObjFv(XObj* object);
+void vfBC__4XObjFPC3Vecf(XObj* object, const Vec* origin, f32 opacity);
+void vfB8__4XObjFv(XObj* object);
+void vfB0__4XObjFPA4_f(XObj* object, f32 (*view)[4]);
+void vfA4__4XObjFUl(XObj* object, u32 frames);
+void Release__4XObjFv(XObj* object);
+void vfDC__4XObjFiUc(CXObj* object, BOOL enabled, u8 mode);
 // walk callback, sets up each material's pe and toon flags
 void fn_80091888(HSD_JObj* joint, f32** arguments, s32 type);
 // the default vf9C, reads the object's coord info
-BOOL fn_80091C80(XObj* object, const CoordInfo* info);
-void fn_800928E8(XObj* object);
-void fn_800929C4(XObj* object, u32 id);
+BOOL vf9C__4XObjFRC9CoordInfo(XObj* object, const CoordInfo* info);
+void vf98__4XObjFv(XObj* object);
+void vf90__4XObjFUl(XObj* object, u32 id);
 
 // the object kinds from 0x800D4000 to 0x80108000
 void fn_800D40EC(CXObj* object);
@@ -283,12 +283,12 @@ void fn_800EA780(void* context, u32 frames);
 void fn_800EA99C(void* context);
 void fn_8010660C(XObj* object);
 void fn_8010706C(void* object);
-s32 fn_801070A4(CXObj* object, s32 index, s32* out);
+s32 vf124__9XObjActorFlPl(CXObj* object, s32 index, s32* out);
 void fn_801076B0(CXObj* object, s32 value, f32 rate);
 void fn_801076DC(CXObj* object, f32 value, f32 rate);
 void fn_801076FC(CXObj* object, s32 value, f32 rate);
 void fn_8010771C(CXObj* object, f32 rate);
-void fn_80107DE0(XObj* object, u32 frames);
+void vfA4__9XObjActorFUl(XObj* object, u32 frames);
 
 // pools and counters the object kinds share
 extern XObj* lbl_8037E5C0[16];

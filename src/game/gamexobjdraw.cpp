@@ -5,7 +5,7 @@
  * @note Size: 0x2C
  */
 // XObj's vfB4, the reflection pass draws it like any other view
-extern "C" void fn_8000DA50(XObj* object, Mtx view)
+extern "C" void vfB4__4XObjFPA4_f(XObj* object, Mtx view)
 {
 	object->vfB0(view);
 }

@@ -223,7 +223,7 @@ extern "C" void fn_8000CBF4(HSD_JObj* jobj, f32* limits)
  * @note Size: 0x28C
  */
 // CGame::vf20, draws the objects in _C074 from the main camera, kind 3 ones first
-extern "C" void fn_8000CDA0(CGame* game)
+extern "C" void vf20__5CGameFv(CGame* game)
 {
 	if (game->mStatus.mFlags & 1) {
 		s32 i;
@@ -254,7 +254,7 @@ extern "C" void fn_8000CDA0(CGame* game)
  * @note Address: 0x8000D05C
  * @note Size: 0x2C
  */
-extern "C" CCamera* fn_8000D05C(CBase* base)
+extern "C" CCamera* GetCamera__5CBaseFv(CBase* base)
 {
 	return base->vf30();
 }
@@ -263,7 +263,7 @@ extern "C" CCamera* fn_8000D05C(CBase* base)
  * @note Address: 0x8000CBC0
  * @note Size: 0x8
  */
-extern "C" f32 fn_8000CBC0(void)
+extern "C" f32 vf108__4XObjFv(void)
 {
 	return 40.0f;
 }
@@ -272,7 +272,7 @@ extern "C" f32 fn_8000CBC0(void)
  * @note Address: 0x8000CBC8
  * @note Size: 0x2C
  */
-extern "C" void fn_8000CBC8(CJObj* obj, CShadow* shadow)
+extern "C" void vfD0__4XObjFP7CShadow(CJObj* obj, CShadow* shadow)
 {
 	HSD_ShadowAddObject(shadow->mShadow, (HSD_Obj*)obj->mJObj);
 }
@@ -281,7 +281,7 @@ extern "C" void fn_8000CBC8(CJObj* obj, CShadow* shadow)
  * @note Address: 0x8000CD9C
  * @note Size: 0x4
  */
-extern "C" void fn_8000CD9C(void)
+extern "C" void vfC0__4XObjFv(void)
 {
 }
 
@@ -289,7 +289,7 @@ extern "C" void fn_8000CD9C(void)
  * @note Address: 0x8000D02C
  * @note Size: 0x30
  */
-extern "C" void fn_8000D02C(XObj* obj)
+extern "C" void vfAC__4XObjFv(XObj* obj)
 {
 	obj->vfB0(0);
 }
@@ -298,7 +298,7 @@ extern "C" void fn_8000D02C(XObj* obj)
  * @note Address: 0x8000D088
  * @note Size: 0x88
  */
-extern "C" f32 fn_8000D088(XObj* obj)
+extern "C" f32 vf114__4XObjFv(XObj* obj)
 {
 	if (fpclassify(obj->_77C) == FP_NAN) {
 		return 0.0f;
@@ -310,7 +310,7 @@ extern "C" f32 fn_8000D088(XObj* obj)
  * @note Address: 0x8000D110
  * @note Size: 0x8
  */
-extern "C" f32 fn_8000D110(XObj* obj)
+extern "C" f32 vf110__4XObjFv(XObj* obj)
 {
 	return obj->_6F8;
 }
@@ -319,7 +319,7 @@ extern "C" f32 fn_8000D110(XObj* obj)
  * @note Address: 0x8000CB4C
  * @note Size: 0x74
  */
-extern "C" void fn_8000CB4C(XObj* obj, CShadow* shadow)
+extern "C" void vfD4__4XObjFP7CShadow(XObj* obj, CShadow* shadow)
 {
 	f32 size = obj->vf108();
 	Vec pos  = obj->mMoveTranslate;
@@ -365,7 +365,7 @@ extern "C" void fn_8000D704(CGame* game)
 	XObj* obj;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x100000000000)) {
 		for (i = 0; i < 5; i++) {
-			mirror = &lbl_8035FA24[i];
+			mirror = &sFbMirrors[i];
 			if (mirror->mJoint != NULL && mirror->mVisible && !IsMirrorOff(mirror)) {
 				game->mGs.mCamera = &mirror->mCamera;
 				if (fn_8019997C(game)) {

@@ -27,7 +27,7 @@ extern "C" TitleData lbl_80211670;
  * @note Address: 0x80031004
  * @note Size: 0x358
  */
-extern "C" void fn_80031004()
+extern "C" void __sinit_titlestates_cpp()
 {
 	const TitleStateFunc* init = lbl_80211670.mInit;
 	TitleStateFunc* states     = lbl_80211670.mStates;

@@ -7,7 +7,7 @@
  * @note Address: 0x801002DC
  * @note Size: 0x148
  */
-extern "C" void fn_801002DC(XObjSpiderBoss* spider)
+extern "C" void vf148__14XObjSpiderBossFv(XObjSpiderBoss* spider)
 {
 	if (spider->mStatus.mFlags & 1ULL) {
 		if (spider->mStatus.mFlags & 0x10000ULL) {

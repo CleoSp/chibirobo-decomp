@@ -316,8 +316,8 @@ static inline void OpenMenus(XObjChr* chr)
 }
 
 extern "C" {
-void fn_80091C44(CXObj* object, u32* flags);
-void fn_8008B0D8(CXObj* object, s32 mode);
+void vfD8__4XObjFPUl(CXObj* object, u32* flags);
+void vf120__4XObjFl(CXObj* object, s32 mode);
 extern PointPtcl lbl_80378300[10];
 extern PointPtcl* lbl_8037C018[10];
 }
@@ -492,7 +492,7 @@ extern "C" void fn_80097284(XObjChrMenu* menu, s32 result)
  * @note Address: 0x80098204
  * @note Size: 0x1B4
  */
-extern "C" u32 fn_80098204(DrsMenu* menu, s32 index)
+extern "C" u32 vf28__7DrsMenuFl(DrsMenu* menu, s32 index)
 {
 	s32 red, green, blue;
 	if (menu->mItems[index].mAvailable == 0) {
@@ -536,7 +536,7 @@ extern "C" u32 fn_80098204(DrsMenu* menu, s32 index)
  * @note Address: 0x800983B8
  * @note Size: 0x64
  */
-extern "C" const char* fn_800983B8(DrsMenu* menu, s32 index)
+extern "C" const char* vf24__7DrsMenuFl(DrsMenu* menu, s32 index)
 {
 	if (menu->mItems[index].mAvailable > 0) {
 		if (IsWorn(menu, index))
@@ -551,7 +551,7 @@ extern "C" const char* fn_800983B8(DrsMenu* menu, s32 index)
  * @note Address: 0x8009841C
  * @note Size: 0xB0
  */
-extern "C" s32 fn_8009841C(DrsMenu* menu, s32 index)
+extern "C" s32 vf20__7DrsMenuFl(DrsMenu* menu, s32 index)
 {
 	s32 icons[9] = { DRS_LABEL(126), DRS_LABEL(98),  DRS_LABEL(100), DRS_LABEL(99), DRS_LABEL(101),
 		             DRS_LABEL(126), DRS_LABEL(102), DRS_LABEL(103), DRS_LABEL(104) };
@@ -569,7 +569,7 @@ extern "C" s32 fn_8009841C(DrsMenu* menu, s32 index)
  * @note Address: 0x800984CC
  * @note Size: 0x28
  */
-extern "C" BOOL fn_800984CC(DrsMenu* menu, s32 index)
+extern "C" BOOL vf2C__7DrsMenuFl(DrsMenu* menu, s32 index)
 {
 	return IsWorn(menu, index);
 }
@@ -611,7 +611,7 @@ void DrsMenu::vf1C()
  * @note Address: 0x8009BF14
  * @note Size: 0x2A8
  */
-extern "C" void fn_8009BF14(OctaMenu* menu, s32 focus)
+extern "C" void Open__8OctaMenuFl(OctaMenu* menu, s32 focus)
 {
 	if (menu->mOpen == 0) {
 		menu->_16C = menu->mChr->mMoveRotate.y;
@@ -644,7 +644,7 @@ extern "C" void fn_8009BF14(OctaMenu* menu, s32 focus)
  * @note Address: 0x800985B4
  * @note Size: 0x488
  */
-extern "C" void fn_800985B4(OctaMenu* menu, s32 focus)
+extern "C" void Open__7DrsMenuFl(OctaMenu* menu, s32 focus)
 {
 	// NONMATCHING: the costume ids are read from the unit's rodata
 	if (menu->_280 == 3) {
@@ -664,7 +664,7 @@ extern "C" void fn_800985B4(OctaMenu* menu, s32 focus)
 				menu->mItems[i].mAvailable = HasItem(menu->mChr, ids[i]);
 		}
 	}
-	fn_8009BF14(menu, focus);
+	Open__8OctaMenuFl(menu, focus);
 	if (menu->_280 == 3) {
 		if (menu->_28C >= 0) {
 			menu->_288 = menu->_28C;
@@ -687,7 +687,7 @@ extern "C" void fn_800985B4(OctaMenu* menu, s32 focus)
  * @note Address: 0x80098A3C
  * @note Size: 0x1E4
  */
-extern "C" u32 fn_80098A3C(AtcMenu* menu, s32 index)
+extern "C" u32 vf28__7AtcMenuFl(AtcMenu* menu, s32 index)
 {
 	s32 red, green, blue;
 	if (menu->mItems[index].mAvailable == 0) {
@@ -732,7 +732,7 @@ extern "C" u32 fn_80098A3C(AtcMenu* menu, s32 index)
  * @note Address: 0x80098C20
  * @note Size: 0xCC
  */
-extern "C" const char* fn_80098C20(AtcMenu* menu, s32 index)
+extern "C" const char* vf24__7AtcMenuFl(AtcMenu* menu, s32 index)
 {
 	static const char* sLabel = "";
 	if (menu->mItems[index].mAvailable > 0) {
@@ -754,7 +754,7 @@ extern "C" const char* fn_80098C20(AtcMenu* menu, s32 index)
  * @note Address: 0x80098CEC
  * @note Size: 0xB0
  */
-extern "C" s32 fn_80098CEC(AtcMenu* menu, s32 index)
+extern "C" s32 vf20__7AtcMenuFl(AtcMenu* menu, s32 index)
 {
 	s32 icons[9] = { ATC_LABEL(126), ATC_LABEL(91), ATC_LABEL(92), ATC_LABEL(93), ATC_LABEL(94),
 		             ATC_LABEL(96),  ATC_LABEL(95), ATC_LABEL(97), ATC_LABEL(126) };
@@ -772,7 +772,7 @@ extern "C" s32 fn_80098CEC(AtcMenu* menu, s32 index)
  * @note Address: 0x80098D9C
  * @note Size: 0x38
  */
-extern "C" u8 fn_80098D9C(AtcMenu* menu, s32 index)
+extern "C" u8 vf2C__7AtcMenuFl(AtcMenu* menu, s32 index)
 {
 	return menu->mChr->GetAttachment() == menu->mItems[index].mType;
 }
@@ -782,7 +782,7 @@ extern "C" u8 fn_80098D9C(AtcMenu* menu, s32 index)
  * @note Address: 0x80098DD4
  * @note Size: 0x74
  */
-extern "C" void fn_80098DD4(AtcMenu* menu)
+extern "C" void vf1C__7AtcMenuFv(AtcMenu* menu)
 {
 	XObjChr* chr = menu->mChr;
 	s32 current  = chr->GetAttachment();
@@ -805,7 +805,7 @@ extern "C" void fn_80098DD4(AtcMenu* menu)
  * @note Address: 0x80098E48
  * @note Size: 0x3B4
  */
-extern "C" void fn_80098E48(OctaMenu* menu, s32 focus)
+extern "C" void Open__7AtcMenuFl(OctaMenu* menu, s32 focus)
 {
 	for (s32 i = 0; i < 8; ++i) {
 		if (menu->_280 == 2)
@@ -813,7 +813,7 @@ extern "C" void fn_80098E48(OctaMenu* menu, s32 focus)
 		else
 			menu->mItems[i].mAvailable = fn_800991FC(menu->mChr, menu->mItems[i].mType);
 	}
-	fn_8009BF14(menu, focus);
+	Open__8OctaMenuFl(menu, focus);
 	if (menu->_280 == 3) {
 		if (menu->_28C >= 0) {
 			menu->_288 = menu->_28C;
@@ -845,7 +845,7 @@ extern "C" s32 fn_800991FC(XObjChr* chr, s32 type)
  * @note Address: 0x8009AFD4
  * @note Size: 0x8
  */
-extern "C" const char* fn_8009AFD4(OctaMenu* menu, s32 index)
+extern "C" const char* vf24__8OctaMenuFl(OctaMenu* menu, s32 index)
 {
 	return lbl_8065D4AC;
 }
@@ -855,7 +855,7 @@ extern "C" const char* fn_8009AFD4(OctaMenu* menu, s32 index)
  * @note Address: 0x8009AFDC
  * @note Size: 0x8
  */
-extern "C" u8 fn_8009AFDC(OctaMenu* menu, s32 index)
+extern "C" u8 vf2C__8OctaMenuFl(OctaMenu* menu, s32 index)
 {
 	return 0;
 }
@@ -865,7 +865,7 @@ extern "C" u8 fn_8009AFDC(OctaMenu* menu, s32 index)
  * @note Address: 0x8009AFE4
  * @note Size: 0x8
  */
-extern "C" s32 fn_8009AFE4(OctaMenu* menu, s32 index)
+extern "C" s32 vf20__8OctaMenuFl(OctaMenu* menu, s32 index)
 {
 	return 0;
 }
@@ -875,7 +875,7 @@ extern "C" s32 fn_8009AFE4(OctaMenu* menu, s32 index)
  * @note Address: 0x8009AFEC
  * @note Size: 0x130
  */
-extern "C" u32 fn_8009AFEC(OctaMenu* menu, s32 index)
+extern "C" u32 vf28__8OctaMenuFl(OctaMenu* menu, s32 index)
 {
 	s32 red, green, blue;
 	if (menu->mItems[index].mAvailable == 0) {
@@ -982,7 +982,7 @@ extern "C" s32 fn_8009B9E0(OctaMenu* menu, BOOL active)
  * @note Address: 0x8009BE18
  * @note Size: 0x4
  */
-extern "C" void fn_8009BE18(OctaMenu* menu)
+extern "C" void vf1C__8OctaMenuFv(OctaMenu* menu)
 {
 }
 
@@ -991,7 +991,7 @@ extern "C" void fn_8009BE18(OctaMenu* menu)
  * @note Address: 0x8009BE1C
  * @note Size: 0xF8
  */
-extern "C" void fn_8009BE1C(OctaMenu* menu, s32 result)
+extern "C" void Select__8OctaMenuFl(OctaMenu* menu, s32 result)
 {
 	if (result > 0 && menu->mFocus == 0)
 		menu->mOpen = -1;
@@ -1138,7 +1138,7 @@ extern "C" void fn_8009D600(XObjChrLook* look, u32 frames)
  * @note Address: 0x8009D778
  * @note Size: 0x330
  */
-extern "C" void fn_8009D778(XObjChr* chr, s32 input, s32 elapsed)
+extern "C" void vf144__7XObjChrFll(XObjChr* chr, s32 input, s32 elapsed)
 {
 	s32 idle;
 	if (lbl_8025C400.mEvt.mData.mScript != NULL || !InputEnabled(&lbl_8025C400) || (lbl_8025C400.mStatus.mFlags & 0xC00)
@@ -1318,7 +1318,7 @@ extern "C" BOOL fn_8009FEDC(const XObjChr* chr)
  * @note Address: 0x8009FF40
  * @note Size: 0xC0
  */
-extern "C" void fn_8009FF40(XObjChr* chr, f32 strength)
+extern "C" void vf138__7XObjChrFRC3Vecf(XObjChr* chr, f32 strength)
 {
 	if (fn_800D4D54(&chr->mLift)) {
 		chr->mLift.mTarget->vf12C(1, 150, 150, 0, 0.0f);
@@ -1382,7 +1382,7 @@ extern "C" void fn_800A0014(XObjChr* chr, BOOL start, BOOL cancel, f32 value)
  * @note Address: 0x800A0234
  * @note Size: 0x1E0
  */
-extern "C" void fn_800A0234(XObjChr* chr, s32 blend, u8 red, u8 green, u8 blue, f32 time)
+extern "C" void vf12C__7XObjChrFlUcUcUcf(XObjChr* chr, s32 blend, u8 red, u8 green, u8 blue, f32 time)
 {
 	if (chr->mSuitChanged != 0) {
 		if (blend == 2)
@@ -1390,7 +1390,7 @@ extern "C" void fn_800A0234(XObjChr* chr, s32 blend, u8 red, u8 green, u8 blue, 
 		else if (blend == 1)
 			return;
 	}
-	fn_8008A820(chr, blend, red, green, blue, time);
+	vf12C__4XObjFlUcUcUcf(chr, blend, red, green, blue, time);
 	chr->mPlug.vf12C(blend, red, green, blue, time);
 	chr->mCopterObj.vf12C(blend, red, green, blue, time);
 	chr->mPopperObj.vf12C(blend, red, green, blue, time);
@@ -1426,7 +1426,7 @@ extern "C" f32 fn_800A0414(XObjChr* chr)
  * @note Address: 0x800A0694
  * @note Size: 0x1BC
  */
-extern "C" void fn_800A0694(XObjChr* chr, const Vec* direction, f32 speed)
+extern "C" void SetMoveDir__7XObjChrFPC3Vecf(XObjChr* chr, const Vec* direction, f32 speed)
 {
 	StopMoving(chr);
 	chr->CXObj::SetMoveDir(direction, speed);
@@ -1518,7 +1518,7 @@ extern "C" BOOL fn_800A2C34(const XAction* action, s32 state)
  * @note Address: 0x800A2C48
  * @note Size: 0x28
  */
-extern "C" CVec fn_800A2C48(const Vec& value)
+extern "C" CVec __ct__4CVecFRC3Vec(const Vec& value)
 {
 	return CVec(value);
 }
@@ -1604,7 +1604,7 @@ extern "C" f32 fn_800A2D88(CJObj* object)
  * @note Address: 0x800A2E2C
  * @note Size: 0x28
  */
-extern "C" CVec fn_800A2E2C(const CVec& vector)
+extern "C" CVec __ct__4CVecFRC4CVec(const CVec& vector)
 {
 	return vector;
 }
@@ -1641,7 +1641,7 @@ extern "C" void fn_800A2E88(XObj* chr, BOOL hidden)
  * @note Address: 0x800A36E8
  * @note Size: 0x1A4
  */
-extern "C" void fn_800A36E8(XObjChr* chr, f32 rate, u32 mask)
+extern "C" void SetAnimRate__7XObjChrFfUl(XObjChr* chr, f32 rate, u32 mask)
 {
 	f32 multiplier;
 	if (chr->mLift.mState == 4 && fn_800D4FE8(&chr->mLift)) {
@@ -1669,7 +1669,7 @@ extern "C" void fn_800A36E8(XObjChr* chr, f32 rate, u32 mask)
  * @note Address: 0x800A388C
  * @note Size: 0x254
  */
-extern "C" HSD_ShapeAnimJoint* fn_800A388C(XObjChr* chr, s32 id)
+extern "C" HSD_ShapeAnimJoint* vfF8__7XObjChrFl(XObjChr* chr, s32 id)
 {
 	if (SuitAnimGroup(chr, id)) {
 		HSD_ShapeAnimJoint** anims = chr->mSuitAnim.mShapeAnimJoint;
@@ -1692,7 +1692,7 @@ extern "C" HSD_ShapeAnimJoint* fn_800A388C(XObjChr* chr, s32 id)
  * @note Address: 0x800A3AE0
  * @note Size: 0x254
  */
-extern "C" HSD_MatAnimJoint* fn_800A3AE0(XObjChr* chr, s32 id)
+extern "C" HSD_MatAnimJoint* vfF4__7XObjChrFl(XObjChr* chr, s32 id)
 {
 	if (SuitAnimGroup(chr, id)) {
 		HSD_MatAnimJoint** anims = chr->mSuitAnim.mMatAnimJoint;
@@ -1715,7 +1715,7 @@ extern "C" HSD_MatAnimJoint* fn_800A3AE0(XObjChr* chr, s32 id)
  * @note Address: 0x800A3D34
  * @note Size: 0x254
  */
-extern "C" HSD_AnimJoint* fn_800A3D34(XObjChr* chr, s32 id)
+extern "C" HSD_AnimJoint* vfF0__7XObjChrFl(XObjChr* chr, s32 id)
 {
 	if (SuitAnimGroup(chr, id)) {
 		HSD_AnimJoint** anims = chr->mSuitAnim.mAnimJoint;
@@ -1758,7 +1758,7 @@ extern "C" f32 fn_800A4574(XObjChr* chr)
  * @note Address: 0x800A45B8
  * @note Size: 0xC0
  */
-extern "C" void fn_800A45B8(XObjChr* chr, CShadow* shadow)
+extern "C" void vfD0__7XObjChrFP7CShadow(XObjChr* chr, CShadow* shadow)
 {
 	HSD_ShadowAddObject(shadow->mShadow, (HSD_Obj*)chr->mJObj);
 	if (lbl_8025C400.mStatus.mFlags & 0x0040000000000000ULL) {
@@ -1775,7 +1775,7 @@ extern "C" void fn_800A45B8(XObjChr* chr, CShadow* shadow)
  * @note Address: 0x800A54FC
  * @note Size: 0x20
  */
-extern "C" void fn_800A54FC(XObjChr* chr, u32 frames)
+extern "C" void UpdateAnim__7XObjChrFUl(XObjChr* chr, u32 frames)
 {
 	chr->CXObjIntp::UpdateAnim(frames);
 }
@@ -1785,7 +1785,7 @@ extern "C" void fn_800A54FC(XObjChr* chr, u32 frames)
  * @note Address: 0x800A77D4
  * @note Size: 0xC0
  */
-extern "C" void fn_800A77D4(XObjChr* player)
+extern "C" void vfB8__7XObjChrFv(XObjChr* player)
 {
 	CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 	if (camera->GetMapDistance() < 1.0f)
@@ -1796,7 +1796,7 @@ extern "C" void fn_800A77D4(XObjChr* player)
 			plug->vfB8();
 		}
 	} else {
-		fn_80090864(player);
+		vfB8__4XObjFv(player);
 	}
 }
 
@@ -1805,7 +1805,7 @@ extern "C" void fn_800A77D4(XObjChr* player)
  * @note Address: 0x800A7894
  * @note Size: 0x198
  */
-extern "C" void fn_800A7894(XObjChr* player, Mtx view)
+extern "C" void vfB4__7XObjChrFPA4_f(XObjChr* player, Mtx view)
 {
 	CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 	if (camera->GetMapDistance() < 1.0f)
@@ -1828,12 +1828,12 @@ extern "C" void fn_800A7894(XObjChr* player, Mtx view)
  * @note Address: 0x800A7A2C
  * @note Size: 0x218
  */
-extern "C" void fn_800A7A2C(XObjChr* player, Mtx view)
+extern "C" void vfB0__7XObjChrFPA4_f(XObjChr* player, Mtx view)
 {
 	CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 	if (camera->GetMapDistance() < 1.0f)
 		return;
-	fn_800908C0(player, view);
+	vfB0__4XObjFPA4_f(player, view);
 	if ((lbl_8025C400.mStatus.mFlags & 0x100ULL) && player->mLift.mState == 4 && fn_800D4FE8(&player->mLift)) {
 		// no plug in this lift state
 	} else if (lbl_8025C400.mStatus.mFlags & 0x0040000000000000ULL) {
@@ -1862,10 +1862,10 @@ extern "C" void fn_800A7A2C(XObjChr* player, Mtx view)
  * @note Address: 0x800A7C44
  * @note Size: 0x2C
  */
-extern "C" void fn_800A7C44(XObjAttachment* object, Mtx view)
+extern "C" void vfB0__14XObjAttachmentFPA4_f(XObjAttachment* object, Mtx view)
 {
 	if (object->mVisible != 0)
-		fn_800908C0(object, view);
+		vfB0__4XObjFPA4_f(object, view);
 }
 
 // steps the anim frame and fires the particles the frame tables ask for
@@ -3403,7 +3403,7 @@ extern "C" bool fn_800B317C(const XActPush* act, s32 wanted)
  * @note Address: 0x800B3190
  * @note Size: 0x1C
  */
-extern "C" CVec fn_800B3190(f32 x, f32 y, f32 z)
+extern "C" CVec __ct__4CVecFfff(f32 x, f32 y, f32 z)
 {
 	return CVec(x, y, z);
 }
@@ -3712,7 +3712,7 @@ extern "C" void fn_800B558C(XObjChr* chr)
  * @note Address: 0x800B5808
  * @note Size: 0x4
  */
-extern "C" void fn_800B5808()
+extern "C" void vfE0__7XObjChrFf()
 {
 }
 
@@ -3720,9 +3720,9 @@ extern "C" void fn_800B5808()
  * @note Address: 0x800B580C
  * @note Size: 0x168
  */
-extern "C" void fn_800B580C(XObjChr* chr, BOOL enabled, u8 value)
+extern "C" void vfDC__7XObjChrFiUc(XObjChr* chr, BOOL enabled, u8 value)
 {
-	fn_80091834(chr, enabled, value);
+	vfDC__4XObjFiUc(chr, enabled, value);
 	if (chr->mPlug.mJObj != NULL)
 		chr->mPlug.vfDC(enabled, value);
 	if (chr->mCopterObj.mJObj != NULL)
@@ -3743,9 +3743,9 @@ extern "C" void fn_800B580C(XObjChr* chr, BOOL enabled, u8 value)
  * @note Address: 0x800B5974
  * @note Size: 0x144
  */
-extern "C" void fn_800B5974(XObjChr* chr, u32* flags)
+extern "C" void vfD8__7XObjChrFPUl(XObjChr* chr, u32* flags)
 {
-	fn_80091C44(chr, flags);
+	vfD8__4XObjFPUl(chr, flags);
 	if (chr->mPlug.mJObj != NULL)
 		chr->mPlug.vfD8(flags);
 	if (chr->mCopterObj.mJObj != NULL)
@@ -3766,9 +3766,9 @@ extern "C" void fn_800B5974(XObjChr* chr, u32* flags)
  * @note Address: 0x800B5AB8
  * @note Size: 0xC4
  */
-extern "C" void fn_800B5AB8(XObjChr* chr, s32 mode)
+extern "C" void vf120__7XObjChrFl(XObjChr* chr, s32 mode)
 {
-	fn_8008B0D8(chr, mode);
+	vf120__4XObjFl(chr, mode);
 	chr->mPlug.vf120(mode);
 	chr->mCopterObj.vf120(mode);
 	chr->mPopperObj.vf120(mode);

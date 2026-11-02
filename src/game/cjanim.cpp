@@ -33,7 +33,7 @@ static inline void TriggerObjectEvent(CXObj* object, u32 first, u32 second)
  * @note Size: 0x2C
  */
 // CJAnim::Release
-extern "C" void fn_8008A360(CJAnim* anim)
+extern "C" void Release__6CJAnimFv(CJAnim* anim)
 {
 	if (anim->mArchive != NULL)
 		anim->CJArchive::Release();
@@ -74,7 +74,7 @@ extern "C" BOOL fn_8008A38C(CJAnim* anim, const char* path)
  * @note Size: 0x34
  */
 // CJAnim::Clear
-extern "C" void fn_8008A4FC(CJAnim* anim)
+extern "C" void Clear__6CJAnimFv(CJAnim* anim)
 {
 	anim->CJArchive::Clear();
 	anim->mLoading = 0;
@@ -84,7 +84,7 @@ extern "C" void fn_8008A4FC(CJAnim* anim)
  * @note Address: 0x8008A530
  * @note Size: 0xD4
  */
-extern "C" BOOL fn_8008A530(XObj* object, s32 unused, s32 value)
+extern "C" BOOL vf140__4XObjFll(XObj* object, s32 unused, s32 value)
 {
 	if (object->mStatus.mFlags & 0x0000040000000000ULL) {
 		if (value == 56)
@@ -102,7 +102,7 @@ extern "C" BOOL fn_8008A530(XObj* object, s32 unused, s32 value)
  * @note Address: 0x8008A604
  * @note Size: 0xBC
  */
-extern "C" void fn_8008A604(XObj* object, s32 unused, s32 value)
+extern "C" void vf13C__4XObjFll(XObj* object, s32 unused, s32 value)
 {
 	if (object->mStatus.mFlags & 0x0000080000000000ULL) {
 		const void* script = ObjectScript(object);
@@ -116,7 +116,7 @@ extern "C" void fn_8008A604(XObj* object, s32 unused, s32 value)
  * @note Address: 0x8008A6C0
  * @note Size: 0x158
  */
-extern "C" void fn_8008A6C0(XObj* object, const Vec* position, f32 strength)
+extern "C" void vf138__4XObjFRC3Vecf(XObj* object, const Vec* position, f32 strength)
 {
 	if (object->mStatus.mFlags & 0x0000080000000000ULL) {
 		if (strength >= (s32)fn_8006EBC8(31) / 100.0f) {
@@ -131,7 +131,7 @@ extern "C" void fn_8008A6C0(XObj* object, const Vec* position, f32 strength)
  * @note Address: 0x8008A818
  * @note Size: 0x8
  */
-extern "C" BOOL fn_8008A818(void* object)
+extern "C" BOOL vf134__4XObjFv(void* object)
 {
 	return TRUE;
 }
@@ -140,7 +140,7 @@ extern "C" BOOL fn_8008A818(void* object)
  * @note Address: 0x8008A820
  * @note Size: 0x124
  */
-extern "C" void fn_8008A820(XObj* object, s32 index, u8 red, u8 green, u8 blue, f32 time)
+extern "C" void vf12C__4XObjFlUcUcUcf(XObj* object, s32 index, u8 red, u8 green, u8 blue, f32 time)
 {
 	object->mColorStep[index].mTarget.x = red;
 	object->mColorStep[index].mTarget.y = green;
@@ -217,7 +217,7 @@ extern "C" BOOL fn_8008ADA0(XObj* object, const Vec* direction, u8 axes, f32 x, 
  * @note Address: 0x8008B0D8
  * @note Size: 0x14C
  */
-extern "C" void fn_8008B0D8(CJObj* object, s32 mode)
+extern "C" void vf120__4XObjFl(CJObj* object, s32 mode)
 {
 	switch (mode) {
 	case 0:
@@ -251,7 +251,7 @@ extern "C" void fn_8008B0D8(CJObj* object, s32 mode)
  * @note Address: 0x8008B224
  * @note Size: 0x114
  */
-extern "C" BOOL fn_8008B224(const XObj* object, CCamera* camera)
+extern "C" BOOL vf11C__4XObjFP7CCamera(const XObj* object, CCamera* camera)
 {
 	HSD_JObj* joint = object->mJObj;
 	if (joint != NULL) {
@@ -270,7 +270,7 @@ extern "C" BOOL fn_8008B224(const XObj* object, CCamera* camera)
  * @note Address: 0x8008B338
  * @note Size: 0x29C
  */
-extern "C" BOOL fn_8008B338(CXObj* object, f32* width, f32* height, CCamera* camera, f32 radius, f32 objectHeight)
+extern "C" BOOL vf118__4XObjFPfPfP7CCameraff(CXObj* object, f32* width, f32* height, CCamera* camera, f32 radius, f32 objectHeight)
 {
 	camera          = camera != NULL ? camera : &lbl_8025C400.mMotionControlCamera.mCamera;
 	f32 heading     = camera->mAngle.y;
@@ -324,7 +324,7 @@ extern "C" BOOL fn_8008B338(CXObj* object, f32* width, f32* height, CCamera* cam
  * @note Address: 0x8008B5D4
  * @note Size: 0xCC
  */
-extern "C" void fn_8008B5D4(CXObj* object, const Vec* offset, f32* x, f32* y, f32* z, CCamera* camera)
+extern "C" void vf10C__4XObjFPC3VecPfPfPfP7CCamera(CXObj* object, const Vec* offset, f32* x, f32* y, f32* z, CCamera* camera)
 {
 	camera = camera != NULL ? camera : &lbl_8025C400.mMotionControlCamera.mCamera;
 	f32 screenX, screenY, screenZ;

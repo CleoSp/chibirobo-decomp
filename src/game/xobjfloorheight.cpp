@@ -23,7 +23,7 @@ static inline Vec SecondCoordinates(const XObjFloor* record)
  * @note Address: 0x800BD01C
  * @note Size: 0x160
  */
-extern "C" f32 fn_800BD01C(const XObj* object)
+extern "C" f32 vf114__7XObjChrFv(const XObj* object)
 {
 	return object->mMoveScale.x * (FirstCoordinates(object->mFloors).y + SecondCoordinates(object->mFloors).y);
 }

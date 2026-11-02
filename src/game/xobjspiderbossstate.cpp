@@ -4,7 +4,7 @@
  * @note Address: 0x80103EC0
  * @note Size: 0x94
  */
-extern "C" void fn_80103EC0(XObjSpiderBoss* spider)
+extern "C" void State0__14XObjSpiderBossFUl(XObjSpiderBoss* spider)
 {
 	spider->mSpiderStatus.mFlags &= ~0x80000U;
 	u32 flags = spider->mSpiderStatus.mFlags;

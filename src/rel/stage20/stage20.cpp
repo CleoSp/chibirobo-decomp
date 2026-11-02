@@ -2,7 +2,7 @@
 #include "Version.h"
 #include "game/cgame.h"
 
-extern "C" s32 fn_16_0(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdNop(s32 cmd, void* arg, void* arg2);
 extern "C" void fn_16_8(void* arg);
 extern "C" void UpdateStage(void* arg);
 extern "C" void InitStage(void* arg);
@@ -12,7 +12,7 @@ typedef s32 (*RelCmdFunc)(s32 cmd, void* arg, void* arg2);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, 0, 0, 0, fn_16_8 };
-RelCmdFunc _prolog_cmds[]    = { fn_16_0 };
+RelCmdFunc _prolog_cmds[]    = { CmdNop };
 }
 
 static XObj* timeAnimObj;
@@ -21,7 +21,7 @@ static XObj* timeAnimObj;
  * @note Address: stage20 .text 0x0
  * @note Size: 0x8
  */
-extern "C" s32 fn_16_0(s32 cmd, void* arg, void* arg2)
+extern "C" s32 CmdNop(s32 cmd, void* arg, void* arg2)
 {
 	return 0;
 }

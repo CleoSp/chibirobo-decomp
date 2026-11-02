@@ -64,10 +64,10 @@ void fn_800D7DB8(XObjWireEff* object, s32 anim, s32 effect, f32 rate, u32 color)
  * @note Address: 0x800D7F24
  * @note Size: 0x60
  */
-void fn_800D7F24(XObjWireEff* object, Mtx view)
+void vfB0__11XObjWireEffFPA4_f(XObjWireEff* object, Mtx view)
 {
 	if ((object->mStatus.mFlags & 1) && (object->mStatus.mFlags & 0x10000)) {
-		fn_800908C0(object, view);
+		vfB0__4XObjFPA4_f(object, view);
 	}
 }
 
@@ -76,10 +76,10 @@ void fn_800D7F24(XObjWireEff* object, Mtx view)
  * @note Address: 0x800D7F84
  * @note Size: 0x60
  */
-void fn_800D7F84(XObjWireEff* object, u32 frames)
+void vfA4__11XObjWireEffFUl(XObjWireEff* object, u32 frames)
 {
 	if ((object->mStatus.mFlags & 1) && (object->mAnim >= 0 || object->mEffect >= 0)) {
-		fn_80090ED4(object, frames);
+		vfA4__4XObjFUl(object, frames);
 	}
 }
 
@@ -88,11 +88,11 @@ void fn_800D7F84(XObjWireEff* object, u32 frames)
  * @note Address: 0x800D7FE4
  * @note Size: 0x84
  */
-void fn_800D7FE4(XObjWireEff* object)
+void Release__11XObjWireEffFv(XObjWireEff* object)
 {
 	ClearAnim(object);
 	KillEffect(object);
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 }
 
 // XObjWireEff::vf98
@@ -100,9 +100,9 @@ void fn_800D7FE4(XObjWireEff* object)
  * @note Address: 0x800D8068
  * @note Size: 0x60
  */
-void fn_800D8068(XObjWireEff* object)
+void vf98__11XObjWireEffFv(XObjWireEff* object)
 {
-	fn_800928E8(object);
+	vf98__4XObjFv(object);
 	ClearAnim(object);
 	object->mGenerator = NULL;
 }
@@ -131,9 +131,9 @@ void fn_800D80D4(XObjPlug* object, s32 value)
  * @note Address: 0x800D80E4
  * @note Size: 0x54
  */
-void fn_800D80E4(XObjPlug* object, BOOL enabled, u8 value)
+void vfDC__8XObjPlugFiUc(XObjPlug* object, BOOL enabled, u8 value)
 {
-	fn_80091834(object, enabled, value);
+	vfDC__4XObjFiUc(object, enabled, value);
 	fn_800DB7A8(&object->mCord, enabled, value);
 }
 
@@ -142,7 +142,7 @@ void fn_800D80E4(XObjPlug* object, BOOL enabled, u8 value)
  * @note Address: 0x800D8138
  * @note Size: 0x4C
  */
-void fn_800D8138(XObjPlug* object)
+void vfC0__8XObjPlugFv(XObjPlug* object)
 {
 	if (object->mJObj != NULL) {
 		fn_800DA4D0(&object->mCord, lbl_8025C400.mGs.mCamera->mViewMtx, 1.0f, 1.0f, 1.0f);
@@ -154,7 +154,7 @@ void fn_800D8138(XObjPlug* object)
  * @note Address: 0x800D8184
  * @note Size: 0x1A8
  */
-void fn_800D8184(XObjPlug* object)
+void vfB8__8XObjPlugFv(XObjPlug* object)
 {
 	object->mCord.mColor = 0x14141440;
 	object->mCord._60    = 0x14141440;
@@ -175,7 +175,7 @@ void fn_800D8184(XObjPlug* object)
  * @note Address: 0x800D832C
  * @note Size: 0x2C
  */
-void fn_800D832C(XObjPlug* object, Mtx view)
+void vfB4__8XObjPlugFPA4_f(XObjPlug* object, Mtx view)
 {
 	object->vfB0(view);
 }
@@ -185,9 +185,9 @@ void fn_800D832C(XObjPlug* object, Mtx view)
  * @note Address: 0x800D8358
  * @note Size: 0x74
  */
-void fn_800D8358(XObjPlug* object, Mtx view)
+void vfB0__8XObjPlugFPA4_f(XObjPlug* object, Mtx view)
 {
-	fn_800908C0(object, view);
+	vfB0__4XObjFPA4_f(object, view);
 	object->mWire.vfB0(view);
 	if (object->mJObj != NULL) {
 		fn_800DA68C(&object->mCord, view, 1.0f, 1.0f, 1.0f);

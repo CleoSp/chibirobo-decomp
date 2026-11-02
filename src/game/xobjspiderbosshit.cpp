@@ -7,7 +7,7 @@
  * @note Address: 0x801051A0
  * @note Size: 0x14
  */
-extern "C" s32 fn_801051A0(XObjSpiderBoss* spider, s32 unused, s32 value)
+extern "C" s32 vf100__14XObjSpiderBossFll(XObjSpiderBoss* spider, s32 unused, s32 value)
 {
 	spider->mSpiderStatus.mFlags |= 1;
 	return value;
@@ -18,7 +18,7 @@ extern "C" s32 fn_801051A0(XObjSpiderBoss* spider, s32 unused, s32 value)
  * @note Size: 0x1A8
  */
 // hit from pos, only once chibi robo has the item that does it
-extern "C" void fn_801051B4(XObjSpiderBoss* spider, const Vec* pos, f32 strength)
+extern "C" void vf138__14XObjSpiderBossFRC3Vecf(XObjSpiderBoss* spider, const Vec* pos, f32 strength)
 {
 	u32 flags = spider->mSpiderStatus.mFlags;
 	if (flags & 2) {
@@ -34,7 +34,7 @@ extern "C" void fn_801051B4(XObjSpiderBoss* spider, const Vec* pos, f32 strength
 	if (fn_8009C1BC(&player->mAttachments, 2) < 2) {
 		return;
 	}
-	fn_8008A6C0(spider, pos, strength);
+	vf138__4XObjFRC3Vecf(spider, pos, strength);
 	spider->mSpiderStatus.mFlags |= 2;
 	f32 x                = pos->x;
 	f32 y                = pos->y;

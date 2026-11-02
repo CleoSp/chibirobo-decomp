@@ -10,7 +10,7 @@ inline void* operator new(size_t, void* storage)
  * @note Address: 0x800DBC80
  * @note Size: 0x18
  */
-extern "C" XObjPlugCordPoint* fn_800DBC80(XObjPlugCordPoint* point)
+extern "C" XObjPlugCordPoint* __ct__17XObjPlugCordPointFv(XObjPlugCordPoint* point)
 {
 	return new (point) XObjPlugCordPoint;
 }

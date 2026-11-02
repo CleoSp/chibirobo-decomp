@@ -5,7 +5,7 @@
  * @note Address: 0x80135118
  * @note Size: 0x8
  */
-extern "C" f32 fn_80135118(CInterpolationEaseOut* interp)
+extern "C" f32 Get__21CInterpolationEaseOutFv(CInterpolationEaseOut* interp)
 {
 	return interp->mValue;
 }
@@ -14,7 +14,7 @@ extern "C" f32 fn_80135118(CInterpolationEaseOut* interp)
  * @note Address: 0x80135120
  * @note Size: 0x7C
  */
-extern "C" bool fn_80135120(CInterpolationEaseOut* interp, f32 dt)
+extern "C" bool Step__21CInterpolationEaseOutFf(CInterpolationEaseOut* interp, f32 dt)
 {
 	interp->mTime -= dt;
 	f32 elapsed    = interp->mDuration - interp->mTime;
@@ -31,7 +31,7 @@ extern "C" bool fn_80135120(CInterpolationEaseOut* interp, f32 dt)
  * @note Address: 0x8013519C
  * @note Size: 0x84
  */
-extern "C" bool fn_8013519C(CInterpolationEaseOut* interp, u32 step, f32 dt)
+extern "C" bool Update__21CInterpolationEaseOutFUlf(CInterpolationEaseOut* interp, u32 step, f32 dt)
 {
 	bool done = false;
 	for (u32 i = 0; i < step; ++i) {
@@ -47,7 +47,7 @@ extern "C" bool fn_8013519C(CInterpolationEaseOut* interp, u32 step, f32 dt)
  * @note Address: 0x80135220
  * @note Size: 0x58
  */
-extern "C" bool fn_80135220(CInterpolationEaseOut* interp, f32 from, f32 to, f32 time)
+extern "C" bool Start__21CInterpolationEaseOutFfff(CInterpolationEaseOut* interp, f32 from, f32 to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
@@ -66,7 +66,7 @@ extern "C" bool fn_80135220(CInterpolationEaseOut* interp, f32 from, f32 to, f32
  * @note Address: 0x80135278
  * @note Size: 0x8
  */
-extern "C" f32 fn_80135278(CInterpolationEaseInOut* interp)
+extern "C" f32 Get__23CInterpolationEaseInOutFv(CInterpolationEaseInOut* interp)
 {
 	return interp->mValue;
 }
@@ -75,7 +75,7 @@ extern "C" f32 fn_80135278(CInterpolationEaseInOut* interp)
  * @note Address: 0x80135280
  * @note Size: 0x94
  */
-extern "C" bool fn_80135280(CInterpolationEaseInOut* interp, f32 dt)
+extern "C" bool Step__23CInterpolationEaseInOutFf(CInterpolationEaseInOut* interp, f32 dt)
 {
 	interp->mTime -= dt;
 	if (interp->mTime < interp->mDuration * 0.5f) {
@@ -95,7 +95,7 @@ extern "C" bool fn_80135280(CInterpolationEaseInOut* interp, f32 dt)
  * @note Address: 0x80135314
  * @note Size: 0x84
  */
-extern "C" bool fn_80135314(CInterpolationEaseInOut* interp, u32 step, f32 dt)
+extern "C" bool Update__23CInterpolationEaseInOutFUlf(CInterpolationEaseInOut* interp, u32 step, f32 dt)
 {
 	bool done = false;
 	for (u32 i = 0; i < step; ++i) {
@@ -111,7 +111,7 @@ extern "C" bool fn_80135314(CInterpolationEaseInOut* interp, u32 step, f32 dt)
  * @note Address: 0x80135398
  * @note Size: 0x4C
  */
-extern "C" bool fn_80135398(CInterpolationEaseInOut* interp, f32 from, f32 to, f32 time)
+extern "C" bool Start__23CInterpolationEaseInOutFfff(CInterpolationEaseInOut* interp, f32 from, f32 to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;

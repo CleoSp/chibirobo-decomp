@@ -9,7 +9,7 @@ u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, GXBool mipmap, u8 maxL
  * @note Address: 0x80014978
  * @note Size: 0xEC
  */
-extern "C" void fn_80014978(FbSubwin* subwin)
+extern "C" void Init__8FbSubwinFv(FbSubwin* subwin)
 {
 #if defined(VERSION_PAL)
 	GXRenderModeObj* mode = &lbl_8025C400.mGs.mScreen;
@@ -46,7 +46,7 @@ extern "C" void fn_80014978(FbSubwin* subwin)
  * @note Address: 0x80014964
  * @note Size: 0x14
  */
-extern "C" void fn_80014964(FbSubwin* subwin)
+extern "C" void Reset__8FbSubwinFv(FbSubwin* subwin)
 {
 	subwin->mEnabled = FALSE;
 	subwin->mAmount  = 0.0f;
@@ -56,7 +56,7 @@ extern "C" void fn_80014964(FbSubwin* subwin)
  * @note Address: 0x800148C0
  * @note Size: 0xA4
  */
-extern "C" void fn_800148C0(FbSubwin* subwin, u32 frames)
+extern "C" void Update__8FbSubwinFUl(FbSubwin* subwin, u32 frames)
 {
 	if (subwin->mEnabled) {
 		if (subwin->mAmount < 1.0f) {

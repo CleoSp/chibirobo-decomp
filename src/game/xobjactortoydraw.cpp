@@ -6,7 +6,7 @@
  */
 void XObjActorToy::vfC8()
 {
-	fn_80107600(this);
+	vfC8__9XObjActorFv(this);
 	if (mFirst.mStatus.mFlags & 0x10000ULL)
 		mFirst.vfC8();
 	if (mSecond.mStatus.mFlags & 0x10000ULL)

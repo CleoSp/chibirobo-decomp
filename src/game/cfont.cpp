@@ -74,9 +74,9 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
 
 	if (font->mDesc.textureHeader == NULL) {
 #if defined(VERSION_JP)
-		fn_8019EC40(font);
+		Init__5CFontFv(font);
 #else
-		fn_8019EC40(font, FALSE);
+		Init__5CFontFi(font, FALSE);
 #endif
 	}
 	if (UseGlyphCache()) {
@@ -148,7 +148,7 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
     cmplwi   r0, 0x0
     bne      .L_8019E924
     li       r4, 0x0
-    bl       fn_8019EC40
+    bl       Init__5CFontFi
 .L_8019E924:
     lhz      r0, lbl_8065B860@sda21(r0)
     li       r3, 0x0
@@ -373,9 +373,9 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
  * @note Size: 0x738
  */
 #if defined(VERSION_JP)
-extern "C" void fn_8019EC40(CFont* font)
+extern "C" void Init__5CFontFv(CFont* font)
 #else
-extern "C" void fn_8019EC40(CFont* font, BOOL builtin)
+extern "C" void Init__5CFontFi(CFont* font, BOOL builtin)
 #endif
 {
 	if (lbl_8065B864 == NULL) {

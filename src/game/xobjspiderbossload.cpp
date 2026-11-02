@@ -8,9 +8,9 @@ extern AnimSfxEvent lbl_8022B9D8[]; // the anim sound events
  * @note Address: 0x80106000
  * @note Size: 0x38
  */
-extern "C" void fn_80106000(XObjSpiderBoss* spider)
+extern "C" void vf98__14XObjSpiderBossFv(XObjSpiderBoss* spider)
 {
-	fn_800928E8(spider);
+	vf98__4XObjFv(spider);
 	spider->mAnimSfx.mEvents = lbl_8022B9D8;
 }
 
@@ -18,9 +18,9 @@ extern "C" void fn_80106000(XObjSpiderBoss* spider)
  * @note Address: 0x80106038
  * @note Size: 0x50
  */
-extern "C" BOOL fn_80106038(XObjSpiderBoss* spider, const CoordInfo& info)
+extern "C" BOOL vf9C__14XObjSpiderBossFRC9CoordInfo(XObjSpiderBoss* spider, const CoordInfo& info)
 {
-	if (fn_80091C80(spider, &info)) {
+	if (vf9C__4XObjFRC9CoordInfo(spider, &info)) {
 		fn_8010660C(spider);
 		fn_80106088(spider);
 		return TRUE;

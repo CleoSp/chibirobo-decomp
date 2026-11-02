@@ -36,9 +36,9 @@ extern "C" {
 // the glyph texture for one character and how wide it is
 CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width);
 #if defined(VERSION_JP)
-void fn_8019EC40(CFont* font);
+void Init__5CFontFv(CFont* font);
 #else
-void fn_8019EC40(CFont* font, BOOL builtin);
+void Init__5CFontFi(CFont* font, BOOL builtin);
 #endif
 }
 

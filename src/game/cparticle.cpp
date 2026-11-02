@@ -19,7 +19,7 @@ s32 psInitAppSRT(s32 num, s32 size);
 void psRemoveAppSRT(void);
 void psSetPointJObjNodup(HSD_JObj* jobj, s32 no);
 void HSD_JObjSetSPtclCallback(HSD_Generator* (*func)(int, int, int, HSD_JObj*));
-void HSD_JObjSetJSoundCallback(HSD_Generator* (*func)(int, int, int, HSD_JObj*));
+void HSD_JObjSetDPtclCallback(HSD_Generator* (*func)(int, int, int, HSD_JObj*));
 void HSD_JObjSetPtclTargetCallback(void (*func)(HSD_JObj*, s32));
 }
 
@@ -219,7 +219,7 @@ void CParticle::Init()
 	psInitGenerator(100);
 	psInitAppSRT(100, 0x74); // this revision's HSD_psAppSRT is 0x74 bytes, our particle.h has a later layout
 	HSD_JObjSetSPtclCallback(fn_801E4C58);
-	HSD_JObjSetJSoundCallback(fn_801E4380);
+	HSD_JObjSetDPtclCallback(fn_801E4380);
 	HSD_JObjSetPtclTargetCallback(psSetPointJObjNodup);
 	if (mReadStep > 0) {
 		psInitDataBankLoad(GetBank(), mCmdBank, mTexBank, mRef, mFormBank);

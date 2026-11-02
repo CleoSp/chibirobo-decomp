@@ -6,7 +6,7 @@
  * @note Size: 0x340
  */
 // gets back up, blinking
-extern "C" void fn_80103B80(XObjSpiderBoss* spider, u32 frames)
+extern "C" void State1__14XObjSpiderBossFUl(XObjSpiderBoss* spider, u32 frames)
 {
 	switch (spider->mStep) {
 	case 0:

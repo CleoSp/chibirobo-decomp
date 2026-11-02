@@ -5,7 +5,7 @@
  * @note Size: 0x30
  */
 // XAction::Init
-extern "C" void fn_800BBD7C(XAction* action, XObjChr* owner)
+extern "C" void Init__7XActionFP7XObjChr(XAction* action, XObjChr* owner)
 {
 	action->mOwner = owner;
 	action->Reset();

@@ -56,7 +56,7 @@ extern "C" CStatus* fn_801001B4(CStatus* status, s32 flags)
 // todo: weak copy
 extern "C" CStatus* fn_80100204(CStatus* row)
 {
-	__construct_array(row, (ConstructorDestructor)fn_8010024C, (ConstructorDestructor)fn_801001B4, sizeof(CStatus), 16);
+	__construct_array(row, (ConstructorDestructor)__ct__7CStatusFv, (ConstructorDestructor)fn_801001B4, sizeof(CStatus), 16);
 	return row;
 }
 
@@ -65,7 +65,7 @@ extern "C" CStatus* fn_80100204(CStatus* row)
  * @note Size: 0x18
  */
 // todo: weak copy
-extern "C" CStatus* fn_8010024C(CStatus* status)
+extern "C" CStatus* __ct__7CStatusFv(CStatus* status)
 {
 	*(void***)((u8*)status + 0x4) = __vt__7CStatus;
 	status->mFlags                = 0;

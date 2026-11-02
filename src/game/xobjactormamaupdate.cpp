@@ -6,5 +6,5 @@
  */
 void XObjActorMama::vfA4(u32 frames)
 {
-	fn_80107DE0(this, frames);
+	vfA4__9XObjActorFUl(this, frames);
 }

@@ -14,7 +14,7 @@ extern "C" {
  * @note Address: 0x800D552C
  * @note Size: 0x54
  */
-void fn_800D552C(XObjAttachment* object)
+void Show__14XObjAttachmentFv(XObjAttachment* object)
 {
 	object->mVisible = TRUE;
 	if (object->mStatus.mFlags & 1) {
@@ -26,7 +26,7 @@ void fn_800D552C(XObjAttachment* object)
  * @note Address: 0x800D5580
  * @note Size: 0x3C
  */
-void fn_800D5580(XObjAttachment* object)
+void vfAC__14XObjAttachmentFv(XObjAttachment* object)
 {
 	if (object->mVisible) {
 		object->vfB0(NULL);
@@ -37,7 +37,7 @@ void fn_800D5580(XObjAttachment* object)
  * @note Address: 0x800D55BC
  * @note Size: 0x248
  */
-void fn_800D55BC(XObjOX* object, u32 frames)
+void vfA4__6XObjOXFUl(XObjOX* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -57,7 +57,7 @@ void fn_800D55BC(XObjOX* object, u32 frames)
 			}
 			break;
 		}
-		fn_80090ED4(object, frames);
+		vfA4__4XObjFUl(object, frames);
 	}
 }
 
@@ -108,7 +108,7 @@ CVec fn_800D5F94(XObjRadar* object)
  * @note Address: 0x800D5FF0
  * @note Size: 0x27C
  */
-void fn_800D5FF0(XObjRadar* object, u32 frames)
+void vfA4__9XObjRadarFUl(XObjRadar* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -130,7 +130,7 @@ void fn_800D5FF0(XObjRadar* object, u32 frames)
 		case 10:
 			break;
 		}
-		fn_80090ED4(object, frames);
+		vfA4__4XObjFUl(object, frames);
 	}
 }
 

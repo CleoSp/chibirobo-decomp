@@ -92,16 +92,16 @@ void CCameraActionReset::PreviousUpdate()
 	}
 
 	_38 = 0xB;
-	fn_80137D00(&lbl_805A054C, 0);
-	s32 arg = lbl_805A054C._0C;
-	_50     = fn_80135D28(&lbl_805A054C);
+	fn_80137D00(&gCameraActionAreaEx, 0);
+	s32 arg = gCameraActionAreaEx._0C;
+	_50     = fn_80135D28(&gCameraActionAreaEx);
 	if (_4C == TRUE) {
 		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		camera->ChangeAction(_50);
 		if (_50 == 1) {
-			fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
+			fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], gCameraActionAreaEx._14);
 		} else {
-			fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], lbl_805A054C._14, 15.0f);
+			fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], gCameraActionAreaEx._14, 15.0f);
 			fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7]);
 			f32 dy = camera->mCamera.mInterest.y - mTarget->GetCameraTarget().y;
 			if (0.0f != dy) {
@@ -115,7 +115,7 @@ void CCameraActionReset::PreviousUpdate()
 	if (_50 == 1) {
 		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		camera->ChangeAction(_50);
-		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
+		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], gCameraActionAreaEx._14);
 		fn_80138CA4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], mMode, mTime, arg);
 		if (mMode == 3) {
 			camera->ApplyAction();
@@ -137,10 +137,10 @@ void CCameraActionReset::PreviousUpdate()
 		Vec target = eye;
 		SetEye_Interp(mMode, target, mTime);
 
-		f32 fov = fn_801353E4(&lbl_805A054C, lbl_805A054C._14);
+		f32 fov = fn_801353E4(&gCameraActionAreaEx, gCameraActionAreaEx._14);
 		SetFov_Interp(mMode, fov, mTime);
 
-		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
+		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], gCameraActionAreaEx._14);
 		if (mMode == 3 || 0.0f == mTime) {
 			_58 = 0;
 		} else {
@@ -199,13 +199,13 @@ void CCameraActionReset::PreviousUpdate()
     b        .L_80147D50
 .L_8014784C:
     li       r0, 0xb
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     stw      r0, 0x38(r31)
-    addi     r3, r3, lbl_805A054C@l
+    addi     r3, r3, gCameraActionAreaEx@l
     li       r4, 0x0
     bl       fn_80137D00
-    lis      r3, lbl_805A054C@ha
-    addi     r3, r3, lbl_805A054C@l
+    lis      r3, gCameraActionAreaEx@ha
+    addi     r3, r3, gCameraActionAreaEx@l
     lwz      r30, 0xc(r3)
     bl       fn_80135D28
     stw      r3, 0x50(r31)
@@ -223,21 +223,21 @@ void CCameraActionReset::PreviousUpdate()
     cmpwi    r0, 0x1
     bne      .L_801478D0
     lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     addi     r4, r4, lbl_8025C400@l
     addis    r5, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraActionAreaEx@l
     lwz      r3, 0x7df0(r5)
     lwz      r4, 0x14(r4)
     bl       fn_801382D4
     b        .L_80147938
 .L_801478D0:
     lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     addi     r4, r4, lbl_8025C400@l
     lfs      f1, lbl_8065EC2C@sda21(r0)
     addis    r30, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraActionAreaEx@l
     lwz      r3, 0x7e08(r30)
     lwz      r4, 0x14(r4)
     bl       fn_8013C510
@@ -273,10 +273,10 @@ void CCameraActionReset::PreviousUpdate()
     mr       r3, r28
     bl       fn_8014946C
     lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraActionAreaEx@ha
     addi     r4, r4, lbl_8025C400@l
     addis    r29, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraActionAreaEx@l
     lwz      r3, 0x7df0(r29)
     lwz      r4, 0x14(r4)
     bl       fn_801382D4
@@ -492,8 +492,8 @@ void CCameraActionReset::PreviousUpdate()
     mtctr    r12
     bctrl
 .L_80147C78:
-    lis      r3, lbl_805A054C@ha
-    addi     r30, r3, lbl_805A054C@l
+    lis      r3, gCameraActionAreaEx@ha
+    addi     r30, r3, gCameraActionAreaEx@l
     lwz      r4, 0x14(r30)
     mr       r3, r30
     bl       fn_801353E4
@@ -588,7 +588,7 @@ void CCameraActionReset::Init()
 	mMode = 1;
 	mTime = 2.0f;
 	_4C   = FALSE;
-	fn_8013801C(&lbl_805A054C);
+	fn_8013801C(&gCameraActionAreaEx);
 	mEyeInterps[0] = &mEyeLinear;
 	mEyeInterps[1] = &mEyeEaseInOut;
 	mEyeInterps[2] = &mEyeEaseOut;

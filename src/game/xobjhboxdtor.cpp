@@ -4,7 +4,7 @@ void operator delete(void* object);
 
 extern "C" {
 extern void* __vt__8XObjHBox[];
-XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del);
+XObjHBoxPart* __dt__12XObjHBoxPartFv(XObjHBoxPart* part, s32 del);
 }
 
 /**
@@ -12,11 +12,11 @@ XObjHBoxPart* fn_800E240C(XObjHBoxPart* part, s32 del);
  * @note Size: 0x70
  */
 // todo: weak copy
-extern "C" XObjHBox* fn_800E239C(XObjHBox* box, s32 del)
+extern "C" XObjHBox* __dt__8XObjHBoxFv(XObjHBox* box, s32 del)
 {
 	if (box != NULL) {
 		*(void***)((u8*)box + 0x34) = __vt__8XObjHBox;
-		fn_800E240C(&box->mPart, -1);
+		__dt__12XObjHBoxPartFv(&box->mPart, -1);
 		__dt__4XObjFv((XObj*)box, 0);
 		if ((s16)del > 0)
 			::operator delete(box);

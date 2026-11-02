@@ -10,7 +10,7 @@ extern void* __vt__11XObjWireEff[];
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" XObjWireEff* fn_800BCD84(XObjWireEff* object, s32 flags)
+extern "C" XObjWireEff* __dt__11XObjWireEffFv(XObjWireEff* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__11XObjWireEff;

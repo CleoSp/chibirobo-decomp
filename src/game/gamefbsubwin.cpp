@@ -6,7 +6,7 @@
  * @note Size: 0x1F0
  */
 // FbSubwin's Copy
-extern "C" void fn_800146D0(FbSubwin* subwin)
+extern "C" void Copy__8FbSubwinFv(FbSubwin* subwin)
 {
 	CGs* graphics = CaptureGraphics();
 	fn_8019B648(graphics->mCurRenderMode, 1);

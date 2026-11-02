@@ -96,7 +96,7 @@ static inline BOOL PointInQuad(const Vec& pos, Vec a, Vec b, Vec c, Vec d)
  * @note Address: 0x801361C4
  * @note Size: 0x890
  */
-extern "C" void fn_801361C4(CCameraActionAreaEx* state)
+extern "C" void DrawDebug3d__19CCameraActionAreaExFv(CCameraActionAreaEx* state)
 {
 	if (state->_24 == NULL)
 		return;

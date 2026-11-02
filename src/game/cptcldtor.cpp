@@ -13,7 +13,7 @@ extern void* __vt__5CPtcl[];
  */
 // CPtcl::~CPtcl
 // todo: weak copy
-CPtcl* fn_800BD2D8(CPtcl* ptcl, s32 flags)
+CPtcl* __dt__5CPtclFv(CPtcl* ptcl, s32 flags)
 {
 	if (ptcl != NULL) {
 		*(void***)((u8*)ptcl + sizeof(CPtcl) - 4) = __vt__5CPtcl;

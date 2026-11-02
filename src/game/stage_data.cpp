@@ -33,21 +33,21 @@ extern u8 HSD_VIData[];
 BOOL fn_8001F97C(XSound* sound, s32 stage);
 }
 
-Stage lbl_803672CC;
-Globals lbl_803675CC;
+Stage sStage;
+Globals sGlobals;
 
 // an entry of one of the data part's tables, the table offsets sit at the start of it
 
 static inline u8* ResourceField(s32 table, s32 index, s32 stride, s32 member)
 {
-	u8* data = lbl_803675CC.mData;
+	u8* data = sGlobals.mData;
 	return data + ReadResourceOffset(data + table) + member + index * stride;
 }
 
 // the same, through an offset the entry holds
 static inline u8* ResourcePointer(s32 table, s32 index, s32 stride, s32 member)
 {
-	u8* data   = lbl_803675CC.mData;
+	u8* data   = sGlobals.mData;
 	u8* record = data + ReadResourceOffset(data + table) + index * stride;
 	return data + ReadResourceOffset(record + member);
 }
@@ -64,7 +64,7 @@ static inline u8* ReadScriptPointer(u8* base, const u8* operand)
 static inline BOOL IsGlobalScript(const u8* script)
 {
 	bool inside = false;
-	if (script >= lbl_803675CC.mScripts && script < lbl_803675CC.mScripts + ReadResourceOffset(lbl_803675CC.mHeader + 0x14)) {
+	if (script >= sGlobals.mScripts && script < sGlobals.mScripts + ReadResourceOffset(sGlobals.mHeader + 0x14)) {
 		inside = true;
 	}
 	return inside != false;
@@ -332,10 +332,10 @@ extern "C" u8* fn_8006E580(u8* operand)
 {
 	if (IsGlobalScript(operand)) {
 		u32 offset = ReadResourceOffset(operand);
-		return offset == 0 ? NULL : lbl_803675CC.mScripts + offset;
+		return offset == 0 ? NULL : sGlobals.mScripts + offset;
 	}
 	u32 offset = ReadResourceOffset(operand);
-	return offset == 0 ? NULL : (u8*)lbl_803672CC.mDataFile.mBuffer + offset;
+	return offset == 0 ? NULL : (u8*)sStage.mDataFile.mBuffer + offset;
 }
 
 /**
@@ -353,7 +353,7 @@ extern "C" BOOL fn_8006E66C(u8* script)
  */
 extern "C" u8* fn_8006E6D4(s32 index)
 {
-	return ReadScriptPointer(lbl_803675CC.mScripts, lbl_803675CC.mScripts + index * 4);
+	return ReadScriptPointer(sGlobals.mScripts, sGlobals.mScripts + index * 4);
 }
 
 /**
@@ -362,7 +362,7 @@ extern "C" u8* fn_8006E6D4(s32 index)
  */
 extern "C" u8* fn_8006E724(s32)
 {
-	return lbl_803675CC.mScripts;
+	return sGlobals.mScripts;
 }
 
 // a text entry, ids from 10000 go through a remap table first
@@ -377,7 +377,7 @@ extern "C" u8* fn_8006E734(s32 index)
 		if (index < 0)
 			return NULL;
 	}
-	u8* text  = lbl_803675CC.mText;
+	u8* text  = sGlobals.mText;
 	u8* entry = text + index * 4;
 	if (*(u32*)entry != 0)
 		return text + ReadResourceOffset(entry);
@@ -492,7 +492,7 @@ extern "C" u32 fn_8006EBC8(s32 index)
  */
 extern "C" BOOL fn_8006EC34()
 {
-	return lbl_803675CC.mFile.mBuffer != NULL;
+	return sGlobals.mFile.mBuffer != NULL;
 }
 
 // reads the globals file and finds its three parts
@@ -512,14 +512,14 @@ extern "C" BOOL fn_8006EC50()
 	sprintf(path, "bin%s/%s", lbl_802244C8[lbl_8025C400.mLanguage], lbl_8065A390);
 #endif
 #endif
-	CFile* file = &lbl_803675CC.mFile;
+	CFile* file = &sGlobals.mFile;
 	if (file->ReadEx(path, 0, 0)) {
-		lbl_803675CC.mFile.CloseHandle();
-		lbl_803675CC.mHeader  = (u8*)lbl_803675CC.mFile.mBuffer;
-		u8* header            = lbl_803675CC.mHeader;
-		lbl_803675CC.mData    = header + ReadResourceOffset(header) + 0x18;
-		lbl_803675CC.mText    = header + ReadResourceOffset(header + 8) + 0x18;
-		lbl_803675CC.mScripts = header + ReadResourceOffset(header + 16) + 0x18;
+		sGlobals.mFile.CloseHandle();
+		sGlobals.mHeader  = (u8*)sGlobals.mFile.mBuffer;
+		u8* header        = sGlobals.mHeader;
+		sGlobals.mData    = header + ReadResourceOffset(header) + 0x18;
+		sGlobals.mText    = header + ReadResourceOffset(header + 8) + 0x18;
+		sGlobals.mScripts = header + ReadResourceOffset(header + 16) + 0x18;
 		return TRUE;
 	}
 	return FALSE;
@@ -663,8 +663,8 @@ extern "C" BOOL fn_8006EE24(Stage* stage, s32 index)
  */
 extern "C" s32 fn_8006F338(s32 function, s32 count, s32* args)
 {
-	if (IsModuleLoaded(&lbl_803672CC.mModule))
-		return lbl_803672CC.CallModule(function, count, args);
+	if (IsModuleLoaded(&sStage.mModule))
+		return sStage.CallModule(function, count, args);
 	return -1;
 }
 
@@ -674,7 +674,7 @@ extern "C" s32 fn_8006F338(s32 function, s32 count, s32* args)
  */
 extern "C" s32 fn_8006F390(s32 index)
 {
-	return ((s16*)(lbl_803672CC.mEnvironment.mData + 0xA))[index];
+	return ((s16*)(sStage.mEnvironment.mData + 0xA))[index];
 }
 
 /**
@@ -683,7 +683,7 @@ extern "C" s32 fn_8006F390(s32 index)
  */
 extern "C" CamAreaRecord* fn_8006F3AC()
 {
-	return (CamAreaRecord*)lbl_803672CC._1A8;
+	return (CamAreaRecord*)sStage._1A8;
 }
 
 /**
@@ -692,7 +692,7 @@ extern "C" CamAreaRecord* fn_8006F3AC()
  */
 extern "C" CamInfoData* fn_8006F3BC()
 {
-	return (CamInfoData*)lbl_803672CC._1A4;
+	return (CamInfoData*)sStage._1A4;
 }
 
 /**
@@ -701,7 +701,7 @@ extern "C" CamInfoData* fn_8006F3BC()
  */
 extern "C" CamAreaRecord* fn_8006F3CC()
 {
-	return (CamAreaRecord*)lbl_803672CC._1A0;
+	return (CamAreaRecord*)sStage._1A0;
 }
 
 /**
@@ -710,7 +710,7 @@ extern "C" CamAreaRecord* fn_8006F3CC()
  */
 extern "C" void* fn_8006F3DC()
 {
-	return lbl_803672CC._19C;
+	return sStage._19C;
 }
 
 /**
@@ -719,7 +719,7 @@ extern "C" void* fn_8006F3DC()
  */
 extern "C" void* fn_8006F3EC()
 {
-	return lbl_803672CC._194;
+	return sStage._194;
 }
 
 /**
@@ -728,7 +728,7 @@ extern "C" void* fn_8006F3EC()
  */
 extern "C" void* fn_8006F3FC()
 {
-	return lbl_803672CC._190;
+	return sStage._190;
 }
 
 /**
@@ -737,7 +737,7 @@ extern "C" void* fn_8006F3FC()
  */
 extern "C" void* fn_8006F40C()
 {
-	return lbl_803672CC._18C;
+	return sStage._18C;
 }
 
 /**
@@ -746,7 +746,7 @@ extern "C" void* fn_8006F40C()
  */
 extern "C" void* fn_8006F41C()
 {
-	return lbl_803672CC._188;
+	return sStage._188;
 }
 
 /**
@@ -755,7 +755,7 @@ extern "C" void* fn_8006F41C()
  */
 extern "C" void* fn_8006F42C()
 {
-	return lbl_803672CC._184;
+	return sStage._184;
 }
 
 /**
@@ -764,8 +764,8 @@ extern "C" void* fn_8006F42C()
  */
 extern "C" u8* fn_8006F43C(s32 index)
 {
-	u32 offset = ReadResourceOffset(lbl_803672CC.mScriptOffsets + index * 4);
-	return offset == 0 ? NULL : (u8*)lbl_803672CC.mDataFile.mBuffer + offset;
+	u32 offset = ReadResourceOffset(sStage.mScriptOffsets + index * 4);
+	return offset == 0 ? NULL : (u8*)sStage.mDataFile.mBuffer + offset;
 }
 
 /**
@@ -774,7 +774,7 @@ extern "C" u8* fn_8006F43C(s32 index)
  */
 extern "C" u8* fn_8006F490()
 {
-	return (u8*)lbl_803672CC.mDataFile.mBuffer;
+	return (u8*)sStage.mDataFile.mBuffer;
 }
 
 /**
@@ -783,7 +783,7 @@ extern "C" u8* fn_8006F490()
  */
 extern "C" UnkStageObj* fn_8006F4A0(s32 index)
 {
-	return lbl_803672CC.mPlacements._00 + index;
+	return sStage.mPlacements._00 + index;
 }
 
 /**
@@ -792,7 +792,7 @@ extern "C" UnkStageObj* fn_8006F4A0(s32 index)
  */
 extern "C" EnvInfo* fn_8006F4B8()
 {
-	return &lbl_803672CC.mEnvironment;
+	return &sStage.mEnvironment;
 }
 
 /**
@@ -801,7 +801,7 @@ extern "C" EnvInfo* fn_8006F4B8()
  */
 extern "C" BOOL fn_8006F4C8()
 {
-	return lbl_803672CC.mDataFile.mBuffer != NULL;
+	return sStage.mDataFile.mBuffer != NULL;
 }
 
 /**
@@ -810,9 +810,9 @@ extern "C" BOOL fn_8006F4C8()
  */
 extern "C" void fn_8006F4E4()
 {
-	GXColor color                  = *(GXColor*)lbl_803672CC.mEnvironment.mData;
+	GXColor color                  = *(GXColor*)sStage.mEnvironment.mData;
 	*(GXColor*)(HSD_VIData + 0x48) = color; // current.vi.bg_color
-	lbl_803672CC.mModule.Print();
+	sStage.mModule.Print();
 }
 
 /**
@@ -821,12 +821,12 @@ extern "C" void fn_8006F4E4()
  */
 extern "C" void fn_8006F544()
 {
-	if (IsModuleLoaded(&lbl_803672CC.mModule))
-		lbl_803672CC.CallModule(6, 0, NULL);
-	lbl_803672CC.mModule.Unload();
-	CFile* file = &lbl_803672CC.mDataFile;
+	if (IsModuleLoaded(&sStage.mModule))
+		sStage.CallModule(6, 0, NULL);
+	sStage.mModule.Unload();
+	CFile* file = &sStage.mDataFile;
 	file->Close();
-	lbl_803672CC.mState = 0;
+	sStage.mState = 0;
 }
 
 /**
@@ -835,7 +835,7 @@ extern "C" void fn_8006F544()
  */
 extern "C" BOOL fn_8006F5D4(s32 index)
 {
-	return fn_8006EE24(&lbl_803672CC, index);
+	return fn_8006EE24(&sStage, index);
 }
 
 static inline s32 StageCount()
@@ -892,7 +892,7 @@ static inline const char* StageMessage(s32 index, s32 member)
 	StageDesc* desc = &stageTable[StageIndex(index)];
 	s32 message     = desc->message;
 	if (message >= 0) {
-		u8* data   = lbl_803675CC.mData;
+		u8* data   = sGlobals.mData;
 		u8* record = data + ReadResourceOffset(data + 0x38) + message * 8;
 		return (const char*)(data + ReadResourceOffset(record + member));
 	}
@@ -940,4 +940,4 @@ extern "C" s32 GetStageNum()
  * @note Address: 0x8006F94C
  * @note Size: 0x128
  */
-// __sinit_stage_cpp, builds lbl_803672CC and lbl_803675CC
+// __sinit_stage_cpp, builds sStage and sGlobals

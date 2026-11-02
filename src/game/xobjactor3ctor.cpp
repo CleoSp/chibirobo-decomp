@@ -13,7 +13,7 @@
 
 extern "C" {
 // two plain objects pool 5 keeps next to its XObjActor3s
-extern XObj lbl_8039BAE0[2];
+extern XObj sActor2Pool[2];
 }
 
 /**
@@ -32,7 +32,7 @@ XObjActor3::XObjActor3()
 
 extern "C" void fn_8013465C()
 {
-	__destroy_arr(lbl_8039BAE0, (ConstructorDestructor*)__dt__4XObjFv, sizeof(XObj), ARRAY_SIZE(lbl_8039BAE0));
+	__destroy_arr(sActor2Pool, (ConstructorDestructor*)__dt__4XObjFv, sizeof(XObj), ARRAY_SIZE(sActor2Pool));
 }
 
 /**

@@ -89,7 +89,7 @@ public:
 };
 
 extern "C" {
-XObjSpiderBoss* fn_80100264(XObjSpiderBoss* spider, s32 flags);
+XObjSpiderBoss* __dt__14XObjSpiderBossFv(XObjSpiderBoss* spider, s32 flags);
 void fn_80103F54(XObjSpiderBoss* spider, u32 frames);
 void fn_8010473C(XObjSpiderBoss* spider, u32 frames);
 void fn_80106088(XObjSpiderBoss* spider);

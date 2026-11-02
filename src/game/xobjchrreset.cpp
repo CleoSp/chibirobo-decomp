@@ -8,7 +8,7 @@ extern "C" void fn_800B8850(XObjChr* chr);
  * @note Size: 0x1F8
  */
 // puts him back to a clean state, keeps what he was holding to pick it up again after
-extern "C" void fn_800B7B5C(XObjChr* chr)
+extern "C" void Release__7XObjChrFv(XObjChr* chr)
 {
 	chr->_980.mFlags = 0;
 	chr->_980.mFlags |= 0x20000000;

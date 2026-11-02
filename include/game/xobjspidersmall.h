@@ -170,7 +170,7 @@ void fn_8010011C();
 CStatus* fn_80100154(CStatus* row, s32 flags);
 CStatus* fn_801001B4(CStatus* status, s32 flags);
 CStatus* fn_80100204(CStatus* row);
-CStatus* fn_8010024C(CStatus* status);
+CStatus* __ct__7CStatusFv(CStatus* status);
 
 // the spider file's bss
 extern XObj* lbl_8037E910[12];       // the stage's fx_spider_01 objects

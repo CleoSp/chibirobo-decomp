@@ -88,7 +88,7 @@ f32 XObjActorMama::vf170()
  */
 s32 XObjActorMama::vf124(s32 count, s32* command)
 {
-	fn_801070A4(this, count, command);
+	vf124__9XObjActorFlPl(this, count, command);
 	switch (command[0]) {
 	case 1:
 		switch (command[1]) {

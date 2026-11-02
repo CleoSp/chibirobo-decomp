@@ -308,7 +308,7 @@ extern "C" f32 fn_800F8520(const Vec* a, const Vec* b)
  * @note Size: 0x40
  */
 // state 2, dead
-extern "C" void fn_800FC930(XObjSpiderSmall* spider)
+extern "C" void State2__15XObjSpiderSmallFUl(XObjSpiderSmall* spider)
 {
 	spider->mStatus.mFlags &= ~0x10000ULL;
 	spider->mSpiderStatus.mFlags |= 0x80000;
@@ -336,7 +336,7 @@ static inline void Catch(XObjSpiderSmall* spider)
  * @note Size: 0x2014
  */
 // state 8: chases the robot and spits webs at it
-extern "C" void fn_800F6408(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
 	XObjChr* player = lbl_8025C400.GetPlayer();
@@ -667,7 +667,7 @@ extern "C" void fn_800F6408(XObjSpiderSmall* spider, u32 frames)
 				spider->_AC0             = 0;
 				spider->mTimer           = 0;
 				if (spider->mSpiderStatus.mFlags & 0x40000) {
-					fn_800FC930(spider);
+					State2__15XObjSpiderSmallFUl(spider);
 					if (spider->mFxIndex != 0xFF) {
 						lbl_8037E940[spider->mFxIndex] = -1;
 						spider->mFxObj                 = NULL;
@@ -719,7 +719,7 @@ extern "C" void fn_800F6408(XObjSpiderSmall* spider, u32 frames)
  * @note Size: 0x2480
  */
 // state 3: wanders about home, chases the robot and jumps onto it
-extern "C" void fn_800FA4B0(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
 	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
@@ -1125,7 +1125,7 @@ extern "C" void fn_800F54B4(XObjSpiderSmall* spider)
  * @note Size: 0xAD4
  */
 // state 9: falls off the wall, runs a bit and spits a last web
-extern "C" void fn_800F5934(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	XObjChr* player = lbl_8025C400.GetPlayer();
 	Vec ppos        = player->mMoveTranslate;
@@ -1214,7 +1214,7 @@ extern "C" void fn_800F5934(XObjSpiderSmall* spider, u32 frames)
 	case 12:
 		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mTimer = 0;
-			fn_800FC930(spider);
+			State2__15XObjSpiderSmallFUl(spider);
 			if (spider->mFxIndex != 0xFF) {
 				lbl_8037E940[spider->mFxIndex] = -1;
 				spider->mFxObj                 = NULL;
@@ -1233,7 +1233,7 @@ extern "C" void fn_800F5934(XObjSpiderSmall* spider, u32 frames)
  * @note Size: 0xA10
  */
 // state 4: jumps around the robot and spits webs at it
-extern "C" void fn_800F9AA0(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
 	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
@@ -1311,7 +1311,7 @@ extern "C" void fn_800F9AA0(XObjSpiderSmall* spider, u32 frames)
  */
 // NONMATCHING: r9 and r10 swap around the web sound
 // state 5: rises back up on its thread
-extern "C" void fn_800F9350(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State5__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CJObj obj;
 	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
@@ -1368,7 +1368,7 @@ extern "C" void fn_800F9350(XObjSpiderSmall* spider, u32 frames)
  * @note Size: 0x784
  */
 // state 7: spits a web and shrinks away
-extern "C" void fn_800F8634(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State7__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CJObj obj;
 	CPad pad(0);
@@ -1402,7 +1402,7 @@ extern "C" void fn_800F8634(XObjSpiderSmall* spider, u32 frames)
 			if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
 				spider->mStep++;
 				spider->mTimer = 0;
-				fn_800FC930(spider);
+				State2__15XObjSpiderSmallFUl(spider);
 				if (spider->mFxIndex != 0xFF) {
 					lbl_8037E940[spider->mFxIndex] = -1;
 					spider->mFxObj                 = NULL;
@@ -1432,7 +1432,7 @@ extern "C" void fn_800F8634(XObjSpiderSmall* spider, u32 frames)
  * @note Size: 0x598
  */
 // state 6: drops down on its thread and lands
-extern "C" void fn_800F8DB8(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State6__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CJObj obj;
 	CPad pad(0);
@@ -1501,7 +1501,7 @@ extern "C" void fn_800F8DB8(XObjSpiderSmall* spider, u32 frames)
  * @note Address: 0x800FCF00
  * @note Size: 0x4
  */
-extern "C" void fn_800FCF00(XObjSpiderSmall* spider)
+extern "C" void State0__15XObjSpiderSmallFUl(XObjSpiderSmall* spider)
 {
 }
 
@@ -1511,7 +1511,7 @@ extern "C" void fn_800FCF00(XObjSpiderSmall* spider)
  */
 // NONMATCHING: register order
 // state 1, hit: blinks green, drops an item and waits out the web
-extern "C" void fn_800FC970(XObjSpiderSmall* spider, u32 frames)
+extern "C" void State1__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	spider->mTimer++;
 	if (spider->mTimer % 30 < 15) {
@@ -1540,7 +1540,7 @@ extern "C" void fn_800FC970(XObjSpiderSmall* spider, u32 frames)
 	case 1: {
 		spider->mStep++;
 		spider->mTimer = 0;
-		fn_800FC930(spider);
+		State2__15XObjSpiderSmallFUl(spider);
 		Vec pos;
 		pos.x = spider->mMoveTranslate.x;
 		pos.y = spider->mMoveTranslate.y;
@@ -1802,7 +1802,7 @@ s32 XObjSpiderSmall::vf100(s32 unused, s32 value)
 void XObjSpiderSmall::vf138(const Vec& pos, f32 f)
 {
 	if (!(mSpiderStatus.mFlags & 2) && !(mSpiderStatus.mFlags & 0x10) && !(mSpiderStatus.mFlags & 0x8000)) {
-		fn_8008A6C0(this, &pos, f);
+		vf138__4XObjFRC3Vecf(this, &pos, f);
 		mSpiderStatus.mFlags |= 2;
 		Vec v        = { 0.0f, 0.0f, 0.0f };
 		v.x          = pos.x;
@@ -1818,7 +1818,7 @@ void XObjSpiderSmall::vf138(const Vec& pos, f32 f)
  * @note Size: 0xF4
  */
 // NONMATCHING: the empty loop's first test
-extern "C" s32 fn_800FDABC(XObjSpiderSmall* spider, s32 n, s32* args)
+extern "C" s32 vf124__15XObjSpiderSmallFlPl(XObjSpiderSmall* spider, s32 n, s32* args)
 {
 	for (s32 i = 0; i < n; i++) { }
 	if (n < 1) {
@@ -2065,7 +2065,7 @@ void XObjSpiderSmall::vfA4(u32 frames)
 		SetObjVec(mMoveTranslate, mMoveTranslate + dir * frames);
 		SetPos(mMoveTranslate, 0);
 	}
-	fn_80090ED4(this, frames);
+	vfA4__4XObjFUl(this, frames);
 	fn_800F4F48(&mFx, mFxIndex, frames, FALSE);
 }
 
@@ -2078,7 +2078,7 @@ void XObjSpiderSmall::Release()
 	if (fn_8001E6C8(&lbl_8025C400.mSound, -0xFFF4)) {
 		fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
 	}
-	fn_800911C0(this);
+	Release__4XObjFv(this);
 }
 
 // finds the stage's webs, the objects of kind 0x1BC
@@ -2110,7 +2110,7 @@ static inline void FindWebs()
  */
 void XObjSpiderSmall::vf98()
 {
-	fn_800928E8(this);
+	vf98__4XObjFv(this);
 	mAnimSfx.mEvents = lbl_8022B170;
 	_AAC             = lbl_8025C400.mSound._2C4 <= 0 ? lbl_8025C400.mSound._2B4 : 0;
 	if (_258 == 0) {
@@ -2125,7 +2125,7 @@ void XObjSpiderSmall::vf98()
 // NONMATCHING: the spider pool loop folds 0x9B4 into the index
 BOOL XObjSpiderSmall::vf9C(const CoordInfo& info)
 {
-	if (fn_80091C80(this, &info)) {
+	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
 		if (_258 == 0) {
 			for (int i = 0; i < 16; i++) {
 				((XObjSpiderSmall*)lbl_8025C400.mXObjs.mPools[18].Get(i))->Hide();
@@ -2182,7 +2182,7 @@ void XObjSpiderSmall::vf94()
  */
 void XObjSpiderSmall::vf90(u32 id)
 {
-	fn_800929C4(this, id);
+	vf90__4XObjFUl(this, id);
 	mStage = -1;
 	fn_800FFB00(this);
 	SetState(0);

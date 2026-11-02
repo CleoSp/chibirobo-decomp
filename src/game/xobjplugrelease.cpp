@@ -5,9 +5,9 @@
  * @note Address: 0x800D93C8
  * @note Size: 0x4C
  */
-extern "C" void fn_800D93C8(XObjPlug* object)
+extern "C" void Release__8XObjPlugFv(XObjPlug* object)
 {
 	object->mWire.Release();
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 	object->mLoadState = 0;
 }

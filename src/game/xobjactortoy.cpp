@@ -395,7 +395,7 @@ extern "C" void fn_8011EB98(XObjActorToy* object)
 		break;
 	case 2:
 		if (object->mStatus.mFlags & 0x10000) {
-			lbl_80367A2C[object->mCmd[1]] = 1;
+			gEvtVars[object->mCmd[1]] = 1;
 		}
 		object->mCmd[0] = 0;
 		break;
@@ -414,13 +414,13 @@ extern "C" void fn_8011EC18(XObjActorToy* object)
 		break;
 	case 2:
 		if (object->mMoveTranslate.y <= 2.0f) {
-			lbl_80367A2C[object->mCmd[1]] = 1;
+			gEvtVars[object->mCmd[1]] = 1;
 		}
 		object->mCmd[0] = 0;
 		break;
 	case 3:
 		if (object->_2098.mFlags & 0x10) {
-			lbl_80367A2C[object->mCmd[1]] = 1;
+			gEvtVars[object->mCmd[1]] = 1;
 		}
 		object->mCmd[0] = 0;
 		break;
@@ -541,8 +541,8 @@ extern "C" void fn_8011EE8C(XObjActorToy* object)
 		object->mCmd[0] = 0;
 		break;
 	case 3:
-		lbl_80367A2C[object->mCmd[1]] = fn_80106B50();
-		object->mCmd[0]               = 0;
+		gEvtVars[object->mCmd[1]] = fn_80106B50();
+		object->mCmd[0]           = 0;
 		break;
 	case 4:
 		count = 0;
@@ -587,8 +587,8 @@ extern "C" void fn_8011EE8C(XObjActorToy* object)
 		object->mCmd[0] = 0;
 		break;
 	case 8:
-		lbl_80367A2C[object->mCmd[1]] = fn_80106AC0();
-		object->mCmd[0]               = 0;
+		gEvtVars[object->mCmd[1]] = fn_80106AC0();
+		object->mCmd[0]           = 0;
 		break;
 	}
 }
@@ -600,7 +600,7 @@ extern "C" void fn_8011EE8C(XObjActorToy* object)
 // NONMATCHING: regalloc
 void XObjActorToy::vf148(u32 frames)
 {
-	fn_80107750(this, frames);
+	vf148__9XObjActorFUl(this, frames);
 	switch (GetKind()) {
 	case 0xF:
 		fn_8011CF94(this, frames);

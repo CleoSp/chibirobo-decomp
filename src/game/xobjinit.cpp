@@ -13,7 +13,7 @@ void fn_8007F194(void* event, void* context, void* owner);
  * @note Address: 0x800928E8
  * @note Size: 0xDC
  */
-extern "C" void fn_800928E8(XObj* object)
+extern "C" void vf98__4XObjFv(XObj* object)
 {
 	object->_80C   = 0;
 	object->_788   = -1;
@@ -39,7 +39,7 @@ extern "C" void fn_800928E8(XObj* object)
  * @note Address: 0x800929C4
  * @note Size: 0xE0
  */
-extern "C" void fn_800929C4(XObj* object, u32 id)
+extern "C" void vf90__4XObjFUl(XObj* object, u32 id)
 {
 	// NONMATCHING: the dol adds the event data's offset and its index apart
 	object->CXObj::Init(id);

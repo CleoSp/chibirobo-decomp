@@ -10,7 +10,7 @@ extern void* __vt__14XObjAttachment[];
  * @note Size: 0x60
  */
 // todo: weak copy
-extern "C" XObjAttachment* fn_800BCE44(XObjAttachment* object, s32 flags)
+extern "C" XObjAttachment* __dt__14XObjAttachmentFv(XObjAttachment* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__14XObjAttachment;

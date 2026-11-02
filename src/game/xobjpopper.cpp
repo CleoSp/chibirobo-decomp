@@ -9,7 +9,7 @@ extern "C" {
  * @note Address: 0x800D6FE8
  * @note Size: 0x398
  */
-void fn_800D6FE8(XObjPopper* object, u32 frames)
+void vfA4__10XObjPopperFUl(XObjPopper* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -47,7 +47,7 @@ void fn_800D6FE8(XObjPopper* object, u32 frames)
 			}
 			break;
 		}
-		fn_80090ED4(object, frames);
+		vfA4__4XObjFUl(object, frames);
 	}
 }
 
@@ -126,7 +126,7 @@ void fn_800D75F8(XObjPopper* object)
  * @note Address: 0x800D7668
  * @note Size: 0x344
  */
-void fn_800D7668(XObjCopter* object, u32 frames)
+void vfA4__10XObjCopterFUl(XObjCopter* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -157,7 +157,7 @@ void fn_800D7668(XObjCopter* object, u32 frames)
 			}
 			break;
 		}
-		fn_80090ED4(object, frames);
+		vfA4__4XObjFUl(object, frames);
 	}
 }
 
@@ -226,26 +226,26 @@ void fn_800D7BF0(XObjCopter* object)
  * @note Address: 0x800D7C60
  * @note Size: 0x40
  */
-void fn_800D7C60(XObjAttachment* object)
+void Release__14XObjAttachmentFv(XObjAttachment* object)
 {
 	object->Hide();
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 }
 
 /**
  * @note Address: 0x800D7CA0
  * @note Size: 0x20
  */
-void fn_800D7CA0(XObjAttachment* object)
+void vf98__14XObjAttachmentFv(XObjAttachment* object)
 {
-	fn_800928E8(object);
+	vf98__4XObjFv(object);
 }
 
 /**
  * @note Address: 0x800D7CC0
  * @note Size: 0x8
  */
-void fn_800D7CC0(XObjAttachment* object, HSD_JObj* parent)
+void SetParent__14XObjAttachmentFP9_HSD_JObj(XObjAttachment* object, HSD_JObj* parent)
 {
 	object->mParent = parent;
 }
@@ -254,7 +254,7 @@ void fn_800D7CC0(XObjAttachment* object, HSD_JObj* parent)
  * @note Address: 0x800D7CC8
  * @note Size: 0x34
  */
-void fn_800D7CC8(XObjAttachment* object)
+void vf94__14XObjAttachmentFv(XObjAttachment* object)
 {
 	object->mParent = NULL;
 	object->Hide();
@@ -264,9 +264,9 @@ void fn_800D7CC8(XObjAttachment* object)
  * @note Address: 0x800D7CFC
  * @note Size: 0x40
  */
-void fn_800D7CFC(XObjAttachment* object, u32 id)
+void vf90__14XObjAttachmentFUl(XObjAttachment* object, u32 id)
 {
-	fn_800929C4(object, id);
+	vf90__4XObjFUl(object, id);
 	object->vf94();
 }
 

@@ -15,7 +15,7 @@ extern void* __vt__7CThread[];
 CGame* __ct__5CGameFv(CGame* game);
 CGame* __dt__5CGameFv(CGame* game, s32 flags);
 ARCacheInfo* fn_8001975C(ARCacheInfo* info, s32 flags);
-FbMirrorEx* fn_80019700(FbMirrorEx* mirror);
+FbMirrorEx* __ct__10FbMirrorExFv(FbMirrorEx* mirror);
 FbMirrorEx* fn_80019600(FbMirrorEx* mirror, s32 flags);
 void fn_800195C8(void);
 ARPreCache* fn_80019554(ARPreCache* cache, s32 flags);
@@ -31,7 +31,7 @@ CThread* fn_8001950C(CThread* thread, s32 flags);
  * @note Address: 0x8001933C
  * @note Size: 0x144
  */
-extern "C" void fn_8001933C(void)
+extern "C" void __sinit_cgameinit_cpp(void)
 {
 	u8* storage = lbl_8025C200;
 	CGame* game = __ct__5CGameFv(&lbl_8025C400);
@@ -47,7 +47,8 @@ extern "C" void fn_8001933C(void)
 	info->_04                      = 0;
 	__register_global_object(info, (void*)fn_8001975C, (u8*)info - 0xC);
 
-	__construct_array(GLOBALS + 0x41B4, (ConstructorDestructor)fn_80019700, (ConstructorDestructor)fn_80019600, sizeof(FbMirrorEx), 5);
+	__construct_array(GLOBALS + 0x41B4, (ConstructorDestructor)__ct__10FbMirrorExFv, (ConstructorDestructor)fn_80019600, sizeof(FbMirrorEx),
+	                  5);
 	__register_global_object(NULL, (void*)fn_800195C8, GLOBALS + 0x41A8);
 
 	ARPreCache* cache                      = (ARPreCache*)(GLOBALS + 0x5084);

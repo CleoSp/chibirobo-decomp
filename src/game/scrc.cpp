@@ -37,7 +37,7 @@ void fn_8010B528(XObjActor3* actor);
 void fn_8010AF74(XObjActor3* actor);
 void fn_8010B7B4(XObjActor3* actor, u32 frames);
 
-extern s32 lbl_80367A2C[];          // the script's variables
+extern s32 gEvtVars[];              // the script's variables
 extern AnimSfxEvent lbl_8022C178[]; // haisui_nezumi's anim sound events
 
 s32 lbl_8065B2F0;
@@ -873,7 +873,7 @@ extern "C" void fn_8010B528(XObjActor3* actor)
 		break;
 	case 2:
 		if ((actor->_B8C.mFlags & 0x80) && !(actor->_B8C.mFlags & 4)) {
-			lbl_80367A2C[actor->_B98] = 1;
+			gEvtVars[actor->_B98] = 1;
 		}
 		actor->_B94 = 0;
 		actor->_B98 = 0;
@@ -886,7 +886,7 @@ extern "C" void fn_8010B528(XObjActor3* actor)
 	case 4:
 		XObjChr* player = lbl_8025C400.GetPlayer();
 		if (!IsBusyAnim(player->mAnimId) && player->mAttachmentRequest < 0) {
-			lbl_80367A2C[actor->_B98] = 1;
+			gEvtVars[actor->_B98] = 1;
 		}
 		actor->_B94 = 0;
 		actor->_B98 = 0;
@@ -964,9 +964,9 @@ extern "C" void fn_8010B394(XObjActor3* actor)
 		actor->_B98 = 0;
 		break;
 	case 4:
-		lbl_80367A2C[actor->_B98] = fn_8006697C(actor->_BF4);
-		actor->_B94               = 0;
-		actor->_B98               = 0;
+		gEvtVars[actor->_B98] = fn_8006697C(actor->_BF4);
+		actor->_B94           = 0;
+		actor->_B98           = 0;
 		break;
 	case 5:
 		if (actor->_B98 != 0) {
@@ -983,9 +983,9 @@ extern "C" void fn_8010B394(XObjActor3* actor)
 		actor->_B98 = 0;
 		break;
 	case 7:
-		lbl_80367A2C[actor->_B98] = actor->_C04;
-		actor->_B94               = 0;
-		actor->_B98               = 0;
+		gEvtVars[actor->_B98] = actor->_C04;
+		actor->_B94           = 0;
+		actor->_B98           = 0;
 		break;
 	}
 }
@@ -1100,9 +1100,9 @@ extern "C" void fn_8010AF74(XObjActor3* actor)
  * @note Address: 0x8010AD54
  * @note Size: 0x34
  */
-extern "C" void fn_8010AD54(XObjActor3* actor, u32 id)
+extern "C" void vf90__10XObjActor3FUl(XObjActor3* actor, u32 id)
 {
-	fn_800929C4(actor, id);
+	vf90__4XObjFUl(actor, id);
 	fn_8010AD88(actor);
 }
 
@@ -1110,9 +1110,9 @@ extern "C" void fn_8010AD54(XObjActor3* actor, u32 id)
  * @note Address: 0x8010AD20
  * @note Size: 0x34
  */
-extern "C" void fn_8010AD20(XObjActor3* actor)
+extern "C" void vf98__10XObjActor3Fv(XObjActor3* actor)
 {
-	fn_800928E8(actor);
+	vf98__4XObjFv(actor);
 	fn_8010AD88(actor);
 }
 
@@ -1120,7 +1120,7 @@ extern "C" void fn_8010AD20(XObjActor3* actor)
  * @note Address: 0x8010AD00
  * @note Size: 0x20
  */
-extern "C" void fn_8010AD00(XObjActor3* actor)
+extern "C" void vf94__10XObjActor3Fv(XObjActor3* actor)
 {
 	fn_8010AD88(actor);
 }

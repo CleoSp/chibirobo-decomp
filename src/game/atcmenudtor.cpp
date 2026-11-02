@@ -18,7 +18,7 @@ static inline void SetVtable(OctaMenu* menu, void** vtable)
  * @note Size: 0x5C
  */
 // todo: weak copy
-extern "C" AtcMenu* fn_800BC480(AtcMenu* menu, s32 flags)
+extern "C" AtcMenu* __dt__7AtcMenuFv(AtcMenu* menu, s32 flags)
 {
 	if (menu != NULL) {
 		SetVtable(menu, __vt__7AtcMenu);
@@ -34,7 +34,7 @@ extern "C" AtcMenu* fn_800BC480(AtcMenu* menu, s32 flags)
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" OctaMenu* fn_800BC4DC(OctaMenu* menu, s32 flags)
+extern "C" OctaMenu* __dt__8OctaMenuFv(OctaMenu* menu, s32 flags)
 {
 	if (menu != NULL) {
 		SetVtable(menu, __vt__8OctaMenu);
