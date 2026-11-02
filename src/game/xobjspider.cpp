@@ -183,7 +183,7 @@ static s32 sHoldPath[]   = { 0 };
  */
 void XObjSpider::vf90(u32 id)
 {
-	fn_800929C4(this, id);
+	vf90__4XObjFUl(this, id);
 	fn_800F4350(this);
 	SetState(0);
 	mFlags.mFlags |= 0x04000000;
@@ -302,7 +302,7 @@ extern "C" void fn_800F4350(XObjSpider* spider)
  */
 BOOL XObjSpider::vf9C(const CoordInfo& info)
 {
-	if (fn_80091C80(this, &info)) {
+	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
 		mFlags.mFlags &= ~0x04000000U;
 		fn_800F4350(this);
 		fn_800F38F4(this);
@@ -317,7 +317,7 @@ BOOL XObjSpider::vf9C(const CoordInfo& info)
  */
 void XObjSpider::vf98()
 {
-	fn_800928E8(this);
+	vf98__4XObjFv(this);
 	mSfx.mEvents = lbl_8022AB90;
 	if (_258 == 0) {
 		for (u32 i = 0; i < 16; ++i) {
@@ -442,7 +442,7 @@ void XObjSpider::vfA4(u32 frames)
 		SetNow(mMoveTranslate, mMoveTranslate + move * (f32)frames);
 		SetPos(mMoveTranslate, 0);
 	}
-	fn_80090ED4(this, frames);
+	vfA4__4XObjFUl(this, frames);
 	fn_800EAF18(&mCarry, mSlot, frames, 0);
 	fn_800F1068(this, frames);
 }
@@ -602,7 +602,7 @@ void XObjSpider::vfC0()
 // NONMATCHING: argv[1] is read into another register
 // the event commands, 100 ties another object to one of its joints or lets go of all
 // of them, anything else is kept for fn_800F1730
-extern "C" s32 fn_800F2454(XObjSpider* spider, s32 argc, s32* argv)
+extern "C" s32 vf124__10XObjSpiderFlPl(XObjSpider* spider, s32 argc, s32* argv)
 {
 	for (int i = 0; i < argc; i++) { }
 	switch (argv[0]) {
@@ -693,7 +693,7 @@ void XObjSpider::vf138(const Vec& from, f32 strength)
 		return;
 	if (fn_8009C1BC(&lbl_8025C400.GetPlayer()->mAttachments, 2) < 2)
 		return;
-	fn_8008A6C0(this, &from, strength);
+	vf138__4XObjFRC3Vecf(this, &from, strength);
 	mFlags.mFlags |= 2;
 	Vec pos      = { 0.0f, 0.0f, 0.0f };
 	pos          = from;

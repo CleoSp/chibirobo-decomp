@@ -7,7 +7,7 @@ extern "C" void* __vt__9XObjActor[];
  * @note Size: 0x78
  */
 // todo: weak copy
-extern "C" XObjActor* fn_80106A14(XObjActor* actor, s32 flags)
+extern "C" XObjActor* __dt__9XObjActorFv(XObjActor* actor, s32 flags)
 {
 	if (actor != NULL) {
 		*(void***)((u8*)actor + 0x34) = __vt__9XObjActor;

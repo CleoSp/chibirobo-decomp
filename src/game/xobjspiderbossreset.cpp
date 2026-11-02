@@ -31,7 +31,7 @@ static inline void ResetState(XObjSpiderBoss* spider)
  * @note Address: 0x801068D4
  * @note Size: 0x50
  */
-extern "C" void fn_801068D4(XObjSpiderBoss* spider)
+extern "C" void vf94__14XObjSpiderBossFv(XObjSpiderBoss* spider)
 {
 	ResetState(spider);
 }
@@ -40,9 +40,9 @@ extern "C" void fn_801068D4(XObjSpiderBoss* spider)
  * @note Address: 0x80106924
  * @note Size: 0x58
  */
-extern "C" void fn_80106924(XObjSpiderBoss* spider, u32 id)
+extern "C" void vf90__14XObjSpiderBossFUl(XObjSpiderBoss* spider, u32 id)
 {
-	fn_800929C4(spider, id);
+	vf90__4XObjFUl(spider, id);
 	ResetState(spider);
 }
 

@@ -28,7 +28,7 @@ static inline u8 IntroActive(CGame* game)
  * @note Size: 0x68
  */
 // CGame's FrameInterval, the logo and title run at 60, the game at 30
-extern "C" s32 fn_8000A4B8(CGame* game)
+extern "C" s32 FrameInterval__5CGameFv(CGame* game)
 {
 	return IntroActive(game) ? 1 : 2;
 }
@@ -38,7 +38,7 @@ extern "C" s32 fn_8000A4B8(CGame* game)
  * @note Size: 0xC
  */
 // CGame's GetCamera
-extern "C" void* fn_8000A520(CGame* game)
+extern "C" void* GetCamera__5CGameFv(CGame* game)
 {
 	return &game->mMotionControlCamera;
 }
@@ -47,7 +47,7 @@ extern "C" void* fn_8000A520(CGame* game)
  * @note Address: 0x8000A52C
  * @note Size: 0xC
  */
-extern "C" CLight* fn_8000A52C(CGame* game)
+extern "C" CLight* GetLight__5CGameFv(CGame* game)
 {
 	return game->mLightList;
 }
@@ -56,7 +56,7 @@ extern "C" CLight* fn_8000A52C(CGame* game)
  * @note Address: 0x8000A538
  * @note Size: 0x8
  */
-extern "C" u32 fn_8000A538(CBase* base)
+extern "C" u32 vf2C__5CBaseFv(CBase* base)
 {
 	return base->mRetraceStep;
 }
@@ -65,7 +65,7 @@ extern "C" u32 fn_8000A538(CBase* base)
  * @note Address: 0x8000A540
  * @note Size: 0x8
  */
-extern "C" void* fn_8000A540(CBase* base)
+extern "C" void* vf30__5CBaseFv(CBase* base)
 {
 	return &base->mCameras[0];
 }
@@ -74,7 +74,7 @@ extern "C" void* fn_8000A540(CBase* base)
  * @note Address: 0x8000A548
  * @note Size: 0x8
  */
-extern "C" void* fn_8000A548(CBase* base)
+extern "C" void* vf34__5CBaseFv(CBase* base)
 {
 	return &base->mCameras[1];
 }
@@ -83,7 +83,7 @@ extern "C" void* fn_8000A548(CBase* base)
  * @note Address: 0x8000A550
  * @note Size: 0x8
  */
-extern "C" void* fn_8000A550(CBase* base)
+extern "C" void* vf3C__5CBaseFv(CBase* base)
 {
 	return &base->mLights[0];
 }
@@ -92,7 +92,7 @@ extern "C" void* fn_8000A550(CBase* base)
  * @note Address: 0x8000A558
  * @note Size: 0x8
  */
-extern "C" void* fn_8000A558(CBase* base)
+extern "C" void* vf40__5CBaseFv(CBase* base)
 {
 	return &base->mLights[4];
 }

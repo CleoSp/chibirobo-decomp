@@ -25,7 +25,7 @@ extern "C" bool fn_80092B80(XObjCamera* object)
  * @note Address: 0x80092B90
  * @note Size: 0xF8
  */
-extern "C" void fn_80092B90(XObjCamera* object, u32 frames)
+extern "C" void vfA4__10XObjCameraFUl(XObjCamera* object, u32 frames)
 {
 	if (object->mCameraAnim >= 0) {
 		object->mCamera.SetAnimRate((f32)frames);
@@ -53,10 +53,10 @@ extern "C" void fn_80092C88(XObjCamera* object, s32 index, f32 frame)
  * @note Address: 0x80092CF0
  * @note Size: 0x44
  */
-extern "C" void fn_80092CF0(XObjCamera* object)
+extern "C" void Release__10XObjCameraFv(XObjCamera* object)
 {
 	object->mCamera.Release();
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 }
 
 // XObjCamera::vf9C
@@ -64,9 +64,9 @@ extern "C" void fn_80092CF0(XObjCamera* object)
  * @note Address: 0x80092D34
  * @note Size: 0x5C
  */
-extern "C" BOOL fn_80092D34(XObjCamera* object, CoordInfo* info)
+extern "C" BOOL vf9C__10XObjCameraFRC9CoordInfo(XObjCamera* object, CoordInfo* info)
 {
-	if (fn_80091C80(object, info)) {
+	if (vf9C__4XObjFRC9CoordInfo(object, info)) {
 		object->mCamera.Init(GetCObjDesc(object));
 		return TRUE;
 	}
@@ -78,7 +78,7 @@ extern "C" BOOL fn_80092D34(XObjCamera* object, CoordInfo* info)
  * @note Address: 0x80092D90
  * @note Size: 0xC
  */
-extern "C" void fn_80092D90(XObjCamera* object)
+extern "C" void vf98__10XObjCameraFv(XObjCamera* object)
 {
 	object->mCameraAnim = -1;
 }
@@ -88,7 +88,7 @@ extern "C" void fn_80092D90(XObjCamera* object)
  * @note Address: 0x80092D9C
  * @note Size: 0x20
  */
-extern "C" void fn_80092D9C(XObjCamera* object, u32 id)
+extern "C" void vf90__10XObjCameraFUl(XObjCamera* object, u32 id)
 {
-	fn_800929C4(object, id);
+	vf90__4XObjFUl(object, id);
 }

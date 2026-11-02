@@ -5,7 +5,7 @@
  * @note Address: 0x800DD5A0
  * @note Size: 0x60
  */
-extern "C" XObjFree* fn_800DD5A0(XObjFree* object, s32 flags)
+extern "C" XObjFree* __dt__8XObjFreeFv(XObjFree* object, s32 flags)
 {
 	if (object != NULL) {
 		object->XObjFree::~XObjFree();

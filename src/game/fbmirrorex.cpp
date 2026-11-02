@@ -12,7 +12,7 @@ extern "C" {
  * @note Size: 0xC8
  */
 // sets the mirror's camera up for its 256 square texture
-extern "C" void fn_8001BC34(FbMirrorEx* mirror)
+extern "C" void Init__10FbMirrorExFv(FbMirrorEx* mirror)
 {
 	mirror->mJoint = NULL;
 	mirror->mCamera.Init(0.1f, 32768.0f, 0.5f, -0.5f, -0.5f, 0.5f, &lbl_8025C400.mGs.mScreen);

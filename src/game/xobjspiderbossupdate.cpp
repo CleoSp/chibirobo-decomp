@@ -14,7 +14,7 @@ static inline void SetPosAndTarget(CObjVec* vec, const Vec& value)
  * @note Size: 0x2A8
  */
 // vfA4, the update
-extern "C" void fn_80105D58(XObjSpiderBoss* spider, u32 frames)
+extern "C" void vfA4__14XObjSpiderBossFUl(XObjSpiderBoss* spider, u32 frames)
 {
 	CPad pad(0); // retail does this
 	if (lbl_8025C400.mStatus.mFlags & 0x400ULL) {
@@ -47,6 +47,6 @@ extern "C" void fn_80105D58(XObjSpiderBoss* spider, u32 frames)
 		SetPosAndTarget(&spider->mMoveTranslate, spider->mMoveTranslate + step * (f32)frames);
 		spider->SetPos(spider->mMoveTranslate, 0);
 	}
-	fn_80090ED4(spider, frames);
+	vfA4__4XObjFUl(spider, frames);
 	fn_80103F54(spider, frames);
 }

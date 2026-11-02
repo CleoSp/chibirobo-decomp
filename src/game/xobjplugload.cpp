@@ -11,11 +11,11 @@ extern "C" {
  * @note Address: 0x800D9414
  * @note Size: 0x104
  */
-BOOL fn_800D9414(XObjPlug* object, const CoordInfo& info)
+BOOL vf9C__8XObjPlugFRC9CoordInfo(XObjPlug* object, const CoordInfo& info)
 {
 	switch (object->mLoadState) {
 	case 0:
-		if (!fn_80091C80(object, &info)) {
+		if (!vf9C__4XObjFRC9CoordInfo(object, &info)) {
 			break;
 		}
 		object->mLoadState++;
@@ -35,7 +35,7 @@ BOOL fn_800D9414(XObjPlug* object, const CoordInfo& info)
  * @note Address: 0x800D9A54
  * @note Size: 0x28
  */
-void fn_800D9A54(XObjPlug* object)
+void vf94__8XObjPlugFv(XObjPlug* object)
 {
 	object->mStatus.mFlags &= ~0x0400000000000000ULL;
 }
@@ -54,9 +54,9 @@ void fn_800D9A7C(XObjPlug* object, f32 speed)
  * @note Address: 0x800D9A84
  * @note Size: 0x8C
  */
-void fn_800D9A84(XObjPlug* object, u32 id)
+void vf90__8XObjPlugFUl(XObjPlug* object, u32 id)
 {
-	fn_800929C4(object, id);
+	vf90__4XObjFUl(object, id);
 	fn_800DBA7C(&object->mCord, 20, 0.0f, 0.0f, 0.0f, 0.5f);
 	object->mCord.mColor = 0x141414FF;
 	object->mCord._60    = 0x141414FF;

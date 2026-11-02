@@ -74,11 +74,11 @@ public:
 	f32 mFrame;            // _08, the last frame Update saw
 	// _0C vtable
 
-	virtual void vf08();                                            // _08, fn_8001DB44
-	virtual void Update(s32 id, f32 frame, u8 volume);              // _0C, fn_8001D9B0
-	virtual BOOL CheckStart(AnimSfxEvent* event, f32 from, f32 to); // _10, fn_8001DB98, starts the event
-	virtual BOOL CheckStop(AnimSfxEvent* event);                    // _14, fn_8001DB90, stops it
-	virtual s32 GetSfx(AnimSfxEvent* event);                        // _18, fn_8001DB48, its sfx
+	virtual void vf08();                                            // _08, vf08__7AnimSfxFv
+	virtual void Update(s32 id, f32 frame, u8 volume);              // _0C, Update__7AnimSfxFlfUc
+	virtual BOOL CheckStart(AnimSfxEvent* event, f32 from, f32 to); // _10, CheckStart__7AnimSfxFP12AnimSfxEventff, starts the event
+	virtual BOOL CheckStop(AnimSfxEvent* event);                    // _14, CheckStop__7AnimSfxFP12AnimSfxEvent, stops it
+	virtual s32 GetSfx(AnimSfxEvent* event);                        // _18, GetSfx__7AnimSfxFP12AnimSfxEvent, its sfx
 };
 STATIC_ASSERT(sizeof(AnimSfx) == 0x10);
 

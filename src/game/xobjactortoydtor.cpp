@@ -80,7 +80,7 @@ void XObjActorToy::vf164(f32 frame)
 		}
 		break;
 	}
-	fn_80106BE0(this, frame);
+	vf164__9XObjActorFf(this, frame);
 }
 
 /**

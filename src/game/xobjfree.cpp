@@ -43,9 +43,9 @@ static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
  * @note Address: 0x800DD600
  * @note Size: 0x94
  */
-extern "C" void fn_800DD600(XObjFree* object, const Vec* pos, f32 value)
+extern "C" void vf138__8XObjFreeFRC3Vecf(XObjFree* object, const Vec* pos, f32 value)
 {
-	fn_8008A6C0(object, pos, value);
+	vf138__4XObjFRC3Vecf(object, pos, value);
 	if (object->mStatus.mFlags & 0x04000000ULL) {
 		f32 remaining = object->mLife - value;
 		object->mLife = remaining;
@@ -59,8 +59,8 @@ extern "C" void fn_800DD600(XObjFree* object, const Vec* pos, f32 value)
  * @note Address: 0x800DD694
  * @note Size: 0x2D8
  */
-extern "C" void fn_800DD694(XObjFree* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
-                            f32 blend, f32 blendRate)
+extern "C" void SetAnim__8XObjFreeFliPvPvPvffff(XObjFree* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
+                                                f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
 	if (object->mStatus.mFlags & 0x1000ULL) {
 		if (force || id != object->mAnimId) {
@@ -89,7 +89,7 @@ extern "C" void fn_800DD694(XObjFree* object, s32 id, BOOL force, void* jointAni
 			object->mLastAnimRate = 0.01f + rate;
 		}
 	} else {
-		fn_800902A4(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+		SetAnim__4XObjFliPvPvPvffff(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	}
 }
 
@@ -98,9 +98,9 @@ extern "C" void fn_800DD694(XObjFree* object, s32 id, BOOL force, void* jointAni
  * @note Address: 0x800DD96C
  * @note Size: 0x220
  */
-extern "C" void fn_800DD96C(XObjFree* object)
+extern "C" void vfC8__8XObjFreeFv(XObjFree* object)
 {
-	fn_8009047C(object);
+	vfC8__4XObjFv(object);
 	if ((object->mStatus.mFlags & 0x4000000000000000ULL) && object->mFlash > 0.0f) {
 		Vec position = { 0.0f, 0.0f, 0.0f };
 		f32 x, y;

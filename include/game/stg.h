@@ -624,7 +624,7 @@ STATIC_ASSERT(sizeof(MenuPCPage) == 0x104);
 
 extern "C" {
 // CMenu's own update, the overrides call it first
-BOOL fn_800617DC(CMenu* menu, u32 frames);
+BOOL Update__5CMenuFUl(CMenu* menu, u32 frames);
 BOOL fn_8003D7C4(MenuSaveSlot* slot);
 void fn_8003D7DC(MenuSaveSlot* slot);
 void fn_80033A68(MenuStageSelect* menu);

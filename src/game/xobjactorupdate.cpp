@@ -19,7 +19,7 @@ extern XObjActorLiterals lbl_8020B248;
  * @note Size: 0x138
  */
 // vfA4, the update
-extern "C" void fn_80107DE0(XObj* object, u32 frames)
+extern "C" void vfA4__9XObjActorFUl(XObj* object, u32 frames)
 {
 	XObjActor* actor = (XObjActor*)object;
 	actor->vf158();
@@ -27,7 +27,7 @@ extern "C" void fn_80107DE0(XObj* object, u32 frames)
 	if (actor->_998.mFlags & 4) {
 		actor->vf154(frames);
 	}
-	fn_80090ED4(actor, frames);
+	vfA4__4XObjFUl(actor, frames);
 	actor->vf148(frames);
 	HSD_AObj* aobj = GetAObj(actor->mJObj);
 	f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
@@ -38,9 +38,9 @@ extern "C" void fn_80107DE0(XObj* object, u32 frames)
  * @note Address: 0x80107F18
  * @note Size: 0xFC
  */
-extern "C" BOOL fn_80107F18(XObjActor* actor, const CoordInfo& info)
+extern "C" BOOL vf9C__9XObjActorFRC9CoordInfo(XObjActor* actor, const CoordInfo& info)
 {
-	if (fn_80091C80(actor, &info)) {
+	if (vf9C__4XObjFRC9CoordInfo(actor, &info)) {
 		actor->_980 = 0.0f;
 		actor->_984 = 0.0f;
 		actor->_988 = 0.0f;
@@ -67,7 +67,7 @@ extern "C" BOOL fn_80107F18(XObjActor* actor, const CoordInfo& info)
  * @note Address: 0x80108014
  * @note Size: 0x1DC
  */
-extern "C" void fn_80108014(XObjActor* actor)
+extern "C" void vf94__9XObjActorFv(XObjActor* actor)
 {
 	XObjActorLiterals* lit = &lbl_8020B248;
 	actor->_980            = 0.0f;
@@ -128,10 +128,10 @@ extern "C" void fn_80108014(XObjActor* actor)
  * @note Address: 0x801081F0
  * @note Size: 0x200
  */
-extern "C" void fn_801081F0(XObjActor* actor)
+extern "C" void vf98__9XObjActorFv(XObjActor* actor)
 {
 	XObjActorLiterals* lit = &lbl_8020B248;
-	fn_800928E8(actor);
+	vf98__4XObjFv(actor);
 	actor->_980         = 0.0f;
 	actor->_984         = 0.0f;
 	actor->_988         = 0.0f;
@@ -189,8 +189,8 @@ extern "C" void fn_801081F0(XObjActor* actor)
  * @note Address: 0x801083F0
  * @note Size: 0x34
  */
-extern "C" void fn_801083F0(XObjActor* actor, u32 id)
+extern "C" void vf90__9XObjActorFUl(XObjActor* actor, u32 id)
 {
-	fn_800929C4(actor, id);
+	vf90__4XObjFUl(actor, id);
 	actor->mAnimSfx.mEvents = NULL;
 }

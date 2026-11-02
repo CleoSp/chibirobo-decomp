@@ -7,7 +7,7 @@ extern "C" void* __vt__14XObjSpiderBoss[];
  * @note Size: 0x78
  */
 // todo: weak copy
-extern "C" XObjSpiderBoss* fn_80100264(XObjSpiderBoss* spider, s32 flags)
+extern "C" XObjSpiderBoss* __dt__14XObjSpiderBossFv(XObjSpiderBoss* spider, s32 flags)
 {
 	if (spider != NULL) {
 		*(void***)((u8*)spider + 0x34) = __vt__14XObjSpiderBoss;

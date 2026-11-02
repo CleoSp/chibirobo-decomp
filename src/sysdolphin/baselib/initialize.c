@@ -423,7 +423,7 @@ void HSD_StartRender(HSD_RenderPass pass)
  * @note Address: 0x801CAFC0
  * @note Size: 0x4
  */
-void fn_801CAFC0(void)
+void HSD_EndRender(void)
 {
 }
 

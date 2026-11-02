@@ -43,8 +43,8 @@ static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
  * @note Address: 0x800DE7F4
  * @note Size: 0x2AC
  */
-extern "C" void fn_800DE7F4(XObjDust* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
-                            f32 blend, f32 blendRate)
+extern "C" void SetAnim__8XObjDustFliPvPvPvffff(XObjDust* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
+                                                f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
 	if (object->mStatus.mFlags & 0x1000ULL) {
 		if (force || id != object->mAnimId) {
@@ -73,7 +73,7 @@ extern "C" void fn_800DE7F4(XObjDust* object, s32 id, BOOL force, void* jointAni
 			object->mLastAnimRate = 0.01f + rate;
 		}
 	} else {
-		fn_800902A4(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+		SetAnim__4XObjFliPvPvPvffff(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	}
 }
 
@@ -82,7 +82,7 @@ extern "C" void fn_800DE7F4(XObjDust* object, s32 id, BOOL force, void* jointAni
  * @note Address: 0x800DEAA0
  * @note Size: 0x208
  */
-extern "C" void fn_800DEAA0(XObjDust* object)
+extern "C" void vfC0__8XObjDustFv(XObjDust* object)
 {
 	if (object->GetObjFlags() & 1) {
 		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
@@ -111,11 +111,11 @@ extern "C" void fn_800DEAA0(XObjDust* object)
  * @note Address: 0x800DECA8
  * @note Size: 0x7C
  */
-extern "C" void fn_800DECA8(XObjDust* object, Mtx view)
+extern "C" void vfB0__8XObjDustFPA4_f(XObjDust* object, Mtx view)
 {
 	if (object->GetObjFlags() & 2) {
-		fn_800908C0(object, view);
+		vfB0__4XObjFPA4_f(object, view);
 	} else if (object->GetObjFlags() & 4) {
-		fn_800908C0(object, view);
+		vfB0__4XObjFPA4_f(object, view);
 	}
 }

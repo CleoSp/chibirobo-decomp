@@ -23,7 +23,7 @@ void VIWaitForRetrace();
  * @note Size: 0x8C
  */
 // CGame's _48, CBase's with the mic reset first
-extern "C" void fn_8000FA40(CGame* game, s32 reset)
+extern "C" void Reset__5CGameFUl(CGame* game, s32 reset)
 {
 	s32 channel = lbl_80659ECC;
 	if (channel >= 0 && !lbl_8020FC3C[channel].mDeviceID)

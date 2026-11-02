@@ -5,7 +5,7 @@
  * @note Address: 0x800DBC04
  * @note Size: 0x7C
  */
-extern "C" XObjPlugCordPoint* fn_800DBC04(XObjPlugCordPoint* point, s32 flags)
+extern "C" XObjPlugCordPoint* __dt__17XObjPlugCordPointFv(XObjPlugCordPoint* point, s32 flags)
 {
 	if (point != NULL) {
 		point->mSpeed.CVec::~CVec();

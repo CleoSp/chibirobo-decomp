@@ -9,7 +9,7 @@ u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, GXBool mipmap, u8 maxL
 void fn_80011270(CGame* game);
 void fn_8001146C(CGame* game);
 BOOL fn_80132B98(XOBJS* objs);
-void fn_80141754(CInterfaceCameraAction* action);
+void Reset2__16CCameraActionMapFv(CInterfaceCameraAction* action);
 }
 
 static inline HSD_JObj* GetChild(HSD_JObj* jobj)
@@ -54,7 +54,7 @@ extern "C" BOOL fn_80011638(CGame* game)
 		game->mMotionControlCamera.Init();
 		if (mode == 1 || mode == 7) {
 			game->mMotionControlCamera.ChangeAction(7);
-			fn_80141754(game->mCameraActions.mTable[7]);
+			Reset2__16CCameraActionMapFv(game->mCameraActions.mTable[7]);
 			game->mMotionControlCamera.ApplyAction();
 		} else {
 			game->mMotionControlCamera.ChangeAction(mode);
@@ -71,7 +71,7 @@ extern "C" BOOL fn_80011638(CGame* game)
 		fn_80011270(game);
 
 		game->mStatus.mFlags &= ~0x2000000000;
-		mirror = lbl_8035FA24;
+		mirror = sFbMirrors;
 		game->mStatus.mFlags &= ~0x8000000000;
 		game->mStatus.mFlags &= ~0x100000000000;
 		mirrors = 0;

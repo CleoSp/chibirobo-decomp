@@ -16,7 +16,7 @@ void fn_8010B7B4(XObjActor3* actor, u32 frames);
  * @note Size: 0x680
  */
 // the per-kind script commands, the kind's own function, the carried objects
-extern "C" void fn_80109E80(XObjActor3* actor, u32 frames)
+extern "C" void vfA4__10XObjActor3FUl(XObjActor3* actor, u32 frames)
 {
 	switch (actor->GetItem()) {
 	case 8:
@@ -119,7 +119,7 @@ extern "C" void fn_80109E80(XObjActor3* actor, u32 frames)
 		actor->SetRotateY(actor->_B7C, 0.2f);
 		actor->SetPos(actor->mMoveTranslate, 0);
 	}
-	fn_80090ED4(actor, frames);
+	vfA4__4XObjFUl(actor, frames);
 	if (actor->GetKind() == 0x31B) {
 		fn_80024D84(&actor->mDust.mPtcl, frames);
 	}

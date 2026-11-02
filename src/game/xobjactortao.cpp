@@ -74,7 +74,7 @@ bool XObjActorTao::IsFree()
  */
 s32 XObjActorTao::vf124(s32 count, s32* command)
 {
-	fn_801070A4(this, count, command);
+	vf124__9XObjActorFlPl(this, count, command);
 	if (count == 0) {
 		return -1;
 	}

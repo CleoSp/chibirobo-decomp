@@ -336,15 +336,15 @@ STATIC_ASSERT(sizeof(XObjActorDeca) == 0xCA8);
 
 // XObjActor's own virtuals, the ones the subclasses call through to
 extern "C" {
-void fn_80106BE0(XObjActor* object, f32 frame);             // vf164
-Vec fn_80107084(XObjActor* object);                         // GetCameraTarget
-void fn_80107600(XObjActor* object);                        // vfC8
-void fn_80107620(XObjActor* object);                        // vfAC
-void fn_80107750(XObjActor* object, u32 frames);            // vf148
-BOOL fn_80107F18(XObjActor* object, const CoordInfo& info); // vf9C
-void fn_80108014(XObjActor* object);                        // vf94
-void fn_801081F0(XObjActor* object);                        // vf98
-void fn_801083F0(XObjActor* object, u32 id);                // vf90
+void vf164__9XObjActorFf(XObjActor* object, f32 frame);                       // vf164
+Vec GetCameraTarget__9XObjActorFv(XObjActor* object);                         // GetCameraTarget
+void vfC8__9XObjActorFv(XObjActor* object);                                   // vfC8
+void vfAC__9XObjActorFv(XObjActor* object);                                   // vfAC
+void vf148__9XObjActorFUl(XObjActor* object, u32 frames);                     // vf148
+BOOL vf9C__9XObjActorFRC9CoordInfo(XObjActor* object, const CoordInfo& info); // vf9C
+void vf94__9XObjActorFv(XObjActor* object);                                   // vf94
+void vf98__9XObjActorFv(XObjActor* object);                                   // vf98
+void vf90__9XObjActorFUl(XObjActor* object, u32 id);                          // vf90
 
 // the counts the toys hand to the script, game/xobjactorse.cpp
 s32 fn_80106AC0();

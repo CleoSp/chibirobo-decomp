@@ -406,6 +406,7 @@ game/memcardjob.cpp:
 game/memcardinit.cpp:
 	.text       start:0x8008A314 end:0x8008A360
 	.ctors      start:0x801FD67C end:0x801FD680
+	.bss        start:0x8036AC00 end:0x8036AF38
 
 game/cjanim.cpp:
 	.text       start:0x8008A360 end:0x8008C7CC
@@ -820,6 +821,7 @@ game/ccameraactionareaex.cpp:
 game/ccameraactionareaexinit.cpp:
 	.text       start:0x80138154 end:0x801381C0
 	.ctors      start:0x801FD6A0 end:0x801FD6A4
+	.bss        start:0x805A0540 end:0x805A4180
 
 game/ccameraactionareaexdtor.cpp:
 	.text       start:0x801381C0 end:0x80138294

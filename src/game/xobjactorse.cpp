@@ -6,7 +6,7 @@
  * @note Address: 0x80106A8C
  * @note Size: 0x4
  */
-extern "C" void fn_80106A8C(XObjActor* actor)
+extern "C" void vf15C__9XObjActorFv(XObjActor* actor)
 {
 }
 
@@ -14,7 +14,7 @@ extern "C" void fn_80106A8C(XObjActor* actor)
  * @note Address: 0x80106A90
  * @note Size: 0x8
  */
-extern "C" HSD_JObj* fn_80106A90(XObjActor* actor)
+extern "C" HSD_JObj* vf168__9XObjActorFv(XObjActor* actor)
 {
 	return actor->mJObj;
 }
@@ -23,7 +23,7 @@ extern "C" HSD_JObj* fn_80106A90(XObjActor* actor)
  * @note Address: 0x80106A98
  * @note Size: 0x28
  */
-extern "C" CVec fn_80106A98(XObjActor* actor)
+extern "C" CVec vf16C__9XObjActorFv(XObjActor* actor)
 {
 	return actor->mMoveTranslate;
 }
@@ -69,7 +69,7 @@ extern "C" s32 fn_80106B50()
  * @note Address: 0x80106BE0
  * @note Size: 0xC4
  */
-extern "C" void fn_80106BE0(XObjActor* actor, f32 frame)
+extern "C" void vf164__9XObjActorFf(XObjActor* actor, f32 frame)
 {
 	if (actor->mStatus.mFlags & 1ULL) {
 		if (actor->mStatus.mFlags & 0x10000ULL) {

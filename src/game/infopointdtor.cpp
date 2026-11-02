@@ -5,7 +5,7 @@
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" InfoPoint* fn_8006DB80(InfoPoint* point, s16 flags)
+extern "C" InfoPoint* __dt__9InfoPointFv(InfoPoint* point, s16 flags)
 {
 	if (point != NULL) {
 		point->InfoPoint::~InfoPoint();

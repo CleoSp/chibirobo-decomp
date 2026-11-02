@@ -55,9 +55,9 @@ public:
 class CScrnWipe : public CScrnColor {
 public:
 	virtual ~CScrnWipe() { }              // _08 (weak)
-	virtual void Reset();                 // _0C, fn_800238A4
-	virtual void Update(u32 frames);      // _10, fn_80023030
-	virtual void Draw(CGs* gs, s32 mode); // _14, fn_8002289C
+	virtual void Reset();                 // _0C, Reset__9CScrnWipeFv
+	virtual void Update(u32 frames);      // _10, Update__9CScrnWipeFUl
+	virtual void Draw(CGs* gs, s32 mode); // _14, Draw__9CScrnWipeFP3CGsl
 
 	BOOL mActive;       // _34
 	BOOL mHideWhenDone; // _38, turns itself off once the size stops
@@ -101,9 +101,9 @@ public:
 class CScrnRoboeyes : public CScrnWipe {
 public:
 	virtual ~CScrnRoboeyes() { }          // _08 (weak)
-	virtual void Reset();                 // _0C, fn_80021500
-	virtual void Update(u32 frames);      // _10, fn_80021474
-	virtual void Draw(CGs* gs, s32 mode); // _14, fn_800207C8
+	virtual void Reset();                 // _0C, Reset__13CScrnRoboeyesFv
+	virtual void Update(u32 frames);      // _10, Update__13CScrnRoboeyesFUl
+	virtual void Draw(CGs* gs, s32 mode); // _14, Draw__13CScrnRoboeyesFP3CGsl
 
 	f32 mAngle; // _64
 	f32 mPhase; // _68
@@ -128,15 +128,15 @@ void fn_80023B38(CScrnColor* color, u32 frames);
 void fn_80023D74(CScrnColor* color, u8 r, u8 g, u8 b, u8 a, f32 time);
 void fn_80023EE0(CScrnColor* color, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, u8 a1, f32 time);
 // CScrnWipe
-void fn_80023030(CScrnWipe* wipe, u32 frames);
+void Update__9CScrnWipeFUl(CScrnWipe* wipe, u32 frames);
 void fn_80023438(CScrnWipe* wipe, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, f32 x, f32 y, f32 width0, f32 height0, f32 width1,
                  f32 height1, f32 time, u8 a1, BOOL hideWhenDone);
 void fn_800236EC(CScrnWipe* wipe, u8 r, u8 g, u8 b, u8 a, BOOL hideWhenDone, f32 x, f32 y, f32 width0, f32 height0, f32 width1, f32 height1,
                  f32 time);
-void fn_800238A4(CScrnWipe* wipe);
+void Reset__9CScrnWipeFv(CScrnWipe* wipe);
 // CScrnRoboeyes
-void fn_80021474(CScrnRoboeyes* eyes, u32 frames);
-void fn_80021500(CScrnRoboeyes* eyes);
+void Update__13CScrnRoboeyesFUl(CScrnRoboeyes* eyes, u32 frames);
+void Reset__13CScrnRoboeyesFv(CScrnRoboeyes* eyes);
 // CScrnQuake
 void fn_800240EC(CScrnQuake* quake, u32 frames);
 void fn_800242A8(CScrnQuake* quake, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 time);

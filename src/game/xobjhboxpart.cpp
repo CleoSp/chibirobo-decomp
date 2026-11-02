@@ -5,10 +5,10 @@
  * @note Address: 0x800E0F40
  * @note Size: 0x4C
  */
-extern "C" void fn_800E0F40(XObjHBox* box)
+extern "C" void Release__8XObjHBoxFv(XObjHBox* box)
 {
 	box->mPart.mObj.Release();
-	fn_800911C0(box);
+	Release__4XObjFv(box);
 	box->mLoadState = 0;
 }
 
@@ -16,11 +16,11 @@ extern "C" void fn_800E0F40(XObjHBox* box)
  * @note Address: 0x800E0F8C
  * @note Size: 0x14C
  */
-extern "C" BOOL fn_800E0F8C(XObjHBox* box, CoordInfo* info)
+extern "C" BOOL vf9C__8XObjHBoxFRC9CoordInfo(XObjHBox* box, CoordInfo* info)
 {
 	switch (box->mLoadState) {
 	case 0:
-		if (!fn_80091C80(box, info))
+		if (!vf9C__4XObjFRC9CoordInfo(box, info))
 			break;
 		box->_80C = 0;
 		++box->mLoadState;
@@ -45,9 +45,9 @@ extern "C" BOOL fn_800E0F8C(XObjHBox* box, CoordInfo* info)
  * @note Address: 0x800E10D8
  * @note Size: 0x60
  */
-extern "C" void fn_800E10D8(XObjHBox* box)
+extern "C" void vf98__8XObjHBoxFv(XObjHBox* box)
 {
-	fn_800928E8(box);
+	vf98__4XObjFv(box);
 	box->mLoadState = 0;
 	box->mRing      = 0.0f;
 	box->mPart.mObj.vf98();
@@ -59,7 +59,7 @@ extern "C" void fn_800E10D8(XObjHBox* box)
  * @note Address: 0x800E1138
  * @note Size: 0x30
  */
-extern "C" void fn_800E1138(XObjHBox* box)
+extern "C" void vf94__8XObjHBoxFv(XObjHBox* box)
 {
 	box->mPart.mObj.vf94();
 }
@@ -68,8 +68,8 @@ extern "C" void fn_800E1138(XObjHBox* box)
  * @note Address: 0x800E1168
  * @note Size: 0x50
  */
-extern "C" void fn_800E1168(XObjHBox* box, u32 id)
+extern "C" void vf90__8XObjHBoxFUl(XObjHBox* box, u32 id)
 {
-	fn_800929C4(box, id);
+	vf90__4XObjFUl(box, id);
 	box->mPart.mObj.vf90(id);
 }

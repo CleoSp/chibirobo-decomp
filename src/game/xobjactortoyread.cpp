@@ -15,7 +15,7 @@ extern u8 lbl_8022C7E0[];
  */
 void XObjActorToy::vfAC()
 {
-	fn_80107620(this);
+	vfAC__9XObjActorFv(this);
 	if (mFirst.mStatus.mFlags & 0x10000) {
 		mFirst.CJObj::SetTranslate(GetTranslateX(), GetTranslateY(), GetTranslateZ(), 1);
 		mFirst.CJObj::SetScale(GetScaleX(), GetScaleY(), GetScaleZ(), 1);
@@ -48,7 +48,7 @@ void XObjActorToy::Release()
 {
 	mFirst.Release();
 	mSecond.Release();
-	fn_800911C0(this);
+	Release__4XObjFv(this);
 	mLoad = 0;
 	_1F90 = 0;
 }
@@ -63,7 +63,7 @@ BOOL XObjActorToy::vf9C(const CoordInfo& info)
 	case 0xF:
 		switch (mLoad) {
 		case 0:
-			if (!fn_80107F18(this, info)) {
+			if (!vf9C__9XObjActorFRC9CoordInfo(this, info)) {
 				break;
 			}
 			mLoad++;
@@ -88,7 +88,7 @@ BOOL XObjActorToy::vf9C(const CoordInfo& info)
 		}
 		return FALSE;
 	}
-	return fn_80107F18(this, info) != FALSE;
+	return vf9C__9XObjActorFRC9CoordInfo(this, info) != FALSE;
 }
 
 /**
@@ -98,7 +98,7 @@ BOOL XObjActorToy::vf9C(const CoordInfo& info)
 void XObjActorToy::vf98()
 {
 	u8* data = lbl_8022C7E0;
-	fn_801081F0(this);
+	vf98__9XObjActorFv(this);
 	mLoad = 0;
 	_1F90 = 0;
 	mFirst.vf98();
@@ -144,7 +144,7 @@ void XObjActorToy::vf98()
  */
 void XObjActorToy::vf94()
 {
-	fn_80108014(this);
+	vf94__9XObjActorFv(this);
 	mLoad = 0;
 	_1F90 = 0;
 	mFirst.vf94();
@@ -157,7 +157,7 @@ void XObjActorToy::vf94()
  */
 void XObjActorToy::vf90(u32 id)
 {
-	fn_801083F0(this, id);
+	vf90__9XObjActorFUl(this, id);
 	mLoad = 0;
 	_1F90 = 0;
 	mFirst.vf90(id);

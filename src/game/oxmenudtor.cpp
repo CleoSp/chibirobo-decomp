@@ -12,7 +12,7 @@ void* fn_800BCFC4(void* object, s32 flags);
  * @note Size: 0x70
  */
 // todo: weak copy
-extern "C" OXMenu* fn_800BD268(OXMenu* menu, s32 flags)
+extern "C" OXMenu* __dt__6OXMenuFv(OXMenu* menu, s32 flags)
 {
 	if (menu != NULL) {
 		// the vtable is its last word

@@ -19,9 +19,9 @@ extern "C" {
  * @note Address: 0x800DF9A0
  * @note Size: 0x184
  */
-extern "C" void fn_800DF9A0(XObjDust* dust)
+extern "C" void vf98__8XObjDustFv(XObjDust* dust)
 {
-	fn_800928E8(dust);
+	vf98__4XObjFv(dust);
 	if (dust->GetObjFlags() & 1) {
 		dust->mBaseY        = dust->mMoveTranslate.y;
 		dust->mPhase        = fmod((f32)rand(), TWO_PI);
@@ -45,7 +45,7 @@ extern "C" void fn_800DF9A0(XObjDust* dust)
  * @note Address: 0x800DFB24
  * @note Size: 0x44
  */
-extern "C" s32 fn_800DFB24(XObjDust* dust)
+extern "C" s32 GetFlagIndex__8XObjDustFv(XObjDust* dust)
 {
 	s32 id = dust->_260;
 	if (id > 0)
@@ -57,7 +57,7 @@ extern "C" s32 fn_800DFB24(XObjDust* dust)
  * @note Address: 0x800DFB68
  * @note Size: 0x100
  */
-extern "C" u32 fn_800DFB68(XObjHBox* box, s32 unused, u32 flags)
+extern "C" u32 vf100__8XObjHBoxFll(XObjHBox* box, s32 unused, u32 flags)
 {
 	if ((flags & 3) == 1)
 		return flags;
@@ -79,10 +79,10 @@ extern "C" u32 fn_800DFB68(XObjHBox* box, s32 unused, u32 flags)
  * @note Address: 0x800DFC68
  * @note Size: 0xBC
  */
-extern "C" void fn_800DFC68(XObjHBox* box, const Vec* pos, f32 strength)
+extern "C" void vf138__8XObjHBoxFRC3Vecf(XObjHBox* box, const Vec* pos, f32 strength)
 {
 	if (box->mAnimId <= 0) {
-		fn_8008A6C0(box, pos, strength);
+		vf138__4XObjFRC3Vecf(box, pos, strength);
 		if ((box->mStatus.mFlags & 0x04000000ULL) && strength >= (s32)fn_8006EBC8(31) / 100.0f)
 			box->mStatus.mFlags |= 0x2000000000000000ULL;
 	}
@@ -92,7 +92,7 @@ extern "C" void fn_800DFC68(XObjHBox* box, const Vec* pos, f32 strength)
  * @note Address: 0x800DFD24
  * @note Size: 0x1F0
  */
-extern "C" void fn_800DFD24(XObjHBox* box)
+extern "C" void vfC8__8XObjHBoxFv(XObjHBox* box)
 {
 	if (box->mRing > 0.0f) {
 		Vec pos = { 0.0f, 0.0f, 0.0f };
@@ -117,19 +117,19 @@ extern "C" void fn_800DFD24(XObjHBox* box)
  * @note Address: 0x800DFF14
  * @note Size: 0x48
  */
-extern "C" void fn_800DFF14(XObjHBox* box, const Vec* origin, f32 opacity)
+extern "C" void vfBC__8XObjHBoxFPC3Vecf(XObjHBox* box, const Vec* origin, f32 opacity)
 {
 	if (box->mPart.mObj.mStatus.mFlags & 0x10000ULL)
-		fn_8009056C(box, origin, opacity);
+		vfBC__4XObjFPC3Vecf(box, origin, opacity);
 }
 
 /**
  * @note Address: 0x800DFF5C
  * @note Size: 0x78
  */
-extern "C" void fn_800DFF5C(XObjHBox* box, Mtx view)
+extern "C" void vfB0__8XObjHBoxFPA4_f(XObjHBox* box, Mtx view)
 {
-	fn_800908C0(box, view);
+	vfB0__4XObjFPA4_f(box, view);
 	if (box->mPart.mObj.mStatus.mFlags & 0x10000ULL)
 		box->mPart.mObj.vfB0(view);
 }

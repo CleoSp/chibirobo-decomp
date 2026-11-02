@@ -142,7 +142,7 @@ public:
 	BOOL mDiskOk;       // _3324, DVDCheckDisk
 	BOOL mDvdError;     // _3328, rumble is paused while set
 	s32 mResetHold;     // _332C, frames the reset combo is held
-	BOOL mReset;        // _3330, stops fn_80132950's read loop when set
+	BOOL mReset;        // _3330, stops ReadAll__5XOBJSFv's read loop when set
 	// _3334 vtable
 
 	CBase();

@@ -54,8 +54,8 @@ extern "C" void fn_800880EC(Memcard* card)
 	save->mHeader.mFrames = lbl_8025C400.mPlayTime;
 #endif
 	memcpy(save->mPlayer, Player()->mParams.mInventory.mItems, sizeof(save->mPlayer));
-	memcpy(save->mEvtFlags, lbl_8036781C, sizeof(save->mEvtFlags));
-	memcpy(save->mEvtVars, lbl_80367A2C, sizeof(save->mEvtVars));
+	memcpy(save->mEvtFlags, gEvtFlags, sizeof(save->mEvtFlags));
+	memcpy(save->mEvtVars, gEvtVars, sizeof(save->mEvtVars));
 	memcpy(save->mObjects[0], PoolSaveData(4), sizeof(save->mObjects[0]));
 	memcpy(save->mObjects[1], PoolSaveData(5), sizeof(save->mObjects[1]));
 	memcpy(save->mObjects[2], PoolSaveData(17), sizeof(save->mObjects[2]));
