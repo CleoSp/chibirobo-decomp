@@ -438,7 +438,7 @@ public:
 STATIC_ASSERT(sizeof(CCameraActionAreaEx) == 0x3C34);
 // todo: old name, the prototypes below still use it
 typedef CCameraActionAreaEx CamAreaState;
-extern "C" CCameraActionAreaEx gCameraActionAreaEx;
+extern "C" CCameraActionAreaEx lbl_805A054C;
 
 // the area action, CCameraActions holds it at _40
 class CCameraActionArea : public CCameraActionAreaExM {

@@ -623,7 +623,7 @@ void CCameraActionScroll2::vf20()
 		static const s32 sRoomBase[10] = { 0, 9, 11, 4, 7, 0, 12, 9, 0, 8 };
 		s32 base                       = sRoomBase[lbl_8025C400.mStage];
 		// script variables from 0x603 on hold a count per room
-		s32 count = gEvtVars[0x603 + lbl_8025C400.mStage];
+		s32 count = lbl_80367A2C[0x603 + lbl_8025C400.mStage];
 		if (base > 0) {
 			fn_80050FE8(0xAB, base + count * 100, 0, 56.0f, 378.0f, 1.0f);
 		}
@@ -2479,9 +2479,9 @@ void CCameraActionScroll2::vf20()
     blt      .L_801455EC
     cmpwi    r0, 0xa
     bge      .L_801455EC
-    lis      r3, gEvtVars@ha
+    lis      r3, lbl_80367A2C@ha
     slwi     r5, r0, 2
-    addi     r0, r3, gEvtVars@l
+    addi     r0, r3, lbl_80367A2C@l
     addi     r3, r31, 0x48
     add      r4, r0, r5
     lwzx     r3, r3, r5

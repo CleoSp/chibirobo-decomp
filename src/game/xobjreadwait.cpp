@@ -22,7 +22,7 @@ extern "C" BOOL vf1C__8XObjReadFv(XObjRead* reader)
  */
 extern "C" bool fn_80131D2C()
 {
-	return vf1C__8XObjReadFv(&sXObjReadAll) || vf1C__8XObjReadFv(&sXObjReadOne) || vf1C__8XObjReadFv(&sXObjReadAnm);
+	return vf1C__8XObjReadFv(&lbl_80380008) || vf1C__8XObjReadFv(&lbl_803803A8) || vf1C__8XObjReadFv(&lbl_80380748);
 }
 
 /**

@@ -75,15 +75,15 @@ extern "C" BOOL fn_80132040(XObjRead* self, XObj* obj, XOBJS* list)
  * @note Address: 0x801320F4
  * @note Size: 0x4C
  */
-extern XObjRead sXObjReadAnm; // 0x59A8 bytes, some XObjRead subclass
+extern XObjRead lbl_80380748; // 0x59A8 bytes, some XObjRead subclass
 
 // reader thread entry
 extern "C" void fn_801320F4(void* arg)
 {
 	OSMessage msg;
 	while (true) {
-		OSReceiveMessage(&sXObjReadAnm._328._00, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &sXObjReadAnm;
+		OSReceiveMessage(&lbl_80380748._328._00, &msg, OS_MESSAGE_BLOCK);
+		XObjRead* self = &lbl_80380748;
 		self->vf18((UnkXObjReadReq*)msg);
 	}
 }
@@ -104,7 +104,7 @@ extern "C" void vf18__8XObjReadFP11XObjReadReq(void* self)
 extern "C" BOOL fn_80132144(XObj* obj, XOBJS* list)
 {
 	obj->mStatus.mFlags |= 0x0080000000000000ULL;
-	return sXObjReadAnm.ReadStart(obj, list);
+	return lbl_80380748.ReadStart(obj, list);
 }
 
 /**
@@ -137,14 +137,14 @@ extern "C" BOOL fn_801322A4(XObjRead* self, XObj* obj, XOBJS* list)
  * @note Address: 0x80132358
  * @note Size: 0x4C
  */
-extern XObjRead sXObjReadOne; // 0x3A0 bytes
+extern XObjRead lbl_803803A8; // 0x3A0 bytes
 
 extern "C" void fn_80132358(void* arg)
 {
 	OSMessage msg;
 	while (true) {
-		OSReceiveMessage(&sXObjReadOne._328._00, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &sXObjReadOne;
+		OSReceiveMessage(&lbl_803803A8._328._00, &msg, OS_MESSAGE_BLOCK);
+		XObjRead* self = &lbl_803803A8;
 		self->vf18((UnkXObjReadReq*)msg);
 	}
 }
@@ -164,14 +164,14 @@ extern "C" void vf18__11XObjReadAllFP11XObjReadReq(void* self, UnkXObjReadReq* r
  * @note Address: 0x801323DC
  * @note Size: 0x4C
  */
-extern XObjRead sXObjReadAll; // 0x3A0 bytes
+extern XObjRead lbl_80380008; // 0x3A0 bytes
 
 extern "C" void fn_801323DC(void* arg)
 {
 	OSMessage msg;
 	while (true) {
-		OSReceiveMessage(&sXObjReadAll._328._00, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &sXObjReadAll;
+		OSReceiveMessage(&lbl_80380008._328._00, &msg, OS_MESSAGE_BLOCK);
+		XObjRead* self = &lbl_80380008;
 		self->vf18((UnkXObjReadReq*)msg);
 	}
 }
@@ -327,7 +327,7 @@ extern "C" XObj* fn_80132698(XOBJS* list, CoordInfo* info, s32 unused, BOOL asyn
 		}
 		if (async) {
 			obj->mStatus.mFlags |= 0x0040000000000000ULL;
-			sXObjReadOne.ReadStart(obj, info->_00);
+			lbl_803803A8.ReadStart(obj, info->_00);
 		} else {
 			while (!obj->vf9C(*info)) { }
 		}
@@ -427,10 +427,10 @@ extern "C" XObj* fn_80132698(XOBJS* list, CoordInfo* info, s32 unused, BOOL asyn
     cmpwi    r30, 0x0
     beq      .L_80132870
     lwz      r4, 0x228(r31)
-    lis      r3, sXObjReadOne@ha
+    lis      r3, lbl_803803A8@ha
     lis      r0, 0x40
     lwz      r7, 0x0(r29)
-    addi     r6, r3, sXObjReadOne@l
+    addi     r6, r3, lbl_803803A8@l
     or       r3, r4, r0
     li       r0, 0x8
     stw      r3, 0x228(r31)
@@ -440,9 +440,9 @@ extern "C" XObj* fn_80132698(XOBJS* list, CoordInfo* info, s32 unused, BOOL asyn
     lwz      r0, 0x350(r6)
     cmplwi   r0, 0x0
     bne      .L_80132838
-    lis      r3, sXObjReadOne@ha
+    lis      r3, lbl_803803A8@ha
     slwi     r0, r4, 3
-    addi     r3, r3, sXObjReadOne@l
+    addi     r3, r3, lbl_803803A8@l
     li       r5, 0x1
     add      r6, r3, r0
     stw      r31, 0x350(r6)
@@ -729,7 +729,7 @@ extern "C" BOOL fn_800B78FC(XObj* player);
 extern "C" u8 fn_80132B98(XOBJS* list)
 {
 	if (list->_11D4 == 0) {
-		sXObjReadAll.ReadStart((void*)1, list);
+		lbl_80380008.ReadStart((void*)1, list);
 		list->_11D4 = 1;
 	}
 	if (list->_11D4 == 2) {

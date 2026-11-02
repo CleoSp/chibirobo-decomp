@@ -37,7 +37,7 @@ void fn_8010B528(XObjActor3* actor);
 void fn_8010AF74(XObjActor3* actor);
 void fn_8010B7B4(XObjActor3* actor, u32 frames);
 
-extern s32 gEvtVars[];              // the script's variables
+extern s32 lbl_80367A2C[];          // the script's variables
 extern AnimSfxEvent lbl_8022C178[]; // haisui_nezumi's anim sound events
 
 s32 lbl_8065B2F0;
@@ -873,7 +873,7 @@ extern "C" void fn_8010B528(XObjActor3* actor)
 		break;
 	case 2:
 		if ((actor->_B8C.mFlags & 0x80) && !(actor->_B8C.mFlags & 4)) {
-			gEvtVars[actor->_B98] = 1;
+			lbl_80367A2C[actor->_B98] = 1;
 		}
 		actor->_B94 = 0;
 		actor->_B98 = 0;
@@ -886,7 +886,7 @@ extern "C" void fn_8010B528(XObjActor3* actor)
 	case 4:
 		XObjChr* player = lbl_8025C400.GetPlayer();
 		if (!IsBusyAnim(player->mAnimId) && player->mAttachmentRequest < 0) {
-			gEvtVars[actor->_B98] = 1;
+			lbl_80367A2C[actor->_B98] = 1;
 		}
 		actor->_B94 = 0;
 		actor->_B98 = 0;
@@ -964,9 +964,9 @@ extern "C" void fn_8010B394(XObjActor3* actor)
 		actor->_B98 = 0;
 		break;
 	case 4:
-		gEvtVars[actor->_B98] = fn_8006697C(actor->_BF4);
-		actor->_B94           = 0;
-		actor->_B98           = 0;
+		lbl_80367A2C[actor->_B98] = fn_8006697C(actor->_BF4);
+		actor->_B94               = 0;
+		actor->_B98               = 0;
 		break;
 	case 5:
 		if (actor->_B98 != 0) {
@@ -983,9 +983,9 @@ extern "C" void fn_8010B394(XObjActor3* actor)
 		actor->_B98 = 0;
 		break;
 	case 7:
-		gEvtVars[actor->_B98] = actor->_C04;
-		actor->_B94           = 0;
-		actor->_B98           = 0;
+		lbl_80367A2C[actor->_B98] = actor->_C04;
+		actor->_B94               = 0;
+		actor->_B98               = 0;
 		break;
 	}
 }

@@ -17,18 +17,18 @@
 // down with when the game ends
 
 extern "C" {
-extern XObjFree sFreePool[0x120];
-extern XObjHBox sHBoxPool[0x10];
-extern XObjDust sDustPool[0x40];
-extern XObjSpiderSmall sSpiderSmallPool[16];
-extern XObjSpider sSpiderPool[16];
-extern XObjArmy sArmyPool[21];
-extern XObjActorDeca sActorDecaPool[2];
-extern XObjActorToy sActorToyPool[15];
-extern XObjLeticker sLetickerPool[12];
-extern XObjItem sItemPool[0x40];
-extern XObjCoin sCoinPool[0x60];
-extern XObjSound sSoundPool[8];
+extern XObjFree lbl_804F41F0[0x120];
+extern XObjHBox lbl_804E1060[0x10];
+extern XObjDust lbl_804B9850[0x40];
+extern XObjSpiderSmall lbl_804ADE48[16];
+extern XObjSpider lbl_804A06B8[16];
+extern XObjArmy lbl_804924E8[21];
+extern XObjActorDeca lbl_80490B88[2];
+extern XObjActorToy lbl_8046EF00[15];
+extern XObjLeticker lbl_80467330[12];
+extern XObjItem lbl_80441120[0x40];
+extern XObjCoin lbl_80405710[0x60];
+extern XObjSound lbl_80400A00[8];
 
 XObjFree* __dt__8XObjFreeFv(XObjFree* object, s32 flags);
 XObjHBox* __dt__8XObjHBoxFv(XObjHBox* object, s32 flags);
@@ -65,7 +65,7 @@ extern "C" void fn_80132D08(XObjPool* pools)
  */
 extern "C" void fn_80133B98()
 {
-	__destroy_arr(sFreePool, (ConstructorDestructor*)__dt__8XObjFreeFv, sizeof(XObjFree), ARRAY_SIZE(sFreePool));
+	__destroy_arr(lbl_804F41F0, (ConstructorDestructor*)__dt__8XObjFreeFv, sizeof(XObjFree), ARRAY_SIZE(lbl_804F41F0));
 }
 
 /**
@@ -82,7 +82,7 @@ XObjFree::XObjFree()
  */
 extern "C" void fn_80133C0C()
 {
-	__destroy_arr(sHBoxPool, (ConstructorDestructor*)__dt__8XObjHBoxFv, sizeof(XObjHBox), ARRAY_SIZE(sHBoxPool));
+	__destroy_arr(lbl_804E1060, (ConstructorDestructor*)__dt__8XObjHBoxFv, sizeof(XObjHBox), ARRAY_SIZE(lbl_804E1060));
 }
 
 /**
@@ -107,7 +107,7 @@ XObjHBoxPart::XObjHBoxPart()
  */
 extern "C" void fn_80133CB8()
 {
-	__destroy_arr(sDustPool, (ConstructorDestructor*)__dt__8XObjDustFv, sizeof(XObjDust), ARRAY_SIZE(sDustPool));
+	__destroy_arr(lbl_804B9850, (ConstructorDestructor*)__dt__8XObjDustFv, sizeof(XObjDust), ARRAY_SIZE(lbl_804B9850));
 }
 
 /**
@@ -133,8 +133,7 @@ XObjSpiderBoss::XObjSpiderBoss()
  */
 extern "C" void fn_80133DD8()
 {
-	__destroy_arr(sSpiderSmallPool, (ConstructorDestructor*)__dt__15XObjSpiderSmallFv, sizeof(XObjSpiderSmall),
-	              ARRAY_SIZE(sSpiderSmallPool));
+	__destroy_arr(lbl_804ADE48, (ConstructorDestructor*)__dt__15XObjSpiderSmallFv, sizeof(XObjSpiderSmall), ARRAY_SIZE(lbl_804ADE48));
 }
 
 /**
@@ -151,7 +150,7 @@ XObjSpiderSmall::XObjSpiderSmall()
  */
 extern "C" void fn_80133E84()
 {
-	__destroy_arr(sSpiderPool, (ConstructorDestructor*)__dt__10XObjSpiderFv, sizeof(XObjSpider), ARRAY_SIZE(sSpiderPool));
+	__destroy_arr(lbl_804A06B8, (ConstructorDestructor*)__dt__10XObjSpiderFv, sizeof(XObjSpider), ARRAY_SIZE(lbl_804A06B8));
 }
 
 /**
@@ -168,7 +167,7 @@ XObjSpider::XObjSpider()
  */
 extern "C" void fn_80133F40()
 {
-	__destroy_arr(sArmyPool, (ConstructorDestructor*)__dt__8XObjArmyFv, sizeof(XObjArmy), ARRAY_SIZE(sArmyPool));
+	__destroy_arr(lbl_804924E8, (ConstructorDestructor*)__dt__8XObjArmyFv, sizeof(XObjArmy), ARRAY_SIZE(lbl_804924E8));
 }
 
 /**
@@ -187,7 +186,7 @@ XObjArmy::XObjArmy()
 
 extern "C" void fn_80134014()
 {
-	__destroy_arr(sActorDecaPool, (ConstructorDestructor*)__dt__13XObjActorDecaFv, sizeof(XObjActorDeca), ARRAY_SIZE(sActorDecaPool));
+	__destroy_arr(lbl_80490B88, (ConstructorDestructor*)__dt__13XObjActorDecaFv, sizeof(XObjActorDeca), ARRAY_SIZE(lbl_80490B88));
 }
 
 /**
@@ -236,7 +235,7 @@ XObjActorJenny::XObjActorJenny()
  */
 extern "C" void fn_80134248()
 {
-	__destroy_arr(sActorToyPool, (ConstructorDestructor*)__dt__12XObjActorToyFv, sizeof(XObjActorToy), ARRAY_SIZE(sActorToyPool));
+	__destroy_arr(lbl_8046EF00, (ConstructorDestructor*)__dt__12XObjActorToyFv, sizeof(XObjActorToy), ARRAY_SIZE(lbl_8046EF00));
 }
 
 /**
@@ -261,7 +260,7 @@ XObjActor::XObjActor()
  */
 extern "C" void fn_80134300()
 {
-	__destroy_arr(sLetickerPool, (ConstructorDestructor*)__dt__12XObjLetickerFv, sizeof(XObjLeticker), ARRAY_SIZE(sLetickerPool));
+	__destroy_arr(lbl_80467330, (ConstructorDestructor*)__dt__12XObjLetickerFv, sizeof(XObjLeticker), ARRAY_SIZE(lbl_80467330));
 }
 
 /**
@@ -278,7 +277,7 @@ XObjLeticker::XObjLeticker()
  */
 extern "C" void fn_80134380()
 {
-	__destroy_arr(sItemPool, (ConstructorDestructor*)__dt__8XObjItemFv, sizeof(XObjItem), ARRAY_SIZE(sItemPool));
+	__destroy_arr(lbl_80441120, (ConstructorDestructor*)__dt__8XObjItemFv, sizeof(XObjItem), ARRAY_SIZE(lbl_80441120));
 }
 
 /**
@@ -296,7 +295,7 @@ XObjItem::XObjItem()
  */
 extern "C" void fn_80134400()
 {
-	__destroy_arr(sCoinPool, (ConstructorDestructor*)__dt__8XObjCoinFv, sizeof(XObjCoin), ARRAY_SIZE(sCoinPool));
+	__destroy_arr(lbl_80405710, (ConstructorDestructor*)__dt__8XObjCoinFv, sizeof(XObjCoin), ARRAY_SIZE(lbl_80405710));
 }
 
 /**
@@ -323,7 +322,7 @@ XObjFlags::XObjFlags()
  */
 extern "C" void fn_80134480()
 {
-	__destroy_arr(sSoundPool, (ConstructorDestructor*)__dt__9XObjSoundFv, sizeof(XObjSound), ARRAY_SIZE(sSoundPool));
+	__destroy_arr(lbl_80400A00, (ConstructorDestructor*)__dt__9XObjSoundFv, sizeof(XObjSound), ARRAY_SIZE(lbl_80400A00));
 }
 
 /**

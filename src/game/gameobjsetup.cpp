@@ -71,7 +71,7 @@ extern "C" BOOL fn_80011638(CGame* game)
 		fn_80011270(game);
 
 		game->mStatus.mFlags &= ~0x2000000000;
-		mirror = sFbMirrors;
+		mirror = lbl_8035FA24;
 		game->mStatus.mFlags &= ~0x8000000000;
 		game->mStatus.mFlags &= ~0x100000000000;
 		mirrors = 0;

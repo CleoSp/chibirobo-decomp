@@ -365,7 +365,7 @@ extern "C" void fn_8000D704(CGame* game)
 	XObj* obj;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x100000000000)) {
 		for (i = 0; i < 5; i++) {
-			mirror = &sFbMirrors[i];
+			mirror = &lbl_8035FA24[i];
 			if (mirror->mJoint != NULL && mirror->mVisible && !IsMirrorOff(mirror)) {
 				game->mGs.mCamera = &mirror->mCamera;
 				if (fn_8019997C(game)) {
