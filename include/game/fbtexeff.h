@@ -86,6 +86,6 @@ public:
 STATIC_ASSERT(sizeof(FbMirrorEx) == 0x2F4);
 
 // the game's mirrors
-extern "C" FbMirrorEx sFbMirrors[5];
+extern "C" FbMirrorEx lbl_8035FA24[5];
 
 #endif

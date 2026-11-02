@@ -65,9 +65,9 @@ public:
 };
 
 extern "C" {
-extern XObjReadAll sXObjReadAll;
-extern XObjReadOne sXObjReadOne;
-extern XObjReadAnm sXObjReadAnm;
+extern XObjReadAll lbl_80380008;
+extern XObjReadOne lbl_803803A8;
+extern XObjReadAnm lbl_80380748;
 }
 
 #endif

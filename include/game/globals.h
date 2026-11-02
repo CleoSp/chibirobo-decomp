@@ -16,7 +16,7 @@ public:
 	virtual ~Globals() { } // _08
 };
 STATIC_ASSERT(sizeof(Globals) == 0x100);
-extern "C" Globals sGlobals;
+extern "C" Globals lbl_803675CC;
 
 // the files' offsets and tables are little endian, a few record fields are native and
 // don't go through this

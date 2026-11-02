@@ -6,16 +6,16 @@ extern "C" void fn_80192214(CStack* stack, s32 capacity);
 
 static inline void ClearQueue()
 {
-	sEvtQueue.mRead = 0;
+	lbl_80369A3C.mRead = 0;
 	for (u32 i = 0; i < 128; ++i)
-		sEvtQueue.mScript[i] = NULL;
+		lbl_80369A3C.mScript[i] = NULL;
 }
 
 static inline void ClearTimers()
 {
 	for (u32 i = 0; i < 10; ++i) {
-		sEvtTimer.mFrames[i] = 0;
-		sEvtTimer.mValue[i]  = 0;
+		lbl_8036A050.mFrames[i] = 0;
+		lbl_8036A050.mValue[i]  = 0;
 	}
 }
 
@@ -29,9 +29,9 @@ extern "C" void fn_8007F194(CEvt* evt, u8* context, void* owner)
 	evt->_54 = context;
 	if (evt->_00 == 0) {
 		for (u32 i = 0; i < 128; ++i)
-			gEvtFlags[i] = 0;
+			lbl_8036781C[i] = 0;
 		for (u32 i = 0; i < 2048; ++i)
-			gEvtVars[i] = 0;
+			lbl_80367A2C[i] = 0;
 		ClearQueue();
 		ClearTimers();
 		vf90__4XObjFUl(&lbl_8036A0B0, 0);

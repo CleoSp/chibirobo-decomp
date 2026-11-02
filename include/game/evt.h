@@ -324,10 +324,10 @@ class XObj;
 
 extern "C" {
 // script flags, one bit each, and script variables. both go in the save file
-extern u32 gEvtFlags[0x80];
-extern s32 gEvtVars[0x800];
+extern u32 lbl_8036781C[0x80];
+extern s32 lbl_80367A2C[0x800];
 // the camera states scripts save and load
-extern CCameraMemento sEvtCameraMementos[];
+extern CCameraMemento lbl_8036AA3C[];
 
 // world position of the joint a path leads to, path holds a sibling count per level
 CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path);

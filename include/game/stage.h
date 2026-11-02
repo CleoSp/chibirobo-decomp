@@ -73,7 +73,7 @@ public:
 	}
 };
 STATIC_ASSERT(sizeof(Stage) == 0x2F4);
-extern "C" Stage sStage;
+extern "C" Stage lbl_803672CC;
 
 static inline bool IsModuleLoaded(CModule* module)
 {
