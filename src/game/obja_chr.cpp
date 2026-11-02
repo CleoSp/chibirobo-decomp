@@ -1,92 +1,16 @@
 #include "game/xchr.h"
-#include "game/hsd_jobj.h"
 #include "game/hsd_dobj.h"
-#include "game/hsd_cobj.h"
 #include "game/xobjmap.h"
-#include "game/xpad.h"
-#include "game/xact.h"
-#include "game/octamenu.h"
 #include "game/cgame.h"
-#include "game/csound.h"
 #include "game/cvec.h"
-#include "game/cshadow.h"
-#include "game/cparticle.h"
-#include "game/cmotioncontrolcamera.h"
 #include "game/cjobjinlineattach.h"
 #include "game/cjobjset.h"
-#include "game/coordinfo.h"
-#include "game/infoscrn.h"
-#include "game/evt.h"
-#include "game/video.h"
 #include "game/globals.h"
-#include "game/ut.h"
-#include <math.h>
+#include "game/pointptcl.h"
 #include <stdlib.h>
-extern "C" {
-#include <dolphin/mtx/vec.h>
-#include <sysdolphin/aobj.h>
-#include <sysdolphin/fobj.h>
-#include <sysdolphin/mtx.h>
-#include "game/gmath.h"
-}
 
 // XObjChr, chibi robo himself, and the menus he opens. most of the small functions at the end
 // are out of line copies of the inlines the player code uses
-
-// one point of a spiral trail
-struct EffTrailPoint {
-	f32 mX;      // _00
-	f32 mY;      // _04
-	f32 mZ;      // _08
-	f32 mAmount; // _0C, fades to 0
-	u32 _10;     // _10
-	f32 mPhase;  // _14
-};
-STATIC_ASSERT(sizeof(EffTrailPoint) == 0x18);
-
-// two spirals rising off chibi robo, the newest point first
-struct EffTrail {
-	BOOL mActive;                // _00
-	EffTrailPoint mPoint[2][10]; // _04
-};
-STATIC_ASSERT(sizeof(EffTrail) == 0x1E4);
-
-struct PointPtclOne {
-	s32 mState;   // _00
-	u8 _04[0x20]; // _04
-};
-STATIC_ASSERT(sizeof(PointPtclOne) == 0x24);
-
-// the sparks that fly in when points change, a pool of 10 at lbl_80378300. type 0, 2 and 3
-// have their own colors, a negative amount draws them black
-struct PointPtcl {
-	u8 _00[0x8];             // _00
-	s32 mType;               // _08
-	s32 mState;              // _0C
-	s32 mAmount;             // _10
-	u8 _14[0x54];            // _14
-	u32 mColor;              // _68
-	u32 mColor2;             // _6C
-	u8 _70[0x4];             // _70
-	s32 _74;                 // _74
-	s32 mNum;                // _78
-	PointPtclOne mPtcls[40]; // _7C
-
-	u8 IsFree() const { return mState == 0 && _74 == 0; }
-};
-STATIC_ASSERT(sizeof(PointPtcl) == 0x61C);
-
-// fades in and out over 0.3 seconds
-#if defined(VERSION_PAL)
-#define OX_FADE_STEP (1.0f / (0.3f * lbl_80660D4C))
-#else
-#define OX_FADE_STEP (1.0f / 18.0f)
-#endif
-
-extern "C" {
-void fn_800D5874(XObjOX* object);
-void fn_800D5804(XObjOX* object);
-}
 
 // the globals label and icon ids are 2 lower in japan
 #if defined(VERSION_JP)
@@ -114,10 +38,6 @@ static inline s32 FindAttachment(const AttachmentValues* values, s32 id)
 			return i;
 	}
 	return -1;
-}
-
-extern "C" {
-void fn_8009C8E0(AttachmentValues* values);
 }
 
 // 0.3 seconds
@@ -206,7 +126,6 @@ struct PlayerFrameParticle {
 STATIC_ASSERT(sizeof(PlayerFrameParticle) == 0x28);
 
 extern "C" {
-void PSMTXRotRad(Mtx mtx, char axis, f32 angle);
 PlayerFrameParticle fn_800A7E1C(XObj* object, f32* frame, const void* table);
 extern const u8 lbl_80226324[];
 extern const u8 lbl_802276D4[];
@@ -428,8 +347,6 @@ s32 fn_8006E940(s32 index);
 BOOL fn_8006EC34();
 void fn_800C17BC(XActPopperCharge* charge);
 void fn_800C2D18(XActPopperShot* shot);
-void fn_8009BF14(OctaMenu* menu, s32 focus);
-void fn_8009C2C8(AttachmentValues* values, s32 id, s32 value);
 }
 
 // the item glows brighter and darker while the cursor is on it
@@ -544,256 +461,8 @@ static const char* sAttachmentAnims[9] = {
 	NULL, "cb_robo_6.dat", "cb_robo_7.dat", "cb_robo_8.dat", "cb_robo_9.dat", "cb_robo_10.dat", "cb_robo_11.dat", "cb_robo_12.dat", NULL,
 };
 
-/**
- * @note Address: 0x80093B7C
- * @note Size: 0x5C
- */
-DrsMenu::~DrsMenu()
-{
-}
-
-// todo: weak copy
-/**
- * @note Address: 0x80093BD8
- * @note Size: 0x30
- */
-extern "C" void fn_80093BD8(OctaMenu* menu)
-{
-	menu->Open(0);
-}
-
-// todo: weak copy
-/**
- * @note Address: 0x80093C08
- * @note Size: 0xC
- */
-extern "C" void fn_80093C08(OctaMenu* menu)
-{
-	menu->mOpen = 0;
-}
-
-/**
- * @note Address: 0x800940A4
- * @note Size: 0x298
- */
-extern "C" void fn_800940A4(EffTrail* trail, u32 frames)
-{
-	if (trail->mActive != 0) {
-		f32 total = 0.0f;
-		for (int i = 0; i < 2; i++) {
-			EffTrailPoint* point = trail->mPoint[i];
-			for (int j = 9; j > 0; j--) {
-				point[j].mX      = point[j - 1].mX;
-				point[j].mY      = point[j - 1].mY;
-				point[j].mZ      = point[j - 1].mZ;
-				point[j].mAmount = point[j - 1].mAmount;
-				point[j].mPhase  = point[j - 1].mPhase;
-			}
-			if ((point[0].mAmount -= 0.02f * frames) <= 0.0f)
-				point[0].mAmount = 0.0f;
-			point[0].mPhase += DEG2RAD * 9.0f * frames;
-			f32 sine    = sin(point[0].mPhase);
-			point[0].mX = point[0].mAmount * (15.0f * ((1.0f - point[0].mAmount) * sine));
-			f32 cosine  = cos(point[0].mPhase);
-			point[0].mZ = point[0].mAmount * (15.0f * ((1.0f - point[0].mAmount) * cosine));
-			point[0].mY += 0.3f * frames;
-			for (int j = 0; j < 10; j++)
-				total += point[j].mAmount;
-		}
-		if (total == 0.0f)
-			trail->mActive = 0;
-	}
-}
-
-/**
- * @note Address: 0x80095AD8
- * @note Size: 0x1F8
- */
-extern "C" void fn_80095AD8(PointPtcl* ptcl, s32 type, s32 amount)
-{
-	ptcl->mType   = type;
-	ptcl->mState  = 1;
-	ptcl->mAmount = amount;
-	switch (ptcl->mType) {
-	case 0:
-		ptcl->mColor  = amount >= 0 ? 0xCECEFF00 : 0xFF000000;
-		ptcl->mColor2 = amount >= 0 ? 0xE037EE00 : 0xFF000000;
-		ptcl->mNum    = __abs(amount);
-		if (ptcl->mNum > 40)
-			ptcl->mNum = 40;
-		for (s32 i = 0; i < ptcl->mNum; ++i)
-			ptcl->mPtcls[i].mState = -1;
-		break;
-	case 2:
-		ptcl->mColor  = amount >= 0 ? 0xEFEBC500 : 0xFF000000;
-		ptcl->mColor2 = amount >= 0 ? 0xEDA83600 : 0xFF000000;
-		ptcl->mNum    = __abs(amount);
-		if (ptcl->mNum > 40)
-			ptcl->mNum = 40;
-		for (s32 i = 0; i < ptcl->mNum; ++i)
-			ptcl->mPtcls[i].mState = -2;
-		break;
-	case 3:
-		ptcl->mColor  = amount >= 0 ? 0xCECEFF00 : 0xFF000000;
-		ptcl->mColor2 = amount >= 0 ? 0x5959FF00 : 0xFF000000;
-		ptcl->mNum    = __abs(amount);
-		if (ptcl->mNum > 40)
-			ptcl->mNum = 40;
-		for (s32 i = 0; i < ptcl->mNum; ++i)
-			ptcl->mPtcls[i].mState = -3;
-		break;
-	default:
-		ptcl->mColor  = 0xFFFFFF00;
-		ptcl->mColor2 = 0xFFFFFF00;
-		ptcl->mNum    = 40;
-		for (s32 i = 0; i < ptcl->mNum; ++i)
-			ptcl->mPtcls[i].mState = 5;
-		break;
-	}
-}
-
-// OXMenu's update
-/**
- * @note Address: 0x80096B90
- * @note Size: 0x2A8
- */
-extern "C" void fn_80096B90(OXMenu* menu, u32 frames)
-{
-	if (menu->mStarted > 0) {
-		if (menu->mFade < 1.0f) {
-			f32 fade    = menu->mFade + OX_FADE_STEP * frames;
-			menu->mFade = fade;
-			if (fade >= 1.0f)
-				menu->mFade = 1.0f;
-		}
-	} else if (menu->mStarted < 0) {
-		if (menu->mFade > 0.0f) {
-			f32 fade    = menu->mFade - OX_FADE_STEP * frames;
-			menu->mFade = fade;
-			if (fade <= 0.0f)
-				menu->mFade = 0.0f;
-		}
-		if (0.0f == menu->mFade) {
-			s32 anim = menu->mChr->mAnimId;
-			if (anim != 0x78 && anim != 0xEF && anim != 0x13B) {
-				menu->mStarted = 0;
-				lbl_8025C400.mStatus.mFlags &= ~0x800ULL;
-				menu->mChr->SetRotateY(menu->mStartRot, DEG2RAD * 12.0f);
-				XObjChr* chr = lbl_8025C400.GetPlayer();
-				((XPad*)chr->mPad)->Update(0);
-			}
-		}
-	}
-	if (menu->mFade > 0.0f) {
-		f32 spin = DEG2RAD * 8.0f * frames;
-		f32 tilt = DEG2RAD * 3.0f * frames;
-		f32 grow = 0.05f * frames;
-		for (s32 i = 0; i < 2; ++i) {
-			OXMenuMark* mark = &menu->mMark[i];
-			mark->mSpin += spin;
-			mark->mTilt += tilt;
-			if (i == menu->_0C) {
-				f32 scale    = mark->mScale + grow;
-				mark->mScale = scale;
-				if (scale > 0.8f)
-					mark->mScale = 0.8f;
-			} else {
-				f32 scale    = mark->mScale - grow;
-				mark->mScale = scale;
-				if (scale < 0.5f)
-					mark->mScale = 0.5f;
-			}
-#if !defined(VERSION_JP)
-			mark->mObj.vfA4(frames);
-#endif
-		}
-	}
-}
-
-// OXMenu's input, left and right pick, a confirms
-/**
- * @note Address: 0x80096E38
- * @note Size: 0x2AC
- */
-extern "C" void fn_80096E38(OXMenu* menu, CPad* pad)
-{
-	if (menu->mStarted > 0) {
-		if (!(lbl_8025C400.mStatus.mFlags & 0x100ULL)) {
-			menu->mChr->SetRotateY(PI + lbl_8025C400.mMotionControlCamera.mCamera.mAngle.y, DEG2RAD * 8.0f);
-		}
-		u32 next     = (lbl_8025C400.mStatus.mFlags & 0x80000000ULL) ? 0x80000 : 0x80002;
-		u32 previous = (lbl_8025C400.mStatus.mFlags & 0x80000000ULL) ? 0x40000 : 0x40001;
-		if (pad->mPad->mRepeat & next) {
-			if (menu->_0C + 1 < 2) {
-				menu->_0C = menu->_0C + 1;
-				fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
-			}
-		} else if (pad->mPad->mRepeat & previous) {
-			if (menu->_0C - 1 >= 0) {
-				menu->_0C = menu->_0C - 1;
-				fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
-			}
-		}
-		f32 angle                 = menu->_0C == 0 ? -(DEG2RAD * 20.0f) : DEG2RAD * 20.0f;
-		XObjChr* chr              = (XObjChr*)menu->mChr;
-		chr->mJointRot[1].mMode   = 1;
-		chr->mJointRot[1].mTarget = angle;
-		if (!(lbl_8025C400.mStatus.mFlags & 0x20ULL) && 1.0f == menu->mFade && (pad->mPad->mTrigger & 0x100)) {
-			menu->mStarted = -1;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
-			menu->_1340 = menu->_0C;
-			menu->mChr->SetAnim(0x78, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			if (!(menu->_08 & (1U << menu->_1340))) {
-				fn_800D5874(&((XObjChr*)menu->mChr)->mOXObj);
-			} else {
-				fn_800D5804(&((XObjChr*)menu->mChr)->mOXObj);
-			}
-			chr                       = (XObjChr*)menu->mChr;
-			chr->mJointRot[1].mMode   = 2;
-			chr->mJointRot[1].mTarget = 0.0f;
-			chr->mJointRot[1].mLookAt = NULL;
-		}
-	}
-}
-
-// joint walk callback, args are the diffuse and ambient colors and the alpha
-/**
- * @note Address: 0x800970E4
- * @note Size: 0xE0
- */
-extern "C" void fn_800970E4(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	GXColor diffuse = *(GXColor*)arguments[0];
-	GXColor ambient = *(GXColor*)arguments[1];
-	f32 alpha       = *arguments[2];
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			HSD_MObjSetDiffuseColor(material, diffuse.r, diffuse.g, diffuse.b);
-			fn_801BA3AC(material, ambient.r, ambient.g, ambient.b);
-			HSD_MObjSetAlpha(material, alpha);
-		}
-	}
-}
-
-// joint walk callback, makes every material translucent
-/**
- * @note Address: 0x800971C4
- * @note Size: 0xC0
- */
-extern "C" void fn_800971C4(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	HSD_JObjModifyFlags(joint, 0x20080000, 0x701C0000);
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_DObjModifyFlags(draw, 4, 0xE);
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			HSD_MObjSetFlags(material, 0x60000000);
-			HSD_MObjClearFlags(material, 8);
-		}
-		if (draw != NULL)
-			HSD_MObjCompileTev(draw->mobj);
-	}
+extern "C" {
+void fn_80095AD8(PointPtcl* ptcl, s32 type, s32 amount);
 }
 
 // closes both rings, 0 cancels, above 0 confirms, below 0 backs out

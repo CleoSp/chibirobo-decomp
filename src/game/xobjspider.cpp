@@ -10,6 +10,7 @@
 #include <sysdolphin/rumble.h>
 #include "game/globals.h"
 #include "game/gmath.h"
+#include "game/animframe.h"
 extern "C" {
 #include <dolphin/mtx/mtx.h>
 }
@@ -60,19 +61,6 @@ extern CoinBounce lbl_8037E640[11];
 extern s32 lbl_8065B2C4; // how many coins are out
 extern s32 lbl_8065B2BC;
 extern u8 lbl_8065B2C0;
-}
-
-// the frame the jobj's first anim is at, and the frame it ends at
-static inline f32 GetAnimFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-}
-
-static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 }
 
 // puts a CObjVec at a value and its target there too
@@ -162,12 +150,6 @@ static inline f32 DistXZ(const Vec* first, const Vec* second)
 	return sqrtf(x * x + y * y + z * z);
 }
 
-// the event's object with the id, ids from 10000 up
-static inline XObj* FindEvtObj(s16 id)
-{
-	return lbl_8025C400.mEvt.mData.mScript != NULL ? fn_8007F570(&lbl_8025C400.mEvt.mData, id) : NULL;
-}
-
 // takes all the coins back
 static inline void ResetCoins()
 {
@@ -183,12 +165,6 @@ static inline void ResetCoins()
 			coin->mBouncing = 0;
 		}
 	}
-}
-
-// the object with the id
-static inline XObj* GetObj(s16 id)
-{
-	return lbl_8025C400.mXObjs.mObjects[id];
 }
 
 // the state handlers by number, Update calls them
@@ -647,9 +623,9 @@ extern "C" s32 fn_800F2454(XObjSpider* spider, s32 argc, s32* argv)
 				OSReport("id = %d, argv[1]=%d\n", i);
 				spider->mFlags.mFlags |= 0x20000000;
 				if (argv[1] >= 10000) {
-					spider->mTies[i].mObj = FindEvtObj(argv[1]);
+					spider->mTies[i].mObj = FindObj(argv[1]);
 				} else {
-					spider->mTies[i].mObj = GetObj(argv[1]);
+					spider->mTies[i].mObj = lbl_8025C400.GetObject(argv[1]);
 				}
 				if (spider->mTies[i].mObj == NULL) {
 					OSReport("NULL==============\n");

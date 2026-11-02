@@ -28,14 +28,6 @@ static inline u32 MakeRGB(s32 r, s32 g, s32 b)
 	return (cr << 16) | (cg << 8) | cb;
 }
 
-/**
- * @note Address: 0x80093134
- * @note Size: 0x94
- */
-XObjMap::~XObjMap()
-{
-}
-
 // the floor kind of a triangle, from its vertex color
 /**
  * @note Address: 0x80093210

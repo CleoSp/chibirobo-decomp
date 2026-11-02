@@ -3,6 +3,7 @@
 #include "game/cgame.h"
 #include "game/cgs.h"
 #include "game/texturecopy.h"
+#include "game/animframe.h"
 #include <math.h>
 extern "C" {
 #include <dolphin/mtx/vec.h>
@@ -13,18 +14,6 @@ extern "C" {
 extern "C" {
 s32 fn_8006EBC8(s32 id);
 f32 HSD_Randf(void);
-}
-
-static inline f32 GetAnimFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-}
-
-static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 }
 
 // sets the object's floor boxes, they take effect at once

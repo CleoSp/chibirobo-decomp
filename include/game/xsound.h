@@ -52,7 +52,17 @@ public:
 
 	inline void registerName(const char* name);
 	inline s32 resolveTrack(s32 track);
+
+	// stops the sfx if it is still playing
+	inline void StopIfPlaying(s32 sfx);
 };
 STATIC_ASSERT(sizeof(XSound) == 0x3E4);
+
+inline void XSound::StopIfPlaying(s32 sfx)
+{
+	if (fn_8001E6C8(this, sfx)) {
+		fn_8001E660(this, sfx);
+	}
+}
 
 #endif

@@ -369,10 +369,10 @@ inline HSD_JObj* GetJointFromRoot(HSD_JObj* jobj, s32 depth, s32* path)
 	return jobj;
 }
 
-// the event's object with the given id
-inline XObj* FindObj(s16 id)
+// one of the toys in pool 7
+inline XObjActorToy* GetToy(s32 i)
 {
-	return lbl_8025C400.mEvt.mData.mScript != NULL ? fn_8007F570(&lbl_8025C400.mEvt.mData, id) : NULL;
+	return (XObjActorToy*)lbl_8025C400.mXObjs.mPools[10].Get(i);
 }
 
 // starts reading in the object with the given id

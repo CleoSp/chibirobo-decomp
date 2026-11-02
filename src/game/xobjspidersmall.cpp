@@ -9,6 +9,7 @@
 #include "game/stagedata.h"
 #include "game/ut.h"
 #include "game/gmath.h"
+#include "game/animframe.h"
 #include <stdlib.h>
 
 extern "C" {
@@ -40,19 +41,6 @@ CStatus lbl_8037E97C[39][16];
 // the states' updates, by mState
 extern void (XObjSpiderSmall::*lbl_8022B230[])(u32);
 
-// the frame the jobj's first anim is at, and the frame it ends at
-static inline f32 GetAnimFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-}
-
-static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
-}
-
 // takes battery off the robot, never below empty
 static inline void UseBattery(Params& params, f32 amount)
 {
@@ -67,14 +55,6 @@ static inline void UseBattery(Params& params, f32 amount)
 	if (params.mBattery > params.mMaxBattery) {
 		params.mBattery = params.mMaxBattery;
 	}
-}
-
-// whether the stage up is the one with the name
-static inline bool IsStage(const char* name)
-{
-	s32 stage = lbl_8025C400.mStage;
-	s32 id    = fn_8006F654(name);
-	return id == stage;
 }
 
 // and a sound effect may play

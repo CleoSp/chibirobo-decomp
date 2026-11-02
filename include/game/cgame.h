@@ -296,6 +296,21 @@ extern "C" CGame lbl_8025C400;
 
 extern "C" {
 void fn_8000B394(CGame* game, s32 stage, BOOL showName);
+s32 fn_8006F654(const char* name);
+}
+
+// the event's object with the given id
+static inline XObj* FindObj(s16 id)
+{
+	return lbl_8025C400.mEvt.mData.mScript != NULL ? fn_8007F570(&lbl_8025C400.mEvt.mData, id) : NULL;
+}
+
+// whether the stage up is the one with the name
+static inline bool IsStage(const char* name)
+{
+	s32 stage = lbl_8025C400.mStage;
+	s32 id    = fn_8006F654(name);
+	return id == stage;
 }
 
 #endif

@@ -200,4 +200,11 @@ void fn_800D7B68(XObjCopter* copter);
 void fn_800D7BF0(XObjCopter* copter);
 }
 
+// follows the joint it hangs from
+inline void CopyParentMtx(XObjAttachment* object)
+{
+	MtxPtr mtx = HSD_JObjGetMtxPtr(object->mParent);
+	HSD_JObjCopyMtx(object->mJObj, mtx);
+}
+
 #endif

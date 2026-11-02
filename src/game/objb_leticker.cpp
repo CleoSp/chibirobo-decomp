@@ -7,6 +7,7 @@
 #include "game/cpad.h"
 #include "game/cparticle.h"
 #include "game/gmath.h"
+#include "game/animframe.h"
 #include <math.h>
 extern "C" {
 #include <dolphin/mtx/mtx.h>
@@ -23,18 +24,6 @@ BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
 bool fn_800E4790(XObj* obj, HSD_JObj* jobj);
 extern XObjFloor* lbl_8022A008[];
 extern XObjFloor* lbl_8065A6D0[2];
-}
-
-static inline f32 GetAnimFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-}
-
-static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
-{
-	HSD_AObj* aobj = GetAObj(jobj);
-	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 }
 
 // sets the object's floor boxes, they take effect at once
