@@ -1538,7 +1538,7 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
  * @note Address: 0x801395B8
  * @note Size: 0x94
  */
-extern "C" void fn_801395B8(CCameraActionArea* area)
+extern "C" void vf24__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	fn_80194FD4(&lbl_8025C400, -1, "\\B000000A0AREA(%3d,%3d)(%3d)\n", 324.0f, 298.0f, 0.0f, 12.0f, 12.0f, lbl_805A054C._0C, area->_4C,
 	            lbl_805A054C._04);
@@ -1549,7 +1549,7 @@ extern "C" void fn_801395B8(CCameraActionArea* area)
  * @note Address: 0x8013964C
  * @note Size: 0x544
  */
-extern "C" void fn_8013964C(CCameraActionArea* area, u32 step)
+extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step)
 {
 	area->_60 = (lbl_8025C400.mStatus.mFlags & 0xC00) ? FALSE : TRUE;
 	// retail does this, nothing reads the result
@@ -1992,7 +1992,7 @@ extern "C" void fn_8013964C(CCameraActionArea* area, u32 step)
  * @note Address: 0x80139B90
  * @note Size: 0x108
  */
-extern "C" void fn_80139B90(CCameraActionArea* area)
+extern "C" void PreviousUpdate__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	if (area->_5C == 1) {
 		fn_80137D00(&lbl_805A054C, 0);
@@ -2014,7 +2014,7 @@ extern "C" void fn_80139B90(CCameraActionArea* area)
  * @note Address: 0x80139C98
  * @note Size: 0x78
  */
-extern "C" void fn_80139C98(CCameraActionArea* area)
+extern "C" void vf14__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	fn_80137EB8(&lbl_805A054C);
 	area->_5C           = 1;
@@ -2032,7 +2032,7 @@ extern "C" void fn_80139C98(CCameraActionArea* area)
  * @note Address: 0x80139D10
  * @note Size: 0x98
  */
-extern "C" void fn_80139D10(CCameraActionArea* area, CCamera* camera)
+extern "C" void SetCamera__17CCameraActionAreaFP7CCamera(CCameraActionArea* area, CCamera* camera)
 {
 	area->SetEye(camera->mEye);
 	area->SetInterest(camera->mInterest);
@@ -2045,7 +2045,7 @@ extern "C" void fn_80139D10(CCameraActionArea* area, CCamera* camera)
  * @note Address: 0x80139DA8
  * @note Size: 0x98
  */
-extern "C" void fn_80139DA8(CCameraActionArea* area)
+extern "C" void Init__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	fn_8013801C(&lbl_805A054C);
 	area->mEyeInterps[0] = &area->_CC;
@@ -2069,7 +2069,7 @@ extern "C" void fn_80139DA8(CCameraActionArea* area)
  * @note Address: 0x80138294
  * @note Size: 0x8
  */
-extern "C" s32 fn_80138294(CCameraActionArea*)
+extern "C" s32 Get_38__17CCameraActionAreaFv(CCameraActionArea*)
 {
 	return 11;
 }
@@ -2078,7 +2078,7 @@ extern "C" s32 fn_80138294(CCameraActionArea*)
  * @note Address: 0x8013829C
  * @note Size: 0x8
  */
-extern "C" s32 fn_8013829C(CCameraActionArea*)
+extern "C" s32 vf5C__17CCameraActionAreaFv(CCameraActionArea*)
 {
 	return 2;
 }
@@ -2087,7 +2087,7 @@ extern "C" s32 fn_8013829C(CCameraActionArea*)
  * @note Address: 0x801382A4
  * @note Size: 0x8
  */
-extern "C" XObj* fn_801382A4(CCameraActionArea* area)
+extern "C" XObj* GetTarget__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	return area->_64;
 }
@@ -2096,9 +2096,9 @@ extern "C" XObj* fn_801382A4(CCameraActionArea* area)
  * @note Address: 0x801382AC
  * @note Size: 0x28
  */
-extern "C" void fn_801382AC(CCameraActionArea*)
+extern "C" void vf28__17CCameraActionAreaFv(CCameraActionArea*)
 {
-	fn_801361C4(&lbl_805A054C);
+	DrawDebug3d__19CCameraActionAreaExFv(&lbl_805A054C);
 }
 
 /**

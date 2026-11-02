@@ -26,7 +26,7 @@ extern "C" void fn_8007FDDC()
  * @note Address: 0x8007FE14
  * @note Size: 0x24
  */
-extern "C" CCameraMemento* fn_8007FE14(CCameraMemento* memento)
+extern "C" CCameraMemento* __ct__14CCameraMementoFv(CCameraMemento* memento)
 {
 	return new (memento) CCameraMemento;
 }
@@ -36,7 +36,7 @@ extern "C" CCameraMemento* fn_8007FE14(CCameraMemento* memento)
  * @note Address: 0x8007FE38
  * @note Size: 0x48
  */
-extern "C" CEvtTimer* fn_8007FE38(CEvtTimer* timer, s32 flags)
+extern "C" CEvtTimer* __dt__9CEvtTimerFv(CEvtTimer* timer, s32 flags)
 {
 	if (timer != NULL) {
 		timer->CEvtTimer::~CEvtTimer();
@@ -51,7 +51,7 @@ extern "C" CEvtTimer* fn_8007FE38(CEvtTimer* timer, s32 flags)
  * @note Address: 0x8007FE80
  * @note Size: 0x5C
  */
-extern "C" CEvtQueueEx* fn_8007FE80(CEvtQueueEx* queue, s32 flags)
+extern "C" CEvtQueueEx* __dt__11CEvtQueueExFv(CEvtQueueEx* queue, s32 flags)
 {
 	if (queue != NULL) {
 		queue->CEvtQueueEx::~CEvtQueueEx();
@@ -66,7 +66,7 @@ extern "C" CEvtQueueEx* fn_8007FE80(CEvtQueueEx* queue, s32 flags)
  * @note Address: 0x8007FEDC
  * @note Size: 0x48
  */
-extern "C" CEvtQueue* fn_8007FEDC(CEvtQueue* queue, s32 flags)
+extern "C" CEvtQueue* __dt__9CEvtQueueFv(CEvtQueue* queue, s32 flags)
 {
 	if (queue != NULL) {
 		queue->CEvtQueue::~CEvtQueue();
@@ -81,7 +81,7 @@ extern "C" CEvtQueue* fn_8007FEDC(CEvtQueue* queue, s32 flags)
  * @note Address: 0x8007FF24
  * @note Size: 0x48
  */
-extern "C" CEvtVars* fn_8007FF24(CEvtVars* vars, s32 flags)
+extern "C" CEvtVars* __dt__8CEvtVarsFv(CEvtVars* vars, s32 flags)
 {
 	if (vars != NULL) {
 		vars->CEvtVars::~CEvtVars();
@@ -96,7 +96,7 @@ extern "C" CEvtVars* fn_8007FF24(CEvtVars* vars, s32 flags)
  * @note Address: 0x8007FF6C
  * @note Size: 0x48
  */
-extern "C" CEvtFlags* fn_8007FF6C(CEvtFlags* flags, s32 mode)
+extern "C" CEvtFlags* __dt__9CEvtFlagsFv(CEvtFlags* flags, s32 mode)
 {
 	if (flags != NULL) {
 		flags->CEvtFlags::~CEvtFlags();

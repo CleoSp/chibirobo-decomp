@@ -15,7 +15,7 @@ void HSD_PadRumbleOffN(u8 no);
 void HSD_PadRumblePauseAll(void);
 s32 DVDGetDriveStatus(void);
 BOOL DVDCheckDisk(void);
-void fn_801CDC34(void);
+void HSD_PadRumbleActiveAll(void);
 }
 
 // sends all of the current render, tev and channel state
@@ -151,7 +151,7 @@ static inline void BaseUpdate(CBase* base, u32 frames)
 	case 0:
 		if (base->mPrevDvdStatus != 0 && base->mDvdError) {
 			base->mDvdError = FALSE;
-			fn_801CDC34();
+			HSD_PadRumbleActiveAll();
 		}
 		break;
 	}

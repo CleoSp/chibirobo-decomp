@@ -793,7 +793,7 @@ extern "C" {
 // the area camera's state, ccameraactionareaex.cpp
 f32 fn_801353E4(CamAreaState* state, s32 level);
 s32 fn_80135D28(CamAreaState* state);
-void fn_801361C4(CamAreaState* state);
+void DrawDebug3d__19CCameraActionAreaExFv(CamAreaState* state);
 void fn_80136A54(CamAreaState* state, s32 mode);
 s32 fn_801371D0(CamAreaState* state, Vec pos, s32* ids);
 s32 fn_801374F4(CamAreaState* state, Vec pos);

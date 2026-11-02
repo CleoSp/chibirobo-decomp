@@ -27,11 +27,11 @@ extern XObjSpiderSmallData lbl_8022B088;
  * @note Size: 0x17C
  */
 // todo: the tu's __sinit, the statics it sets up are other units'
-extern "C" void fn_800FFFA0()
+extern "C" void __sinit_xobjspidersmallinit_cpp()
 {
 	__construct_array(lbl_8037E97C, (ConstructorDestructor)fn_80100204, (ConstructorDestructor)fn_80100154, sizeof(lbl_8037E97C[0]), 39);
 	__register_global_object(NULL, (void*)fn_8010011C, lbl_8037E970);
 	lbl_8022B088.mParams = lbl_8022B088.mDefaults;
 }
 
-__declspec(section ".ctors") extern void (*const spiderSmallInit)() = fn_800FFFA0;
+__declspec(section ".ctors") extern void (*const spiderSmallInit)() = __sinit_xobjspidersmallinit_cpp;

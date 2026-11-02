@@ -30,12 +30,12 @@ extern XObjItem lbl_80441120[0x40];
 extern XObjCoin lbl_80405710[0x60];
 extern XObjSound lbl_80400A00[8];
 
-XObjFree* fn_800DD5A0(XObjFree* object, s32 flags);
-XObjHBox* fn_800E239C(XObjHBox* object, s32 flags);
-XObjDust* fn_800E2240(XObjDust* object, s32 flags);
-XObjItem* fn_800E24C0(XObjItem* object, s32 flags);
-XObjCoin* fn_800E2460(XObjCoin* object, s32 flags);
-XObjSound* fn_800DD32C(XObjSound* object, s32 flags);
+XObjFree* __dt__8XObjFreeFv(XObjFree* object, s32 flags);
+XObjHBox* __dt__8XObjHBoxFv(XObjHBox* object, s32 flags);
+XObjDust* __dt__8XObjDustFv(XObjDust* object, s32 flags);
+XObjItem* __dt__8XObjItemFv(XObjItem* object, s32 flags);
+XObjCoin* __dt__8XObjCoinFv(XObjCoin* object, s32 flags);
+XObjSound* __dt__9XObjSoundFv(XObjSound* object, s32 flags);
 XObjSpiderSmall* __dt__15XObjSpiderSmallFv(XObjSpiderSmall* object, s32 flags);
 XObjSpider* __dt__10XObjSpiderFv(XObjSpider* object, s32 flags);
 XObjArmy* __dt__8XObjArmyFv(XObjArmy* object, s32 flags);
@@ -65,7 +65,7 @@ extern "C" void fn_80132D08(XObjPool* pools)
  */
 extern "C" void fn_80133B98()
 {
-	__destroy_arr(lbl_804F41F0, (ConstructorDestructor*)fn_800DD5A0, sizeof(XObjFree), ARRAY_SIZE(lbl_804F41F0));
+	__destroy_arr(lbl_804F41F0, (ConstructorDestructor*)__dt__8XObjFreeFv, sizeof(XObjFree), ARRAY_SIZE(lbl_804F41F0));
 }
 
 /**
@@ -82,7 +82,7 @@ XObjFree::XObjFree()
  */
 extern "C" void fn_80133C0C()
 {
-	__destroy_arr(lbl_804E1060, (ConstructorDestructor*)fn_800E239C, sizeof(XObjHBox), ARRAY_SIZE(lbl_804E1060));
+	__destroy_arr(lbl_804E1060, (ConstructorDestructor*)__dt__8XObjHBoxFv, sizeof(XObjHBox), ARRAY_SIZE(lbl_804E1060));
 }
 
 /**
@@ -107,7 +107,7 @@ XObjHBoxPart::XObjHBoxPart()
  */
 extern "C" void fn_80133CB8()
 {
-	__destroy_arr(lbl_804B9850, (ConstructorDestructor*)fn_800E2240, sizeof(XObjDust), ARRAY_SIZE(lbl_804B9850));
+	__destroy_arr(lbl_804B9850, (ConstructorDestructor*)__dt__8XObjDustFv, sizeof(XObjDust), ARRAY_SIZE(lbl_804B9850));
 }
 
 /**
@@ -277,7 +277,7 @@ XObjLeticker::XObjLeticker()
  */
 extern "C" void fn_80134380()
 {
-	__destroy_arr(lbl_80441120, (ConstructorDestructor*)fn_800E24C0, sizeof(XObjItem), ARRAY_SIZE(lbl_80441120));
+	__destroy_arr(lbl_80441120, (ConstructorDestructor*)__dt__8XObjItemFv, sizeof(XObjItem), ARRAY_SIZE(lbl_80441120));
 }
 
 /**
@@ -295,7 +295,7 @@ XObjItem::XObjItem()
  */
 extern "C" void fn_80134400()
 {
-	__destroy_arr(lbl_80405710, (ConstructorDestructor*)fn_800E2460, sizeof(XObjCoin), ARRAY_SIZE(lbl_80405710));
+	__destroy_arr(lbl_80405710, (ConstructorDestructor*)__dt__8XObjCoinFv, sizeof(XObjCoin), ARRAY_SIZE(lbl_80405710));
 }
 
 /**
@@ -322,7 +322,7 @@ XObjFlags::XObjFlags()
  */
 extern "C" void fn_80134480()
 {
-	__destroy_arr(lbl_80400A00, (ConstructorDestructor*)fn_800DD32C, sizeof(XObjSound), ARRAY_SIZE(lbl_80400A00));
+	__destroy_arr(lbl_80400A00, (ConstructorDestructor*)__dt__9XObjSoundFv, sizeof(XObjSound), ARRAY_SIZE(lbl_80400A00));
 }
 
 /**

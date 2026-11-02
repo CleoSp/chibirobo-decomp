@@ -54,7 +54,7 @@ extern f32 lbl_8021195C[4];
 extern f32 lbl_8021196C[4];
 
 // Title's mode steps, the PMF table at lbl_802116D8 picks one by mMode
-void fn_8002BD0C(Title* title);
+void State20__5TitleFUl(Title* title);
 void fn_80030CE8(Title* title);
 }
 
@@ -199,9 +199,9 @@ extern "C" void fn_8001FCBC(int sfx, int low, int high, HSD_JObj* joint)
  * @note Address: 0x80021474
  * @note Size: 0x8C
  */
-extern "C" void fn_80021474(CScrnRoboeyes* eyes, u32 frames)
+extern "C" void Update__13CScrnRoboeyesFUl(CScrnRoboeyes* eyes, u32 frames)
 {
-	fn_80023030(eyes, frames);
+	Update__9CScrnWipeFUl(eyes, frames);
 	if (eyes->mActive) {
 		eyes->mAngle += 0.02617994f * frames;
 		eyes->mPhase += 0.10471976f * frames;
@@ -212,7 +212,7 @@ extern "C" void fn_80021474(CScrnRoboeyes* eyes, u32 frames)
  * @note Address: 0x80021500
  * @note Size: 0x70
  */
-extern "C" void fn_80021500(CScrnRoboeyes* eyes)
+extern "C" void Reset__13CScrnRoboeyesFv(CScrnRoboeyes* eyes)
 {
 	eyes->mActive = FALSE;
 	eyes->mX = eyes->mY = 0.0f;
@@ -263,7 +263,7 @@ static inline bool SizeStopped(CScrnWipe* wipe)
  */
 // a wipe's update: it turns, sizes its hole and fades its color, and goes off once the size
 // stops when it was asked to
-extern "C" void fn_80023030(CScrnWipe* wipe, u32 frames)
+extern "C" void Update__9CScrnWipeFUl(CScrnWipe* wipe, u32 frames)
 {
 	if (!wipe->mActive) {
 		return;
@@ -377,7 +377,7 @@ extern "C" void fn_800236EC(CScrnWipe* wipe, u8 r, u8 g, u8 b, u8 a, BOOL hideWh
  * @note Address: 0x800238A4
  * @note Size: 0x68
  */
-extern "C" void fn_800238A4(CScrnWipe* wipe)
+extern "C" void Reset__9CScrnWipeFv(CScrnWipe* wipe)
 {
 	wipe->mActive = FALSE;
 	wipe->mX = wipe->mY = 0.0f;
@@ -809,7 +809,7 @@ extern "C" void fn_80024FAC(CPtcl* ptcl, void* ptcls, s32 stride, s32 count)
  * @note Size: 0xD8
  */
 // Cursor's SetScaleY
-extern "C" void fn_80025150(Cursor* cursor, f32 y, s32 force)
+extern "C" void SetScaleY__6CursorFfl(Cursor* cursor, f32 y, s32 force)
 {
 	y                            = -y;
 	cursor->mMoveScale.y         = y;
@@ -824,7 +824,7 @@ extern "C" void fn_80025150(Cursor* cursor, f32 y, s32 force)
  * @note Size: 0x190
  */
 // Cursor's SetScale(scale)
-extern "C" void fn_80025228(Cursor* cursor, f32 scale, s32 force)
+extern "C" void SetScale__6CursorFfl(Cursor* cursor, f32 scale, s32 force)
 {
 	f32 x = scale;
 	f32 y = -scale;
@@ -855,7 +855,7 @@ extern "C" void fn_80025228(Cursor* cursor, f32 scale, s32 force)
  * @note Size: 0x190
  */
 // Cursor's SetScale(x, y, z)
-extern "C" void fn_800253B8(Cursor* cursor, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetScale__6CursorFfffl(Cursor* cursor, f32 x, f32 y, f32 z, s32 force)
 {
 	y = -y;
 
@@ -884,7 +884,7 @@ extern "C" void fn_800253B8(Cursor* cursor, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x19C
  */
 // Cursor's SetScale(v)
-extern "C" void fn_80025548(Cursor* cursor, const Vec& scale, s32 force)
+extern "C" void SetScale__6CursorFRC3Vecl(Cursor* cursor, const Vec& scale, s32 force)
 {
 	f32 x = scale.x;
 	f32 y = -scale.y;
@@ -926,10 +926,10 @@ static inline s32 AnimationGroup(XObj* object, s32 id)
  * @note Size: 0x38
  */
 // Cursor's SetAnim, keeps the classical scale
-extern "C" void fn_800256E4(Cursor* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
-                            f32 blend, f32 blendRate)
+extern "C" void SetAnim__6CursorFliPvPvPvffff(Cursor* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
+                                              f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
-	fn_800902A4(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+	SetAnim__4XObjFliPvPvPvffff(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	HSD_JObjSetFlags(object->mJObj, CLASSICAL_SCALE);
 }
 
@@ -938,7 +938,7 @@ extern "C" void fn_800256E4(Cursor* object, s32 id, BOOL force, void* jointAnim,
  * @note Size: 0x4
  */
 // XObj's vf94
-extern "C" void fn_8002571C()
+extern "C" void vf94__4XObjFv()
 {
 }
 
@@ -947,7 +947,7 @@ extern "C" void fn_8002571C()
  * @note Size: 0x24
  */
 // XObj's vfA0
-extern "C" BOOL fn_80025720(XObj* object, const char* path)
+extern "C" BOOL vfA0__4XObjFPCc(XObj* object, const char* path)
 {
 	return fn_8008A38C(&object->mAnim, path);
 }
@@ -957,7 +957,7 @@ extern "C" BOOL fn_80025720(XObj* object, const char* path)
  * @note Size: 0x4
  */
 // XObj's vfCC
-extern "C" void fn_80025744()
+extern "C" void vfCC__4XObjFv()
 {
 }
 
@@ -966,7 +966,7 @@ extern "C" void fn_80025744()
  * @note Size: 0x1C
  */
 // XObj's GetCameraTarget
-extern "C" Vec fn_80025748(CXObj* object)
+extern "C" Vec GetCameraTarget__4XObjFv(CXObj* object)
 {
 	return object->mMoveTranslate;
 }
@@ -976,7 +976,7 @@ extern "C" Vec fn_80025748(CXObj* object)
  * @note Size: 0xF4
  */
 // XObj's vfF0
-extern "C" HSD_AnimJoint* fn_80025764(XObj* object, s32 id)
+extern "C" HSD_AnimJoint* vfF0__4XObjFl(XObj* object, s32 id)
 {
 	if (AnimationGroup(object, id)) {
 		HSD_AnimJoint** animations = object->mAnim.mAnimJoint;
@@ -991,7 +991,7 @@ extern "C" HSD_AnimJoint* fn_80025764(XObj* object, s32 id)
  * @note Size: 0xF4
  */
 // XObj's vfF4
-extern "C" HSD_MatAnimJoint* fn_80025858(XObj* object, s32 id)
+extern "C" HSD_MatAnimJoint* vfF4__4XObjFl(XObj* object, s32 id)
 {
 	if (AnimationGroup(object, id)) {
 		HSD_MatAnimJoint** animations = object->mAnim.mMatAnimJoint;
@@ -1006,7 +1006,7 @@ extern "C" HSD_MatAnimJoint* fn_80025858(XObj* object, s32 id)
  * @note Size: 0xF4
  */
 // XObj's vfF8
-extern "C" HSD_ShapeAnimJoint* fn_8002594C(XObj* object, s32 id)
+extern "C" HSD_ShapeAnimJoint* vfF8__4XObjFl(XObj* object, s32 id)
 {
 	if (AnimationGroup(object, id)) {
 		HSD_ShapeAnimJoint** animations = object->mAnim.mShapeAnimJoint;
@@ -1021,7 +1021,7 @@ extern "C" HSD_ShapeAnimJoint* fn_8002594C(XObj* object, s32 id)
  * @note Size: 0x8
  */
 // XObj's vf100
-extern "C" s32 fn_80025A40(void* object, s32 unused, s32 value)
+extern "C" s32 vf100__4XObjFll(void* object, s32 unused, s32 value)
 {
 	return value;
 }
@@ -1032,7 +1032,7 @@ extern "C" s32 fn_80025A40(void* object, s32 unused, s32 value)
  */
 // NONMATCHING: the loop test is placed differently
 // XObj's vf124
-extern "C" s32 fn_80025A48(void* object, s32 count)
+extern "C" s32 vf124__4XObjFlPl(void* object, s32 count)
 {
 	for (s32 i = 0; i < count; ++i) { }
 	return 0;
@@ -1043,7 +1043,7 @@ extern "C" s32 fn_80025A48(void* object, s32 count)
  * @note Size: 0x8
  */
 // XObj's vf128
-extern "C" s32 fn_80025A98(XObj* object)
+extern "C" s32 vf128__4XObjFv(XObj* object)
 {
 	return object->_80C;
 }
@@ -1053,7 +1053,7 @@ extern "C" s32 fn_80025A98(XObj* object)
  * @note Size: 0x4
  */
 // XObj's vf130
-extern "C" void fn_80025AA0()
+extern "C" void vf130__4XObjFv()
 {
 }
 
@@ -1062,7 +1062,7 @@ extern "C" void fn_80025AA0()
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateX
-extern "C" void fn_80025AA4(CXObj* object, f32 x, s32 force)
+extern "C" void SetTranslateX__5CXObjFfl(CXObj* object, f32 x, s32 force)
 {
 	object->mMoveTranslate.x         = x;
 	object->mMoveTranslate.mTarget.x = x;
@@ -1076,7 +1076,7 @@ extern "C" void fn_80025AA4(CXObj* object, f32 x, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateY
-extern "C" void fn_80025B7C(CXObj* object, f32 y, s32 force)
+extern "C" void SetTranslateY__5CXObjFfl(CXObj* object, f32 y, s32 force)
 {
 	object->mMoveTranslate.y         = y;
 	object->mMoveTranslate.mTarget.y = y;
@@ -1090,7 +1090,7 @@ extern "C" void fn_80025B7C(CXObj* object, f32 y, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateZ
-extern "C" void fn_80025C54(CXObj* object, f32 z, s32 force)
+extern "C" void SetTranslateZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
 {
 	object->mMoveTranslate.z         = z;
 	object->mMoveTranslate.mTarget.z = z;
@@ -1104,7 +1104,7 @@ extern "C" void fn_80025C54(CXObj* object, f32 z, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleX
-extern "C" void fn_80025D2C(CXObj* object, f32 x, s32 force)
+extern "C" void SetScaleX__5CXObjFfl(CXObj* object, f32 x, s32 force)
 {
 	object->mMoveScale.x         = x;
 	object->mMoveScale.mTarget.x = x;
@@ -1118,7 +1118,7 @@ extern "C" void fn_80025D2C(CXObj* object, f32 x, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleZ
-extern "C" void fn_80025E04(CXObj* object, f32 z, s32 force)
+extern "C" void SetScaleZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
 {
 	object->mMoveScale.z         = z;
 	object->mMoveScale.mTarget.z = z;
@@ -1132,7 +1132,7 @@ extern "C" void fn_80025E04(CXObj* object, f32 z, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationX
-extern "C" void fn_80025EDC(CXObj* object, f32 x, s32 force)
+extern "C" void SetRotationX__5CXObjFfl(CXObj* object, f32 x, s32 force)
 {
 	object->mMoveRotate.x         = x;
 	object->mMoveRotate.mTarget.x = x;
@@ -1146,7 +1146,7 @@ extern "C" void fn_80025EDC(CXObj* object, f32 x, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationY
-extern "C" void fn_8002608C(CXObj* object, f32 y, s32 force)
+extern "C" void SetRotationY__5CXObjFfl(CXObj* object, f32 y, s32 force)
 {
 	object->mMoveRotate.y         = y;
 	object->mMoveRotate.mTarget.y = y;
@@ -1160,7 +1160,7 @@ extern "C" void fn_8002608C(CXObj* object, f32 y, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationZ
-extern "C" void fn_8002623C(CXObj* object, f32 z, s32 force)
+extern "C" void SetRotationZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
 {
 	object->mMoveRotate.z         = z;
 	object->mMoveRotate.mTarget.z = z;
@@ -1174,7 +1174,7 @@ extern "C" void fn_8002623C(CXObj* object, f32 z, s32 force)
  * @note Size: 0x190
  */
 // CXObj's SetPos(x, y, z)
-extern "C" void fn_800263EC(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetPos__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
 {
 	obj->mMoveTranslate.x         = x;
 	obj->mMoveTranslate.y         = y;
@@ -1201,7 +1201,7 @@ extern "C" void fn_800263EC(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x17C
  */
 // CXObj's SetPos(pos)
-extern "C" void fn_8002657C(CXObj* obj, const Vec& v, s32 force)
+extern "C" void SetPos__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
 {
 	obj->mMoveTranslate.Set(v);
 	obj->mMoveTranslate.mTarget.Set(v);
@@ -1215,7 +1215,7 @@ extern "C" void fn_8002657C(CXObj* obj, const Vec& v, s32 force)
  * @note Size: 0x240
  */
 // CXObj's SetRot(x, y, z)
-extern "C" void fn_800266F8(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetRot__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
 {
 	obj->mMoveRotate.x         = x;
 	obj->mMoveRotate.y         = y;
@@ -1243,7 +1243,7 @@ extern "C" void fn_800266F8(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x22C
  */
 // CXObj's SetRot(rot)
-extern "C" void fn_80026938(CXObj* obj, const Vec& v, s32 force)
+extern "C" void SetRot__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
 {
 	obj->mMoveRotate.Set(v);
 	obj->mMoveRotate.mTarget.Set(v);
@@ -1257,7 +1257,7 @@ extern "C" void fn_80026938(CXObj* obj, const Vec& v, s32 force)
  * @note Size: 0x38
  */
 // Cursor's vfAC
-extern "C" void fn_80026B64(Cursor* cursor)
+extern "C" void vfAC__6CursorFv(Cursor* cursor)
 {
 	if (cursor->mJObj != NULL) {
 		HSD_JObjDispAll(cursor->mJObj, NULL, 7, 0);
@@ -1269,20 +1269,20 @@ extern "C" void fn_80026B64(Cursor* cursor)
  * @note Size: 0x90
  */
 // Cursor's update, spins it
-extern "C" void fn_80026B9C(Cursor* cursor, u32 frames)
+extern "C" void vfA4__6CursorFUl(Cursor* cursor, u32 frames)
 {
 	cursor->mAngle = fmod(cursor->mAngleSpeed * (f32)frames + cursor->mAngle, TWO_PI);
 	cursor->SetRotationZ(cursor->mAngle, 0);
-	fn_80090ED4(cursor, frames);
+	vfA4__4XObjFUl(cursor, frames);
 }
 
 /**
  * @note Address: 0x80026C2C
  * @note Size: 0x4C
  */
-extern "C" BOOL fn_80026C2C(Cursor* cursor, CoordInfo* info)
+extern "C" BOOL vf9C__6CursorFRC9CoordInfo(Cursor* cursor, CoordInfo* info)
 {
-	if (fn_80091C80(cursor, info)) {
+	if (vf9C__4XObjFRC9CoordInfo(cursor, info)) {
 		HSD_JObjSetFlags(cursor->mJObj, CLASSICAL_SCALE);
 		return TRUE;
 	}
@@ -1293,9 +1293,9 @@ extern "C" BOOL fn_80026C2C(Cursor* cursor, CoordInfo* info)
  * @note Address: 0x80026C78
  * @note Size: 0x38
  */
-extern "C" void fn_80026C78(Cursor* cursor, u32 id)
+extern "C" void vf90__6CursorFUl(Cursor* cursor, u32 id)
 {
-	fn_800929C4(cursor, id);
+	vf90__4XObjFUl(cursor, id);
 	cursor->mAngleSpeed = 0.0f;
 	cursor->mAngle      = 0.0f;
 }
@@ -1507,7 +1507,7 @@ extern "C" void fn_80027A7C(Logo* logo)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleY
-extern "C" void fn_80027A98(CXObj* object, f32 value, s32 force)
+extern "C" void SetScaleY__5CXObjFfl(CXObj* object, f32 value, s32 force)
 {
 	object->mMoveScale.y         = value;
 	object->mMoveScale.mTarget.y = value;
@@ -1521,7 +1521,7 @@ extern "C" void fn_80027A98(CXObj* object, f32 value, s32 force)
  * @note Size: 0x18C
  */
 // CXObj's SetScale(scale)
-extern "C" void fn_80027B70(CXObj* obj, f32 scale, s32 force)
+extern "C" void SetScale__5CXObjFfl(CXObj* obj, f32 scale, s32 force)
 {
 	f32 x = scale;
 	f32 y = scale;
@@ -1552,7 +1552,7 @@ extern "C" void fn_80027B70(CXObj* obj, f32 scale, s32 force)
  * @note Size: 0x18C
  */
 // CXObj's SetScale(x, y, z)
-extern "C" void fn_80027CFC(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetScale__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
 {
 	obj->mMoveScale.x         = x;
 	obj->mMoveScale.y         = y;
@@ -1579,7 +1579,7 @@ extern "C" void fn_80027CFC(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x178
  */
 // CXObj's SetScale(v)
-extern "C" void fn_80027E88(CXObj* obj, const Vec& scale, s32 force)
+extern "C" void SetScale__5CXObjFRC3Vecl(CXObj* obj, const Vec& scale, s32 force)
 {
 	obj->mMoveScale.Set(scale);
 	obj->mMoveScale.mTarget.Set(scale);
@@ -1593,7 +1593,7 @@ extern "C" void fn_80027E88(CXObj* obj, const Vec& scale, s32 force)
  * @note Size: 0xB4
  */
 // XObjDemo's vfAC, draws through its own camera and lights when it has them
-extern "C" void fn_80028000(XObjDemo* demo)
+extern "C" void vfAC__8XObjDemoFv(XObjDemo* demo)
 {
 	if (demo->mState != 0) {
 		CCamera* camera = demo->mArchive.mDesc[0] != NULL ? &demo->mCamera : &lbl_8025C400.mCameras[0];
@@ -1617,7 +1617,7 @@ static inline bool FadeDone()
  * @note Size: 0x244
  */
 // XObjDemo's update, steps the camera and light anims with the model
-extern "C" void fn_800280B4(XObjDemo* demo, u32 frames)
+extern "C" void vfA4__8XObjDemoFUl(XObjDemo* demo, u32 frames)
 {
 	if (demo->mState == 0) {
 		return;
@@ -1626,7 +1626,7 @@ extern "C" void fn_800280B4(XObjDemo* demo, u32 frames)
 		demo->mState = 0;
 		return;
 	}
-	fn_80090ED4(demo, frames);
+	vfA4__4XObjFUl(demo, frames);
 	if (demo->mArchive.mDesc[0] != NULL && demo->mCameraAnim >= 0) {
 		demo->mCamera.SetAnimRate((f32)frames);
 		demo->mCamera.Anim();
@@ -1651,7 +1651,7 @@ extern "C" void fn_800280B4(XObjDemo* demo, u32 frames)
  * @note Size: 0xA4
  */
 // XObjDemo's Release
-extern "C" void fn_80028368(XObjDemo* demo)
+extern "C" void Release__8XObjDemoFv(XObjDemo* demo)
 {
 	if (demo->mArchive.mDesc[0] != NULL) {
 		demo->mCamera.Release();
@@ -1661,7 +1661,7 @@ extern "C" void fn_80028368(XObjDemo* demo)
 			demo->mLights[i].Release();
 		}
 	}
-	fn_800911C0(demo);
+	Release__4XObjFv(demo);
 }
 
 /**
@@ -1669,9 +1669,9 @@ extern "C" void fn_80028368(XObjDemo* demo)
  * @note Size: 0xD4
  */
 // XObjDemo's vf9C, builds the camera and the light list from the archive
-extern "C" BOOL fn_8002840C(XObjDemo* demo, CoordInfo* info)
+extern "C" BOOL vf9C__8XObjDemoFRC9CoordInfo(XObjDemo* demo, CoordInfo* info)
 {
-	if (fn_80091C80(demo, info)) {
+	if (vf9C__4XObjFRC9CoordInfo(demo, info)) {
 		if (demo->mArchive.mDesc[0] != NULL) {
 			demo->mCamera.Init((HSD_CObjDesc*)demo->mArchive.mDesc[0]->_00);
 #if defined(VERSION_PAL)
@@ -1702,9 +1702,9 @@ extern "C" BOOL fn_8002840C(XObjDemo* demo, CoordInfo* info)
  * @note Size: 0x64
  */
 // XObjDemo's vf98
-extern "C" void fn_800284E0(XObjDemo* demo)
+extern "C" void vf98__8XObjDemoFv(XObjDemo* demo)
 {
-	fn_800928E8(demo);
+	vf98__4XObjFv(demo);
 	demo->mState      = 0;
 	demo->mLoop       = FALSE;
 	demo->mCameraAnim = -1;
@@ -2021,7 +2021,7 @@ extern "C" void fn_80029760(Title* title)
  * @note Address: 0x8002BB7C
  * @note Size: 0x4
  */
-extern "C" void fn_8002BB7C(Title* title)
+extern "C" void State25__5TitleFUl(Title* title)
 {
 }
 
@@ -2030,7 +2030,7 @@ extern "C" void fn_8002BB7C(Title* title)
  * @note Size: 0x148
  */
 // waits out the delay, then fades the labels and leaves for the game
-extern "C" void fn_8002BB80(Title* title, u32 frames)
+extern "C" void State24__5TitleFUl(Title* title, u32 frames)
 {
 	switch (title->mPhase) {
 	case 0:
@@ -2060,7 +2060,7 @@ extern "C" void fn_8002BB80(Title* title, u32 frames)
  * @note Address: 0x8002BCC8
  * @note Size: 0x4
  */
-extern "C" void fn_8002BCC8(Title* title)
+extern "C" void State23__5TitleFUl(Title* title)
 {
 }
 
@@ -2068,18 +2068,18 @@ extern "C" void fn_8002BCC8(Title* title)
  * @note Address: 0x8002BCCC
  * @note Size: 0x20
  */
-extern "C" void fn_8002BCCC(Title* title)
+extern "C" void State22__5TitleFUl(Title* title)
 {
-	fn_8002BD0C(title);
+	State20__5TitleFUl(title);
 }
 
 /**
  * @note Address: 0x8002BCEC
  * @note Size: 0x20
  */
-extern "C" void fn_8002BCEC(Title* title)
+extern "C" void State21__5TitleFUl(Title* title)
 {
-	fn_8002BD0C(title);
+	State20__5TitleFUl(title);
 }
 
 /**
@@ -2087,7 +2087,7 @@ extern "C" void fn_8002BCEC(Title* title)
  * @note Size: 0x4AC
  */
 // the card check's message, it waits for A or for the card to change
-extern "C" void fn_8002BD0C(Title* title)
+extern "C" void State20__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 	s32 error = title->mResult;
@@ -2160,7 +2160,7 @@ static inline void HandleUnavailableCard(Title* title)
  * @note Address: 0x8002C1B8
  * @note Size: 0x118
  */
-extern "C" void fn_8002C1B8(Title* title)
+extern "C" void State19__5TitleFUl(Title* title)
 {
 	HandleUnavailableCard(title);
 }
@@ -2169,7 +2169,7 @@ extern "C" void fn_8002C1B8(Title* title)
  * @note Address: 0x8002C2D0
  * @note Size: 0x118
  */
-extern "C" void fn_8002C2D0(Title* title)
+extern "C" void State18__5TitleFUl(Title* title)
 {
 	HandleUnavailableCard(title);
 }
@@ -2178,7 +2178,7 @@ extern "C" void fn_8002C2D0(Title* title)
  * @note Address: 0x8002C3E8
  * @note Size: 0x4
  */
-extern "C" void fn_8002C3E8(Title* title)
+extern "C" void State17__5TitleFUl(Title* title)
 {
 }
 
@@ -2186,7 +2186,7 @@ extern "C" void fn_8002C3E8(Title* title)
  * @note Address: 0x8002C3EC
  * @note Size: 0x4
  */
-extern "C" void fn_8002C3EC(Title* title)
+extern "C" void State16__5TitleFUl(Title* title)
 {
 }
 
@@ -2196,7 +2196,7 @@ extern "C" void fn_8002C3EC(Title* title)
  */
 // NONMATCHING: regalloc
 // waits for the card to read the file picked, then shows what is in it
-extern "C" void fn_8002C3F0(Title* title, u32 frames)
+extern "C" void State15__5TitleFUl(Title* title, u32 frames)
 {
 	Memcard* card = &lbl_8025C400.mMemcard.mCard;
 	s32 step      = card->mState;
@@ -2297,7 +2297,7 @@ extern "C" void fn_8002C3F0(Title* title, u32 frames)
  * @note Size: 0x408
  */
 // shows what is wrong with the card until A is pressed or the card changes
-extern "C" void fn_8002C738(Title* title)
+extern "C" void State14__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 	s32 error = title->mResult;
@@ -2368,7 +2368,7 @@ extern "C" void fn_8002C738(Title* title)
  * @note Address: 0x8002CB40
  * @note Size: 0x1B4
  */
-extern "C" void fn_8002CB40(Title* title, u32 frames)
+extern "C" void State13__5TitleFUl(Title* title, u32 frames)
 {
 	CPad pad(0);
 
@@ -2403,7 +2403,7 @@ extern "C" void fn_8002CB40(Title* title, u32 frames)
  * @note Address: 0x8002CCF4
  * @note Size: 0x14C
  */
-extern "C" void fn_8002CCF4(Title* title, u32 frames)
+extern "C" void State12__5TitleFUl(Title* title, u32 frames)
 {
 	title->mDelay -= frames;
 	if (title->mDelay < 0) {
@@ -2474,7 +2474,7 @@ extern "C" void fn_8002CCF4(Title* title, u32 frames)
  * @note Size: 0x348
  */
 // asked twice whether to make a new save file
-extern "C" void fn_8002CE40(Title* title)
+extern "C" void State11__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 
@@ -2525,7 +2525,7 @@ extern "C" void fn_8002CE40(Title* title)
  * @note Address: 0x8002D188
  * @note Size: 0x4
  */
-extern "C" void fn_8002D188(Title* title)
+extern "C" void State10__5TitleFUl(Title* title)
 {
 }
 
@@ -2533,7 +2533,7 @@ extern "C" void fn_8002D188(Title* title)
  * @note Address: 0x8002D18C
  * @note Size: 0x148
  */
-extern "C" void fn_8002D18C(Title* title)
+extern "C" void State9__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 	if (title->_37E2 == 1 || title->mReady == 1) {
@@ -2558,7 +2558,7 @@ extern "C" void fn_8002D18C(Title* title)
  * @note Address: 0x8002D2D4
  * @note Size: 0x218
  */
-extern "C" void fn_8002D2D4(Title* title)
+extern "C" void State8__5TitleFUl(Title* title)
 {
 	s32 cardState = lbl_8025C400.mMemcard.mCard.mState;
 	switch (cardState) {
@@ -2634,7 +2634,7 @@ extern "C" void fn_8002D2D4(Title* title)
  * @note Address: 0x8002D4EC
  * @note Size: 0x4
  */
-extern "C" void fn_8002D4EC(Title* title)
+extern "C" void State7__5TitleFUl(Title* title)
 {
 }
 
@@ -2643,7 +2643,7 @@ extern "C" void fn_8002D4EC(Title* title)
  * @note Size: 0x304
  */
 // asked whether to save over the file, unless the card went away under it
-extern "C" void fn_8002D4F0(Title* title)
+extern "C" void State6__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 
@@ -2700,7 +2700,7 @@ extern "C" void fn_8002D4F0(Title* title)
  * @note Size: 0x504
  */
 // asked whether to go on without saving
-extern "C" void fn_8002D7F4(Title* title)
+extern "C" void State5__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 
@@ -2779,7 +2779,7 @@ extern "C" void fn_8002D7F4(Title* title)
  * @note Address: 0x8002DCF8
  * @note Size: 0x4
  */
-extern "C" void fn_8002DCF8(Title* title)
+extern "C" void State4__5TitleFUl(Title* title)
 {
 }
 
@@ -2788,7 +2788,7 @@ extern "C" void fn_8002DCF8(Title* title)
  * @note Size: 0x240
  */
 // the yes or no question, left and right pick, A takes it
-extern "C" void fn_8002DCFC(Title* title)
+extern "C" void State3__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 	CPadOne* state;
@@ -2834,7 +2834,7 @@ extern "C" void fn_8002DCFC(Title* title)
  * @note Size: 0x638
  */
 // picks one of the three save files, A starts or loads it, B goes back
-extern "C" void fn_8002DF3C(Title* title)
+extern "C" void State2__5TitleFUl(Title* title)
 {
 	CPad pad(0);
 
@@ -2924,7 +2924,7 @@ extern "C" void fn_8002DF3C(Title* title)
  * @note Address: 0x8002E574
  * @note Size: 0x358
  */
-extern "C" void fn_8002E574(Title* title, u32 frames)
+extern "C" void State1__5TitleFUl(Title* title, u32 frames)
 {
 	Memcard* card = &lbl_8025C400.mMemcard.mCard;
 	s32 state     = card->mState;
@@ -3034,7 +3034,7 @@ extern "C" void fn_8002E574(Title* title, u32 frames)
  * @note Address: 0x8002E8CC
  * @note Size: 0x4
  */
-extern "C" void fn_8002E8CC(Title* title)
+extern "C" void State0__5TitleFUl(Title* title)
 {
 }
 

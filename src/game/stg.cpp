@@ -21,8 +21,8 @@ char* fn_8006DDB8(s32 id);
 char* fn_8006E510(s16 id);
 s32 fn_8006DCFC(s32 id);
 void fn_80061CD0(MenuCursor* cursor, f32 x, f32 y, f32 w, f32 h, f32 alpha, f32 alpha2);
-void fn_80026B9C(MenuCursor* cursor, s32 a);
-void fn_8003ADC8(MenuSave* menu);
+void vfA4__6CursorFUl(MenuCursor* cursor, s32 a);
+void State14__8MenuSaveFUl(MenuSave* menu);
 void fn_80033A68(MenuStageSelect* menu);
 void fn_80057318(u32 color, f32 x, f32 y, f32 z, f32 w, f32 h, f32 alpha);
 void fn_80066630(char* text);
@@ -38,13 +38,13 @@ void fn_8004F930(MenuStatus* menu);
 void fn_80053714(MenuStatus* menu);
 void fn_80053D58(MenuStatus* menu);
 void GXSetScissor(u32 left, u32 top, u32 width, u32 height);
-void fn_8005BE74(MenuStatus* menu);
-void fn_80060118(MenuItem* menu);
-void fn_8004E54C(MenuPC* menu);
-void fn_8003D350(MenuSave* menu);
+void Open__10MenuStatusFv(MenuStatus* menu);
+void Open__8MenuItemFv(MenuItem* menu);
+void Open__6MenuPCFv(MenuPC* menu);
+void Open__8MenuSaveFv(MenuSave* menu);
 s32 fn_80087A1C(void* save, s32 slot, s32* size, s32* sector);
 void fn_80061480(MenuMain* menu);
-BOOL fn_800617DC(CMenu* menu, u32 frames);
+BOOL Update__5CMenuFUl(CMenu* menu, u32 frames);
 void fn_800623F8(MenuWindow* win);
 void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
 void PSMTXScale(Mtx m, f32 x, f32 y, f32 z);
@@ -190,7 +190,7 @@ inline void MenuTitle::Set(const char* text, u32 color)
  * @note Address: 0x8003135C
  * @note Size: 0x48
  */
-extern "C" void fn_8003135C(CMenu* menu)
+extern "C" void Close__5CMenuFv(CMenu* menu)
 {
 	menu->mState = 5;
 	menu->Resume();
@@ -201,7 +201,7 @@ extern "C" void fn_8003135C(CMenu* menu)
  * @note Address: 0x800313A4
  * @note Size: 0x24
  */
-extern "C" BOOL fn_800313A4(CMenu* menu)
+extern "C" BOOL IsOpen__5CMenuFv(CMenu* menu)
 {
 	return menu->CMenu::IsOpen();
 }
@@ -210,7 +210,7 @@ extern "C" BOOL fn_800313A4(CMenu* menu)
  * @note Address: 0x800313C8
  * @note Size: 0x10
  */
-extern "C" void fn_800313C8(CMenu* menu, s32 dir)
+extern "C" void Suspend__5CMenuFi(CMenu* menu, s32 dir)
 {
 	menu->mSuspended   = TRUE;
 	menu->mSuspendFade = dir;
@@ -296,7 +296,7 @@ extern "C" BOOL fn_80031584(MenuEx* ex)
  * @note Address: 0x80031740
  * @note Size: 0x398
  */
-extern "C" BOOL fn_80031740(MenuMCTestSub* menu)
+extern "C" BOOL Draw__13MenuMCTestSubFv(MenuMCTestSub* menu)
 {
 	if (menu->CMenu::Draw()) {
 		f32 x, y, width, step, height, maxW, lines, lineH;
@@ -366,9 +366,9 @@ extern "C" void fn_8003164C(MenuEx* ex)
  * @note Size: 0x3F4
  */
 // NONMATCHING: string pool offsets, the strings before these aren't in yet
-extern "C" BOOL fn_80031AD8(MenuMCTestSub* menu, u32 frames)
+extern "C" BOOL Update__13MenuMCTestSubFUl(MenuMCTestSub* menu, u32 frames)
 {
-	if (fn_800617DC(menu, frames) == 4) {
+	if (Update__5CMenuFUl(menu, frames) == 4) {
 		CPad pad(0);
 		if (pad.mPad->mRepeat & 0x10008) {
 			do {
@@ -436,7 +436,7 @@ extern "C" BOOL fn_80031AD8(MenuMCTestSub* menu, u32 frames)
  * @note Address: 0x80031ECC
  * @note Size: 0x50
  */
-extern "C" void fn_80031ECC(Menu* menu)
+extern "C" void Open__13MenuMCTestSubFv(Menu* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -448,7 +448,7 @@ extern "C" void fn_80031ECC(Menu* menu)
  * @note Address: 0x800341EC
  * @note Size: 0x5C
  */
-extern "C" void fn_800341EC(Menu* menu)
+extern "C" void Init__15MenuStageSelectFv(Menu* menu)
 {
 	menu->CMenu::Init();
 }
@@ -457,7 +457,7 @@ extern "C" void fn_800341EC(Menu* menu)
  * @note Address: 0x80031F1C
  * @note Size: 0x17C
  */
-extern "C" void fn_80031F1C(MenuMCTestSub* menu)
+extern "C" void Init__13MenuMCTestSubFv(MenuMCTestSub* menu)
 {
 	menu->CMenu::Init();
 	menu->mText[0]  = sMCTestSubLines[0].mText;
@@ -481,7 +481,7 @@ extern "C" void fn_80031F1C(MenuMCTestSub* menu)
  * @note Address: 0x80032098
  * @note Size: 0x4C4
  */
-extern "C" BOOL fn_80032098(MenuMCTest* menu)
+extern "C" BOOL Draw__10MenuMCTestFv(MenuMCTest* menu)
 {
 	if (menu->CMenu::Draw()) {
 		f32 x, y, width, step, height, maxW, lines, lineH;
@@ -574,7 +574,7 @@ extern "C" void fn_80032CAC(MenuMCTest* menu, s32 id)
  * @note Address: 0x80032E24
  * @note Size: 0xD8
  */
-extern "C" void fn_80032E24(MenuMCTest* menu)
+extern "C" void Open__10MenuMCTestFv(MenuMCTest* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -591,7 +591,7 @@ extern "C" void fn_80032E24(MenuMCTest* menu)
  * @note Address: 0x80032EFC
  * @note Size: 0x1E8
  */
-extern "C" void fn_80032EFC(MenuMCTest* menu)
+extern "C" void Init__10MenuMCTestFv(MenuMCTest* menu)
 {
 	menu->CMenu::Init();
 	menu->mFileCount = 10;
@@ -619,9 +619,9 @@ extern "C" void fn_80032EFC(MenuMCTest* menu)
  * @note Address: 0x800336DC
  * @note Size: 0x38C
  */
-extern "C" BOOL fn_800336DC(MenuStageSelect* menu, u32 frames)
+extern "C" BOOL Update__15MenuStageSelectFUl(MenuStageSelect* menu, u32 frames)
 {
-	if (fn_800617DC(menu, frames) == 4) {
+	if (Update__5CMenuFUl(menu, frames) == 4) {
 		CPad pad(0);
 		if (pad.mPad->mRepeat & 0x10008) {
 			do {
@@ -669,7 +669,7 @@ extern "C" BOOL fn_800336DC(MenuStageSelect* menu, u32 frames)
  * @note Address: 0x80034108
  * @note Size: 0xE4
  */
-extern "C" void fn_80034108(MenuStageSelect* menu)
+extern "C" void Open__15MenuStageSelectFv(MenuStageSelect* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -699,7 +699,7 @@ extern "C" void fn_80034108(MenuStageSelect* menu)
  * @note Address: 0x8003D350
  * @note Size: 0x3AC
  */
-extern "C" void fn_8003D350(MenuSave* menu)
+extern "C" void Open__8MenuSaveFv(MenuSave* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -750,7 +750,7 @@ extern "C" void fn_8003D350(MenuSave* menu)
  * @note Address: 0x8003D6FC
  * @note Size: 0x34
  */
-extern "C" void fn_8003D6FC(MenuSave* menu)
+extern "C" void Reset__8MenuSaveFv(MenuSave* menu)
 {
 	menu->CMenu::Reset();
 	menu->mLastFile = -1;
@@ -760,7 +760,7 @@ extern "C" void fn_8003D6FC(MenuSave* menu)
  * @note Address: 0x8003D730
  * @note Size: 0x70
  */
-extern "C" void fn_8003D730(MenuSave* menu)
+extern "C" void Init__8MenuSaveFv(MenuSave* menu)
 {
 	menu->CMenu::Init();
 	menu->mLastFile = -1;
@@ -770,7 +770,7 @@ extern "C" void fn_8003D730(MenuSave* menu)
  * @note Address: 0x8004ED74
  * @note Size: 0x74
  */
-extern "C" void fn_8004ED74(MenuPC* menu)
+extern "C" void Init__6MenuPCFv(MenuPC* menu)
 {
 	menu->CMenu::Init();
 	menu->_384 = 0;
@@ -781,7 +781,7 @@ extern "C" void fn_8004ED74(MenuPC* menu)
  * @note Address: 0x8005C728
  * @note Size: 0x70
  */
-extern "C" void fn_8005C728(MenuStatus* menu)
+extern "C" void Init__10MenuStatusFv(MenuStatus* menu)
 {
 	menu->CMenu::Init();
 	menu->mSelection = 0;
@@ -791,7 +791,7 @@ extern "C" void fn_8005C728(MenuStatus* menu)
  * @note Address: 0x80060768
  * @note Size: 0x70
  */
-extern "C" void fn_80060768(MenuItem* menu)
+extern "C" void Init__8MenuItemFv(MenuItem* menu)
 {
 	menu->CMenu::Init();
 	menu->mSelection = 0;
@@ -801,7 +801,7 @@ extern "C" void fn_80060768(MenuItem* menu)
  * @note Address: 0x800611D4
  * @note Size: 0x30
  */
-extern "C" void fn_800611D4(MenuMain* menu)
+extern "C" void Resume__8MenuMainFv(MenuMain* menu)
 {
 	menu->MenuMain::Resume();
 }
@@ -810,7 +810,7 @@ extern "C" void fn_800611D4(MenuMain* menu)
  * @note Address: 0x80061204
  * @note Size: 0x8C
  */
-extern "C" void fn_80061204(MenuMain* menu)
+extern "C" void Close__8MenuMainFv(MenuMain* menu)
 {
 	menu->MenuMain::Close();
 }
@@ -819,7 +819,7 @@ extern "C" void fn_80061204(MenuMain* menu)
  * @note Address: 0x80061290
  * @note Size: 0x78
  */
-extern "C" void fn_80061290(MenuMain* menu)
+extern "C" void Open__8MenuMainFv(MenuMain* menu)
 {
 	menu->MenuMain::Open();
 }
@@ -857,7 +857,7 @@ extern "C" void fn_80061364(MenuMain* menu)
  * @note Address: 0x800613B0
  * @note Size: 0x74
  */
-extern "C" void fn_800613B0(MenuMain* menu)
+extern "C" void Reset__8MenuMainFv(MenuMain* menu)
 {
 	menu->CMenu::Reset();
 	menu->mChannel = 0;
@@ -872,7 +872,7 @@ extern "C" void fn_800613B0(MenuMain* menu)
  * @note Address: 0x800607D8
  * @note Size: 0x504
  */
-extern "C" BOOL fn_800607D8(MenuMain* menu)
+extern "C" BOOL Draw__8MenuMainFv(MenuMain* menu)
 {
 	if (menu->CMenu::Draw()) {
 		f32 x, y, width, step, height, maxW, lines, lineH;
@@ -929,9 +929,9 @@ extern "C" BOOL fn_800607D8(MenuMain* menu)
  * @note Address: 0x80060CDC
  * @note Size: 0x4F8
  */
-extern "C" BOOL fn_80060CDC(MenuMain* menu, u32 frames)
+extern "C" BOOL Update__8MenuMainFUl(MenuMain* menu, u32 frames)
 {
-	if (fn_800617DC(menu, frames) == 4) {
+	if (Update__5CMenuFUl(menu, frames) == 4) {
 		CPad pad(0);
 		s32 id = -1;
 		if (pad.mPad->mRepeat & 0x10008) {
@@ -968,10 +968,10 @@ extern "C" BOOL fn_80060CDC(MenuMain* menu, u32 frames)
 			BOOL fade = TRUE;
 			switch (id) {
 			case 1:
-				fn_8005BE74(&sMenuStatus);
+				Open__10MenuStatusFv(&sMenuStatus);
 				break;
 			case 2:
-				fn_80060118(&sMenuItem);
+				Open__8MenuItemFv(&sMenuItem);
 				break;
 			case 6:
 				fade = FALSE;
@@ -982,10 +982,10 @@ extern "C" BOOL fn_80060CDC(MenuMain* menu, u32 frames)
 				sMenuStageSelect.Open();
 				break;
 			case 3:
-				fn_8004E54C(&sMenuPC);
+				Open__6MenuPCFv(&sMenuPC);
 				break;
 			case 4:
-				fn_8003D350(&sMenuSave);
+				Open__8MenuSaveFv(&sMenuSave);
 				break;
 			}
 			if (id >= 0) {
@@ -1003,7 +1003,7 @@ extern "C" BOOL fn_80060CDC(MenuMain* menu, u32 frames)
  * @note Address: 0x80061424
  * @note Size: 0x5C
  */
-extern "C" void fn_80061424(MenuMain* menu)
+extern "C" void Init__8MenuMainFv(MenuMain* menu)
 {
 	menu->CMenu::Init();
 }
@@ -1062,7 +1062,7 @@ extern "C" void fn_80061480(MenuMain* menu)
  * @note Address: 0x80061738
  * @note Size: 0xA4
  */
-extern "C" BOOL fn_80061738(CMenu* menu)
+extern "C" BOOL Draw__5CMenuFv(CMenu* menu)
 {
 	return menu->CMenu::Draw();
 }
@@ -1071,7 +1071,7 @@ extern "C" BOOL fn_80061738(CMenu* menu)
  * @note Address: 0x800617DC
  * @note Size: 0x2E0
  */
-extern "C" BOOL fn_800617DC(CMenu* menu, u32 frames)
+extern "C" BOOL Update__5CMenuFUl(CMenu* menu, u32 frames)
 {
 	if (menu->mSuspended) {
 		if (menu->mSuspendFade != 0 && menu->mSuspendAlpha > 0.0f) {
@@ -1145,7 +1145,7 @@ extern "C" BOOL fn_800617DC(CMenu* menu, u32 frames)
  * @note Address: 0x80061AE8
  * @note Size: 0x18C
  */
-extern "C" BOOL fn_80061AE8(CMenu* menu)
+extern "C" BOOL LoadTexture__5CMenuFv(CMenu* menu)
 {
 	MenuWindow* win   = &menu->mWindow;
 	win->mTex.mTex    = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[138], 0);
@@ -1165,7 +1165,7 @@ extern "C" BOOL fn_80061AE8(CMenu* menu)
  * @note Address: 0x80061ABC
  * @note Size: 0x2C
  */
-extern "C" void fn_80061ABC(CMenu* menu)
+extern "C" void Reset__5CMenuFv(CMenu* menu)
 {
 	menu->CMenu::Reset();
 }
@@ -1174,7 +1174,7 @@ extern "C" void fn_80061ABC(CMenu* menu)
  * @note Address: 0x80061C74
  * @note Size: 0x5C
  */
-extern "C" void fn_80061C74(CMenu* menu)
+extern "C" void Init__5CMenuFv(CMenu* menu)
 {
 	menu->CMenu::Init();
 }
@@ -1183,7 +1183,7 @@ extern "C" void fn_80061C74(CMenu* menu)
  * @note Address: 0x8003AC48
  * @note Size: 0xE0
  */
-extern "C" void fn_8003AC48(MenuSave* menu)
+extern "C" void State17__8MenuSaveFUl(MenuSave* menu)
 {
 	if (menu->_264 <= 0.0f) {
 		fn_8001E660(&lbl_8025C400.mSound, 0x14B);
@@ -1199,7 +1199,7 @@ extern "C" void fn_8003AC48(MenuSave* menu)
  * @note Size: 0x80
  */
 // NONMATCHING: regalloc
-extern "C" void fn_8003AD28(MenuSave* menu)
+extern "C" void State16__8MenuSaveFUl(MenuSave* menu)
 {
 	for (int i = 0; i < 20; i++) {
 		menu->mTitle.mChars[i].mHold = 0.0f;
@@ -1214,16 +1214,16 @@ extern "C" void fn_8003AD28(MenuSave* menu)
  * @note Address: 0x8003ADA8
  * @note Size: 0x20
  */
-extern "C" void fn_8003ADA8(MenuSave* menu)
+extern "C" void State15__8MenuSaveFUl(MenuSave* menu)
 {
-	fn_8003ADC8(menu);
+	State14__8MenuSaveFUl(menu);
 }
 
 /**
  * @note Address: 0x8003BE90
  * @note Size: 0x4
  */
-extern "C" void fn_8003BE90(MenuSave* menu)
+extern "C" void State7__8MenuSaveFUl(MenuSave* menu)
 {
 }
 
@@ -1483,7 +1483,7 @@ extern "C" char* fn_800493F8(s32 id)
  * @note Address: 0x8004AB3C
  * @note Size: 0x4
  */
-extern "C" void fn_8004AB3C(MenuPC* menu)
+extern "C" void State8__6MenuPCFUl(MenuPC* menu)
 {
 }
 
@@ -1491,7 +1491,7 @@ extern "C" void fn_8004AB3C(MenuPC* menu)
  * @note Address: 0x8004B928
  * @note Size: 0x4
  */
-extern "C" void fn_8004B928(MenuPC* menu)
+extern "C" void State6__6MenuPCFUl(MenuPC* menu)
 {
 }
 
@@ -1514,7 +1514,7 @@ extern "C" BOOL fn_80051C60()
  * @note Address: 0x8005875C
  * @note Size: 0x4
  */
-extern "C" void fn_8005875C(MenuStatus* menu)
+extern "C" void State7__10MenuStatusFUl(MenuStatus* menu)
 {
 }
 
@@ -1522,7 +1522,7 @@ extern "C" void fn_8005875C(MenuStatus* menu)
  * @note Address: 0x80058760
  * @note Size: 0x4
  */
-extern "C" void fn_80058760(MenuStatus* menu)
+extern "C" void State6__10MenuStatusFUl(MenuStatus* menu)
 {
 }
 
@@ -1530,10 +1530,10 @@ extern "C" void fn_80058760(MenuStatus* menu)
  * @note Address: 0x80062390
  * @note Size: 0x48
  */
-extern "C" void fn_80062390(MenuCursor* cursor, s32 a)
+extern "C" void vfA4__10MenuCursorFUl(MenuCursor* cursor, s32 a)
 {
 	if (cursor->mStatus.mFlags & 1) {
-		fn_80026B9C(cursor, a);
+		vfA4__6CursorFUl(cursor, a);
 	}
 }
 
@@ -1541,16 +1541,16 @@ extern "C" void fn_80062390(MenuCursor* cursor, s32 a)
  * @note Address: 0x800623D8
  * @note Size: 0x20
  */
-extern "C" void fn_800623D8(MenuCursor* cursor)
+extern "C" void vf98__10MenuCursorFv(MenuCursor* cursor)
 {
-	fn_800928E8(cursor);
+	vf98__4XObjFv(cursor);
 }
 
 /**
  * @note Address: 0x8003CD68
  * @note Size: 0xB0
  */
-extern "C" void fn_8003CD68(MenuSave* menu)
+extern "C" void State0__8MenuSaveFUl(MenuSave* menu)
 {
 	for (int i = 0; i < 3; i++) {
 		ClearSaveSlot(&menu->mSlots[i]);
@@ -1850,7 +1850,7 @@ static inline s32 CountMenuItems()
  */
 // throwing things away: pick the thing, then how many, then confirm
 // NONMATCHING: regalloc
-extern "C" void fn_80058C7C(MenuStatus* menu)
+extern "C" void State3__10MenuStatusFUl(MenuStatus* menu)
 {
 	CPad pad(0);
 	s32 count = CountMenuItems();
@@ -1959,7 +1959,7 @@ extern "C" void fn_80058C7C(MenuStatus* menu)
  * @note Address: 0x80058BBC
  * @note Size: 0xC0
  */
-extern "C" void fn_80058BBC(MenuStatus* menu, s32 wait)
+extern "C" void State4__10MenuStatusFUl(MenuStatus* menu, s32 wait)
 {
 	CPad pad(0);
 	switch (menu->mPhase) {
@@ -1984,7 +1984,7 @@ extern "C" void fn_80058BBC(MenuStatus* menu, s32 wait)
  */
 // the status menu's tabs: pick one and open its page, or close the menu
 // NONMATCHING: regalloc
-extern "C" void fn_8005A290(MenuStatus* menu, u32 frames)
+extern "C" void State1__10MenuStatusFUl(MenuStatus* menu, u32 frames)
 {
 	CPad pad(0);
 	switch (menu->mPhase) {
@@ -2156,7 +2156,7 @@ extern "C" void fn_8005A290(MenuStatus* menu, u32 frames)
  * @note Address: 0x8005B39C
  * @note Size: 0x9C
  */
-extern "C" void fn_8005B39C(MenuStatus* menu)
+extern "C" void State0__10MenuStatusFUl(MenuStatus* menu)
 {
 	menu->mSavedBgm       = lbl_8025C400.mSound._2C4 <= 0 ? lbl_8025C400.mSound._2B4 : 0;
 	menu->mSavedBgmVolume = lbl_8025C400.mSound._2CC;
@@ -2171,7 +2171,7 @@ extern "C" void fn_8005B39C(MenuStatus* menu)
  * @note Address: 0x8003B9B8
  * @note Size: 0x160
  */
-extern "C" void fn_8003B9B8(MenuSave* menu, s32 frames)
+extern "C" void State9__8MenuSaveFUl(MenuSave* menu, s32 frames)
 {
 	menu->mDelay -= frames;
 	if (menu->mDelay < 0) {
@@ -2244,7 +2244,7 @@ extern "C" void fn_8003B9B8(MenuSave* menu, s32 frames)
  */
 // waits for the card to list its files, then fills in the three file headers
 // NONMATCHING: regalloc
-extern "C" void fn_8003CA2C(MenuSave* menu, s32 frames)
+extern "C" void State1__8MenuSaveFUl(MenuSave* menu, s32 frames)
 {
 	SavePreviewRecord* save;
 	MenuSaveSlot* header;
@@ -2368,7 +2368,7 @@ extern "C" void fn_8003CA2C(MenuSave* menu, s32 frames)
  * @note Size: 0x3C0
  */
 // waits for the card to save, then reads back the header of the file it wrote
-extern "C" void fn_8003C0A8(MenuSave* menu, s32 frames)
+extern "C" void State5__8MenuSaveFUl(MenuSave* menu, s32 frames)
 {
 	SavePreviewRecord* save;
 	Memcard* card = &lbl_8025C400.mMemcard.mCard;
@@ -2484,7 +2484,7 @@ extern "C" void fn_8003C0A8(MenuSave* menu, s32 frames)
  * @note Address: 0x8003C468
  * @note Size: 0x130
  */
-extern "C" void fn_8003C468(MenuSave* menu, u32 frames)
+extern "C" void State4__8MenuSaveFUl(MenuSave* menu, u32 frames)
 {
 	CPad pad(0);
 	switch (menu->mPhase) {
@@ -2510,7 +2510,7 @@ extern "C" void fn_8003C468(MenuSave* menu, u32 frames)
  * @note Address: 0x8003B05C
  * @note Size: 0x1F8
  */
-extern "C" void fn_8003B05C(MenuSave* menu)
+extern "C" void State13__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (menu->mResult == -3) {
@@ -2552,7 +2552,7 @@ extern "C" void fn_8003B05C(MenuSave* menu)
  * @note Address: 0x8003B254
  * @note Size: 0x1B8
  */
-extern "C" void fn_8003B254(MenuSave* menu)
+extern "C" void State12__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (menu->mResult == -2) {
@@ -2574,7 +2574,7 @@ extern "C" void fn_8003B254(MenuSave* menu)
  * @note Address: 0x8003B7AC
  * @note Size: 0x20C
  */
-extern "C" void fn_8003B7AC(MenuSave* menu, u32 frames)
+extern "C" void State10__8MenuSaveFUl(MenuSave* menu, u32 frames)
 {
 	CPad pad(0);
 	if (!menu->mReady) {
@@ -2608,7 +2608,7 @@ extern "C" void fn_8003B7AC(MenuSave* menu, u32 frames)
  * @note Address: 0x8003C598
  * @note Size: 0x200
  */
-extern "C" void fn_8003C598(MenuSave* menu)
+extern "C" void State3__8MenuSaveFUl(MenuSave* menu)
 {
 	if (!menu->mReady) {
 		menu->ResetResults();
@@ -2646,7 +2646,7 @@ extern "C" void fn_8003C598(MenuSave* menu)
  * @note Address: 0x8003ADC8
  * @note Size: 0x294
  */
-extern "C" void fn_8003ADC8(MenuSave* menu)
+extern "C" void State14__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (menu->mResult == -3) {
@@ -2680,7 +2680,7 @@ extern "C" void fn_8003ADC8(MenuSave* menu)
  * @note Address: 0x8003BE94
  * @note Size: 0x214
  */
-extern "C" void fn_8003BE94(MenuSave* menu)
+extern "C" void State6__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (menu->_262 == TRUE) {
@@ -2712,7 +2712,7 @@ extern "C" void fn_8003BE94(MenuSave* menu)
  * @note Address: 0x8003C798
  * @note Size: 0x294
  */
-extern "C" void fn_8003C798(MenuSave* menu)
+extern "C" void State2__8MenuSaveFUl(MenuSave* menu)
 {
 	if (!menu->mReady) {
 		menu->ResetResults();
@@ -2756,7 +2756,7 @@ extern "C" void fn_8003C798(MenuSave* menu)
  * @note Address: 0x8003BB18
  * @note Size: 0x378
  */
-extern "C" void fn_8003BB18(MenuSave* menu)
+extern "C" void State8__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (!menu->mReady) {
@@ -2830,7 +2830,7 @@ extern "C" void fn_8003BB18(MenuSave* menu)
  * @note Address: 0x8003B40C
  * @note Size: 0x3A0
  */
-extern "C" void fn_8003B40C(MenuSave* menu)
+extern "C" void State11__8MenuSaveFUl(MenuSave* menu)
 {
 	CPad pad(0);
 	if (menu->mResult == -3) {
@@ -3104,7 +3104,7 @@ extern "C" void fn_8003F47C(bool icon, f32 x, f32 y, f32 alpha, f32 scale, f32 v
  * @note Address: 0x80049418
  * @note Size: 0xF0
  */
-extern "C" void fn_80049418(MenuPC* menu)
+extern "C" void State11__6MenuPCFUl(MenuPC* menu)
 {
 	if (menu->mFade <= 2.0f) {
 		lbl_8025C400.mEvt._10 = menu->mExitState;
@@ -3134,7 +3134,7 @@ static inline void SetScissor(u32 top, u32 height)
  * @note Size: 0x1F8
  */
 // NONMATCHING: the item table address is formed differently
-extern "C" BOOL fn_8005773C(MenuStatus* menu)
+extern "C" BOOL Draw__10MenuStatusFv(MenuStatus* menu)
 {
 	if (menu->CMenu::Draw()) {
 		fn_80054314(menu->mAlpha);
@@ -3264,7 +3264,7 @@ static inline void ClearStatusTable(MenuStatusItems* table)
  * @note Size: 0x650
  */
 // NONMATCHING: regalloc
-extern "C" void fn_80060118(MenuItem* menu)
+extern "C" void Open__8MenuItemFv(MenuItem* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -3320,7 +3320,7 @@ extern "C" void fn_80060118(MenuItem* menu)
  * @note Size: 0x700
  */
 // moving the cursor over the map grid, each cell names its place once it's been visited
-extern "C" void fn_80057934(MenuStatus* menu)
+extern "C" void State9__10MenuStatusFUl(MenuStatus* menu)
 {
 	CPad pad(0);
 	s32 grid[13][4] = {
@@ -3418,7 +3418,7 @@ extern "C" void fn_80057934(MenuStatus* menu)
  * @note Size: 0x728
  */
 // the same on the 6 by 4 grid, it wraps around
-extern "C" void fn_80058034(MenuStatus* menu)
+extern "C" void State8__10MenuStatusFUl(MenuStatus* menu)
 {
 	CPad pad(0);
 	switch (menu->mPhase) {
@@ -3525,7 +3525,7 @@ extern "C" void fn_80058034(MenuStatus* menu)
  * @note Address: 0x80058764
  * @note Size: 0x458
  */
-extern "C" void fn_80058764(MenuStatus* menu)
+extern "C" void State5__10MenuStatusFUl(MenuStatus* menu)
 {
 	CPad pad(0);
 	if (pad.mPad->mTrigger & 0x200) {
@@ -3599,7 +3599,7 @@ static inline void ResetPCText(MenuPC* menu, s32 step)
  * @note Address: 0x8004BBC0
  * @note Size: 0x288
  */
-extern "C" void fn_8004BBC0(MenuPC* menu)
+extern "C" void State4__6MenuPCFUl(MenuPC* menu)
 {
 	CPad pad(0);
 	if (pad.mPad->mTrigger & 0x200) {
@@ -3612,7 +3612,7 @@ extern "C" void fn_8004BBC0(MenuPC* menu)
  * @note Address: 0x8004B92C
  * @note Size: 0x294
  */
-extern "C" void fn_8004B92C(MenuPC* menu)
+extern "C" void State5__6MenuPCFUl(MenuPC* menu)
 {
 	CPad pad(0);
 	if (pad.mPad->mTrigger & 0x200) {
@@ -3626,7 +3626,7 @@ extern "C" void fn_8004B92C(MenuPC* menu)
  * @note Address: 0x8004D584
  * @note Size: 0x2D8
  */
-extern "C" void fn_8004D584(MenuPC* menu, u32 frames)
+extern "C" void State1__6MenuPCFUl(MenuPC* menu, u32 frames)
 {
 	switch (menu->mPhase) {
 	case 0:
@@ -3645,7 +3645,7 @@ extern "C" void fn_8004D584(MenuPC* menu, u32 frames)
  * @note Address: 0x8004D85C
  * @note Size: 0x4C0
  */
-extern "C" void fn_8004D85C(MenuPC* menu)
+extern "C" void State0__6MenuPCFUl(MenuPC* menu)
 {
 	if (menu->_3A0) {
 		ResetPCText(menu, 3);
@@ -3685,7 +3685,7 @@ static inline void RestorePCHistory(MenuPC* menu)
  * @note Address: 0x8004CD38
  * @note Size: 0x84C
  */
-extern "C" void fn_8004CD38(MenuPC* menu)
+extern "C" void State2__6MenuPCFUl(MenuPC* menu)
 {
 	CPad pad(0);
 	if (pad.mPad->mRepeat & 0x10008) {
@@ -3766,7 +3766,7 @@ static inline void RecyclePCAmount(MenuPC* menu)
  * @note Size: 0x9B4
  */
 // NONMATCHING: regalloc
-extern "C" void fn_8004A188(MenuPC* menu)
+extern "C" void State9__6MenuPCFUl(MenuPC* menu)
 {
 	CPad pad(0);
 	s32 digits[7] = { 0, 0, 0, 0, 0, 0, 0 };
@@ -3893,7 +3893,7 @@ extern "C" void fn_8004A188(MenuPC* menu)
  * @note Size: 0xC80
  */
 // NONMATCHING: regalloc
-extern "C" void fn_80049508(MenuPC* menu)
+extern "C" void State10__6MenuPCFUl(MenuPC* menu)
 {
 	CPad pad(0);
 	s32 digits[7] = { 0, 0, 0, 0, 0, 0, 0 };
@@ -4118,7 +4118,7 @@ static inline s16 PCShopEntryId(s32 index)
  * @note Address: 0x8004AB40
  * @note Size: 0xDE8
  */
-extern "C" void fn_8004AB40(MenuPC* menu, u32 frames)
+extern "C" void State7__6MenuPCFUl(MenuPC* menu, u32 frames)
 {
 	s32 count;
 	CPad pad(0);
@@ -4340,9 +4340,9 @@ extern "C" PCStepHandler lbl_80212120[];
  * @note Address: 0x8004DD1C
  * @note Size: 0x830
  */
-extern "C" BOOL fn_8004DD1C(MenuPC* menu, u32 frames)
+extern "C" BOOL Update__6MenuPCFUl(MenuPC* menu, u32 frames)
 {
-	if (fn_800617DC(menu, frames) == 4) {
+	if (Update__5CMenuFUl(menu, frames) == 4) {
 		PCEase(menu->_198, menu->_1A0);
 		PCEase(menu->mFade, menu->_1A4);
 		PCSlide(menu->mTextX, menu->mTargetX, 6.0f * frames);
@@ -4490,9 +4490,9 @@ extern "C" SaveStepHandler lbl_802122B4[];
  * @note Size: 0x538
  */
 // NONMATCHING: regalloc
-extern "C" BOOL fn_8003CE18(MenuSave* menu, u32 frames)
+extern "C" BOOL Update__8MenuSaveFUl(MenuSave* menu, u32 frames)
 {
-	if (fn_800617DC(menu, frames) == 4) {
+	if (Update__5CMenuFUl(menu, frames) == 4) {
 		PCEaseCall(menu->_15C, menu->_164);
 		fn_80068C8C(&menu->_264, &menu->mTargetAlpha, 0.08f * frames);
 		PCEaseCall(menu->_16C, menu->mOffset);

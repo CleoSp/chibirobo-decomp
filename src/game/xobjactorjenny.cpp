@@ -83,9 +83,9 @@ f32 XObjActorJenny::vf178()
  * @note Size: 0x24C
  */
 // vf124
-extern "C" s32 fn_8012305C(XObjActorJenny* object, s32 count, s32* command)
+extern "C" s32 vf124__14XObjActorJennyFlPl(XObjActorJenny* object, s32 count, s32* command)
 {
-	fn_801070A4(object, count, command);
+	vf124__9XObjActorFlPl(object, count, command);
 	switch (command[0]) {
 	case 1:
 		switch (command[1]) {

@@ -48,11 +48,11 @@ public:
 	f32 _140;        // _140
 	CCamera mCamera; // _144
 
-	virtual void Init();             // _08, fn_80014978
-	virtual void Reset();            // _0C, fn_80014964
-	virtual void Copy();             // _10, fn_800146D0
-	virtual void Update(u32 frames); // _14, fn_800148C0
-	virtual void Draw();             // _18, fn_800137C0
+	virtual void Init();             // _08, Init__8FbSubwinFv
+	virtual void Reset();            // _0C, Reset__8FbSubwinFv
+	virtual void Copy();             // _10, Copy__8FbSubwinFv
+	virtual void Update(u32 frames); // _14, Update__8FbSubwinFUl
+	virtual void Draw();             // _18, Draw__8FbSubwinFv
 };
 STATIC_ASSERT(sizeof(FbSubwin) == 0x2D8);
 
@@ -64,11 +64,11 @@ public:
 	BOOL mVisible;    // _2BC, the eye is in front of the mirror
 	Mtx mView;        // _2C0
 
-	virtual void Init();             // _08, fn_800151E0
-	virtual void Reset();            // _0C, fn_800151DC
-	virtual void Copy();             // _10, fn_80014BA8
-	virtual void Update(u32 frames); // _14, fn_80014DA4
-	virtual void Draw();             // _18, fn_80014A64
+	virtual void Init();             // _08, Init__8FbMirrorFv
+	virtual void Reset();            // _0C, Reset__8FbMirrorFv
+	virtual void Copy();             // _10, Copy__8FbMirrorFv
+	virtual void Update(u32 frames); // _14, Update__8FbMirrorFUl
+	virtual void Draw();             // _18, Draw__8FbMirrorFv
 
 	bool IsUsed() const { return mJoint ? true : false; }
 };

@@ -6,7 +6,7 @@
  * @note Size: 0xC0
  */
 // any read still waiting
-extern "C" BOOL fn_80131C6C(XObjRead* reader)
+extern "C" BOOL vf1C__8XObjReadFv(XObjRead* reader)
 {
 	for (s32 i = 0; i < 8; ++i) {
 		if (reader->mReqs[i].mObj != NULL) {
@@ -22,7 +22,7 @@ extern "C" BOOL fn_80131C6C(XObjRead* reader)
  */
 extern "C" bool fn_80131D2C()
 {
-	return fn_80131C6C(&lbl_80380008) || fn_80131C6C(&lbl_803803A8) || fn_80131C6C(&lbl_80380748);
+	return vf1C__8XObjReadFv(&lbl_80380008) || vf1C__8XObjReadFv(&lbl_803803A8) || vf1C__8XObjReadFv(&lbl_80380748);
 }
 
 /**
@@ -30,7 +30,7 @@ extern "C" bool fn_80131D2C()
  * @note Size: 0x94
  */
 // XObjReadAnm::vf18, reads the object's anim archive
-extern "C" void fn_80131FAC(XObjReadAnm* reader, XObjReadReq* req)
+extern "C" void vf18__11XObjReadAnmFP11XObjReadReq(XObjReadAnm* reader, XObjReadReq* req)
 {
 	XObj* object     = (XObj*)req->mObj;
 	const char* path = (const char*)req->mInfo;

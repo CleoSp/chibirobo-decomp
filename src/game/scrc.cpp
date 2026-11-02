@@ -1100,9 +1100,9 @@ extern "C" void fn_8010AF74(XObjActor3* actor)
  * @note Address: 0x8010AD54
  * @note Size: 0x34
  */
-extern "C" void fn_8010AD54(XObjActor3* actor, u32 id)
+extern "C" void vf90__10XObjActor3FUl(XObjActor3* actor, u32 id)
 {
-	fn_800929C4(actor, id);
+	vf90__4XObjFUl(actor, id);
 	fn_8010AD88(actor);
 }
 
@@ -1110,9 +1110,9 @@ extern "C" void fn_8010AD54(XObjActor3* actor, u32 id)
  * @note Address: 0x8010AD20
  * @note Size: 0x34
  */
-extern "C" void fn_8010AD20(XObjActor3* actor)
+extern "C" void vf98__10XObjActor3Fv(XObjActor3* actor)
 {
-	fn_800928E8(actor);
+	vf98__4XObjFv(actor);
 	fn_8010AD88(actor);
 }
 
@@ -1120,7 +1120,7 @@ extern "C" void fn_8010AD20(XObjActor3* actor)
  * @note Address: 0x8010AD00
  * @note Size: 0x20
  */
-extern "C" void fn_8010AD00(XObjActor3* actor)
+extern "C" void vf94__10XObjActor3Fv(XObjActor3* actor)
 {
 	fn_8010AD88(actor);
 }

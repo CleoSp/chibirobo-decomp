@@ -5,7 +5,7 @@
  * @note Address: 0x80091C44
  * @note Size: 0x3C
  */
-extern "C" void fn_80091C44(XObj* object, u32* flags)
+extern "C" void vfD8__4XObjFPUl(XObj* object, u32* flags)
 {
 	if (object->mJObj != NULL)
 		HSD_JObjWalkTree(object->mJObj, fn_80091888, (f32**)flags);

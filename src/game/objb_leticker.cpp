@@ -495,7 +495,7 @@ void XObjLeticker::vfA4(u32 frames)
 			SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		}
 	}
-	fn_80090ED4(this, frames);
+	vfA4__4XObjFUl(this, frames);
 	mFuncTime += frames;
 	if (mFunc) {
 		(this->*mFunc)();
@@ -514,7 +514,7 @@ void XObjLeticker::vfA4(u32 frames)
  */
 void XObjLeticker::vf98()
 {
-	fn_800928E8(this);
+	vf98__4XObjFv(this);
 	mLinkedCount = 0;
 	mFunc        = NULL;
 	_99C         = 0;

@@ -8,7 +8,7 @@
  * @note Address: 0x800DE608
  * @note Size: 0x1EC
  */
-extern "C" u32 fn_800DE608(XObjDust* object, void* unused, u32 flags)
+extern "C" u32 vf100__8XObjDustFll(XObjDust* object, void* unused, u32 flags)
 {
 	if ((flags & 3) == 1)
 		return flags;

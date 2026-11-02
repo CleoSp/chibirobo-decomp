@@ -12,7 +12,7 @@ void* __dt__6CLightFv(void* object, s32 flags);
  * @note Address: 0x80092DBC
  * @note Size: 0x7C
  */
-extern "C" XObjLight* fn_80092DBC(XObjLight* object, s32 flags)
+extern "C" XObjLight* __dt__9XObjLightFv(XObjLight* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x34) = __vt__9XObjLight;

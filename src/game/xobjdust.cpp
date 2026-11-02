@@ -93,9 +93,9 @@ extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
  * @note Address: 0x800DF588
  * @note Size: 0x148
  */
-extern "C" void fn_800DF588(XObjDust* dust, u32 frames)
+extern "C" void vfA4__8XObjDustFUl(XObjDust* dust, u32 frames)
 {
-	fn_80090ED4(dust, frames);
+	vfA4__4XObjFUl(dust, frames);
 	if (dust->GetObjFlags() & 1) {
 		if (fn_800DF2D8(dust, frames)) {
 			dust->Release();
@@ -114,22 +114,22 @@ extern "C" void fn_800DF588(XObjDust* dust, u32 frames)
  * @note Address: 0x800DF6D0
  * @note Size: 0x28
  */
-extern "C" void fn_800DF6D0(XObjDust* dust)
+extern "C" void Release__8XObjDustFv(XObjDust* dust)
 {
 	dust->mMatAnim = NULL;
-	fn_800911C0(dust);
+	Release__4XObjFv(dust);
 }
 
 /**
  * @note Address: 0x800DF6F8
  * @note Size: 0x2A8
  */
-extern "C" BOOL fn_800DF6F8(XObjDust* dust, CoordInfo* info)
+extern "C" BOOL vf9C__8XObjDustFRC9CoordInfo(XObjDust* dust, CoordInfo* info)
 {
 	dust->_260 = info->_00->_2C;
 	if (dust->IsFlagSet())
 		return TRUE;
-	BOOL result = fn_80091C80(dust, info);
+	BOOL result = vf9C__4XObjFRC9CoordInfo(dust, info);
 	if (result) {
 		dust->mStatus.mFlags |= 0x18100000ULL;
 		HSD_AObj* aobj = GetAObj(dust->mJObj);

@@ -5,7 +5,7 @@
  * @note Address: 0x80092E38
  * @note Size: 0xC8
  */
-extern "C" void fn_80092E38(XObjLight* object, u32 frames)
+extern "C" void vfA4__9XObjLightFUl(XObjLight* object, u32 frames)
 {
 	if ((s32)GetEnvData()[4] == 2) {
 		for (s32 i = 0; i < object->mLightNum; ++i) {
@@ -22,7 +22,7 @@ extern "C" void fn_80092E38(XObjLight* object, u32 frames)
  * @note Address: 0x80092F00
  * @note Size: 0x98
  */
-extern "C" void fn_80092F00(XObjLight* object)
+extern "C" void Release__9XObjLightFv(XObjLight* object)
 {
 	if ((s32)GetEnvData()[4] == 2) {
 		for (s32 i = 0; i < object->mLightNum; ++i) {
@@ -30,7 +30,7 @@ extern "C" void fn_80092F00(XObjLight* object)
 				object->mLights[i].Release();
 		}
 	}
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 }
 
 // XObjLight::vf9C
@@ -38,9 +38,9 @@ extern "C" void fn_80092F00(XObjLight* object)
  * @note Address: 0x80092F98
  * @note Size: 0x14C
  */
-extern "C" BOOL fn_80092F98(XObjLight* object, CoordInfo* info)
+extern "C" BOOL vf9C__9XObjLightFRC9CoordInfo(XObjLight* object, CoordInfo* info)
 {
-	if (fn_80091C80(object, info)) {
+	if (vf9C__4XObjFRC9CoordInfo(object, info)) {
 		if ((s32)GetEnvData()[4] == 2) {
 			HSD_LObj* previous = NULL;
 			for (s32 i = 0; i < 8; ++i) {
@@ -70,7 +70,7 @@ extern "C" BOOL fn_80092F98(XObjLight* object, CoordInfo* info)
  * @note Address: 0x800930E4
  * @note Size: 0x30
  */
-extern "C" void fn_800930E4(XObjLight* object)
+extern "C" void vf98__9XObjLightFv(XObjLight* object)
 {
 	object->mLightNum = 0;
 	for (u32 i = 0; i < 8; ++i)
@@ -82,7 +82,7 @@ extern "C" void fn_800930E4(XObjLight* object)
  * @note Address: 0x80093114
  * @note Size: 0x20
  */
-extern "C" void fn_80093114(XObjLight* object, u32 id)
+extern "C" void vf90__9XObjLightFUl(XObjLight* object, u32 id)
 {
-	fn_800929C4(object, id);
+	vf90__4XObjFUl(object, id);
 }

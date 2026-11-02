@@ -4,7 +4,7 @@
  * @note Address: 0x80103B28
  * @note Size: 0x58
  */
-extern "C" void fn_80103B28(XObjSpiderBoss* spider)
+extern "C" void State2__14XObjSpiderBossFUl(XObjSpiderBoss* spider)
 {
 	switch (spider->mStep) {
 	case 0:

@@ -3,7 +3,7 @@
 
 extern "C" {
 extern XObjPlugCordPoint lbl_8037C448[128];
-XObjPlugCordPoint* fn_800DBC04(XObjPlugCordPoint* point, s32 flags);
+XObjPlugCordPoint* __dt__17XObjPlugCordPointFv(XObjPlugCordPoint* point, s32 flags);
 }
 
 // todo: weak copy
@@ -14,5 +14,5 @@ XObjPlugCordPoint* fn_800DBC04(XObjPlugCordPoint* point, s32 flags);
  */
 extern "C" void fn_800DBBCC()
 {
-	__destroy_arr(lbl_8037C448, (ConstructorDestructor*)fn_800DBC04, sizeof(XObjPlugCordPoint), 128);
+	__destroy_arr(lbl_8037C448, (ConstructorDestructor*)__dt__17XObjPlugCordPointFv, sizeof(XObjPlugCordPoint), 128);
 }

@@ -351,7 +351,7 @@ extern "C" void fn_8000A678(void)
  * @note Address: 0x8000AB8C
  * @note Size: 0x4
  */
-extern "C" void fn_8000AB8C(void)
+extern "C" void vf144__4XObjFll(void)
 {
 }
 
@@ -365,7 +365,7 @@ extern "C" u8 lbl_80360E10[0x1000];
  */
 // NONMATCHING: count and result swap registers
 // UpdateMovie, the movie thread: steps the movie once a retrace until it's done
-extern "C" void* fn_8000AC64(void* arg)
+extern "C" void* UpdateMovie(void* arg)
 {
 	u32 count     = VIGetRetraceCount();
 	CMovie* movie = &((CGame*)arg)->mMovie.mMovie;
@@ -396,7 +396,7 @@ extern "C" void fn_8000ABB8(CGame* game, const char* path, BOOL loop, u32 flags)
 	game->mMovieFlags = flags;
 	game->mMovie.mMovie.Start(path, loop, flags & 1, TRUE);
 	game->mMovieRect[0] = game->mMovieRect[1] = game->mMovieRect[2] = game->mMovieRect[3] = NAN;
-	lbl_80360AE8.Start(fn_8000AC64, game, lbl_80360E10, sizeof(lbl_80360E10));
+	lbl_80360AE8.Start(UpdateMovie, game, lbl_80360E10, sizeof(lbl_80360E10));
 }
 
 extern "C" {
@@ -499,7 +499,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		if (game->mStatus.mFlags & 4) {
 			game->mStatus.mFlags &= ~4;
 			fn_8001E11C(&lbl_8025C400.mSound, FALSE);
-			fn_801CDC34();
+			HSD_PadRumbleActiveAll();
 		}
 	}
 	fn_8001E630(&lbl_8025C400.mSound, -1);

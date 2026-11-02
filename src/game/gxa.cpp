@@ -221,7 +221,7 @@ extern "C" void fn_8001D8C0(void)
  * @note Size: 0x8
  */
 // CCameraActionMap's GetTarget
-extern "C" XObj* fn_8001D9A8(CCameraActionMap* map)
+extern "C" XObj* GetTarget__16CCameraActionMapFv(CCameraActionMap* map)
 {
 	return map->_44;
 }
@@ -230,7 +230,7 @@ extern "C" XObj* fn_8001D9A8(CCameraActionMap* map)
  * @note Address: 0x8001DB44
  * @note Size: 0x4
  */
-extern "C" void fn_8001DB44(AnimSfx* sfx)
+extern "C" void vf08__7AnimSfxFv(AnimSfx* sfx)
 {
 }
 
@@ -239,7 +239,7 @@ extern "C" void fn_8001DB44(AnimSfx* sfx)
  * @note Size: 0x48
  */
 // AnimSfx::GetSfx, steps round the event's sfx ids when it has more than one
-extern "C" s32 fn_8001DB48(AnimSfx* sfx, AnimSfxEvent* event)
+extern "C" s32 GetSfx__7AnimSfxFP12AnimSfxEvent(AnimSfx* sfx, AnimSfxEvent* event)
 {
 	if (event->mCount == 0) {
 		return event->mSfx;
@@ -256,7 +256,7 @@ extern "C" s32 fn_8001DB48(AnimSfx* sfx, AnimSfxEvent* event)
  * @note Size: 0x8
  */
 // AnimSfx::CheckStop
-extern "C" BOOL fn_8001DB90(AnimSfx* sfx, AnimSfxEvent* event)
+extern "C" BOOL CheckStop__7AnimSfxFP12AnimSfxEvent(AnimSfx* sfx, AnimSfxEvent* event)
 {
 	return FALSE;
 }
@@ -266,7 +266,7 @@ extern "C" BOOL fn_8001DB90(AnimSfx* sfx, AnimSfxEvent* event)
  * @note Size: 0x78
  */
 // AnimSfx::CheckStart, whether the event's start or end frame went by
-extern "C" BOOL fn_8001DB98(AnimSfx* sfx, AnimSfxEvent* event, f32 min, f32 max)
+extern "C" BOOL CheckStart__7AnimSfxFP12AnimSfxEventff(AnimSfx* sfx, AnimSfxEvent* event, f32 min, f32 max)
 {
 	f32 a = event->mStart;
 	f32 b = event->mEnd;
@@ -324,7 +324,7 @@ static inline BOOL StopSfx(XSound* sound, s32 sfx)
  */
 // NONMATCHING: the stop's sound fields are addressed off the game object, not the sound
 // AnimSfx::Update
-extern "C" void fn_8001D9B0(AnimSfx* sfx, s32 anim, f32 frame, u8 vol)
+extern "C" void Update__7AnimSfxFlfUc(AnimSfx* sfx, s32 anim, f32 frame, u8 vol)
 {
 	s32 prev = sfx->mAnimId;
 

@@ -18,10 +18,10 @@ static inline void TriggerEvent(XObj* object, u32 first, u32 second)
  * @note Address: 0x800DE038
  * @note Size: 0x28
  */
-extern "C" void fn_800DE038(XObjFree* object)
+extern "C" void Release__8XObjFreeFv(XObjFree* object)
 {
 	object->mMatAnim = NULL;
-	fn_800911C0(object);
+	Release__4XObjFv(object);
 }
 
 // XObjFree::vf98
@@ -29,9 +29,9 @@ extern "C" void fn_800DE038(XObjFree* object)
  * @note Address: 0x800DE060
  * @note Size: 0xEC
  */
-extern "C" void fn_800DE060(XObjFree* object)
+extern "C" void vf98__8XObjFreeFv(XObjFree* object)
 {
-	fn_800928E8(object);
+	vf98__4XObjFv(object);
 	if (object->mAttr._00 != NULL)
 		object->mLife = (s16)object->GetObjFlags();
 	object->mMatAnim = NULL;
@@ -46,7 +46,7 @@ extern "C" void fn_800DE060(XObjFree* object)
  * @note Address: 0x800DE14C
  * @note Size: 0x2D8
  */
-extern "C" BOOL fn_800DE14C(XObjDust* object, const Vec* position, s32 kind)
+extern "C" BOOL vf140__8XObjDustFll(XObjDust* object, const Vec* position, s32 kind)
 {
 	if ((object->GetObjFlags() & 2) && kind == 16) {
 		if (object->GetObjFlags() & 0x10) {
@@ -85,7 +85,7 @@ extern "C" BOOL fn_800DE14C(XObjDust* object, const Vec* position, s32 kind)
  * @note Address: 0x800DE424
  * @note Size: 0x1E4
  */
-extern "C" void fn_800DE424(XObjDust* object, f32 strength)
+extern "C" void vf138__8XObjDustFRC3Vecf(XObjDust* object, f32 strength)
 {
 	if (object->GetObjFlags() & 1) {
 		object->mStatus.mFlags |= 0x4000000000000000ULL;

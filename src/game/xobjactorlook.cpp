@@ -10,7 +10,7 @@ extern Vec lbl_8020B2F0;
  * @note Address: 0x8010753C
  * @note Size: 0xC
  */
-extern "C" bool fn_8010753C(XObjActor* actor)
+extern "C" bool vf160__9XObjActorFv(XObjActor* actor)
 {
 	return (actor->_998.mFlags & 2) != 0;
 }
@@ -20,9 +20,9 @@ extern "C" bool fn_8010753C(XObjActor* actor)
  * @note Size: 0xA0
  */
 // vf138, knocked from pos
-extern "C" void fn_80107548(XObjActor* actor, const Vec* pos, f32 strength)
+extern "C" void vf138__9XObjActorFRC3Vecf(XObjActor* actor, const Vec* pos, f32 strength)
 {
-	fn_8008A6C0(actor, pos, strength);
+	vf138__4XObjFRC3Vecf(actor, pos, strength);
 	actor->_998.mFlags |= 2;
 	f32 x               = pos->x;
 	f32 y               = pos->y;
@@ -39,7 +39,7 @@ extern "C" void fn_80107548(XObjActor* actor, const Vec* pos, f32 strength)
  * @note Address: 0x801075E8
  * @note Size: 0x14
  */
-extern "C" s32 fn_801075E8(XObjActor* actor, s32 unused, s32 value)
+extern "C" s32 vf100__9XObjActorFll(XObjActor* actor, s32 unused, s32 value)
 {
 	actor->_998.mFlags |= 1;
 	return value;
@@ -49,7 +49,7 @@ extern "C" s32 fn_801075E8(XObjActor* actor, s32 unused, s32 value)
  * @note Address: 0x801075FC
  * @note Size: 0x4
  */
-extern "C" void fn_801075FC(XObjActor* actor)
+extern "C" void vfCC__9XObjActorFv(XObjActor* actor)
 {
 }
 
@@ -57,16 +57,16 @@ extern "C" void fn_801075FC(XObjActor* actor)
  * @note Address: 0x80107600
  * @note Size: 0x20
  */
-extern "C" void fn_80107600(XObjActor* actor)
+extern "C" void vfC8__9XObjActorFv(XObjActor* actor)
 {
-	fn_8009047C(actor);
+	vfC8__4XObjFv(actor);
 }
 
 /**
  * @note Address: 0x80107620
  * @note Size: 0x70
  */
-extern "C" void fn_80107620(XObjActor* actor)
+extern "C" void vfAC__9XObjActorFv(XObjActor* actor)
 {
 	if (actor->_998.mFlags & 0x80) {
 		actor->Push(actor->vf168(), 0x80, actor->_AA0);
@@ -79,7 +79,7 @@ extern "C" void fn_80107620(XObjActor* actor)
  * @note Size: 0x8
  */
 // the head's turn limits
-extern "C" f32 fn_80107690(XObjActor* actor)
+extern "C" f32 vf17C__9XObjActorFv(XObjActor* actor)
 {
 	return -20.0f * DEG2RAD;
 }
@@ -88,7 +88,7 @@ extern "C" f32 fn_80107690(XObjActor* actor)
  * @note Address: 0x80107698
  * @note Size: 0x8
  */
-extern "C" f32 fn_80107698(XObjActor* actor)
+extern "C" f32 vf178__9XObjActorFv(XObjActor* actor)
 {
 	return 20.0f * DEG2RAD;
 }
@@ -97,7 +97,7 @@ extern "C" f32 fn_80107698(XObjActor* actor)
  * @note Address: 0x801076A0
  * @note Size: 0x8
  */
-extern "C" f32 fn_801076A0(XObjActor* actor)
+extern "C" f32 vf174__9XObjActorFv(XObjActor* actor)
 {
 	return -80.0f * DEG2RAD;
 }
@@ -106,7 +106,7 @@ extern "C" f32 fn_801076A0(XObjActor* actor)
  * @note Address: 0x801076A8
  * @note Size: 0x8
  */
-extern "C" f32 fn_801076A8(XObjActor* actor)
+extern "C" f32 vf170__9XObjActorFv(XObjActor* actor)
 {
 	return 80.0f * DEG2RAD;
 }

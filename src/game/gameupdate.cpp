@@ -11,7 +11,7 @@ void fn_8000A870(u32 frames);
  * @note Size: 0x48
  */
 // CMenu::Open
-extern "C" void fn_80010CD0(CMenu* menu)
+extern "C" void Open__5CMenuFv(CMenu* menu)
 {
 	menu->mState = 1;
 	menu->Resume();
@@ -23,7 +23,7 @@ extern "C" void fn_80010CD0(CMenu* menu)
  * @note Size: 0x10
  */
 // CMenu::Resume
-extern "C" void fn_80010D18(CMenu* menu)
+extern "C" void Resume__5CMenuFv(CMenu* menu)
 {
 	menu->mSuspended   = FALSE;
 	menu->mSuspendFade = FALSE;
@@ -40,7 +40,7 @@ void fn_8001F46C(XSound* sound, u32 frames);
 void fn_8002E8D0(void* title, u32 frames);
 void fn_80031460(void* menu, u32 frames);
 void fn_8006D548(void* info, u32 frames);
-void fn_80014DA4(FbMirror* mirror, u32 frames);
+void Update__8FbMirrorFUl(FbMirror* mirror, u32 frames);
 void fn_80011270(CGame* game);
 }
 
@@ -51,7 +51,7 @@ void fn_80011270(CGame* game);
 // NONMATCHING: the frame count and the inlined base update's pad pointer swap registers
 // CGame::Update: the base's disc and reset checks, the reset itself, then everything that
 // runs each frame. while the disc can't be read only the sound is paused
-extern "C" void fn_8000FACC(CGame* game, u32 frames)
+extern "C" void Update__5CGameFUl(CGame* game, u32 frames)
 {
 	s32 i;
 	BaseUpdate(game, frames);
@@ -210,7 +210,7 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		game->mSubwin.Update(frames);
 		for (i = 0; i < 5; i++) {
 			if (!IsMirrorOff(&lbl_8035FA24[i])) {
-				fn_80014DA4(&lbl_8035FA24[i], frames);
+				Update__8FbMirrorFUl(&lbl_8035FA24[i], frames);
 			}
 		}
 	}
@@ -262,7 +262,7 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 	} else if (game->mStatus.mFlags & 4) {
 		game->mStatus.mFlags &= ~4;
 		fn_8001E11C(&lbl_8025C400.mSound, FALSE);
-		fn_801CDC34();
+		HSD_PadRumbleActiveAll();
 	}
 }
 

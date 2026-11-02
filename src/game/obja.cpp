@@ -81,7 +81,7 @@ extern "C" CVec fn_800901E8(const Vec* source, const Vec* normal)
  * @note Address: 0x80090254
  * @note Size: 0x50
  */
-extern "C" void fn_80090254(XObj* object)
+extern "C" void ClearAnim__4XObjFv(XObj* object)
 {
 	object->CXObj::ClearAnim();
 	object->mStatus.mFlags &= ~0x0008000000000000ULL;
@@ -91,8 +91,8 @@ extern "C" void fn_80090254(XObj* object)
  * @note Address: 0x800902A4
  * @note Size: 0x1D8
  */
-extern "C" void fn_800902A4(XObj* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
-                            f32 blend, f32 blendRate)
+extern "C" void SetAnim__4XObjFliPvPvPvffff(XObj* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame,
+                                            f32 rate, f32 blend, f32 blendRate)
 {
 	if (object->mStatus.mFlags & 0x0020000000000000ULL)
 		blend = 1.0f;
@@ -113,7 +113,7 @@ extern "C" void fn_800902A4(XObj* object, s32 id, BOOL force, void* jointAnim, v
  * @note Address: 0x8009047C
  * @note Size: 0xEC
  */
-extern "C" void fn_8009047C(XObj* object)
+extern "C" void vfC8__4XObjFv(XObj* object)
 {
 	if ((object->mStatus.mFlags & 0x800ULL) && (object->mStatus.mFlags & 0x10000ULL)) {
 		HSD_JObjSetFlags(object->mJObj, CLASSICAL_SCALE);
@@ -129,7 +129,7 @@ extern "C" void fn_8009047C(XObj* object)
  * @note Address: 0x80090568
  * @note Size: 0x4
  */
-extern "C" void fn_80090568()
+extern "C" void vfC4__4XObjFv()
 {
 }
 
@@ -137,7 +137,7 @@ extern "C" void fn_80090568()
  * @note Address: 0x8009056C
  * @note Size: 0x2F8
  */
-extern "C" void fn_8009056C(XObj* object, const Vec* origin, f32 opacity)
+extern "C" void vfBC__4XObjFPC3Vecf(XObj* object, const Vec* origin, f32 opacity)
 {
 	if (!(object->mStatus.mFlags & 8ULL))
 		return;
@@ -178,7 +178,7 @@ extern "C" void fn_8009056C(XObj* object, const Vec* origin, f32 opacity)
  * @note Address: 0x80090864
  * @note Size: 0x5C
  */
-extern "C" void fn_80090864(XObj* object)
+extern "C" void vfB8__4XObjFv(XObj* object)
 {
 	if (object->mStatus.mFlags & 8ULL) {
 		object->vfBC(&object->mMoveTranslate, 1.0f);
@@ -189,7 +189,7 @@ extern "C" void fn_80090864(XObj* object)
  * @note Address: 0x800908C0
  * @note Size: 0x3C4
  */
-extern "C" void fn_800908C0(XObj* object, Mtx view)
+extern "C" void vfB0__4XObjFPA4_f(XObj* object, Mtx view)
 {
 	HSD_AObj* animation = GetAObj(object->mJObj);
 	if (animation != NULL && (animation->flags & (AOBJ_NO_ANIM | AOBJ_REWINDED)) && object->HasQueuedAnim()) {
@@ -221,7 +221,7 @@ extern "C" void fn_800908C0(XObj* object, Mtx view)
  * @note Address: 0x80090C84
  * @note Size: 0x250
  */
-extern "C" void fn_80090C84(XObj* object, u32 frames)
+extern "C" void vfA8__4XObjFUl(XObj* object, u32 frames)
 {
 	if (object->mJObj != NULL) {
 		for (s32 i = 0; i < 2; ++i) {
@@ -241,7 +241,7 @@ extern "C" void fn_80090C84(XObj* object, u32 frames)
  * @note Address: 0x80090ED4
  * @note Size: 0x2EC
  */
-extern "C" void fn_80090ED4(XObj* object, u32 frames)
+extern "C" void vfA4__4XObjFUl(XObj* object, u32 frames)
 {
 	if (object->mJObj != NULL) {
 		object->vfA8(frames);
@@ -291,7 +291,7 @@ extern "C" void fn_80090ED4(XObj* object, u32 frames)
  * @note Address: 0x800911C0
  * @note Size: 0xF4
  */
-extern "C" void fn_800911C0(XObj* object)
+extern "C" void Release__4XObjFv(XObj* object)
 {
 	CJArchive* archive = &object->mAnim;
 	archive->Release();
@@ -356,7 +356,7 @@ extern "C" void fn_8009136C(HSD_JObj* joint, f32** arguments, s32 type)
  * @note Address: 0x8009146C
  * @note Size: 0x60
  */
-extern "C" void fn_8009146C(CXObj* object)
+extern "C" void vfE8__4XObjFv(CXObj* object)
 {
 	void* arguments[1] = { NULL };
 	arguments[0]       = object;
@@ -369,7 +369,7 @@ extern "C" void fn_8009146C(CXObj* object)
  * @note Address: 0x800914CC
  * @note Size: 0x74
  */
-extern "C" void fn_800914CC(CXObj* object, f32 alpha)
+extern "C" void vfE4__4XObjFf(CXObj* object, f32 alpha)
 {
 	void* arguments[2] = { NULL, NULL };
 	arguments[0]       = object;
@@ -412,7 +412,7 @@ extern "C" void fn_80091540(HSD_JObj* joint, f32** arguments, s32 type)
  * @note Address: 0x8009172C
  * @note Size: 0x58
  */
-extern "C" void fn_8009172C(CXObj* object, f32 factor)
+extern "C" void vfE0__4XObjFf(CXObj* object, f32 factor)
 {
 	void* arguments[2] = { NULL, NULL };
 	arguments[0]       = object;
@@ -445,7 +445,7 @@ extern "C" void fn_80091784(HSD_JObj* joint, f32** arguments, s32 type)
  * @note Address: 0x80091834
  * @note Size: 0x54
  */
-extern "C" void fn_80091834(CXObj* object, BOOL enabled, u8 value)
+extern "C" void vfDC__4XObjFiUc(CXObj* object, BOOL enabled, u8 value)
 {
 	void* arguments[2] = { NULL, NULL };
 	arguments[0]       = (void*)enabled;

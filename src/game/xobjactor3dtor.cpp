@@ -39,7 +39,7 @@ static inline void HideItems(s32 kind)
 // the event commands: 100 carries another object at one of its joints, or lets go of all
 // of them, anything else is kept for the kind's function to read
 // NONMATCHING: argv[1] and the 0x40B item loop take other registers, as in game/xobjspider
-extern "C" s32 fn_80108794(XObjActor3* actor, s32 argc, s32* argv)
+extern "C" s32 vf124__10XObjActor3FlPl(XObjActor3* actor, s32 argc, s32* argv)
 {
 	switch (argv[0]) {
 	case 100:
@@ -159,10 +159,10 @@ extern "C" s32 fn_80108794(XObjActor3* actor, s32 argc, s32* argv)
  * @note Address: 0x80108728
  * @note Size: 0x6C
  */
-extern "C" void fn_80108728(XObjActor3* actor, const Vec* pos, f32 f)
+extern "C" void vf138__10XObjActor3FRC3Vecf(XObjActor3* actor, const Vec* pos, f32 f)
 {
 	if (actor->GetItem() == 1) {
-		fn_8008A6C0(actor, pos, f);
+		vf138__4XObjFRC3Vecf(actor, pos, f);
 	} else if (!actor->_B8C.Check(1)) {
 		actor->_B8C.mFlags |= 1;
 	}
@@ -172,10 +172,10 @@ extern "C" void fn_80108728(XObjActor3* actor, const Vec* pos, f32 f)
  * @note Address: 0x80108694
  * @note Size: 0x94
  */
-extern "C" void fn_80108694(XObjActor3* actor, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
-                            f32 blend, f32 blendRate)
+extern "C" void SetAnim__10XObjActor3FliPvPvPvffff(XObjActor3* actor, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
+                                                   f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
-	fn_800902A4(actor, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+	SetAnim__4XObjFliPvPvPvffff(actor, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	if (actor->GetKind() == 0x31B) {
 		if (actor->mAnimId == 7) {
 			actor->mSe = fn_8001E904(&lbl_8025C400.mSound, 0xB0000, 0xFF);

@@ -8,7 +8,7 @@
  * @note Size: 0xB8
  */
 // CGame's vf24, every live object's vfC8, then the stage's function 4
-extern "C" void fn_8000C398(CGame* game)
+extern "C" void vf24__5CGameFv(CGame* game)
 {
 	if (game->mStatus.mFlags & 1ULL) {
 		for (s32 i = 0; i < game->mXObjs.mObjectCount; ++i) {

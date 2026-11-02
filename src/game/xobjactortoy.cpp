@@ -600,7 +600,7 @@ extern "C" void fn_8011EE8C(XObjActorToy* object)
 // NONMATCHING: regalloc
 void XObjActorToy::vf148(u32 frames)
 {
-	fn_80107750(this, frames);
+	vf148__9XObjActorFUl(this, frames);
 	switch (GetKind()) {
 	case 0xF:
 		fn_8011CF94(this, frames);

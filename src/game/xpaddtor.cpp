@@ -28,7 +28,7 @@ void* __dt__9CJointRotFv(void* object, s32 flags)
  */
 // Params::~Params, its vtable is its last word
 // todo: weak copy
-void* fn_800BD1C4(void* object, s32 flags)
+void* __dt__6ParamsFv(void* object, s32 flags)
 {
 	if (object != NULL) {
 		*(void***)((u8*)object + 0x440) = __vt__6Params;
@@ -43,7 +43,7 @@ void* fn_800BD1C4(void* object, s32 flags)
  * @note Size: 0x5C
  */
 // todo: weak copy
-XPad* fn_800BD20C(XPad* pad, s32 flags)
+XPad* __dt__4XPadFv(XPad* pad, s32 flags)
 {
 	if (pad != NULL) {
 		*(void***)((u8*)pad + sizeof(CPadOne) - 4) = __vt__4XPad;

@@ -3533,11 +3533,11 @@ extern "C" void fn_800825A8(CMsg* msg)
 */
 
 extern "C" {
-void fn_80017BB0(CJObj* object, f32 x, f32 y, f32 z, s32 force);
-void fn_80017E68(CJObj* object, f32 x, f32 y, f32 z, s32 force);
-void fn_80017878(CJObj* object, f32 yaw, s32 force);
-void fn_80017D1C(CJObj* object, const Vec& position, s32 force);
-void fn_80017FD0(CJObj* object, const Vec& scale, s32 force);
+void SetTranslate__5CJObjFfffl(CJObj* object, f32 x, f32 y, f32 z, s32 force);
+void SetScale__5CJObjFfffl(CJObj* object, f32 x, f32 y, f32 z, s32 force);
+void SetRotationY__5CJObjFfl(CJObj* object, f32 yaw, s32 force);
+void SetTranslate__5CJObjFRC3Vecl(CJObj* object, const Vec& position, s32 force);
+void SetScale__5CJObjFRC3Vecl(CJObj* object, const Vec& scale, s32 force);
 #if defined(VERSION_JP)
 void fn_80086BC4(u8* game);
 #elif defined(VERSION_PAL)
@@ -3815,15 +3815,15 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					f32 oldYaw      = portrait->mMoveRotate.y;
 					CJObj joint(portrait->mJObj);
 					f32 depth = 80.0f * portraitScale;
-					fn_80017BB0(&joint, portraitX, portraitY, depth, 1);
-					fn_80017E68(&joint, scale, -scale, scale, 1);
-					fn_80017878(&joint, 0.0f, 1);
+					SetTranslate__5CJObjFfffl(&joint, portraitX, portraitY, depth, 1);
+					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
+					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
 					HSD_JObjSetupMatrix(joint.mJObj);
 					s32 path[6] = { 0, 3, 0, 0, 0, 0 };
 					f32 height  = fn_8007E7F4((CJObj*)portrait, 6, path).y;
-					fn_80017BB0(&joint, portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
-					fn_80017E68(&joint, scale, -scale, scale, 1);
-					fn_80017878(&joint, 0.0f, 1);
+					SetTranslate__5CJObjFfffl(&joint, portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
+					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
+					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
 					HSD_JObjSetFlags(portrait->mJObj, 8);
 					u32 oldColor                                      = *(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168));
 					s32 oldMode                                       = *(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164));
@@ -3834,10 +3834,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					joint.CJObj::SetTranslate(oldPosition, 1);
 					joint.CJObj::SetScale(oldScale, 1);
 #else
-				fn_80017D1C(&joint, oldPosition, 1);
-				fn_80017FD0(&joint, oldScale, 1);
+				SetTranslate__5CJObjFRC3Vecl(&joint, oldPosition, 1);
+				SetScale__5CJObjFRC3Vecl(&joint, oldScale, 1);
 #endif
-					fn_80017878(&joint, oldYaw, 1);
+					SetRotationY__5CJObjFfl(&joint, oldYaw, 1);
 					HSD_JObjClearFlags(portrait->mJObj, 8);
 					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = oldColor;
 					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = oldMode;
@@ -5089,18 +5089,18 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmuls    f16, f0, f26
     li       r4, 0x1
     fmr      f3, f16
-    bl       fn_80017BB0
+    bl       SetTranslate__5CJObjFfffl
     fneg     f17, f20
     addi     r3, r1, 0x254
     fmr      f1, f20
     li       r4, 0x1
     fmr      f3, f20
     fmr      f2, f17
-    bl       fn_80017E68
+    bl       SetScale__5CJObjFfffl
     lfs      f1, lbl_8065D058@sda21(r0)
     addi     r3, r1, 0x254
     li       r4, 0x1
-    bl       fn_80017878
+    bl       SetRotationY__5CJObjFfl
     lwz      r21, 0x254(r1)
     cmplwi   r21, 0x0
     beq      .L_80083970
@@ -5152,17 +5152,17 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     li       r4, 0x1
     fsubs    f0, f2, f0
     fadds    f2, f19, f0
-    bl       fn_80017BB0
+    bl       SetTranslate__5CJObjFfffl
     fmr      f1, f20
     addi     r3, r1, 0x254
     fmr      f2, f17
     li       r4, 0x1
     fmr      f3, f20
-    bl       fn_80017E68
+    bl       SetScale__5CJObjFfffl
     lfs      f1, lbl_8065D058@sda21(r0)
     addi     r3, r1, 0x254
     li       r4, 0x1
-    bl       fn_80017878
+    bl       SetRotationY__5CJObjFfl
     lwz      r3, 0x0(r22)
     li       r4, 0x8
     bl       HSD_JObjSetFlags
@@ -5284,7 +5284,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f1, f15
     addi     r3, r1, 0x254
     li       r4, 0x1
-    bl       fn_80017878
+    bl       SetRotationY__5CJObjFfl
     lwz      r3, 0x0(r22)
     li       r4, 0x8
     bl       HSD_JObjClearFlags

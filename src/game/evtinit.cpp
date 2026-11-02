@@ -34,7 +34,7 @@ extern "C" void fn_8007F194(CEvt* evt, u8* context, void* owner)
 			lbl_80367A2C[i] = 0;
 		ClearQueue();
 		ClearTimers();
-		fn_800929C4(&lbl_8036A0B0, 0);
+		vf90__4XObjFUl(&lbl_8036A0B0, 0);
 	}
 	fn_80192214(&evt->mCalls, 32);
 	fn_80192214(&evt->mFrames, 64);

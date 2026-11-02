@@ -8,7 +8,7 @@
 // Dolphin/os.h resolves to the hsd copy, whose OSHeapHandle clashes with OSAlloc.h
 extern "C" void OSPanic(const char* file, int line, const char* message, ...);
 
-extern "C" void fn_80132950(XOBJS* list);
+extern "C" void ReadAll__5XOBJSFv(XOBJS* list);
 
 // one request slot in a reader
 struct UnkXObjReadReq {
@@ -93,7 +93,7 @@ extern "C" void fn_801320F4(void* arg)
  * @note Size: 0x4
  */
 // XObjRead::vf18, XObjReadAll overrides it
-extern "C" void fn_80132140(void* self)
+extern "C" void vf18__8XObjReadFP11XObjReadReq(void* self)
 {
 }
 
@@ -112,7 +112,7 @@ extern "C" BOOL fn_80132144(XObj* obj, XOBJS* list)
  * @note Size: 0xA8
  */
 // vf18 for the requests fn_801322A4 posts
-extern "C" void fn_801321FC(void* self, UnkXObjReadReq* req)
+extern "C" void vf18__11XObjReadOneFP11XObjReadReq(void* self, UnkXObjReadReq* req)
 {
 	XObj* obj = (XObj*)req->_00;
 	CoordInfo info(req->_04);
@@ -154,9 +154,9 @@ extern "C" void fn_80132358(void* arg)
  * @note Size: 0x38
  */
 // XObjReadAll::vf18
-extern "C" void fn_801323A4(void* self, UnkXObjReadReq* req)
+extern "C" void vf18__11XObjReadAllFP11XObjReadReq(void* self, UnkXObjReadReq* req)
 {
-	fn_80132950((XOBJS*)req->_04);
+	ReadAll__5XOBJSFv((XOBJS*)req->_04);
 	req->_00 = NULL;
 }
 
@@ -180,7 +180,7 @@ extern "C" void fn_801323DC(void* arg)
  * @note Address: 0x80132428
  * @note Size: 0x40
  */
-extern "C" void fn_80132428(XObjRead* self)
+extern "C" void vf14__8XObjReadFv(XObjRead* self)
 {
 	OSMessage msg;
 	while (true) {
@@ -250,7 +250,8 @@ extern "C" BOOL fn_80132468(XObjRead* self, void* obj, XOBJS* list)
  * @note Size: 0xC8
  */
 // XObjRead::vf0C
-extern "C" s32 fn_80132504(XObjRead* self, OSThreadStartFunction func, void* param, u32 stackSize, OSPriority priority, u16 attr)
+extern "C" s32 Create__8XObjReadFPFPv_PvPvUllUs(XObjRead* self, OSThreadStartFunction func, void* param, u32 stackSize, OSPriority priority,
+                                                u16 attr)
 {
 	self->_328.vf0C(8);
 	for (s32 i = 0; i < 8; i++) {
@@ -270,7 +271,7 @@ extern "C" s32 fn_80132504(XObjRead* self, OSThreadStartFunction func, void* par
  * @note Size: 0x54
  */
 // CMsgQueue::vf0C
-extern "C" void fn_801325CC(CMsgQueue* self, s32 count)
+extern "C" void vf0C__9CMsgQueueFl(CMsgQueue* self, s32 count)
 {
 	self->_20 = (OSMessage*)OSAllocFromHeap(__OSCurrHeap, count * sizeof(OSMessage));
 	OSInitMessageQueue(&self->_00, self->_20, count);
@@ -549,12 +550,12 @@ inline void XOBJS::ReadAll()
 }
 
 // out of line XOBJS::ReadAll
-extern "C" void fn_80132950(XOBJS* list)
+extern "C" void ReadAll__5XOBJSFv(XOBJS* list)
 {
 	list->ReadAll();
 }
 
-// fn_80132950
+// ReadAll__5XOBJSFv
 /*
     stwu     r1, -0x30(r1)
     mflr     r0

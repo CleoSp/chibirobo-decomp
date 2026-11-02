@@ -25,7 +25,7 @@ extern u8 lbl_802162E0[12];
  * @note Address: 0x8001552C
  * @note Size: 0x8
  */
-extern "C" BOOL fn_8001552C(CBase* base)
+extern "C" BOOL BeforeUpdate__5CBaseFv(CBase* base)
 {
 	return TRUE;
 }
@@ -35,7 +35,7 @@ extern "C" BOOL fn_8001552C(CBase* base)
  * @note Size: 0x100
  */
 // CBase's Start
-extern "C" void fn_80015534(CBase* base)
+extern "C" void Start__5CBaseFv(CBase* base)
 {
 	fn_8001D8C0();
 	fn_8001D51C(base);
@@ -53,9 +53,9 @@ extern "C" void fn_80015534(CBase* base)
 	base->mLanguage = 0;
 #endif
 #if defined(VERSION_JP)
-	fn_8019EC40(&base->mFont);
+	Init__5CFontFv(&base->mFont);
 #else
-	fn_8019EC40(&base->mFont, lbl_8025C400.mLanguage != 6);
+	Init__5CFontFi(&base->mFont, lbl_8025C400.mLanguage != 6);
 #endif
 	base->mPad.Init();
 	base->mLastRetrace   = 0;
@@ -80,7 +80,7 @@ extern "C" void fn_80015534(CBase* base)
  * @note Address: 0x800153B4
  * @note Size: 0x4
  */
-extern "C" void fn_800153B4(CBase* base)
+extern "C" void vf24__5CBaseFv(CBase* base)
 {
 }
 
@@ -88,7 +88,7 @@ extern "C" void fn_800153B4(CBase* base)
  * @note Address: 0x800153B8
  * @note Size: 0x4
  */
-extern "C" void fn_800153B8(CBase* base)
+extern "C" void vf20__5CBaseFv(CBase* base)
 {
 }
 
@@ -96,7 +96,7 @@ extern "C" void fn_800153B8(CBase* base)
  * @note Address: 0x80015634
  * @note Size: 0x4
  */
-extern "C" void fn_80015634(CBase* base, int argc, char** argv)
+extern "C" void Initialize__5CBaseFiPPc(CBase* base, int argc, char** argv)
 {
 }
 
@@ -104,7 +104,7 @@ extern "C" void fn_80015634(CBase* base, int argc, char** argv)
  * @note Address: 0x80015638
  * @note Size: 0x8
  */
-extern "C" s32 fn_80015638(CBase* base)
+extern "C" s32 FrameInterval__5CBaseFv(CBase* base)
 {
 	return 1;
 }
@@ -113,7 +113,7 @@ extern "C" s32 fn_80015638(CBase* base)
  * @note Address: 0x80015640
  * @note Size: 0x4
  */
-extern "C" void fn_80015640(CBase* base)
+extern "C" void Draw__5CBaseFv(CBase* base)
 {
 }
 
@@ -131,7 +131,7 @@ void OSResetSystem(int reset, u32 code, BOOL forceMenu);
  * @note Address: 0x800153BC
  * @note Size: 0x170
  */
-extern "C" void fn_800153BC(CBase* base, u32 frames)
+extern "C" void Update__5CBaseFUl(CBase* base, u32 frames)
 {
 	BaseUpdate(base, frames);
 }
@@ -164,7 +164,7 @@ inline void ResetSystem(u32 code)
  * @note Size: 0x60
  */
 // CBase::Reset
-extern "C" void fn_800152A0(CBase* base, u32 code)
+extern "C" void Reset__5CBaseFUl(CBase* base, u32 code)
 {
 	ResetSystem(code);
 }
@@ -244,7 +244,7 @@ void main(int argc, char** argv)
  * @note Address: 0x800151DC
  * @note Size: 0x4
  */
-extern "C" void fn_800151DC(void)
+extern "C" void Reset__8FbMirrorFv(void)
 {
 }
 
@@ -255,7 +255,7 @@ extern "C" void fn_800151DC(void)
 // NONMATCHING: the surface check is a compare where the original tests a bool
 // FbMirror::Update, puts the mirror camera at the main camera's eye reflected in the surface,
 // looking at the surface through a frustum that just fits it
-extern "C" void fn_80014DA4(FbMirror* mirror, u32 frames)
+extern "C" void Update__8FbMirrorFUl(FbMirror* mirror, u32 frames)
 {
 	HSD_JObj* jobj = mirror->mJoint;
 	if (jobj != NULL) {
@@ -318,7 +318,7 @@ extern "C" void fn_80014DA4(FbMirror* mirror, u32 frames)
  * @note Size: 0xC0
  */
 // FbMirror::Init
-extern "C" void fn_800151E0(FbMirror* mirror)
+extern "C" void Init__8FbMirrorFv(FbMirror* mirror)
 {
 	mirror->mJoint = NULL;
 	mirror->mCamera.Init(0.1f, 32768.0f, 0.5f, -0.5f, -0.5f, 0.5f, &lbl_8025C400.mGs.mScreen);

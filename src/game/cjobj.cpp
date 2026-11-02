@@ -145,7 +145,7 @@ extern "C" CJObj* __dt__5CJObjFv(CJObj* obj, s32 flags)
  * @note Address: 0x80017244
  * @note Size: 0xC4
  */
-extern "C" void fn_80017244(CJObj* jobj, f32 x, s32 force)
+extern "C" void SetTranslateX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
 {
 	jobj->CJObj::SetTranslateX(x, force);
 }
@@ -154,7 +154,7 @@ extern "C" void fn_80017244(CJObj* jobj, f32 x, s32 force)
  * @note Address: 0x80017308
  * @note Size: 0xC4
  */
-extern "C" void fn_80017308(CJObj* jobj, f32 y, s32 force)
+extern "C" void SetTranslateY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
 {
 	jobj->CJObj::SetTranslateY(y, force);
 }
@@ -163,7 +163,7 @@ extern "C" void fn_80017308(CJObj* jobj, f32 y, s32 force)
  * @note Address: 0x800173CC
  * @note Size: 0xC4
  */
-extern "C" void fn_800173CC(CJObj* jobj, f32 z, s32 force)
+extern "C" void SetTranslateZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
 {
 	jobj->CJObj::SetTranslateZ(z, force);
 }
@@ -172,7 +172,7 @@ extern "C" void fn_800173CC(CJObj* jobj, f32 z, s32 force)
  * @note Address: 0x80017490
  * @note Size: 0xC4
  */
-extern "C" void fn_80017490(CJObj* jobj, f32 x, s32 force)
+extern "C" void SetScaleX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
 {
 	jobj->CJObj::SetScaleX(x, force);
 }
@@ -181,7 +181,7 @@ extern "C" void fn_80017490(CJObj* jobj, f32 x, s32 force)
  * @note Address: 0x80017554
  * @note Size: 0xC4
  */
-extern "C" void fn_80017554(CJObj* jobj, f32 y, s32 force)
+extern "C" void SetScaleY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
 {
 	jobj->CJObj::SetScaleY(y, force);
 }
@@ -190,7 +190,7 @@ extern "C" void fn_80017554(CJObj* jobj, f32 y, s32 force)
  * @note Address: 0x80017618
  * @note Size: 0xC4
  */
-extern "C" void fn_80017618(CJObj* jobj, f32 z, s32 force)
+extern "C" void SetScaleZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
 {
 	jobj->CJObj::SetScaleZ(z, force);
 }
@@ -199,7 +199,7 @@ extern "C" void fn_80017618(CJObj* jobj, f32 z, s32 force)
  * @note Address: 0x800176DC
  * @note Size: 0x19C
  */
-extern "C" void fn_800176DC(CJObj* jobj, f32 x, s32 force)
+extern "C" void SetRotationX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
 {
 	jobj->CJObj::SetRotationX(x, force);
 }
@@ -208,7 +208,7 @@ extern "C" void fn_800176DC(CJObj* jobj, f32 x, s32 force)
  * @note Address: 0x80017878
  * @note Size: 0x19C
  */
-extern "C" void fn_80017878(CJObj* jobj, f32 y, s32 force)
+extern "C" void SetRotationY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
 {
 	jobj->CJObj::SetRotationY(y, force);
 }
@@ -217,7 +217,7 @@ extern "C" void fn_80017878(CJObj* jobj, f32 y, s32 force)
  * @note Address: 0x80017A14
  * @note Size: 0x19C
  */
-extern "C" void fn_80017A14(CJObj* jobj, f32 z, s32 force)
+extern "C" void SetRotationZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
 {
 	jobj->CJObj::SetRotationZ(z, force);
 }
@@ -226,7 +226,7 @@ extern "C" void fn_80017A14(CJObj* jobj, f32 z, s32 force)
  * @note Address: 0x80017BB0
  * @note Size: 0x16C
  */
-extern "C" void fn_80017BB0(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetTranslate__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
 {
 	jobj->CJObj::SetTranslate(x, y, z, force);
 }
@@ -235,7 +235,7 @@ extern "C" void fn_80017BB0(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
  * @note Address: 0x80017D1C
  * @note Size: 0x14C
  */
-extern "C" void fn_80017D1C(CJObj* jobj, const Vec& v, s32 force)
+extern "C" void SetTranslate__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
 {
 	jobj->CJObj::SetTranslate(v, force);
 }
@@ -244,7 +244,7 @@ extern "C" void fn_80017D1C(CJObj* jobj, const Vec& v, s32 force)
  * @note Address: 0x80017E68
  * @note Size: 0x168
  */
-extern "C" void fn_80017E68(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetScale__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
 {
 	jobj->CJObj::SetScale(x, y, z, force);
 }
@@ -253,7 +253,7 @@ extern "C" void fn_80017E68(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
  * @note Address: 0x80017FD0
  * @note Size: 0x148
  */
-extern "C" void fn_80017FD0(CJObj* jobj, const Vec& v, s32 force)
+extern "C" void SetScale__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
 {
 	jobj->CJObj::SetScale(v, force);
 }
@@ -262,7 +262,7 @@ extern "C" void fn_80017FD0(CJObj* jobj, const Vec& v, s32 force)
  * @note Address: 0x80018118
  * @note Size: 0x21C
  */
-extern "C" void fn_80018118(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
+extern "C" void SetRotation__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
 {
 	Quaternion q;
 
@@ -288,7 +288,7 @@ extern "C" void fn_80018118(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
  * @note Address: 0x80018334
  * @note Size: 0x1FC
  */
-extern "C" void fn_80018334(CJObj* jobj, const Vec& v, s32 force)
+extern "C" void SetRotation__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
 {
 	if (force == 0 && !(jobj->mRotate != v)) {
 		return;
@@ -309,7 +309,7 @@ extern "C" void fn_80018334(CJObj* jobj, const Vec& v, s32 force)
  * @note Address: 0x80018530
  * @note Size: 0x80
  */
-extern "C" void fn_80018530(CJObj* jobj, f32 rate, u32 mask)
+extern "C" void SetAnimRate__5CJObjFfUl(CJObj* jobj, f32 rate, u32 mask)
 {
 	jobj->CJObj::SetAnimRate(rate, mask);
 }
