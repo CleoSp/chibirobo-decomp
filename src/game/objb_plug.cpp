@@ -1,39 +1,27 @@
-#include "game/objb.h"
+#include "game/xchr.h"
+#include "game/cgame.h"
+#include "game/cgs.h"
+#include "game/texturecopy.h"
+#include "game/ccamera.h"
+#include "game/cparticle.h"
+#include "game/stagedata.h"
 
-// XObjWireEff, the sparks along the wire, and XObjPlug, the plug the robot pulls around
+// XObjWireEff, the sparks along the cord, and XObjPlug, the plug chibi robo pulls around
 
-extern "C" {
-void fn_8019B278(UnkRenderA* obj, s32 on);
-void fn_8019AED0(UnkRenderB* obj, s32 on);
-void fn_8019AE94(UnkRenderC* obj, s32 on);
-void HSD_StateInvalidate(s32 state);
-void fn_800DA4D0(XObjPlugWire* wire, void* stage, f32 x, f32 y, f32 z);
-void fn_800DA68C(XObjPlugWire* wire, u32 frames, f32 x, f32 y, f32 z);
-void fn_800DB7A8(XObjPlugWire* wire, s32 on, u8 mode);
-void fn_800DB810(XObjPlugWire* wire, f32 x, f32 y, f32 z);
-void fn_800DBA7C(XObjPlugWire* wire, s32 count, f32 x, f32 y, f32 z, f32 w);
+static inline void ClearAnim(XObjWireEff* object)
+{
+	object->mStatus.mFlags &= ~0x10000ULL;
+	object->mAnim   = -1;
+	object->mEffect = -1;
 }
 
-static inline void KillGen(HSD_Generator*& gen)
+static inline void KillEffect(XObjWireEff* object)
 {
-	if (gen != NULL) {
-		lbl_8025C400.mParticle.Kill(gen);
-		gen = NULL;
+	if (object->mGenerator != NULL) {
+		(&lbl_8025C400.mParticle)->Kill(object->mGenerator);
+		object->mGenerator = NULL;
 	}
 }
-
-static inline void StopWireEff(XObjWireEff* obj)
-{
-	obj->mFlags &= ~0x10000ULL;
-	obj->mAnim   = -1;
-	obj->mEffect = -1;
-	if (obj->mGen != NULL) {
-		lbl_8025C400.mParticle.Kill(obj->mGen);
-		obj->mGen = NULL;
-	}
-}
-
-// ---- functions ----
 
 extern "C" {
 
@@ -41,203 +29,168 @@ extern "C" {
  * @note Address: 0x800D7D3C
  * @note Size: 0x7C
  */
-void fn_800D7D3C(XObjWireEff* obj)
+void fn_800D7D3C(XObjWireEff* object)
 {
-	StopWireEff(obj);
+	ClearAnim(object);
+	KillEffect(object);
 }
 
 /**
  * @note Address: 0x800D7DB8
  * @note Size: 0x16C
  */
-void fn_800D7DB8(XObjWireEff* obj, s32 anim, s32 effect, f32 rate, u32 color)
+void fn_800D7DB8(XObjWireEff* object, s32 anim, s32 effect, f32 rate, u32 color)
 {
-	obj->mAnim   = anim;
-	obj->mEffect = effect;
-	obj->mRate   = rate;
-	if (obj->mAnim >= 0) {
-		obj->mFlags |= 0x10000ULL;
-		obj->SetAnim(obj->mAnim, FALSE, NULL, NULL, NULL, 0.0f, obj->mRate, 0.0f, 10.0f);
+	object->mAnim   = anim;
+	object->mEffect = effect;
+	object->mRate   = rate;
+	if (object->mAnim >= 0) {
+		object->mStatus.mFlags |= 0x10000ULL;
+		object->SetAnim(object->mAnim, FALSE, NULL, NULL, NULL, 0.0f, object->mRate, 0.0f, 10.0f);
 	} else {
-		obj->mFlags &= ~0x10000ULL;
+		object->mStatus.mFlags &= ~0x10000ULL;
 	}
-	if (obj->mEffect >= 0) {
-		KillGen(obj->mGen);
-		obj->mGen = lbl_8025C400.mParticle.Create(0x10052, 0, obj->mJObj, FALSE);
+	if (object->mEffect >= 0) {
+		KillEffect(object);
+		object->mGenerator = (&lbl_8025C400.mParticle)->Create(0x10052, 0, object->mJObj, FALSE);
 	} else {
-		KillGen(obj->mGen);
+		KillEffect(object);
 	}
-	obj->SetColor(0, color >> 24, color >> 16, color >> 8, 0.0f);
+	object->vf12C(0, color >> 24, color >> 16, color >> 8, 0.0f);
 }
 
+// XObjWireEff::vfB0
 /**
  * @note Address: 0x800D7F24
  * @note Size: 0x60
  */
-void fn_800D7F24(XObjWireEff* obj, u32 frames)
+void fn_800D7F24(XObjWireEff* object, Mtx view)
 {
-	if ((obj->mFlags & 1) && (obj->mFlags & 0x10000)) {
-		fn_800908C0(obj, frames);
+	if ((object->mStatus.mFlags & 1) && (object->mStatus.mFlags & 0x10000)) {
+		fn_800908C0(object, view);
 	}
 }
 
+// XObjWireEff::vfA4
 /**
  * @note Address: 0x800D7F84
  * @note Size: 0x60
  */
-void fn_800D7F84(XObjWireEff* obj, u32 frames)
+void fn_800D7F84(XObjWireEff* object, u32 frames)
 {
-	if (obj->mFlags & 1) {
-		if (obj->mAnim >= 0 || obj->mEffect >= 0) {
-			fn_80090ED4(obj, frames);
-		}
+	if ((object->mStatus.mFlags & 1) && (object->mAnim >= 0 || object->mEffect >= 0)) {
+		fn_80090ED4(object, frames);
 	}
 }
 
+// XObjWireEff::Release
 /**
  * @note Address: 0x800D7FE4
  * @note Size: 0x84
  */
-void fn_800D7FE4(XObjWireEff* obj)
+void fn_800D7FE4(XObjWireEff* object)
 {
-	StopWireEff(obj);
-	fn_800911C0(obj);
+	ClearAnim(object);
+	KillEffect(object);
+	fn_800911C0(object);
 }
 
+// XObjWireEff::vf98
 /**
  * @note Address: 0x800D8068
  * @note Size: 0x60
  */
-void fn_800D8068(XObjWireEff* obj)
+void fn_800D8068(XObjWireEff* object)
 {
-	fn_800928E8(obj);
-	obj->mFlags &= ~0x10000ULL;
-	obj->mAnim   = -1;
-	obj->mEffect = -1;
-	obj->mGen    = NULL;
+	fn_800928E8(object);
+	ClearAnim(object);
+	object->mGenerator = NULL;
 }
 
 /**
  * @note Address: 0x800D80C8
  * @note Size: 0xC
  */
-void fn_800D80C8(XObjPlug* obj)
+void fn_800D80C8(XObjPlug* object)
 {
-	obj->_16D8 = -1;
+	object->mWire._990 = -1;
 }
 
 /**
  * @note Address: 0x800D80D4
  * @note Size: 0x10
  */
-void fn_800D80D4(XObjPlug* obj, s32 value)
+void fn_800D80D4(XObjPlug* object, s32 value)
 {
-	obj->_16D8 = value;
-	obj->_16DC = -1;
+	object->mWire._990 = value;
+	object->mWire._994 = -1;
 }
 
+// XObjPlug::vfDC
 /**
  * @note Address: 0x800D80E4
  * @note Size: 0x54
  */
-void fn_800D80E4(XObjPlug* obj, s32 on, u8 mode)
+void fn_800D80E4(XObjPlug* object, BOOL enabled, u8 value)
 {
-	fn_80091834(obj, on, mode);
-	fn_800DB7A8(&obj->mWire, on, mode);
+	fn_80091834(object, enabled, value);
+	fn_800DB7A8(&object->mCord, enabled, value);
 }
 
+// XObjPlug::vfC0
 /**
  * @note Address: 0x800D8138
  * @note Size: 0x4C
  */
-void fn_800D8138(XObjPlug* obj)
+void fn_800D8138(XObjPlug* object)
 {
-	if (obj->mJObj != NULL) {
-		fn_800DA4D0(&obj->mWire, lbl_8025C400._44 + 0xE8, 1.0f, 1.0f, 1.0f);
+	if (object->mJObj != NULL) {
+		fn_800DA4D0(&object->mCord, lbl_8025C400.mGs.mCamera->mViewMtx, 1.0f, 1.0f, 1.0f);
 	}
 }
 
+// XObjPlug::vfB8, the cord's shadow
 /**
  * @note Address: 0x800D8184
  * @note Size: 0x1A8
  */
-void fn_800D8184(XObjPlug* obj)
+void fn_800D8184(XObjPlug* object)
 {
-	obj->mWire.mColors[0] = 0x14141440;
-	obj->mWire.mColors[1] = 0x14141440;
-	obj->mWire._58        = 0.15f;
-	if (obj->mJObj != NULL) {
-		UnkGame* game = &lbl_8025C400;
-		if (game->_290 != NULL) {
-			fn_8019B278(game->_290, 1);
-		}
-		if (game->_294 != NULL) {
-			fn_8019AED0(game->_294, 1);
-		}
-		if (game->_298 != NULL) {
-			fn_8019AE94(game->_298, 1);
-		}
-		fn_800DA68C(&obj->mWire, 0, 1.0f, 1.0f, 1.0f);
-		UnkGame* game2 = &lbl_8025C400;
-		HSD_StateInvalidate(-1);
-		if (game->_290 != NULL) {
-			UnkRenderA* a = game2->_290;
-			if (a->_0C == 0) {
-				a->_0C = 1;
-			}
-			if (a->_10 == 0) {
-				a->_10 = 1;
-			}
-			if (a->_14 == 0) {
-				a->_14 = 1;
-			}
-			if (a->_18 == 0) {
-				a->_18 = 1;
-			}
-		}
-		UnkRenderB* b = game2->_294;
-		if (b != NULL) {
-			if (b->_74 == 0) {
-				b->_74 = 1;
-			}
-			if (b->_78 == 0) {
-				b->_78 = 1;
-			}
-			if (b->_7C == 0) {
-				b->_7C = 1;
-			}
-		}
-		UnkRenderC* c = game2->_298;
-		if (c != NULL) {
-			if (c->_30 == 0) {
-				c->_30 = 1;
-			}
-		}
+	object->mCord.mColor = 0x14141440;
+	object->mCord._60    = 0x14141440;
+	object->mCord.mWidth = 0.15f;
+	if (object->mJObj != NULL) {
+		CGs* gs = &lbl_8025C400.mGs;
+		FlushCaptureGraphics(gs);
+		fn_800DA68C(&object->mCord, NULL, 1.0f, 1.0f, 1.0f);
+		InvalidateCaptureGraphics(gs);
 	}
-	obj->mWire.mColors[0] = 0x141414FF;
-	obj->mWire.mColors[1] = 0x141414FF;
-	obj->mWire._58        = 0.2f;
+	object->mCord.mColor = 0x141414FF;
+	object->mCord._60    = 0x141414FF;
+	object->mCord.mWidth = 0.2f;
 }
 
+// XObjPlug::vfB4
 /**
  * @note Address: 0x800D832C
  * @note Size: 0x2C
  */
-void fn_800D832C(XObjPlug* obj, u32 frames)
+void fn_800D832C(XObjPlug* object, Mtx view)
 {
-	obj->vfB0(frames);
+	object->vfB0(view);
 }
 
+// XObjPlug::vfB0
 /**
  * @note Address: 0x800D8358
  * @note Size: 0x74
  */
-void fn_800D8358(XObjPlug* obj, u32 frames)
+void fn_800D8358(XObjPlug* object, Mtx view)
 {
-	fn_800908C0(obj, frames);
-	obj->mWireEff.vfB0(frames);
-	if (obj->mJObj != NULL) {
-		fn_800DA68C(&obj->mWire, frames, 1.0f, 1.0f, 1.0f);
+	fn_800908C0(object, view);
+	object->mWire.vfB0(view);
+	if (object->mJObj != NULL) {
+		fn_800DA68C(&object->mCord, view, 1.0f, 1.0f, 1.0f);
 	}
 }
 
@@ -245,76 +198,80 @@ void fn_800D8358(XObjPlug* obj, u32 frames)
  * @note Address: 0x800D9068
  * @note Size: 0x34
  */
-CVec fn_800D9068(XObjPlugWire* wire, s32 i)
+CVec fn_800D9068(const XObjPlugCord* cord, s32 index)
 {
-	return wire->mPoints[i].mPos;
+	return cord->mPoints[index].mPos;
 }
 
+// XObjPlug::Release
 /**
  * @note Address: 0x800D93C8
  * @note Size: 0x4C
  */
-void fn_800D93C8(XObjPlug* obj)
+void fn_800D93C8(XObjPlug* object)
 {
-	obj->mWireEff.Release();
-	fn_800911C0(obj);
-	obj->mLoadState = 0;
+	object->mWire.Release();
+	fn_800911C0(object);
+	object->mLoadState = 0;
 }
 
+// XObjPlug::vf9C, the plug, then its wire effect from spawn 16
 /**
  * @note Address: 0x800D9414
  * @note Size: 0x104
  */
-BOOL fn_800D9414(XObjPlug* obj, const CoordInfo& info)
+BOOL fn_800D9414(XObjPlug* object, const CoordInfo& info)
 {
-	switch (obj->mLoadState) {
+	switch (object->mLoadState) {
 	case 0:
-		if (!fn_80091C80(obj, info)) {
+		if (!fn_80091C80(object, &info)) {
 			break;
 		}
-		obj->mLoadState++;
+		object->mLoadState++;
 	case 1:
-		if (obj->mWireEff.vf9C(CoordInfo(GetSpawnData(0x10)))) {
-			Vec pos = lbl_8025C400.mChr->mMoveTranslate;
-			fn_800DB810(&obj->mWire, pos.x, pos.y, pos.z);
-			obj->mLoadState++;
+		if (object->mWire.vf9C(CoordInfo(GetSpawnData(16)))) {
+			Vec pos = lbl_8025C400.GetPlayer()->mMoveTranslate;
+			fn_800DB810(&object->mCord, pos.x, pos.y, pos.z);
+			object->mLoadState++;
 		}
 		break;
 	}
-	return obj->mLoadState > 1;
+	return object->mLoadState > 1;
 }
 
+// XObjPlug::vf94
 /**
  * @note Address: 0x800D9A54
  * @note Size: 0x28
  */
-void fn_800D9A54(XObjPlug* obj)
+void fn_800D9A54(XObjPlug* object)
 {
-	obj->mFlags &= ~0x400000000000000ULL;
+	object->mStatus.mFlags &= ~0x0400000000000000ULL;
 }
 
 /**
  * @note Address: 0x800D9A7C
  * @note Size: 0x8
  */
-void fn_800D9A7C(XObjPlug* obj, f32 value)
+void fn_800D9A7C(XObjPlug* object, f32 speed)
 {
-	obj->mWire._08 = value;
+	object->mCord.mSpeed = speed;
 }
 
+// XObjPlug::vf90
 /**
  * @note Address: 0x800D9A84
  * @note Size: 0x8C
  */
-void fn_800D9A84(XObjPlug* obj, u32 id)
+void fn_800D9A84(XObjPlug* object, u32 id)
 {
-	fn_800929C4(obj, id);
-	fn_800DBA7C(&obj->mWire, 20, 0.0f, 0.0f, 0.0f, 0.5f);
-	obj->mWire.mColors[0] = 0x141414FF;
-	obj->mWire.mColors[1] = 0x141414FF;
-	obj->mWire._58        = 0.2f;
-	obj->mLoadState       = 0;
-	obj->mWireEff.Init(id);
+	fn_800929C4(object, id);
+	fn_800DBA7C(&object->mCord, 20, 0.0f, 0.0f, 0.0f, 0.5f);
+	object->mCord.mColor = 0x141414FF;
+	object->mCord._60    = 0x141414FF;
+	object->mCord.mWidth = 0.2f;
+	object->mLoadState   = 0;
+	object->mWire.vf90(id);
 }
 
 } // extern "C"

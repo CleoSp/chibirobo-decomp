@@ -27,7 +27,7 @@ extern "C" BOOL fn_800B78FC(XObjChr* chr)
 
 	s16 id = chr->mSavedTarget;
 	if (id >= 0) {
-		XObj* loaded        = fn_80132698((UnkXObjList*)lbl_8025C400._9694, &CoordInfo(fn_8006EDB4(id)), 0, TRUE);
+		XObj* loaded        = fn_80132698(&lbl_8025C400.mXObjs, &CoordInfo(fn_8006EDB4(id)), 0, TRUE);
 		chr->mPendingTarget = loaded;
 		chr->mSavedTarget   = -1;
 	}

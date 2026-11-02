@@ -6,7 +6,6 @@
 #include "game/gmath.h"
 
 extern "C" {
-f32 PSVECDistance(const Vec* a, const Vec* b);
 double atan2(double y, double x);
 double cos(double x);
 double sin(double x);
@@ -173,23 +172,16 @@ static inline void AddToHamDish(HamDish* group, HamObj* slot)
 	}
 }
 
-#define STAGE01_PLAYER    ((Stage01Actor*)lbl_8025C400.mPlayer)
-#define STAGE01_ACTORS    ((Stage01Actor**)lbl_8025C400.mObjects)
-#define STAGE01_OBJ_5D080 (&lbl_8025C400._5D080)
-#define STAGE01_PARTICLE  ((CParticle*)lbl_8025C400.mParticle)
-#define STAGE01_OBJ_8F38  ((void*)lbl_8025C400.mInfoScrn)
-#define STAGE01_SOUND     ((void*)&lbl_8025C400.mSound)
+#define STAGE01_PLAYER   ((Stage01Actor*)lbl_8025C400.GetPlayer())
+#define STAGE01_ACTORS   ((Stage01Actor**)lbl_8025C400.mXObjs.mObjects)
+#define STAGE01_EVT_DATA (&lbl_8025C400.mEvt.mData)
+#define STAGE01_PARTICLE (&lbl_8025C400.mParticle)
+#define STAGE01_OBJ_8F38 (&lbl_8025C400.mInfoScrn)
+#define STAGE01_SOUND    (&lbl_8025C400.mSound)
 
 extern "C" {
-s32 fn_8001DF00(void* obj, Vec* pos, s32 arg);
-void fn_8001E1A4(void* obj, s32 id, s32 time);
-void fn_8001E468(void* obj, s32 id, s32 arg, s32 arg2);
-void fn_8001E660(void* obj, s32 id);
-s32 fn_8001E6C8(void* obj, s32 id);
-void fn_8001E904(void* obj, s32 id, s32 arg);
 void fn_80068B48(void* obj);
 void fn_80068B70(void* obj);
-Stage01Actor* fn_8007F570(void* obj, s16 id);
 s32 fn_800D4FE8(void* obj);
 void psKillAllParticle(void);
 
@@ -384,12 +376,6 @@ static inline HamObj* FindHamObjByActorInline(Stage01Actor* actor)
 		}
 	}
 	return NULL;
-}
-
-// the hamburger the player is carrying, if any
-static inline HamObj* FindHeldHamObj(Stage01Actor* held)
-{
-	return FindHamObjByActorInline(held);
 }
 
 static inline bool IsLeavingGasPlate(HamObj* slot)
@@ -844,7 +830,7 @@ extern "C" s32 CheckYakiResult(void)
 	Stage01Actor* player;
 	HamObj* slot;
 
-	if (*STAGE01_OBJ_5D080 != NULL) {
+	if (lbl_8025C400.mEvt.mData.mScript != NULL) {
 		return 0;
 	}
 
@@ -1075,8 +1061,8 @@ extern "C" void AddTempActor(s32 id)
 	for (i = 0; i < 4; i++) {
 		if (tempActors[i] == NULL) {
 			Stage01Actor* actor;
-			if (*STAGE01_OBJ_5D080 != NULL) {
-				actor = fn_8007F570(STAGE01_OBJ_5D080, id);
+			if (lbl_8025C400.mEvt.mData.mScript != NULL) {
+				actor = (Stage01Actor*)fn_8007F570(STAGE01_EVT_DATA, id);
 			} else {
 				actor = NULL;
 			}
@@ -1178,6 +1164,7 @@ extern "C" void SetYakiRates(u8* data)
  */
 extern "C" s32 PutHeldHamObjOnDish(s32 id)
 {
+	// NONMATCHING: regalloc
 	Stage01Actor* player = STAGE01_PLAYER;
 	HamObj* slot;
 	HamDish* group;
@@ -1186,7 +1173,7 @@ extern "C" s32 PutHeldHamObjOnDish(s32 id)
 		return -1;
 	}
 
-	slot = FindHeldHamObj(player->_A64);
+	slot = FindHamObjByActorInline(player->_A64);
 	if (slot == NULL) {
 		return -1;
 	}
@@ -2078,9 +2065,10 @@ extern "C" HamObj* FindHamObjByActor(Stage01Actor* actor)
  */
 extern "C" HamObj* FindHamObj(s32 id)
 {
+	// NONMATCHING: regalloc
 	s32 i;
 	if (id < 0) {
-		return FindHeldHamObj(STAGE01_PLAYER->_A64);
+		return FindHamObjByActorInline(STAGE01_PLAYER->_A64);
 	}
 	for (i = 0; i < 9; i++) {
 		if (hamObjs[i].mActor != NULL && id == hamObjs[i]._08) {
@@ -2410,10 +2398,10 @@ extern "C" void InitHamburg(void)
 	}
 
 	CGame* game = &lbl_8025C400;
-	count       = game->mObjectCount;
+	count       = game->mXObjs.mObjectCount;
 	gasPlate    = NULL;
 	for (i = 0; gasPlate == NULL && i < count; i++) {
-		Stage01Actor* actor = (Stage01Actor*)game->mObjects[i];
+		Stage01Actor* actor = (Stage01Actor*)game->mXObjs.mObjects[i];
 		if ((actor->_228 & 1) && actor->_238.mKind->_00 == 0x200) {
 			gasPlate = actor;
 		}
@@ -2632,27 +2620,14 @@ void HamObj::StateStackLand()
 	}
 }
 
-static inline bool IsHeldBy(Stage01Actor* actor, Stage01Actor* player)
-{
-	bool held = false;
-	if (player->_A48 != 0 && player->_A64 == actor) {
-		held = true;
-	}
-	return held;
-}
-
-static inline Stage01Actor* GetHamPlayer()
-{
-	return STAGE01_PLAYER;
-}
-
 /**
  * @note Address: stage01 .text 0x2350
  * @note Size: 0x9C4
  */
 void HamObj::StatePutDown()
 {
-	Stage01Actor* player = GetHamPlayer();
+	// NONMATCHING: regalloc
+	Stage01Actor* player = STAGE01_PLAYER;
 	s32 level;
 
 	switch (mStateTime) {
@@ -2666,8 +2641,8 @@ void HamObj::StatePutDown()
 			break;
 		}
 
-		if (IsHeldBy(mActor, player)) {
-			GetHamPlayer()->_A64 = NULL;
+		if (IsHeld(mActor)) {
+			STAGE01_PLAYER->_A64 = NULL;
 		}
 		mActor->_228 &= ~0x400000000000000ULL;
 		_18     = player->_FC;

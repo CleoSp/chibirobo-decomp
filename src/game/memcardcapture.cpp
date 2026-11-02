@@ -8,13 +8,13 @@
 
 static inline XObjChr* Player()
 {
-	return lbl_8025C400.mPlayer;
+	return lbl_8025C400.GetPlayer();
 }
 
 // todo: pools 4, 5 and 17 keep a save block right after XObj, no idea what class
 static inline void* PoolSaveData(s32 pool)
 {
-	return *(void**)(lbl_8025C400.mPools[pool].mObjects + sizeof(XObj));
+	return *(void**)(lbl_8025C400.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj));
 }
 
 static inline void CopyVec(Vec& dst, const Vec& src)
@@ -61,8 +61,8 @@ extern "C" void fn_800880EC(Memcard* card)
 	memcpy(save->mObjects[2], PoolSaveData(17), sizeof(save->mObjects[2]));
 	memcpy(save->mPlayerRecord, &Player()->mAttachments, sizeof(save->mPlayerRecord));
 	save->mSuit = Player()->mSuit;
-	CopyVec(save->mPos, lbl_8025C400.mPlayer->mMoveTranslate);
-	save->mRotY = lbl_8025C400.mPlayer->mMoveRotate.y;
+	CopyVec(save->mPos, lbl_8025C400.GetPlayer()->mMoveTranslate);
+	save->mRotY = lbl_8025C400.GetPlayer()->mMoveRotate.y;
 	save->_2CB4 = Player()->mSuitSpecial;
 	if (lbl_8025C400.mStatus.mFlags & 0x0000000800000000ULL)
 		save->mHeader.mVersion |= 1;
@@ -73,7 +73,7 @@ extern "C" void fn_800880EC(Memcard* card)
 	else
 		save->mHeader.mVersion &= ~2;
 	if (save->mHeader.mVersion & 2) {
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		save->mCameraAction          = camera->GetActionType();
 		CopyVec(save->mCameraEye, camera->mCamera.mEye);
 		CopyVec(save->mCameraInterest, camera->mCamera.mInterest);

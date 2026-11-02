@@ -22,7 +22,7 @@ extern "C" bool fn_8010753C(XObjActor* actor)
 // vf138, knocked from pos
 extern "C" void fn_80107548(XObjActor* actor, const Vec* pos, f32 strength)
 {
-	fn_8008A6C0(actor, strength);
+	fn_8008A6C0(actor, pos, strength);
 	actor->_998.mFlags |= 2;
 	f32 x               = pos->x;
 	f32 y               = pos->y;

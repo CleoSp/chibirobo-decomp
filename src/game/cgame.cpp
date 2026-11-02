@@ -1,9 +1,22 @@
-#include "game/particle_srt.h"
+#include "game/hsd_jobj.h"
+#include "game/cparticle.h"
 #include "game/cjobjset.h"
 #include "game/cgs.h"
 #include "game/ccamera.h"
 #include "game/clight.h"
-#include "game/cobj.h"
+#include "game/xobj.h"
+#include "game/cmotioncontrolcamera.h"
+#include "game/stg.h"
+#include "game/infoscrn.h"
+#include "game/fbeffect.h"
+#include "game/fbtexeff.h"
+#include "game/cmovie.h"
+#include "game/ccard.h"
+#include "game/memcard.h"
+#include "game/cthread.h"
+#include "game/msg.h"
+#include "game/logo.h"
+#include "game/xobjmap.h"
 #include "game/mm.h"
 #include "game/hsd_dobj.h"
 #include "game/gmath.h"
@@ -19,10 +32,10 @@
 extern "C" {
 void HSD_MtxGetTranslate(Mtx mtx, Vec* translate);
 void HSD_VISetBlack(u8 black);
-void fn_8006F338(s32 arg0, s32 arg1, s32 arg2);
 u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, GXBool mipmap, u8 maxLod);
 void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 void HSD_VICopyXFBAsync(s32 pri);
+void OSInitStopwatch(void* sw, char* name);
 void OSResetStopwatch(void* sw);
 void OSStartStopwatch(void* sw);
 void OSStopStopwatch(void* sw);
@@ -32,1360 +45,33 @@ s64 OSCheckStopwatch(void* sw);
 extern "C" {
 #include <sysdolphin/controller.h>
 }
-
-// game/cgs.h has CGs's dtor out of line, its weak copy is in this file
-inline CGs::~CGs()
-{
-}
-
-// the camera actions. game/ccameraaction.h has them with the interpolations as padding, this
-// file destroys them so it spells the members out. names from RTTI
-
-class XObj;
-class XObjCamera;
-class CMotionControlCamera;
-
-// moves a float from one value to another over time. Step moves one frame, Update the
-// given number of frames, both say whether it's done
-class CInterfaceInterpolation {
-public:
-	// _00 vtable
-
-	virtual ~CInterfaceInterpolation() { }              // _08
-	virtual bool Start(f32 from, f32 to, f32 time) = 0; // _0C
-	virtual bool Step(f32 dt)                      = 0; // _10
-	virtual bool Update(u32 step, f32 dt)          = 0; // _14
-	virtual f32 Get()                              = 0; // _18
-};
-
-#define DECLARE_INTERP_METHODS                      \
-	virtual bool Start(f32 from, f32 to, f32 time); \
-	virtual bool Step(f32 dt);                      \
-	virtual bool Update(u32 step, f32 dt);          \
-	virtual f32 Get();
-
-class CInterpolationLinear : public CInterfaceInterpolation {
-public:
-	f32 mValue; // _04
-	f32 mSpeed; // _08
-	f32 mTime;  // _0C, left to go
-
-	DECLARE_INTERP_METHODS
-};
-
-// jumps straight to the end
-class CInterpolationNone : public CInterfaceInterpolation {
-public:
-	f32 mValue; // _04
-	f32 mSpeed; // _08
-	f32 mTime;  // _0C
-
-	DECLARE_INTERP_METHODS
-};
-
-// the ease in out and ease out have their methods in another file
-class CInterpolationEaseInOut : public CInterfaceInterpolation {
-public:
-	u8 _04[0x18]; // _04
-
-	DECLARE_INTERP_METHODS
-};
-
-class CInterpolationEaseOut : public CInterfaceInterpolation {
-public:
-	u8 _04[0x1C]; // _04
-
-	DECLARE_INTERP_METHODS
-};
-
-// each step closes the distance by a fraction
-class CInterpolationEaseOutDivide : public CInterfaceInterpolation {
-public:
-	f32 mValue;   // _04
-	f32 mTarget;  // _08
-	f32 mDivisor; // _0C
-
-	DECLARE_INTERP_METHODS
-};
-
-// the same for a vector, one float interpolation per axis
-class CInterfaceVectorInterpolation {
-public:
-	// _00 vtable
-
-	virtual ~CInterfaceVectorInterpolation() { }        // _08
-	virtual bool Start(Vec from, Vec to, f32 time) = 0; // _0C
-	virtual bool Step(f32 dt)                      = 0; // _10
-	virtual bool Update(u32 step, f32 dt)          = 0; // _14
-	virtual Vec Get()                              = 0; // _18
-};
-
-#define DECLARE_VEC_INTERP_METHODS                  \
-	virtual bool Start(Vec from, Vec to, f32 time); \
-	virtual bool Step(f32 dt);                      \
-	virtual bool Update(u32 step, f32 dt);          \
-	virtual Vec Get();
-
-class CVectorLinearInterpolation : public CInterfaceVectorInterpolation {
-public:
-	CInterpolationLinear mAxes[3]; // _04
-
-	DECLARE_VEC_INTERP_METHODS
-};
-typedef char CVectorLinearInterpolation_size_check[sizeof(CVectorLinearInterpolation) == 0x34 ? 1 : -1];
-
-class CVectorEaseInOutInterpolation : public CInterfaceVectorInterpolation {
-public:
-	CInterpolationEaseInOut mAxes[3]; // _04
-	BOOL mDone;                       // _58, x and z are there
-
-	DECLARE_VEC_INTERP_METHODS
-};
-typedef char CVectorEaseInOutInterpolation_size_check[sizeof(CVectorEaseInOutInterpolation) == 0x5C ? 1 : -1];
-
-class CVectorEaseOutInterpolation : public CInterfaceVectorInterpolation {
-public:
-	CInterpolationEaseOut mAxes[3]; // _04
-
-	DECLARE_VEC_INTERP_METHODS
-};
-typedef char CVectorEaseOutInterpolation_size_check[sizeof(CVectorEaseOutInterpolation) == 0x64 ? 1 : -1];
-
-class CVectorNoneInterpolation : public CInterfaceVectorInterpolation {
-public:
-	CInterpolationNone mAxes[3]; // _04
-
-	DECLARE_VEC_INTERP_METHODS
-};
-
-class CVectorEaseOutDivideInterpolation : public CInterfaceVectorInterpolation {
-public:
-	CInterpolationEaseOutDivide mAxes[3]; // _04
-	BOOL mDone;                           // _34, x and z are there
-
-	DECLARE_VEC_INTERP_METHODS
-};
-typedef char CVectorEaseOutDivideInterpolation_size_check[sizeof(CVectorEaseOutDivideInterpolation) == 0x38 ? 1 : -1];
-
-class CInterfaceCameraAction {
-public:
-	CVec mEye;      // _00
-	CVec mInterest; // _10
-	CVec mAngle;    // _20
-	f32 mDistance;  // _30
-	f32 mFov;       // _34
-	u32 _38;        // _38
-	// _3C vtable
-
-	virtual ~CInterfaceCameraAction() { }       // _08
-	virtual void PreviousUpdate() { }           // _0C
-	virtual void Update(u32 step) = 0;          // _10
-	virtual void vf14() { }                     // _14
-	virtual void SetCamera(CCamera* camera) { } // _18
-	virtual void Init() { }                     // _1C
-	virtual void vf20() { }                     // _20
-	virtual void vf24() { }                     // _24
-	virtual void vf28() { }                     // _28
-	virtual void SetEye(f32 x, f32 y, f32 z)    // _2C
-	{
-		mEye.x = x;
-		mEye.y = y;
-		mEye.z = z;
-	}
-	virtual void SetInterest(f32 x, f32 y, f32 z) // _30
-	{
-		mInterest.x = x;
-		mInterest.y = y;
-		mInterest.z = z;
-	}
-	virtual void SetAngle(f32 x, f32 y, f32 z) // _34
-	{
-		mAngle.x = x;
-		mAngle.y = y;
-		mAngle.z = z;
-	}
-	virtual void SetEye(const Vec& eye) { SetEye(eye.x, eye.y, eye.z); }                               // _38
-	virtual void SetInterest(const Vec& interest) { SetInterest(interest.x, interest.y, interest.z); } // _3C
-	virtual void SetAngle(const Vec& angle) { SetAngle(angle.x, angle.y, angle.z); }                   // _40
-	virtual void SetDistance(f32 distance) { mDistance = distance; }                                   // _44
-	virtual void SetFov(f32 fov) { mFov = fov; }                                                       // _48
-	virtual void SetAngleZ(f32 z) { mAngle.z = z; }                                                    // _4C
-	virtual u32 vf50() { return 0; }                                                                   // _50
-	virtual u32 Get_38() { return _38; }                                                               // _54
-	virtual f32 vf58();                                                                                // _58
-	virtual u32 vf5C() { return 0; }                                                                   // _5C
-	virtual XObj* GetTarget() { return NULL; }                                                         // _60
-};
-
-// a record in CamAreaState's _1C and _24 lists
-struct CamAreaRecord {
-	u8 _00[0x4];   // _00
-	s32 _04[4][2]; // _04, 4 corners as x z pairs, in hundredths
-	u8 _24[0x8];   // _24
-	s16 _2C;       // _2C
-	u16 _2E;       // _2E, flags
-	u8 _30[0x4];   // _30
-};
-
-// wraps a CamAreaRecord
-class CamAreaInfo {
-public:
-	CamAreaInfo(CamAreaRecord* record)
-	    : _04(record)
-	{
-	}
-	virtual ~CamAreaInfo() { } // _08
-
-	bool Check(u16 mask) const
-	{
-		u16 flags = _04->_2E & mask;
-		return flags != 0;
-	}
-
-	// _00 vtable
-	CamAreaRecord* _04; // _04
-};
-
-// camera area state, class unknown
-struct CamAreaState {
-	u8 _00[0x10];       // _00
-	f32 _10;            // _10
-	s32 _14;            // _14
-	s32 _18;            // _18
-	CamAreaRecord* _1C; // _1C
-	s32 _20;            // _20, records in _1C
-	CamAreaRecord* _24; // _24
-	s32 _28;            // _28, records in _24
-};
-extern "C" CamAreaState lbl_805A054C;
-
-extern "C" {
-void fn_80137EB8(CamAreaState* state);
-void fn_801374F4(CamAreaState* state, Vec pos);
-}
-
-// base of the area, map and reset actions, the methods it adds ask the area state
-class CCameraActionAreaExM : public CInterfaceCameraAction {
-public:
-	virtual void vf64();          // _64
-	virtual f32 vf68();           // _68
-	virtual s32 vf6C();           // _6C
-	virtual void vf70(s32 value); // _70
-	virtual void vf74(Vec pos);   // _74
-	virtual BOOL vf78(s32 index); // _78
-	virtual BOOL vf7C(s32 index); // _7C
-};
-
-// the area action, CCameraActions holds it at _40
-class CCameraActionArea : public CCameraActionAreaExM {
-public:
-	u8 _40[0x70 - 0x40];                    // _40
-	CVectorEaseInOutInterpolation _70;      // _70
-	CVectorLinearInterpolation _CC;         // _CC
-	CVectorEaseInOutInterpolation _100;     // _100
-	CVectorEaseOutInterpolation _15C;       // _15C
-	CVectorEaseOutDivideInterpolation _1C0; // _1C0
-	u8 _1F8[0x20C - 0x1F8];                 // _1F8
-	CInterpolationLinear _20C;              // _20C
-	CInterpolationEaseInOut _21C;           // _21C
-	CInterpolationEaseOut _238;             // _238
-	CInterpolationEaseOutDivide _258;       // _258
-	u8 _268[0x294 - 0x268];                 // _268
-
-	virtual void Update(u32 step); // _10
-};
-typedef char CCameraActionArea_size_check[sizeof(CCameraActionArea) == 0x294 ? 1 : -1];
-
-// an entry in CCameraActionMap's _570 and _9A0 lists
-struct CamMapEntry {
-	Vec _00; // _00, a position
-	s32 _0C; // _0C
-	s32 _10; // _10
-	Vec _14; // _14
-};
-
-// the map action, CCameraActions holds it at _99C
-class CCameraActionMap : public CCameraActionAreaExM {
-public:
-	s32 _40;                                // _40
-	XObj* _44;                              // _44, the object the camera looks at
-	CVec _48;                               // _48
-	f32 _58;                                // _58
-	f32 _5C;                                // _5C
-	CVec _60;                               // _60
-	CVec _70;                               // _70
-	f32 _80;                                // _80
-	f32 _84;                                // _84
-	f32 _88;                                // _88
-	CObjVec _8C;                            // _8C
-	f32 _BC;                                // _BC, turn speed
-	f32 _C0;                                // _C0, wrapped target yaw
-	f32 _C4;                                // _C4
-	CInterpolationEaseOutDivide _C8;        // _C8
-	CVec _D8;                               // _D8
-	u8 _E8[0x4EC - 0xE8];                   // _E8
-	s32 _4EC;                               // _4EC
-	s32 _4F0;                               // _4F0
-	s32 _4F4;                               // _4F4
-	s32 _4F8;                               // _4F8
-	u8 _4FC[0x570 - 0x4FC];                 // _4FC
-	CamMapEntry _570[32];                   // _570
-	s32 _970;                               // _970, count of _570
-	CamMapEntry* _974;                      // _974
-	s32 _978;                               // _978
-	CamMapEntry* _97C;                      // _97C
-	s32 _980;                               // _980
-	Vec _984;                               // _984, one end of the picked side
-	Vec _990;                               // _990, the other end
-	s32 _99C;                               // _99C, 1 or -1, which way round they are
-	CamMapEntry _9A0[32];                   // _9A0
-	s32 _DA0;                               // _DA0, count of _9A0
-	s32 _DA4;                               // _DA4
-	s32 _DA8;                               // _DA8
-	s32 _DAC;                               // _DAC
-	s32 _DB0;                               // _DB0
-	CInterfaceVectorInterpolation* _DB4;    // _DB4
-	CVectorEaseInOutInterpolation _DB8;     // _DB8
-	CInterpolationEaseInOut _E14;           // _E14
-	u8 _E30[0x4];                           // _E30
-	CInterpolationEaseInOut _E34;           // _E34
-	u8 _E50[0xE64 - 0xE50];                 // _E50
-	CInterfaceInterpolation* _E64;          // _E64
-	CInterpolationEaseOutDivide _E68;       // _E68
-	u8 _E78[0x4];                           // _E78
-	CInterpolationEaseInOut _E7C;           // _E7C
-	u8 _E98[0xEA8 - 0xE98];                 // _E98
-	s32 _EA8;                               // _EA8
-	s32 _EAC;                               // _EAC
-	s32 _EB0;                               // _EB0
-	u8 _EB4[0xF28 - 0xEB4];                 // _EB4
-	CInterfaceVectorInterpolation* _F28;    // _F28
-	CVectorEaseOutDivideInterpolation _F2C; // _F2C
-	u8 _F64[0xF68 - 0xF64];                 // _F64
-	CVec _F68;                              // _F68
-	CVec _F78;                              // _F78
-	CVec _F88;                              // _F88
-	CVec _F98;                              // _F98
-	CVec _FA8;                              // _FA8
-	CVec _FB8;                              // _FB8
-	u8 _FC8[0x11D8 - 0xFC8];                // _FC8
-	CStatus _11D8;                          // _11D8, printed as CAMSTAT
-	CStatus _11E0;                          // _11E0, printed as CAMSTATPRE
-	BOOL _11E8;                             // _11E8
-
-	CCameraActionMap();
-	virtual ~CCameraActionMap();
-	virtual void Update(u32 step); // _10
-};
-typedef char CCameraActionMap_size_check[sizeof(CCameraActionMap) == 0x11EC ? 1 : -1];
-
-// puts the camera back behind the player
-class CCameraActionReset : public CCameraActionAreaExM {
-public:
-	XObj* mTarget;                                 // _40
-	s32 mMode;                                     // _44, picks the interpolators, 3 is none
-	f32 mTime;                                     // _48
-	BOOL _4C;                                      // _4C
-	s32 _50;                                       // _50
-	s32 mState;                                    // _54
-	s32 _58;                                       // _58
-	CInterfaceVectorInterpolation* mEyeInterp;     // _5C
-	CInterfaceInterpolation* mFovInterp;           // _60
-	CVectorLinearInterpolation mEyeLinear;         // _64
-	CVectorEaseInOutInterpolation mEyeEaseInOut;   // _98
-	CVectorEaseOutInterpolation mEyeEaseOut;       // _F4
-	CVectorNoneInterpolation mEyeNone;             // _158
-	CInterfaceVectorInterpolation* mEyeInterps[4]; // _18C, by mode
-	CInterpolationLinear mFovLinear;               // _19C
-	CInterpolationEaseInOut mFovEaseInOut;         // _1AC
-	CInterpolationEaseOut mFovEaseOut;             // _1C8
-	CInterpolationNone mFovNone;                   // _1E8
-	CInterfaceInterpolation* mFovInterps[4];       // _1F8
-
-	virtual void PreviousUpdate();                // _0C
-	virtual void Update(u32 step);                // _10
-	virtual void SetCamera(CCamera* camera);      // _18
-	virtual void Init();                          // _1C
-	virtual f32 vf58() { return 4.0f; }           // _58
-	virtual u32 vf5C() { return _58; }            // _5C
-	virtual XObj* GetTarget() { return mTarget; } // _60
-};
-typedef char CCameraActionReset_size_check[sizeof(CCameraActionReset) == 0x208 ? 1 : -1];
-
-// a camera that looks along the z axis at the player from a fixed distance
-class CCameraActionScroll : public CInterfaceCameraAction {
-public:
-	BOOL mStart;                               // _40
-	f32 mFarDistance;                          // _44
-	f32 mNearDistance;                         // _48
-	f32 mScrollFov;                            // _4C
-	CInterfaceInterpolation* mDistanceInterp;  // _50
-	CInterpolationEaseOutDivide mDistanceEase; // _54
-	u32 _64;                                   // _64
-	s32 mZoom;                                 // _68, 0 near, 1 far
-
-	virtual void Update(u32 step);           // _10
-	virtual void vf14();                     // _14
-	virtual void SetCamera(CCamera* camera); // _18
-	virtual u32 vf5C() { return _64; }       // _5C
-};
-typedef char CCameraActionScroll_size_check[sizeof(CCameraActionScroll) == 0x6C ? 1 : -1];
-
-// behind the player at an angle off its facing
-class CCameraActionLadr : public CInterfaceCameraAction {
-public:
-	f32 mAngle; // _40
-
-	virtual void Update(u32 step);      // _10
-	virtual void vf14();                // _14
-	virtual u32 Get_38() { return 11; } // _54
-	virtual Vec GetCameraTarget();      // _64
-};
-
-// just looks at the player
-class CCameraActionDefault : public CInterfaceCameraAction {
-public:
-	virtual void Update(u32 step); // _10
-};
-
-// follows the player from behind on a damped spring
-class CCameraActionChase : public CInterfaceCameraAction {
-public:
-	XObj* mTarget;     // _40
-	f32 mRestDistance; // _44
-	f32 mDamping;      // _48
-	CVec mLastPos;     // _4C
-	CVec mPos;         // _5C
-	u32 mMode;         // _6C
-
-	virtual void Update(u32 step);           // _10
-	virtual void vf14();                     // _14
-	virtual void SetCamera(CCamera* camera); // _18
-	virtual void Init();                     // _1C
-	virtual u32 Get_38() { return mMode; }   // _54
-};
-typedef char CCameraActionChase_size_check[sizeof(CCameraActionChase) == 0x70 ? 1 : -1];
-
-// the camera event scripts drive
-class CCameraActionEvt : public CInterfaceCameraAction {
-public:
-	XObj* mTarget;                                      // _40
-	CInterfaceVectorInterpolation* mEyeInterp;          // _44
-	CInterfaceVectorInterpolation* mInterestInterp;     // _48
-	CInterfaceInterpolation* mDistanceInterp;           // _4C
-	CInterfaceInterpolation* mFovInterp;                // _50
-	CInterfaceVectorInterpolation* mAngleInterp;        // _54
-	CStatus mAxes;                                      // _58
-	u32 _60;                                            // _60
-	CVectorLinearInterpolation mEyeLinear;              // _64
-	CVectorEaseInOutInterpolation mEyeEaseInOut;        // _98
-	CVectorEaseOutInterpolation mEyeEaseOut;            // _F4
-	CVectorNoneInterpolation mEyeNone;                  // _158
-	CInterfaceVectorInterpolation* mEyeInterps[4];      // _18C
-	CVectorLinearInterpolation mInterestLinear;         // _19C
-	CVectorEaseInOutInterpolation mInterestEaseInOut;   // _1D0
-	CVectorEaseOutInterpolation mInterestEaseOut;       // _22C
-	CVectorNoneInterpolation mInterestNone;             // _290
-	CInterfaceVectorInterpolation* mInterestInterps[4]; // _2C4
-	CInterpolationLinear mFovLinear;                    // _2D4
-	CInterpolationEaseInOut mFovEaseInOut;              // _2E4
-	CInterpolationEaseOut mFovEaseOut;                  // _300
-	CInterpolationNone mFovNone;                        // _320
-	CInterfaceInterpolation* mFovInterps[4];            // _330
-	CInterpolationLinear mDistanceLinear;               // _340
-	CInterpolationEaseInOut mDistanceEaseInOut;         // _350
-	CInterpolationEaseOut mDistanceEaseOut;             // _36C
-	CInterpolationNone mDistanceNone;                   // _38C
-	CInterfaceInterpolation* mDistanceInterps[4];       // _39C
-	CVectorLinearInterpolation mAngleLinear;            // _3AC
-	CVectorEaseInOutInterpolation mAngleEaseInOut;      // _3E0
-	CVectorEaseOutInterpolation mAngleEaseOut;          // _43C
-	CVectorNoneInterpolation mAngleNone;                // _4A0
-	CInterfaceVectorInterpolation* mAngleInterps[4];    // _4D4
-
-	virtual void Update(u32 step);           // _10
-	virtual void SetCamera(CCamera* camera); // _18
-	virtual void Init();                     // _1C
-};
-typedef char CCameraActionEvt_size_check[sizeof(CCameraActionEvt) == 0x4E4 ? 1 : -1];
-
-// the room camera
-class CCameraActionScroll2 : public CInterfaceCameraAction {
-public:
-	Vec* mCenterPtr;     // _40
-	Vec mCenter;         // _44
-	f32 mMinX;           // _50
-	f32 mMaxX;           // _54
-	f32 mMinZ;           // _58
-	f32 mMaxZ;           // _5C
-	f32 mMaxFov;         // _60
-	f32 mMinFov;         // _64
-	f32 mYaw;            // _68
-	Vec mOffset;         // _6C
-	Vec mStart;          // _78
-	BOOL mTurned;        // _84
-	BOOL mFromStage;     // _88
-	u8 mSavedInfo[0x20]; // _8C
-
-	virtual void Update(u32 step);      // _10
-	virtual void vf14();                // _14
-	virtual void vf20();                // _20
-	virtual void vf28() { }             // _28
-	virtual u32 Get_38() { return 11; } // _54
-};
-typedef char CCameraActionScroll2_size_check[sizeof(CCameraActionScroll2) == 0xAC ? 1 : -1];
-
-// looks around from the player's eyes
-class CCameraActionEye : public CInterfaceCameraAction {
-public:
-	CObjVec mLook;  // _40
-	CVec mOverride; // _70
-
-	virtual void Update(u32 step);           // _10
-	virtual void vf14();                     // _14
-	virtual void Init() { }                  // _1C
-	virtual u32 Get_38() { return 0x20019; } // _54
-};
-typedef char CCameraActionEye_size_check[sizeof(CCameraActionEye) == 0x80 ? 1 : -1];
-
-// plays a camera animation
-class CCameraActionAnim : public CInterfaceCameraAction {
-public:
-	CCamera* mCamera; // _40
-	XObjCamera* mObj; // _44
-
-	virtual void Update(u32 step);           // _10
-	virtual void SetCamera(CCamera* camera); // _18
-	virtual void Init();                     // _1C
-
-	void SetObj(XObjCamera* obj);
-};
-typedef char CCameraActionAnim_size_check[sizeof(CCameraActionAnim) == 0x48 ? 1 : -1];
+#include "game/cpad.h"
+#include "game/cstopwatch.h"
+#include "game/csound.h"
 
 extern "C" {
 void HSD_PadRumbleOffN(u8 no);
 void HSD_PadRumblePauseAll(void);
+void fn_8001D8C0();
+void fn_8001D51C(CBase* base);
+void fn_8001D4EC();
+void fn_8001D4C0();
+#if defined(VERSION_PAL)
+u8 OSGetLanguage();
+// os language and game language pairs
+extern u8 lbl_802162E0[12];
+#endif
 }
 
-class CPadEx {
-public:
-	HSD_PadData mQueue;               // _00
-	HSD_PadRumbleListData mRumble[4]; // _34
-	CPadOne mPad[4];                  // _B4
-	// _204 vtable
-
-	virtual ~CPadEx() { } // _08
-
-	void Init();
-	void Update(s32 frames);
-};
-
-// an OSStopwatch with the last lap kept, name from RTTI
-class CStopwatch {
-public:
-	u8 mWatch[0x30]; // _00, the OSStopwatch
-	s64 mLap;        // _30, OSCheckStopwatch before it was stopped
-	// _38 vtable
-
-	virtual ~CStopwatch() { } // _08
-};
-
-// what every game is built on: the graphics state, font, pads, two cameras, six lights and
-// three stopwatches for the frame timings. name from RTTI
-class CBase {
-public:
-	CGs mGs;                   // _0000
-	u8 _17B4[0x17C0 - 0x17B4]; // _17B4
-	CFont mFont;               // _17C0
-	CPadEx mPad;               // _1900
-	u32 mRetraceCount;         // _1B08, VIGetRetraceCount at the start of the frame
-	u32 mFrames;               // _1B0C, retraces since the last frame, at most 4
-	CStatus64 mStatus;         // _1B10
-	CCamera mCamera[2];        // _1B20
-	CLight mLight[6];          // _1E48
-	CStopwatch mStopwatch[3];  // _3258, the whole frame, the update and the draw
-	u8 mProgressive;           // _3318
-	s32 mDriveStatus;          // _331C
-	s32 mLastDriveStatus;      // _3320
-	s32 mDiskIn;               // _3324
-	BOOL mRumblePaused;        // _3328
-	s32 mResetTimer;           // _332C, frames the reset combo has been held
-	BOOL mReset;               // _3330
-	// _3334 vtable
-
-	virtual ~CBase();                         // _08
-	virtual void Init(int argc, char** argv); // _0C
-	virtual void InitSystem();                // _10
-	virtual BOOL Exec();                      // _14
-	virtual void Update(u32 frames);          // _18
-	virtual void Draw();                      // _1C
-	virtual void vf20();                      // _20
-	virtual void vf24();                      // _24
-	virtual s32 GetFrameRate();               // _28, retraces per frame
-	virtual u32 GetFrames();                  // _2C
-	virtual CCamera* GetCamera();             // _30
-	virtual CCamera* GetCamera2();            // _34
-	virtual CCamera* GetMainCamera();         // _38
-	virtual CLight* GetLight();               // _3C
-	virtual CLight* GetLight2();              // _40
-	virtual CLight* GetLightList();           // _44
-	virtual void Reset(u32 code);             // _48
-
-	// the disc can't be read
-	bool IsDiscError() const
-	{
-		bool error = false;
-		if ((mDriveStatus != 0 || mLastDriveStatus != 0) && !mDiskIn) {
-			error = true;
-		}
-		return error;
+// a mirror is off while its owner is gone or hidden
+static inline bool IsMirrorOff(FbMirrorEx* mirror)
+{
+	bool off = false;
+	if (mirror->mOwner == NULL || (mirror->mOwner->mStatus.mFlags & 0x1000000000000)) {
+		off = true;
 	}
-	// a stage is up and running, nothing stops it
-	bool IsRunning() const
-	{
-		bool running = false;
-		if ((mStatus.mFlags & 1) && !(mStatus.mFlags & 0x22)) {
-			if (!IsDiscError()) {
-				running = true;
-			}
-		}
-		return running;
-	}
-};
-
-// the classes the game objects are built from, only as far as their destructors show them.
-// names from RTTI
-
-// an object's script position, game/xobjs.h has it too
-class CoordInfo {
-public:
-	void* mValue; // _00
-	// _04 vtable
-
-	virtual ~CoordInfo() { } // _08
-};
-
-// an entry of objTable or objTableEx
-struct ObjData {
-	u8 _00[0x14]; // _00
-	s16 mKind;    // _14
-};
-
-class AttrInfo {
-public:
-	ObjData* mData; // _00
-	s32* _04;       // _04
-	// _08 vtable
-
-	virtual ~AttrInfo() { } // _08
-
-	s32 GetDataKind() const { return mData ? mData->mKind : 0; }
-	s16 GetKind() const { return mData ? GetDataKind() : -1; }
-};
-
-class CEvtData {
-public:
-	void* mScript; // _00, the script running
-	u8 _04[0x4];   // _04
-	// _08 vtable
-
-	virtual ~CEvtData() { } // _08
-
-	u8 _0C[0x20 - 0xC]; // _0C
-};
-
-class CStack {
-public:
-	u8 _00[0xC]; // _00
-	// _0C vtable
-
-	virtual ~CStack() { } // _08
-};
-
-// an event script runner
-class CEvt {
-public:
-	u32 _00;        // _00
-	CEvtData mData; // _04
-	CStack mStack0; // _24
-	CStack mStack1; // _34
-	CStack mStack2; // _44
-	u8 _54[0x10];   // _54
-	// _64 vtable
-
-	virtual ~CEvt() { } // _08
-
-	u8 _68[0x4]; // _68
-};
-typedef char CEvt_size_check[sizeof(CEvt) == 0x6C ? 1 : -1];
-
-class CAnmQueue {
-public:
-	u8 _00[0x84]; // _00
-	// _84 vtable
-
-	virtual ~CAnmQueue() { } // _08
-};
-
-// a CJArchive that keeps its animations
-
-// a game object
-class XObj : public CXObjIntp {
-public:
-	CStatus64 _228;         // _228
-	CoordInfo mCoord;       // _238
-	AttrInfo mAttr;         // _240
-	u8 _24C[0x264 - 0x24C]; // _24C
-	CVec _264;              // _264
-	u8 _274[0x6F8 - 0x274]; // _274
-	f32 _6F8;               // _6F8
-	u8 _6FC[0x77C - 0x6FC]; // _6FC
-	f32 _77C;               // _77C, a height, nan when there's none
-	u8 _780[0x794 - 0x780]; // _780
-	CVec _794;              // _794
-	CEvt mEvt;              // _7A4
-	CAnmQueue mAnmQueue;    // _810
-	u8 _898[0x8FC - 0x898]; // _898
-	CJAnim mAnim;           // _8FC
-	u8 _980[0x988 - 0x980]; // _980
-
-	virtual void vf90();                                    // _90
-	virtual void vf94();                                    // _94
-	virtual void vf98();                                    // _98
-	virtual void vf9C();                                    // _9C
-	virtual void vfA0();                                    // _A0
-	virtual void vfA4(s32 arg);                             // _A4
-	virtual void vfA8();                                    // _A8
-	virtual void vfAC();                                    // _AC
-	virtual void vfB0(s32 arg);                             // _B0
-	virtual void DrawMirrored(Mtx view);                    // _B4
-	virtual void vfB8();                                    // _B8
-	virtual void SetShadowAlpha(f32 alpha, const Vec* pos); // _BC
-	virtual void vfC0();                                    // _C0
-	virtual void vfC4();                                    // _C4
-	virtual void vfC8();                                    // _C8
-	virtual void vfCC();                                    // _CC
-	virtual void CastShadow(CShadow* shadow);               // _D0
-	virtual void CastShadow2(CShadow* shadow);              // _D4
-	virtual void vfD8();                                    // _D8
-	virtual void vfDC(s32 arg0, s32 arg1);                  // _DC
-	virtual void vfE0();                                    // _E0
-	virtual void vfE4();                                    // _E4
-	virtual void vfE8();                                    // _E8
-	virtual Vec GetCameraTarget();                          // _EC
-	virtual void vfF0();                                    // _F0
-	virtual void vfF4();                                    // _F4
-	virtual void vfF8();                                    // _F8
-	virtual void vfFC();                                    // _FC
-	virtual void vf100();                                   // _100
-	virtual void vf104();                                   // _104
-	virtual f32 vf108();                                    // _108, how far its shadow reaches
-	virtual void vf10C();                                   // _10C
-	virtual void vf110();                                   // _110
-	virtual void vf114();                                   // _114
-	virtual void vf118();                                   // _118
-	virtual BOOL IsInView(CMotionControlCamera* camera);    // _11C
-	virtual void vf120(s32 pass);                           // _120, 1 before a mirrored draw, 2 after
-	virtual void vf124();                                   // _124
-	virtual void vf128();                                   // _128
-	virtual void vf12C();                                   // _12C
-	virtual void vf130();                                   // _130
-	virtual void vf134();                                   // _134
-	virtual void vf138();                                   // _138
-	virtual void vf13C();                                   // _13C
-	virtual void vf140();                                   // _140
-	virtual void OnMicVolume(s32 arg, s32 volume);          // _144
-};
-typedef char XObj_size_check[sizeof(XObj) == 0x988 ? 1 : -1];
-
-// the menu cursor objects add nothing to XObj but their vtables
-class Cursor : public XObj { };
-class MenuCursor : public Cursor { };
-
-// an object with a camera and lights of its own for the title screen
-class XObjDemo : public XObj {
-public:
-	CCamera mCamera;   // _988
-	u8 _B1C[0x8];      // _B1C
-	CLight mLights[8]; // _B24
-};
-
-// the camera the game draws with, it runs the current camera action and eases towards it.
-// game/cmotioncontrolcamera.h has the methods
-class CCameraMemento {
-public:
-	virtual ~CCameraMemento() { } // _08
-
-	CVec mEye;                       // _04
-	CVec mInterest;                  // _14
-	CVec mAngle;                     // _24
-	f32 mFov;                        // _34
-	f32 mDistance;                   // _38
-	CInterfaceCameraAction* mAction; // _3C
-};
-
-class CMotionControlCamera {
-public:
-	CCamera mCamera;                       // _00
-	CVec mEye;                             // _194
-	CVec mInterest;                        // _1A4
-	CVec mAngle;                           // _1B4
-	f32 mDistance;                         // _1C4
-	f32 mFov;                              // _1C8
-	s32 mMode;                             // _1CC
-	CInterfaceCameraAction* mAction;       // _1D0
-	CInterfaceCameraAction* mPrevAction;   // _1D4
-	CInterfaceCameraAction* mPushedAction; // _1D8
-	s32 _1DC;                              // _1DC
-	s32 _1E0;                              // _1E0
-	CStatus mFlags;                        // _1E4
-	s32 mInterestMode;                     // _1EC
-	s32 mEyeMode;                          // _1F0
-
-	virtual ~CMotionControlCamera() { } // _08
-
-	void Init();
-	void Update(u32 frames);
-	BOOL IsAction(s32 type);
-	void ChangeAction(s32 type);
-	void ApplyAction();
-	void UpdateTarget(XObj* obj);
-
-	CVec mFollowTarget;      // _1F8
-	CVec mFollowValue;       // _208
-	CVec mFollowStep;        // _218
-	BOOL mFollowDone;        // _228
-	f32 mFollowDivide;       // _22C
-	CCameraMemento mMemento; // _230
-	u8 _270[0x274 - 0x270];  // _270
-};
-typedef char CMotionControlCamera_size_check[sizeof(CMotionControlCamera) == 0x274 ? 1 : -1];
-
-// the THP movie player, game/cmovie.h has the methods
-class CMovie {
-public:
-	u32 mState;          // _00
-	char mPath[0x80];    // _04
-	BOOL mLoop;          // _84
-	BOOL mAlpha;         // _88
-	u32 mVideoWidth;     // _8C, THPVideoInfo
-	u32 mVideoHeight;    // _90
-	u32 mVideoType;      // _94
-	u8 mAudioInfo[0x10]; // _98, THPAudioInfo
-	void* mBuffer;       // _A8
-	s32 mFrame;          // _AC
-	s32 mLastFrame;      // _B0
-
-	virtual ~CMovie() { } // _08
-
-	void EndDraw();
-	s32 BeginDraw();
-	void Draw(f32 x, f32 y, f32 w, f32 h);
-	s32 DrawFrame(f32 x, f32 y, f32 w, f32 h);
-	s32 Update();
-	void Stop();
-	void Start(const char* path, BOOL loop, BOOL alpha, BOOL sound);
-};
-typedef char CMovie_size_check[sizeof(CMovie) == 0xB8 ? 1 : -1];
-
-// the objects of one kind, all the same size in one block
-struct ObjPool {
-	u8* mBase;         // _00
-	s32 mUsed;         // _04, objects handed out so far
-	s32 mCount;        // _08
-	const char* mName; // _0C
-	s32 mSize;         // _10, size of one object
-
-	XObj* First() { return (XObj*)mBase; }
-	XObj* Get(s32 i) { return (XObj*)(mBase + i * mSize); }
-};
-
-// the two objects that can bring lights of their own, classes unknown
-struct LightOwnerA {
-	u8 _00[0x228];          // _00
-	CStatus64 _228;         // _228
-	u8 _238[0xB84 - 0x238]; // _238
-	s32 mLightCount;        // _B84
-	CLight mLights[1];      // _B88
-
-	CLight* GetLights() { return mLightCount > 0 ? mLights : NULL; }
-};
-
-struct LightOwnerB {
-	u8 _00[0x228];          // _00
-	CStatus64 _228;         // _228
-	u8 _238[0x980 - 0x238]; // _238
-	s32 mLightCount;        // _980
-	CLight mLights[1];      // _984
-
-	CLight* GetLights() { return mLightCount > 0 ? mLights : NULL; }
-};
-
-// a menu, its cursor and not much else
-struct MenuEx {
-	s32 mOpen;          // _00
-	void* _04;          // _04
-	void* _08;          // _08, the menu that is up
-	u8 _0C[0x28 - 0xC]; // _0C
-	MenuCursor mCursor; // _28
-	// _9B0 vtable
-
-	virtual ~MenuEx() { } // _08
-};
-
-// a struct holding a cursor, CMsgFont has one
-struct CursorHolder {
-	Cursor mCursor; // _00
-};
-
-// the screen overlays: a CScrnColor fills the screen, the fades and wipes move it in and
-// out. names from RTTI
-class CScrnColor {
-public:
-	f32 mColor[4];  // _00
-	f32 mTarget[4]; // _10
-	f32 mSpeed[4];  // _20
-	// _30 vtable
-
-	virtual ~CScrnColor() { } // _08
-};
-
-class CScrnFade : public CScrnColor { };
-
-class CScrnWipe : public CScrnColor {
-public:
-	u8 _34[0x30]; // _34
-
-	// these two are CScrnColor's own, see game/gxb.cpp
-	virtual void vf0C();             // _0C
-	virtual void Update(u32 frames); // _10
-};
-
-class CScrnWipeCircle : public CScrnWipe { };
-class CScrnWipeCustom : public CScrnWipe { };
-class CScrnWipeTile : public CScrnWipe { };
-
-class CScrnWipeTex : public CScrnWipe {
-public:
-	CTexObj mTex; // _64
-};
-
-class CScrnRoboeyes : public CScrnWipe {
-public:
-	u8 _64[0x8]; // _64
-};
-
-// shakes the screen
-class CScrnQuake {
-public:
-	CVec mOffset[3]; // _00
-	u32 _30;         // _30
-	// _34 vtable
-
-	virtual ~CScrnQuake() { } // _08
-};
-
-// the info screen's fade and wipe
-class InfoScrn {
-public:
-	CScrnFade mFade;      // _00
-	CScrnWipe mWipe;      // _34
-	u8 _98[0x1D8 - 0x98]; // _98
-	// _1D8 vtable
-
-	virtual ~InfoScrn() { } // _08
-};
-
-// the logo shown at boot
-class Logo {
-public:
-	s32 mState;             // _00
-	CTpl mTpl;              // _04
-	u8 _1F4[0x200 - 0x1F4]; // _1F4
-	// _200 vtable
-
-	virtual ~Logo() { } // _08
-};
-
-// the sound player, game/xsound.h has the fields it uses
-class CSound {
-public:
-	virtual ~CSound() { } // _08
-
-	u32 _04; // _04
-};
-
-class XSound : public CSound {
-public:
-	CFile mFile; // _08
-};
-
-// the memory card, a CCard plus the save data
-class CCard {
-public:
-	u8 _00[0xA020]; // _00
-	// _A020 vtable
-
-	virtual ~CCard() { } // _08
-};
-
-class Memcard {
-public:
-	u8 _00[0x20];                 // _00
-	CCard mCard;                  // _20
-	u8 _A044[0x16A08 - 0xA044];   // _A044
-	BOOL mBusy;                   // _16A08, a card task is running
-	u8 _16A0C[0x16A20 - 0x16A0C]; // _16A0C
-	// _16A20 vtable
-
-	virtual ~Memcard() { } // _08
-};
-
-class CMsgData {
-public:
-	u8 _00[0x898]; // _00
-	// _898 vtable
-
-	virtual ~CMsgData() { } // _08
-};
-
-// a character of the message font, a texture and the sprite it's drawn with
-struct MsgChar {
-	CTexObj mTex;    // _00
-	CSprite mSprite; // _100
-	u8 _288[0x24];   // _288
-};
-typedef char MsgChar_size_check[sizeof(MsgChar) == 0x2AC ? 1 : -1];
-
-struct MsgTex {
-	CTexObj mTex; // _00
-};
-
-struct MsgTexes {
-	CTexObj mTex[5]; // _00
-};
-
-// the message font
-class CMsgFont {
-public:
-	u8 _00[0x8];                  // _00
-	MsgTex _08;                   // _08
-	u8 _108[0x118 - 0x108];       // _108
-	GXColor mColor;               // _118
-	u8 _11C[0x120 - 0x11C];       // _11C
-	CursorHolder mCursor[1];      // _120
-	u8 _AA8[0x4];                 // _AA8
-	MsgChar mChars[400];          // _AAC
-	MsgTexes mTexes;              // _4376C
-	u8 _43C6C[0x43D1C - 0x43C6C]; // _43C6C
-	// _43D1C vtable
-
-	virtual ~CMsgFont() { } // _08
-};
-
-// a message window, CGame has two. its vtable is unnamed
-class CMsg {
-public:
-	u32 _00;                      // _00
-	CMsgData mData;               // _04
-	CMsgFont mFont;               // _8A0
-	u8 _445C0[0x44618 - 0x445C0]; // _445C0
-	// _44618 vtable
-
-	virtual ~CMsg() { } // _08
-
-	void SetColor(GXColor color) { mFont.mColor = color; }
-
-	u32 _4461C; // _4461C
-};
-typedef char CMsgData_size_check[sizeof(CMsgData) == 0x89C ? 1 : -1];
-typedef char CursorHolder_size_check[sizeof(CursorHolder) == 0x988 ? 1 : -1];
-typedef char CMsgFont_size_check[sizeof(CMsgFont) == 0x43D20 ? 1 : -1];
-typedef char CMsg_size_check[sizeof(CMsg) == 0x44620 ? 1 : -1];
-
-// the title screen
-class Title {
-public:
-	s32 mState;                // _00
-	u8 _04[0x24];              // _04
-	Cursor mCursor;            // _28
-	XObjDemo mDemo;            // _9B0
-	u8 _2F98[0x2FB8 - 0x2F98]; // _2F98
-	CTpl mTpl;                 // _2FB8
-	CTexObj mTex[6];           // _31A8
-	u8 _37A8[0x3C48 - 0x37A8]; // _37A8
-	// _3C48 vtable
-
-	virtual ~Title() { } // _08
-};
-
-// the frame buffer effects that copy the screen into a texture. names from RTTI
-// the texture an effect copies into
-struct FbTexBuffer {
-	void* mBuffer;    // _00
-	u16 mWidth;       // _04
-	u16 mHeight;      // _06
-	GXTexFmt mFormat; // _08
-	s32 _0C;          // _0C
-	f32 _10;          // _10
-	f32 _14;          // _14
-	u8 _18;           // _18, copies at half size
-	CTexObj mTex;     // _1C
-};
-
-class CFbTexEff : public FbTexBuffer {
-public:
-	BOOL _11C; // _11C
-	// _120 vtable
-
-	virtual void Init();             // _08
-	virtual void Reset();            // _0C
-	virtual void vf10();             // _10
-	virtual void Update(u32 frames); // _14
-	virtual void Draw();             // _18
-};
-
-// the small window the screen is drawn into from a second camera
-class FbSubwin : public CFbTexEff {
-public:
-	BOOL mOpen;      // _124
-	CStatus _128;    // _128
-	f32 mAlpha;      // _130, eases to 1 while it's open and back to 0
-	u8 _134[0x10];   // _134
-	CCamera mCamera; // _144
-};
-typedef char FbSubwin_size_check[sizeof(FbSubwin) == 0x2D8 ? 1 : -1];
-
-// a mirror, drawn from a camera of its own into a 256 square texture
-class FbMirror : public CFbTexEff {
-public:
-	HSD_JObj* mJObj; // _124, the mirror's surface
-	CCamera mCamera; // _128
-	BOOL mVisible;   // _2BC, the eye is in front of it
-	Mtx mViewMtx;    // _2C0
-	XObj* mOwner;    // _2F0, the mirror is off while this is gone or hidden
-
-	bool IsUsed() const { return mJObj ? true : false; }
-	bool IsOff()
-	{
-		bool off = false;
-		if (mOwner == NULL || (mOwner->_228.mFlags & 0x1000000000000)) {
-			off = true;
-		}
-		return off;
-	}
-};
-typedef char FbMirror_size_check[sizeof(FbMirror) == 0x2F4 ? 1 : -1];
-extern "C" FbMirror lbl_8035FA24[5];
-
-// every camera action and the table the camera picks them from. a class with its vtable at
-// _1E70, its dtor is spelled out below
-struct CCameraActions {
-	CCameraActionDefault mDefault;        // _0000
-	CCameraActionArea mArea;              // _0040
-	CCameraActionChase mChase;            // _02D4
-	CCameraActionEvt mEvt;                // _0344
-	CCameraActionScroll2 mScroll2;        // _0828
-	CCameraActionEye mEye;                // _08D4
-	CCameraActionAnim mAnim;              // _0954
-	CCameraActionMap mMap;                // _099C
-	CCameraActionLadr mLadr;              // _1B88
-	CCameraActionReset mReset;            // _1BCC
-	CCameraActionScroll mScroll;          // _1DD4
-	CInterfaceCameraAction* mActions[12]; // _1E40
-	// _1E70 vtable
-
-	virtual ~CCameraActions() { } // _08
-};
-typedef char CCameraActions_size_check[sizeof(CCameraActions) == 0x1E74 ? 1 : -1];
-
-// the frame buffer effects CGame owns, game/fbeffect.h has them with their dtors out of line
-class CFbOutline {
-public:
-	u8 _00[0x28];    // _00
-	GXColor mColor0; // _28
-	u8 _2C[0x4];     // _2C
-	GXColor mColor1; // _30
-	GXColor mColor2; // _34
-	GXColor mColor3; // _38
-	f32 _3C;         // _3C
-	u8 _40[0x1C];    // _40
-	f32 _5C;         // _5C
-	// _60 vtable
-
-	virtual ~CFbOutline() { } // _08
-
-	void Update(s32 frames);
-	void SetGlow(u8 r, u8 g, u8 b, u8 a)
-	{
-		GXColor color = { r, g, b, 4 };
-		mColor0       = color;
-		mColor0.a     = a;
-	}
-	void SetTexColor(u8 r, u8 g, u8 b)
-	{
-		GXColor color = { r, g, b, 0x80 };
-		mColor1       = color;
-	}
-	void SetColor2(u8 r, u8 g, u8 b, u8 a)
-	{
-		GXColor color = { r, g, b, a };
-		mColor2       = color;
-	}
-	void SetColor3(u8 r, u8 g, u8 b, u8 a)
-	{
-		GXColor color = { r, g, b, a };
-		mColor3       = color;
-	}
-};
-
-class CFbBlur {
-public:
-	u8 _00[0x28]; // _00
-	f32 _28;      // _28
-	f32 _2C;      // _2C
-	u8 _30[0x10]; // _30
-	// _40 vtable
-
-	virtual ~CFbBlur() { } // _08
-
-	void Update(u32 frames);
-};
-
-// a screen color with a texture to draw it through
-struct ScrnTex {
-	f32 mAngle;        // _00
-	CScrnColor mColor; // _04
-	CTexObj mTex;      // _38
-};
-
-// the objects: a pool per kind and the list of the ones in use, name from RTTI. game/xobjs.cpp
-// has it as UnkXObjList
-class XOBJS {
-public:
-	ObjPool mPools[0x17];  // _000
-	XObj* mObjects[0x400]; // _1CC
-	s32 mObjectCount;      // _11CC
-	s32 _11D0;             // _11D0
-	s32 _11D4;             // _11D4
-	// _11D8 vtable
-
-	virtual ~XOBJS() { } // _08
-};
-
-// the object archives loaded so far
-struct ObjArchiveTable {
-	CObjArchive mArchives[0x400]; // _00
-};
-
-// the movie, the card and two of the screen colors sit in structs of their own, CGame's dtor
-// checks each twice
-struct GameMovie {
-	CMovie mMovie; // _00
-};
-
-struct GameMemcard {
-	Memcard mCard; // _00
-};
-
-struct GameScrnColor {
-	CScrnColor mColor; // _00
-};
-
-// one letter of the stage name that pops in when a stage starts
-struct StageNameChar {
-	const char* mText; // _00, the letter, one or two bytes
-	f32 mScale;        // _04, grows to 1 and shrinks away
-	f32 mWait;         // _08, frames until it shrinks
-	f32 mBob;          // _0C, the angle it bobs up and down by
-	f32 mTilt;         // _10, the angle it rocks by
-};
-
-// the stage name, each letter on its own over a bubble
-struct StageName {
-	BOOL mActive;             // _00
-	s32 mCount;               // _04
-	u32 mColor;               // _08, the letters' color, the alpha comes from their scale
-	StageNameChar mChars[20]; // _0C
-};
-typedef char StageName_size_check[sizeof(StageName) == 0x19C ? 1 : -1];
-
-// the game: the title, the menus, the object table, the event scripts and the camera on top
-// of CBase. name from RTTI
-class CGame : public CBase {
-public:
-	s32 _3338;                                 // _3338
-	CFileArchive mArchive;                     // _333C
-	s32 mStage;                                // _3444
-	s32 _3448;                                 // _3448, the stage before
-	s32 mStageCount;                           // _344C
-	u8 _3450[0x3C80 - 0x3450];                 // _3450
-	CTpl mTpl;                                 // _3C80
-	CScrnFade mFade;                           // _3E70
-	CScrnWipeCircle mWipeCircle;               // _3EA4
-	CScrnWipeTex mWipeTex;                     // _3F08
-	CScrnWipeCustom mWipeCustom;               // _406C
-	CScrnWipeTile mWipeTile0;                  // _40D0
-	CScrnWipeTile mWipeTile1;                  // _4134
-	CScrnRoboeyes mRoboeyes;                   // _4198
-	CFbOutline mOutline;                       // _4204
-	CFbBlur mBlur;                             // _4268
-	FbSubwin mSubwin;                          // _42AC
-	ScrnTex mScrnTex;                          // _4584
-	GameScrnColor mColor0;                     // _46BC
-	GameScrnColor mColor1;                     // _46F0
-	s32 _4724;                                 // _4724
-	f32 _4728;                                 // _4728, the outline's width, the c stick moves it
-	Logo mLogo;                                // _472C
-	Title mTitle;                              // _4930
-	MenuEx mMenu;                              // _8580
-	InfoScrn mInfoScrn;                        // _8F38
-	CParticle mParticle;                       // _9114
-	CScrnQuake mQuake;                         // _965C
-	XOBJS mXObjs;                              // _9694
-	XObj* mDrawList[0x400];                    // _A870
-	u16 mDrawIndex[0x400];                     // _B870, each one's index in mObjects
-	s32 mDrawCount;                            // _C070
-	XObj* _C074[0x600];                        // _C074
-	s32 _D874;                                 // _D874, count of _C074
-	XObj* _D878[0x600];                        // _D878, the ones mirrors show
-	s32 _F078;                                 // _F078, count of _D878
-	ObjArchiveTable mArchives;                 // _F07C
-	CEvt mEvt;                                 // _5D07C
-	CMsg mCMsgs[2];                            // _5D0E8
-	s32 _E5D28;                                // _E5D28
-	f32 _E5D2C;                                // _E5D2C, the idle timer, fills to 1
-	f32 _E5D30;                                // _E5D30, how many frames it takes, 0 for never
-	BOOL _E5D34;                               // _E5D34, the idle script is due
-	CMotionControlCamera mMotionControlCamera; // _E5D38
-	CCameraActions mCameraActions;             // _E5FAC
-	CLight* mLightList;                        // _E7E20
-	XSound mSound;                             // _E7E24
-	u8 _E7F18[0xE8400 - 0xE7F18];              // _E7F18
-	GameMemcard mMemcard;                      // _E8400
-	u8 _FEE24[0xFF000 - 0xFEE24];              // _FEE24
-	BOOL mMemcardLoaded;                       // _FF000, the stage came from the card
-	u8 _FF004[0xFF200 - 0xFF004];              // _FF004
-	s32 mPlayTime;                             // _FF200, frames played, it stops just short of 100 hours
-	u8 _FF204[0x4];                            // _FF204
-	StageName mStageName;                      // _FF208
-	GameMovie mMovie;                          // _FF3A4
-	BOOL mMovieSound;                          // _FF45C
-	f32 _FF460[4];                             // _FF460
-
-	virtual ~CGame();
-
-	bool Is472C() const { return mLogo.mState >= 1 && mLogo.mState < 15; }
-	void SetStage(s32 stage)
-	{
-		_3448  = mStage;
-		mStage = stage;
-	}
-	bool Is4930() const { return mTitle.mState >= 1 && mTitle.mState < 23; }
-};
-typedef char CGame_size_check[sizeof(CGame) == 0xFF470 ? 1 : -1];
-
-extern "C" CGame lbl_8025C400;
+	return off;
+}
 
 extern "C" {
 MtxPtr fn_8019997C(CBase* base);
@@ -1460,13 +146,10 @@ CBase::~CBase()
  * @note Address: 0x8000A4B8
  * @note Size: 0x68
  */
+// CGame's FrameInterval, the logo and title run at 60, the game at 30
 extern "C" s32 fn_8000A4B8(CGame* game)
 {
-	bool slow = false;
-	if (game->Is472C() || game->Is4930()) {
-		slow = true;
-	}
-	return slow ? 1 : 2;
+	return game->IsIntroActive() ? 1 : 2;
 }
 
 /**
@@ -1493,7 +176,7 @@ extern "C" CLight* fn_8000A52C(CGame* game)
  */
 extern "C" u32 fn_8000A538(CBase* base)
 {
-	return base->mFrames;
+	return base->mRetraceStep;
 }
 
 /**
@@ -1502,7 +185,7 @@ extern "C" u32 fn_8000A538(CBase* base)
  */
 extern "C" CCamera* fn_8000A540(CBase* base)
 {
-	return &base->mCamera[0];
+	return &base->mCameras[0];
 }
 
 /**
@@ -1511,7 +194,7 @@ extern "C" CCamera* fn_8000A540(CBase* base)
  */
 extern "C" CCamera* fn_8000A548(CBase* base)
 {
-	return &base->mCamera[1];
+	return &base->mCameras[1];
 }
 
 /**
@@ -1520,7 +203,7 @@ extern "C" CCamera* fn_8000A548(CBase* base)
  */
 extern "C" CLight* fn_8000A550(CBase* base)
 {
-	return &base->mLight[0];
+	return &base->mLights[0];
 }
 
 /**
@@ -1529,7 +212,7 @@ extern "C" CLight* fn_8000A550(CBase* base)
  */
 extern "C" CLight* fn_8000A558(CBase* base)
 {
-	return &base->mLight[4];
+	return &base->mLights[4];
 }
 
 extern "C" {
@@ -1607,10 +290,10 @@ extern "C" void fn_8000AD34(CGame* game)
 extern "C" void fn_8000BE38(CGame* game)
 {
 	if (game->mMovie.mMovie.mState != 0) {
-		f32 w   = fpclassify(game->_FF460[2]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoWidth : game->_FF460[2];
-		f32 h   = fpclassify(game->_FF460[3]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoHeight : game->_FF460[3];
-		f32 x   = fpclassify(game->_FF460[0]) == FP_NAN ? (640.0f - w) / 2 : game->_FF460[0];
-		f32 y   = fpclassify(game->_FF460[1]) == FP_NAN ? (448.0f - h) / 2 : game->_FF460[1];
+		f32 w   = fpclassify(game->mMovieRect[2]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoInfo.xSize : game->mMovieRect[2];
+		f32 h   = fpclassify(game->mMovieRect[3]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoInfo.ySize : game->mMovieRect[3];
+		f32 x   = fpclassify(game->mMovieRect[0]) == FP_NAN ? (640.0f - w) / 2 : game->mMovieRect[0];
+		f32 y   = fpclassify(game->mMovieRect[1]) == FP_NAN ? (448.0f - h) / 2 : game->mMovieRect[1];
 		CGs* gs = &lbl_8025C400.mGs;
 		fn_8019B648(gs->mCurRenderMode, 1);
 		fn_8019B5D0(gs->mCurRenderMode, 0);
@@ -1698,12 +381,13 @@ struct UnkStageInfo {
 	u8 mFlags;          // _10, bit 0 keeps the shadows at full strength
 };
 
-struct UnkStageRef {
-	UnkStageInfo* mInfo; // _00
-};
+// the loaded stage's EnvInfo starts with a pointer to them, see game/stagedata.h
+static inline UnkStageInfo* GetStageInfo()
+{
+	return *(UnkStageInfo**)fn_8006F4B8();
+}
 
 extern "C" {
-UnkStageRef* fn_8006F4B8(void);
 void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags);
 void HSD_CObjSetInterest(HSD_CObj* cobj, Vec* interest);
 void HSD_CObjSetEyePosition(HSD_CObj* cobj, Vec* eye);
@@ -1715,7 +399,7 @@ void fn_8000CBF4(HSD_JObj* jobj, f32* limits);
 static inline bool IsShadowObj(XObj* obj, u64 mask)
 {
 	bool on = false;
-	if ((obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000) && (obj->_228.mFlags & mask)) {
+	if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & mask)) {
 		on = true;
 	}
 	return on;
@@ -1738,9 +422,9 @@ extern "C" void fn_8000C450(CGame* game)
 		player        = (UnkPlayer*)lbl_8025C400.mXObjs.mPools[2].First();
 		target        = player->GetShadowObj();
 		f32 limits[2] = { 1.0f + player->mMoveTranslate.y, NAN };
-		for (i = 0; i < game->_D874; i++) {
-			obj = game->_C074[i];
-			if (obj->_228.mFlags & 2) {
+		for (i = 0; i < game->mDrawLists[1].mCount; i++) {
+			obj = game->mDrawLists[1].mObjects[i];
+			if (obj->mStatus.mFlags & 2) {
 				if (obj == target) {
 					limits[1] = NAN;
 					if (obj->mJObj != NULL) {
@@ -1756,7 +440,7 @@ extern "C" void fn_8000C450(CGame* game)
 			CShadow* shadow = &light->mShadow;
 			if (shadow->IsActive()) {
 				HSD_CObj* cobj = shadow->mShadow->camera;
-				Vec interest   = game->GetMainCamera()->mInterest;
+				Vec interest   = game->GetCamera()->mInterest;
 				Vec eye;
 				eye.x = interest.x;
 				eye.z = interest.z;
@@ -1765,16 +449,16 @@ extern "C" void fn_8000C450(CGame* game)
 				HSD_CObjSetEyePosition(cobj, &eye);
 				HSD_ShadowDeleteObject(shadow->mShadow, NULL);
 				shadow->InitRect();
-				for (s32 i = 0; i < game->_D874; i++) {
-					XObj* obj = game->_C074[i];
+				for (s32 i = 0; i < game->mDrawLists[1].mCount; i++) {
+					XObj* obj = game->mDrawLists[1].mObjects[i];
 					if (IsShadowObj(obj, 4)) {
-						obj->CastShadow(shadow);
+						obj->vfD0(shadow);
 					}
-					if ((fn_8006F4B8()->mInfo->mFlags & 1) && obj->mAttr.GetKind() == 2) {
-						obj->CastShadow2(shadow);
+					if ((GetStageInfo()->mFlags & 1) && obj->GetCategory() == 2) {
+						obj->vfD4(shadow);
 					}
 				}
-				Vec center = game->GetMainCamera()->mInterest;
+				Vec center = game->GetCamera()->mInterest;
 				shadow->AddRect(&center, 100.0f, -100.0f, -100.0f, 100.0f);
 				game->mGs.mCamera = shadow->StartRender();
 				if (fn_8019997C(game)) {
@@ -1782,14 +466,14 @@ extern "C" void fn_8000C450(CGame* game)
 					fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
 					fn_8019B360(lbl_8025C400.mGs.mCurRenderMode, 2);
 					SetupAll(TRUE);
-					for (s32 i = 0; i < game->_D874; i++) {
-						XObj* obj = game->_C074[i];
+					for (s32 i = 0; i < game->mDrawLists[1].mCount; i++) {
+						XObj* obj = game->mDrawLists[1].mObjects[i];
 						if (IsShadowObj(obj, 8)) {
 							f32 alpha;
-							if (fn_8006F4B8()->mInfo->mFlags & 1) {
+							if (GetStageInfo()->mFlags & 1) {
 								alpha = 1.0f;
 							} else {
-								CCamera* camera = game->GetMainCamera();
+								CCamera* camera = game->GetCamera();
 								f32 dz          = camera->mInterest.z - obj->mMoveTranslate.z;
 								f32 dx          = camera->mInterest.x - obj->mMoveTranslate.x;
 								alpha           = (100.0f - sqrtf(dx * dx + dz * dz)) / 100.0f;
@@ -1800,7 +484,7 @@ extern "C" void fn_8000C450(CGame* game)
 									alpha = 0.8f;
 								}
 							}
-							obj->SetShadowAlpha(sin(3.1415927f * alpha * 0.5f), &obj->mMoveTranslate);
+							obj->vfBC(&obj->mMoveTranslate, sin(3.1415927f * alpha * 0.5f));
 						}
 					}
 					fn_80199944(&game->mGs);
@@ -1826,7 +510,7 @@ extern "C" void fn_8000D118(CGame* game)
 	s32 i;
 	UnkPlayer* player;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x4000000000)) {
-		game->mGs.mCamera = game->GetCamera2();
+		game->mGs.mCamera = game->vf34();
 		if (fn_8019997C(game)) {
 			InvalidateAll();
 			fn_80199AB0(&lbl_8025C400.mGs, 4, 0);
@@ -1844,7 +528,7 @@ extern "C" void fn_8000D118(CGame* game)
 			fn_80199944(&game->mGs);
 		}
 
-		game->mGs.mCamera = game->GetMainCamera();
+		game->mGs.mCamera = game->GetCamera();
 		if (fn_8019997C(game)) {
 			XObj* targets[2] = { NULL, NULL };
 			player           = (UnkPlayer*)game->mXObjs.mPools[2].First();
@@ -1863,22 +547,22 @@ extern "C" void fn_8000D118(CGame* game)
 			if (targets[1] == NULL) {
 				targets[1] = player->_BC8;
 			}
-			for (i = 0; i < game->_D874; i++) {
-				obj = game->_C074[i];
-				if (obj->_228.mFlags & 0x40) {
+			for (i = 0; i < game->mDrawLists[1].mCount; i++) {
+				obj = game->mDrawLists[1].mObjects[i];
+				if (obj->mStatus.mFlags & 0x40) {
 					obj->vfDC(1, 0);
 					obj->vfAC();
-				} else if ((targets[0] == obj || targets[1] == obj) && !(obj->_228.mFlags & 0x800000)) {
+				} else if ((targets[0] == obj || targets[1] == obj) && !(obj->mStatus.mFlags & 0x800000)) {
 					obj->vfAC();
 				}
 			}
 			fn_80199944(&game->mGs);
 		}
 
-		for (i = 0; i < game->_D874; i++) {
-			obj = game->_C074[i];
-			if (obj->_228.mFlags & 0x40) {
-				if (obj->_228.mFlags & 0x800000) {
+		for (i = 0; i < game->mDrawLists[1].mCount; i++) {
+			obj = game->mDrawLists[1].mObjects[i];
+			if (obj->mStatus.mFlags & 0x40) {
+				if (obj->mStatus.mFlags & 0x800000) {
 					obj->vfDC(1, 8);
 				} else {
 					obj->vfDC(1, 4);
@@ -1927,23 +611,23 @@ extern "C" void fn_8000CDA0(CGame* game)
 {
 	if (game->mStatus.mFlags & 1) {
 		s32 i;
-		game->mGs.mCamera = game->GetMainCamera();
+		game->mGs.mCamera = game->GetCamera();
 		if (fn_8019997C(game)) {
-			for (i = 0; i < game->_D874; i++) {
-				if (game->_C074[i]->mAttr.GetKind() == 3) {
-					game->_C074[i]->vfAC();
+			for (i = 0; i < game->mDrawLists[1].mCount; i++) {
+				if (game->mDrawLists[1].mObjects[i]->GetCategory() == 3) {
+					game->mDrawLists[1].mObjects[i]->vfAC();
 				}
 			}
 			fn_80199944(&game->mGs);
 		}
-		game->mGs.mCamera = game->GetMainCamera();
+		game->mGs.mCamera = game->GetCamera();
 		if (fn_8019997C(game)) {
-			for (i = 0; i < game->_D874; i++) {
-				if (game->_C074[i]->mAttr.GetKind() != 3) {
-					game->_C074[i]->vfAC();
+			for (i = 0; i < game->mDrawLists[1].mCount; i++) {
+				if (game->mDrawLists[1].mObjects[i]->GetCategory() != 3) {
+					game->mDrawLists[1].mObjects[i]->vfAC();
 				}
 			}
-			fn_8006F338(2, 0, 0);
+			fn_8006F338(2, 0, NULL);
 			fn_80199944(&game->mGs);
 		}
 		InvalidateAll();
@@ -1956,7 +640,7 @@ extern "C" void fn_8000CDA0(CGame* game)
  */
 extern "C" CCamera* fn_8000D05C(CBase* base)
 {
-	return base->GetCamera();
+	return base->vf30();
 }
 
 /**
@@ -1966,6 +650,52 @@ extern "C" CCamera* fn_8000D05C(CBase* base)
 extern "C" BOOL fn_8001552C(CBase* base)
 {
 	return TRUE;
+}
+
+/**
+ * @note Address: 0x80015534
+ * @note Size: 0x100
+ */
+// CBase's Start
+extern "C" void fn_80015534(CBase* base)
+{
+	fn_8001D8C0();
+	fn_8001D51C(base);
+	fn_8001D4EC();
+	fn_8001D4C0();
+#if defined(VERSION_PAL)
+	u8 language = OSGetLanguage();
+	for (s32 i = 0; i < 6; ++i) {
+		if (language == lbl_802162E0[i * 2]) {
+			base->mLanguage = lbl_802162E0[i * 2 + 1];
+			break;
+		}
+	}
+#elif !defined(VERSION_JP)
+	base->mLanguage = 0;
+#endif
+#if defined(VERSION_JP)
+	fn_8019EC40(&base->mFont);
+#else
+	fn_8019EC40(&base->mFont, lbl_8025C400.mLanguage != 6);
+#endif
+	base->mPad.Init();
+	base->mLastRetrace   = 0;
+	base->mRetraceStep   = 0;
+	base->mStatus.mFlags = 0;
+	fn_8001D3D4(&base->mCameras[0], &base->mGs.mScreen);
+	fn_8001D1D0(&base->mCameras[1], &base->mGs.mScreen);
+	fn_8001CFD0(&base->mLights[0]);
+	fn_8001CEFC(&base->mLights[4]);
+	OSInitStopwatch(&base->mStopwatch[0], "__$dsync$ ");
+	OSInitStopwatch(&base->mStopwatch[1], "__$update$");
+	OSInitStopwatch(&base->mStopwatch[2], "__$draw$  ");
+	base->mPrevDvdStatus = 0;
+	base->mDvdStatus     = 0;
+	base->mDiskOk        = 1;
+	base->mDvdError      = 0;
+	base->mResetHold     = 0;
+	base->mReset         = 0;
 }
 
 /**
@@ -2015,7 +745,7 @@ extern "C" void fn_80015640(CBase* base)
  */
 extern "C" CLight* fn_80019310(CBase* base)
 {
-	return base->GetLight();
+	return base->vf3C();
 }
 
 extern "C" {
@@ -2024,34 +754,29 @@ BOOL DVDCheckDisk(void);
 void fn_801CDC34(void);
 void AXQuit(void);
 void AIReset(void);
+void AIStopDMA(void);
 void* HSD_VISetUserGXDrawDoneCallback(void* cb);
 void GXDrawDone(void);
 void GXAbortFrame(void);
 void OSResetSystem(int reset, u32 code, BOOL forceMenu);
 }
 
-/**
- * @note Address: 0x800153BC
- * @note Size: 0x170
- */
-// NONMATCHING: the pad pointer and the counter swap registers
 // CBase::Update, keeps the rumble off while the disc can't be read and watches for the reset
-// button or B X start held for a second
-// CBase::Update, CGame::Update has it inlined
+// button or B X start held for a second. CGame::Update has it inlined
 static inline void BaseUpdate(CBase* base, u32 frames)
 {
-	base->mLastDriveStatus = base->mDriveStatus;
-	base->mDriveStatus     = DVDGetDriveStatus();
-	base->mDiskIn          = DVDCheckDisk();
-	switch (base->mDriveStatus) {
+	base->mPrevDvdStatus = base->mDvdStatus;
+	base->mDvdStatus     = DVDGetDriveStatus();
+	base->mDiskOk        = DVDCheckDisk();
+	switch (base->mDvdStatus) {
 	case -1:
 	case 4:
 	case 5:
 	case 6:
 	case 11:
-		if (base->mDriveStatus != base->mLastDriveStatus) {
-			CPadEx* pad         = &base->mPad;
-			base->mRumblePaused = TRUE;
+		if (base->mDvdStatus != base->mPrevDvdStatus) {
+			CPadEx* pad     = &base->mPad;
+			base->mDvdError = TRUE;
 			for (s32 i = 0; i < 4; i++) {
 				if (pad->mPad[i].mConnected) {
 					HSD_PadRumbleOffN(pad->mPad[i].mPort);
@@ -2061,8 +786,8 @@ static inline void BaseUpdate(CBase* base, u32 frames)
 		}
 		break;
 	case 0:
-		if (base->mLastDriveStatus != 0 && base->mRumblePaused) {
-			base->mRumblePaused = FALSE;
+		if (base->mPrevDvdStatus != 0 && base->mDvdError) {
+			base->mDvdError = FALSE;
 			fn_801CDC34();
 		}
 		break;
@@ -2070,42 +795,59 @@ static inline void BaseUpdate(CBase* base, u32 frames)
 
 	if (!base->mReset) {
 		if (HSD_PadGetResetSwitch()) {
-			base->mResetTimer = 0;
-			base->mReset      = TRUE;
+			base->mResetHold = 0;
+			base->mReset     = TRUE;
 		} else if ((base->mPad.mPad[0].mButton & 0xFFFF) == 0x1600) {
-			if ((base->mResetTimer += base->mFrames) > 60) {
-				base->mResetTimer = 0;
-				base->mReset      = TRUE;
+#if defined(VERSION_PAL)
+			if ((base->mResetHold += base->mRetraceStep) > lbl_80660D4C) {
+#else
+			if ((base->mResetHold += base->mRetraceStep) > 60) {
+#endif
+				base->mResetHold = 0;
+				base->mReset     = TRUE;
 			}
 		} else if (!base->mReset) {
-			base->mResetTimer = 0;
+			base->mResetHold = 0;
 		}
 	}
 }
 
+/**
+ * @note Address: 0x800153BC
+ * @note Size: 0x170
+ */
 extern "C" void fn_800153BC(CBase* base, u32 frames)
 {
 	BaseUpdate(base, frames);
 }
 
-/**
- * @note Address: 0x800152A0
- * @note Size: 0x60
- */
 // stops the sound and the video and resets
 inline void ResetSystem(u32 code)
 {
+#if defined(VERSION_PAL)
+	fn_801E9FA4();
+	fn_801E8CC0();
+#else
 	AXQuit();
 	AIReset();
+#endif
 	HSD_VISetUserGXDrawDoneCallback(NULL);
 	GXDrawDone();
 	GXAbortFrame();
 	VISetBlack(TRUE);
 	VIFlush();
 	VIWaitForRetrace();
+#if defined(VERSION_PAL)
+	AXQuit();
+	AIStopDMA();
+#endif
 	OSResetSystem(code, 0, 0);
 }
 
+/**
+ * @note Address: 0x800152A0
+ * @note Size: 0x60
+ */
 // CBase::Reset
 extern "C" void fn_800152A0(CBase* base, u32 code)
 {
@@ -2128,36 +870,16 @@ extern "C" void fn_80015300(CGame* game, const Vec& pos, f32* x, f32* y, f32* z,
 		*x = sx;
 	}
 	if (y != NULL) {
+#if defined(VERSION_PAL)
+		*y = 448.0f * sy / lbl_8025C400.mGs.mScreen.xfbHeight;
+#else
 		*y = sy;
+#endif
 	}
 	if (z != NULL) {
 		*z = sz;
 	}
 }
-
-// a menu, only as far as its inline methods show it. name from RTTI
-class CMenu {
-public:
-	s32 mState;             // _00
-	u8 _04[0x8];            // _04
-	BOOL mOpen;             // _0C
-	u8 _10[0x138 - 0x10];   // _10
-	s32 _138;               // _138
-	s32 _13C;               // _13C
-	u8 _140[0x148 - 0x140]; // _140
-	// _148 vtable
-
-	virtual ~CMenu();     // _08
-	virtual void vf0C();  // _0C
-	virtual void vf10();  // _10
-	virtual void vf14();  // _14
-	virtual void vf18();  // _18
-	virtual void Open();  // _1C
-	virtual void vf20();  // _20
-	virtual void vf24();  // _24
-	virtual void vf28();  // _28
-	virtual void Reset(); // _2C
-};
 
 /**
  * @note Address: 0x80010CD0
@@ -2167,19 +889,19 @@ public:
 extern "C" void fn_80010CD0(CMenu* menu)
 {
 	menu->mState = 1;
-	menu->Reset();
-	menu->mOpen = TRUE;
+	menu->Resume();
+	menu->mWindow.mOpen = TRUE;
 }
 
 /**
  * @note Address: 0x80010D18
  * @note Size: 0x10
  */
-// CMenu::Reset
+// CMenu::Resume
 extern "C" void fn_80010D18(CMenu* menu)
 {
-	menu->_138 = 0;
-	menu->_13C = 0;
+	menu->mSuspended   = FALSE;
+	menu->mSuspendFade = FALSE;
 }
 
 /**
@@ -2188,15 +910,15 @@ extern "C" void fn_80010D18(CMenu* menu)
  */
 void main(int argc, char** argv)
 {
-	((CBase*)&lbl_8025C400)->Init(argc, argv);
-	((CBase*)&lbl_8025C400)->InitSystem();
+	((CBase*)&lbl_8025C400)->Initialize(argc, argv);
+	((CBase*)&lbl_8025C400)->Start();
 	HSD_VISetBlack(0);
 	while (true) {
 		VIWaitForRetrace();
-		lbl_8025C400.mFrames       = VIGetRetraceCount() - lbl_8025C400.mRetraceCount;
-		lbl_8025C400.mRetraceCount = VIGetRetraceCount();
-		if (lbl_8025C400.mFrames > 4) {
-			lbl_8025C400.mFrames = 4;
+		lbl_8025C400.mRetraceStep = VIGetRetraceCount() - lbl_8025C400.mLastRetrace;
+		lbl_8025C400.mLastRetrace = VIGetRetraceCount();
+		if (lbl_8025C400.mRetraceStep > 4) {
+			lbl_8025C400.mRetraceStep = 4;
 		}
 		OSResetStopwatch(&lbl_8025C400.mStopwatch[0]);
 		OSStartStopwatch(&lbl_8025C400.mStopwatch[0]);
@@ -2205,19 +927,24 @@ void main(int argc, char** argv)
 		OSResetStopwatch(&lbl_8025C400.mStopwatch[2]);
 		OSStartStopwatch(&lbl_8025C400.mStopwatch[2]);
 		HSD_VICopyXFBAsync(0);
-		lbl_8025C400.mStopwatch[0].mLap = OSCheckStopwatch(&lbl_8025C400.mStopwatch[0]);
+		lbl_8025C400.mStopwatch[0].mElapsed = OSCheckStopwatch(&lbl_8025C400.mStopwatch[0]);
 		OSStopStopwatch(&lbl_8025C400.mStopwatch[0]);
-		lbl_8025C400.mPad.Update(lbl_8025C400.mFrames);
-		((CBase*)&lbl_8025C400)->Exec();
-		((CBase*)&lbl_8025C400)->Update(lbl_8025C400.mFrames);
-		lbl_8025C400.mStopwatch[1].mLap = OSCheckStopwatch(&lbl_8025C400.mStopwatch[1]);
+		lbl_8025C400.mPad.Update(lbl_8025C400.mRetraceStep);
+		((CBase*)&lbl_8025C400)->BeforeUpdate();
+		((CBase*)&lbl_8025C400)->Update(lbl_8025C400.mRetraceStep);
+		lbl_8025C400.mStopwatch[1].mElapsed = OSCheckStopwatch(&lbl_8025C400.mStopwatch[1]);
 		OSStopStopwatch(&lbl_8025C400.mStopwatch[1]);
 		((CBase*)&lbl_8025C400)->Draw();
-		lbl_8025C400.mStopwatch[2].mLap = OSCheckStopwatch(&lbl_8025C400.mStopwatch[2]);
+		lbl_8025C400.mStopwatch[2].mElapsed = OSCheckStopwatch(&lbl_8025C400.mStopwatch[2]);
 		OSStopStopwatch(&lbl_8025C400.mStopwatch[2]);
-		s32 rate = ((CBase*)&lbl_8025C400)->GetFrameRate();
-		u32 wait = rate * 60 / 60 - 1;
-		while (VIGetRetraceCount() - lbl_8025C400.mRetraceCount < wait) { }
+#if defined(VERSION_PAL)
+		s32 interval = ((CBase*)&lbl_8025C400)->FrameInterval() * 60;
+		while (VIGetRetraceCount() - lbl_8025C400.mLastRetrace < (u32)(interval / lbl_80660D4C - 1)) { }
+#else
+		s32 interval = ((CBase*)&lbl_8025C400)->FrameInterval();
+		u32 wait     = interval * 60 / 60 - 1;
+		while (VIGetRetraceCount() - lbl_8025C400.mLastRetrace < wait) { }
+#endif
 	}
 }
 
@@ -2590,7 +1317,7 @@ bool CVectorEaseInOutInterpolation::Start(Vec from, Vec to, f32 time)
 	mAxes[0].Start(from.x, to.x, time);
 	mAxes[1].Start(from.y, to.y, time);
 	mAxes[2].Start(from.z, to.z, time);
-	mDone = FALSE;
+	mXZDone = FALSE;
 	return true;
 }
 
@@ -2604,7 +1331,7 @@ bool CVectorEaseInOutInterpolation::Update(u32 step, f32 dt)
 	bool y = mAxes[1].Update(step, dt);
 	bool z = mAxes[2].Update(step, dt);
 	if (x && z) {
-		mDone = TRUE;
+		mXZDone = TRUE;
 	}
 	return x && y && z;
 }
@@ -2690,7 +1417,7 @@ bool CVectorEaseOutDivideInterpolation::Start(Vec from, Vec to, f32 time)
 	mAxes[0].Start(from.x, to.x, time);
 	mAxes[1].Start(from.y, to.y, time);
 	mAxes[2].Start(from.z, to.z, time);
-	mDone = FALSE;
+	mXZDone = FALSE;
 	return true;
 }
 
@@ -2719,7 +1446,7 @@ bool CVectorEaseOutDivideInterpolation::Update(u32 step, f32 dt)
 	bool y = mAxes[1].Update(step, dt);
 	bool z = mAxes[2].Update(step, dt);
 	if (x && z) {
-		mDone = TRUE;
+		mXZDone = TRUE;
 	}
 	return x && y && z;
 }
@@ -2825,9 +1552,6 @@ void M2SGetSamples(s16** samples, s32 count);
 void M2SAdvanceBuffer(s32 count);
 void* memset(void* dst, int val, u32 size);
 void DCFlushRange(void* addr, u32 size);
-extern void* __OSCurrHeap;
-void* OSAllocFromHeap(void* heap, u32 size);
-void OSFreeToHeap(void* heap, void* ptr);
 }
 
 /**
@@ -2991,9 +1715,6 @@ s64 OSGetTime(void);
 extern "C" BOOL lbl_8065B148;
 extern "C" s64 lbl_8065B150;
 
-// os.h's, which this file can't include
-#define OSMillisecondsToTicks(msec) ((msec) * ((*(u32*)0x800000F8 / 4) / 1000))
-
 // whether the stage takes the mic, which ended up true either way
 static inline BOOL IsMicStage()
 {
@@ -3054,9 +1775,9 @@ extern "C" void fn_8000A870(u32 frames)
 
 		if (lbl_8065B158 != 0) {
 			if ((lbl_8025C400.mStatus.mFlags & 1) && !(lbl_8025C400.mStatus.mFlags & 2)) {
-				for (s32 i = 0; i < lbl_8025C400.mDrawCount; i++) {
-					if (lbl_8025C400.mDrawList[i]->_228.mFlags & 1) {
-						lbl_8025C400.mDrawList[i]->OnMicVolume(-1, lbl_8065B158);
+				for (s32 i = 0; i < lbl_8025C400.mDrawLists[0].mCount; i++) {
+					if (lbl_8025C400.mDrawLists[0].mObjects[i]->mStatus.mFlags & 1) {
+						lbl_8025C400.mDrawLists[0].mObjects[i]->vf144(-1, lbl_8065B158);
 					}
 				}
 			}
@@ -3085,20 +1806,8 @@ extern "C" void fn_8000AB8C(void)
 {
 }
 
-extern "C" {
-void OSPanic(const char* file, int line, const char* message, ...);
-BOOL OSCreateThread(void* thread, void* (*func)(void*), void* param, void* stack, u32 stackSize, s32 priority, u16 attr);
-s32 OSResumeThread(void* thread);
-}
-
 // the thread the movie plays on and its stack
-struct MovieThread {
-	u8 mThread[0x318]; // _000, an OSThread
-	void* mStack;      // _318
-	u32 mStackSize;    // _31C
-	u8 _320[0x8];      // _320
-};
-extern "C" MovieThread lbl_80360AE8;
+extern "C" CThread lbl_80360AE8;
 extern "C" u8 lbl_80360E10[0x1000];
 
 /**
@@ -3135,13 +1844,10 @@ extern "C" void* fn_8000AC64(void* arg)
 // starts a movie and the thread that plays it, bit 0 of the flags plays it with alpha
 extern "C" void fn_8000ABB8(CGame* game, const char* path, BOOL loop, u32 flags)
 {
-	game->mMovieSound = flags;
+	game->mMovieFlags = flags;
 	game->mMovie.mMovie.Start(path, loop, flags & 1, TRUE);
-	game->_FF460[0] = game->_FF460[1] = game->_FF460[2] = game->_FF460[3] = NAN;
-	lbl_80360AE8.mStack                                                   = lbl_80360E10;
-	lbl_80360AE8.mStackSize                                               = sizeof(lbl_80360E10);
-	OSCreateThread(lbl_80360AE8.mThread, fn_8000AC64, game, lbl_80360E10 + sizeof(lbl_80360E10), sizeof(lbl_80360E10), 16, 1);
-	OSResumeThread(lbl_80360AE8.mThread);
+	game->mMovieRect[0] = game->mMovieRect[1] = game->mMovieRect[2] = game->mMovieRect[3] = NAN;
+	lbl_80360AE8.Start(fn_8000AC64, game, lbl_80360E10, sizeof(lbl_80360E10));
 }
 
 // what the command line can set
@@ -3151,28 +1857,18 @@ struct CmdLineArgs {
 	u8 _08[0x18]; // _08
 };
 extern "C" CmdLineArgs lbl_8020FBC0;
-extern "C" s32 fn_8006F654(const char* name);
 
 extern "C" {
-void fn_80023EE0(void* scrn, f32 time, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, u8 a1);
-void fn_800236EC(CScrnRoboeyes* eyes, s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, f32 arg5, f32 arg6, f32 arg7, f32 arg8, f32 arg9,
-                 f32 arg10, f32 arg11);
-void fn_80023438(void* scrn, f32 x0, f32 y0, f32 x1, f32 y1, f32 x2, f32 y2, f32 time, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1,
-                 u8 a1, s32 mode);
-void fn_800242A8(void* step, f32 r0, f32 g0, f32 b0, f32 r1, f32 g1, f32 b1, f32 time);
 s32 fn_8006E7BC(void);
 s32 fn_80087A40(void* card);
 void fn_80061364(void* menu);
-void fn_8007F040(CEvt* evt, s32 a, s32 b);
 void fn_800821DC(CMsg* msg);
 void CMsg_ResetPos(CMsg* msg);
 void fn_8006F544(void);
 void fn_801328C8(XOBJS* objs);
 void psKillAllParticle(void);
-void fn_8001E11C(void* sound, BOOL pause);
-void fn_8001E630(void* sound, s32 track);
-void fn_8001F8D8(void* sound);
-void fn_80066190(void* info, s32 a, s32 b);
+void fn_8001E11C(XSound* sound, BOOL pause);
+void fn_8001F8D8(XSound* sound);
 void fn_80030CE8(void* title);
 void fn_80031510(void* menu);
 void fn_8006D5A4(void* info);
@@ -3194,7 +1890,11 @@ static inline bool IsSJISLead(char c)
 }
 
 // resets a screen color to nothing at once
-#define CLEAR_WIPE(wipe) fn_800236EC((CScrnRoboeyes*)(wipe), 0, 0, 0, 0, 1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
+// shuts a wipe off where it is
+static inline void ClearWipe(CScrnWipe* wipe)
+{
+	fn_800236EC(wipe, 0, 0, 0, 0, TRUE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+}
 
 /**
  * @note Address: 0x8000B394
@@ -3206,7 +1906,7 @@ static inline bool IsSJISLead(char c)
 // is set up to pop in when showName is set
 extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 {
-	fn_80023EE0(&game->mFade, 0.0f, 0, 0, 0, 255, 0, 0, 0, 255);
+	fn_80023EE0(&game->mFade, 0, 0, 0, 255, 0, 0, 0, 255, 0.0f);
 	if (stage == 10000) {
 		s32 first = lbl_8020FBC0.mStage;
 		if (first < 0 || (game->mStatus.mFlags & 0x8000000000000)) {
@@ -3220,8 +1920,8 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 	} else if (stage >= 0) {
 		game->SetStage(stage);
 	} else {
-		game->_3448 = game->mStage;
-		if (++game->mStage >= game->mStageCount) {
+		game->mPrevStage = game->mStage;
+		if (++game->mStage >= game->_344C) {
 			game->mStage = 0;
 		}
 	}
@@ -3229,7 +1929,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 	if (game->mMovie.mMovie.mState != 0) {
 		game->mMovie.mMovie.Stop();
 	}
-	fn_80061364(game->mMenu._04);
+	fn_80061364(game->mMenu.mMenus[0]);
 	fn_8007F040(&game->mEvt, 1, 1);
 	for (s32 i = 0; i < 2; i++) {
 		fn_800821DC(&game->mCMsgs[i]);
@@ -3237,21 +1937,21 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		game->mCMsgs[i].SetColor(lbl_80659EC0);
 	}
 	for (s32 i = 0; i < 5; i++) {
-		FbMirror* mirror = &lbl_8035FA24[i];
+		FbMirrorEx* mirror = &lbl_8035FA24[i];
 		if (mirror->IsUsed()) {
-			if (mirror->mJObj != NULL) {
-				mirror->mJObj    = NULL;
+			if (mirror->mJoint != NULL) {
+				mirror->mJoint   = NULL;
 				mirror->mVisible = FALSE;
-				if (mirror->_11C && mirror->mBuffer != NULL) {
-					mm::Free(mirror->mBuffer, 1);
-					mirror->mBuffer = NULL;
+				if (mirror->mActive && mirror->mTexture.mImage != NULL) {
+					mm::Free(mirror->mTexture.mImage, 1);
+					mirror->mTexture.mImage = NULL;
 				}
 			}
 			mirror->mOwner = NULL;
 		}
 	}
 	fn_8006F544();
-	game->mLightList = game->mLight;
+	game->mLightList = game->mLights;
 	fn_801328C8(&game->mXObjs);
 	lbl_80659ECC = -1;
 	game->mParticle.KillAll();
@@ -3269,7 +1969,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 	game->mStatus.mFlags &= ~0xC00;
 	game->mStatus.mFlags &= ~0x2000;
 	game->mStatus.mFlags &= ~0x300;
-	CLEAR_WIPE(&game->mRoboeyes);
+	ClearWipe(&game->mRoboeyes);
 	game->mStatus.mFlags |= 0x40000000000000;
 	game->mStatus.mFlags |= 0x800000000000;
 	fn_80066190(&game->mInfoScrn, 0, 0);
@@ -3282,28 +1982,28 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		fn_80031510(&game->mMenu);
 		fn_8006D5A4(&game->mInfoScrn);
 		game->mSubwin.Reset();
-		fn_80023EE0(&game->mFade, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
-		CLEAR_WIPE(&game->mWipeCircle);
-		CLEAR_WIPE(&game->mWipeTex);
-		CLEAR_WIPE(&game->mWipeCustom);
-		CLEAR_WIPE(&game->mWipeTile0);
-		fn_80023438(&game->mWipeTile1, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+		fn_80023EE0(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
+		ClearWipe(&game->mWipeCircle);
+		ClearWipe(&game->mWipeTex);
+		ClearWipe(&game->mWipeCustom);
+		ClearWipe(&game->mWipeTile0);
+		fn_80023438(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, TRUE);
 		fn_800242A8(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-		game->mBlur._28 = 0.0f;
-		game->mBlur._2C = 0.0f;
-		game->_3338     = 19;
+		game->mBlur.mAlpha  = 0.0f;
+		game->mBlur.mTarget = 0.0f;
+		game->_3338         = 19;
 	} else if (stage == 20000) {
 		game->mSubwin.Reset();
-		fn_80023EE0(&game->mFade, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
-		CLEAR_WIPE(&game->mWipeCircle);
-		CLEAR_WIPE(&game->mWipeTex);
-		CLEAR_WIPE(&game->mWipeCustom);
-		CLEAR_WIPE(&game->mWipeTile0);
-		fn_80023438(&game->mWipeTile1, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+		fn_80023EE0(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
+		ClearWipe(&game->mWipeCircle);
+		ClearWipe(&game->mWipeTex);
+		ClearWipe(&game->mWipeCustom);
+		ClearWipe(&game->mWipeTile0);
+		fn_80023438(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, TRUE);
 		fn_800242A8(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-		game->mBlur._28 = 0.0f;
-		game->mBlur._2C = 0.0f;
-		game->_3338     = 20;
+		game->mBlur.mAlpha  = 0.0f;
+		game->mBlur.mTarget = 0.0f;
+		game->_3338         = 20;
 	} else {
 		game->_3338 = 21;
 	}
@@ -3323,9 +2023,15 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 					game->mStageName.mChars[i].mBob   = DEG2RAD * (rand() % 360);
 					game->mStageName.mChars[i].mTilt  = DEG2RAD * (rand() % 360);
 					game->mStageName.mCount++;
-					if (lbl_8025C400.mProgressive == 6 && IsSJISLead(*name)) {
+#if defined(VERSION_JP)
+					if (IsSJISLead(*name)) {
 						name++;
 					}
+#else
+					if (lbl_8025C400.mLanguage == 6 && IsSJISLead(*name)) {
+						name++;
+					}
+#endif
 				}
 				for (s32 i = game->mStageName.mCount; i < 20; i++) {
 					game->mStageName.mChars[i].mText  = NULL;
@@ -3431,9 +2137,9 @@ extern "C" f32 fn_8000D110(XObj* obj)
  * @note Address: 0x8000DA50
  * @note Size: 0x2C
  */
-extern "C" void fn_8000DA50(XObj* obj, s32 arg)
+extern "C" void fn_8000DA50(XObj* obj, Mtx view)
 {
-	obj->vfB0(arg);
+	obj->vfB0(view);
 }
 
 /**
@@ -3485,7 +2191,7 @@ extern "C" s32 fn_80013680(s32 chan, void* arg, s32 result)
  * @note Address: 0x8001357C
  * @note Size: 0x4
  */
-extern "C" void fn_8001357C(void)
+void CScrnFade::Reset()
 {
 }
 
@@ -3506,11 +2212,11 @@ extern "C" void fn_8000C398(CGame* game)
 	if (game->mStatus.mFlags & 1) {
 		for (s32 i = 0; i < game->mXObjs.mObjectCount; i++) {
 			XObj* obj = game->mXObjs.mObjects[i];
-			if (obj->_228.mFlags & 1) {
+			if (obj->mStatus.mFlags & 1) {
 				obj->vfC8();
 			}
 		}
-		fn_8006F338(4, 0, 0);
+		fn_8006F338(4, 0, NULL);
 	}
 }
 
@@ -3521,16 +2227,9 @@ s32 HSD_DevComIsBusy(s32 id);
 void HSD_PadReset(void);
 BOOL fn_80131D2C(void);
 void fn_80088848(void* card);
-void fn_8001E5C0(void* sound, u32 mask, s32 a);
-void fn_8001E504(void* sound, u32 mask);
-void* fn_8006F3EC(void);
-void fn_8007EEA4(CEvt* evt, void* script, s32 a, s32 b, s32 c);
-void CEvt_Update(CEvt* evt, u32 frames);
+u8* fn_8006F3EC(void);
 void CMsg_Update(CMsg* msg, u32 frames);
-void fn_8001F46C(void* sound, u32 frames);
-void fn_80023B38(void* scrn, u32 frames);
-void fn_800240EC(void* step, u32 frames);
-void fn_80027528(void* logo, u32 frames);
+void fn_8001F46C(XSound* sound, u32 frames);
 void fn_8002E8D0(void* title, u32 frames);
 void fn_80031460(void* menu, u32 frames);
 void fn_8006D548(void* info, u32 frames);
@@ -3551,16 +2250,16 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 	BaseUpdate(game, frames);
 	fn_80088848(&game->mMemcard);
 	if (game->mReset && !game->mMemcard.mCard.mBusy && HSD_DevComIsBusy(1) <= 0 && HSD_DevComIsBusy(2) <= 0) {
-		if (!game->mDiskIn) {
-			game->mResetTimer = 0;
-			game->mReset      = FALSE;
+		if (!game->mDiskOk) {
+			game->mResetHold = 0;
+			game->mReset     = FALSE;
 			HSD_PadReset();
 			game->Reset(1);
 		} else if (game->_3338 != 0x17 && game->_3338 != 0x1A && !fn_80131D2C()) {
-			game->mResetTimer = 0;
-			game->mReset      = FALSE;
+			game->mResetHold = 0;
+			game->mReset     = FALSE;
 			HSD_PadReset();
-			if (!game->mDiskIn) {
+			if (!game->mDiskOk) {
 				game->Reset(1);
 			} else if (game->_3338 <= 0x13) {
 				game->Reset(0);
@@ -3586,18 +2285,18 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		game->mStatus.mFlags &= ~0x1000;
 		fn_80011270(game);
 	}
-	if ((game->mStatus.mFlags & 1) && !(game->mStatus.mFlags & 2) && !(game->mStatus.mFlags & 0x20) && !game->mMenu.mOpen
+	if ((game->mStatus.mFlags & 1) && !(game->mStatus.mFlags & 2) && !(game->mStatus.mFlags & 0x20) && !game->mMenu.mActive
 	    && game->mEvt.mData.mScript == NULL && (game->mPad.mPad[0].mTrigger & 0x1000) && !(game->mPad.mPad[0].mButton & 0x200)
-	    && game->mMenu._08 != NULL) {
-		((CMenu*)game->mMenu._08)->Open();
-		game->mMenu.mOpen = TRUE;
+	    && game->mMenu.mMenus[1] != NULL) {
+		game->mMenu.mMenus[1]->Open();
+		game->mMenu.mActive = TRUE;
 	}
 	if ((game->mStatus.mFlags & 1) && !(game->mStatus.mFlags & 2)) {
-		for (i = 0; i < game->mDrawCount; i++) {
-			XObj* obj = game->mDrawList[i];
-			if (obj->_228.mFlags & 1) {
+		for (i = 0; i < game->mDrawLists[0].mCount; i++) {
+			XObj* obj = game->mDrawLists[0].mObjects[i];
+			if (obj->mStatus.mFlags & 1) {
 				if (obj->mMoveTranslate.y != obj->_264.y) {
-					obj->_228.mFlags |= 0x10000000000000;
+					obj->mStatus.mFlags |= 0x10000000000000;
 				}
 				obj->_264 = obj->mMoveTranslate;
 				obj->vfA4(frames);
@@ -3611,15 +2310,15 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		}
 	}
 	if (game->mStatus.mFlags & 0x2000000000000) {
-		if (game->IsRunning() && game->mEvt.mData.mScript == NULL && !game->mMenu.mOpen && !(game->mStatus.mFlags & 0xC00)
-		    && game->_E5D30 > 0.0f) {
-			if (!game->_E5D34) {
-				game->_E5D2C = frames * (game->_E5D30 / 36000.0f) + game->_E5D2C;
-				if (game->_E5D2C >= 1.0f) {
-					game->_E5D34 = TRUE;
+		if (game->IsRunning() && game->mEvt.mData.mScript == NULL && !game->mMenu.mActive && !(game->mStatus.mFlags & 0xC00)
+		    && game->mTimeState.mDuration > 0.0f) {
+			if (!game->mTimeState.mRunning) {
+				game->mTimeState.mTime = frames * (game->mTimeState.mDuration / 36000.0f) + game->mTimeState.mTime;
+				if (game->mTimeState.mTime >= 1.0f) {
+					game->mTimeState.mRunning = TRUE;
 				}
 			}
-			if (game->_E5D34 == TRUE) {
+			if (game->mTimeState.mRunning == TRUE) {
 				bool idle         = false;
 				UnkPlayer* player = (UnkPlayer*)game->mXObjs.mPools[2].First();
 				if ((player->_A48 == 0 || player->_A48 == 4) && player->_AC4 == 0 && player->_B14 == 0 && player->_B68 == 0
@@ -3627,8 +2326,8 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 					idle = true;
 				}
 				if (idle) {
-					game->_E5D34 = FALSE;
-					void* script = fn_8006F3EC();
+					game->mTimeState.mRunning = FALSE;
+					u8* script                = fn_8006F3EC();
 					if (script != NULL) {
 						fn_8007EEA4(&game->mEvt, script, 0, -1, -1);
 					}
@@ -3643,12 +2342,12 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		}
 	}
 	if (game->IsRunning()) {
-		fn_8006F338(1, frames, 0);
+		fn_8006F338(1, frames, NULL);
 	}
 	if (game->IsRunning() || (game->mStatus.mFlags & 0x20)) {
 		game->mParticle.Update(frames);
 	}
-	if ((game->mStatus.mFlags & 1) && !(game->mStatus.mFlags & 0x200000000000) && !game->mMenu.mOpen) {
+	if ((game->mStatus.mFlags & 1) && !(game->mStatus.mFlags & 0x200000000000) && !game->mMenu.mActive) {
 		game->mMotionControlCamera.Update(frames);
 	}
 	fn_8001F46C(&game->mSound, frames);
@@ -3664,13 +2363,13 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 			fn_800240EC(&game->mQuake, frames);
 			game->mOutline.Update(frames);
 			game->mScrnTex.mAngle = fmod(0.10471976f * frames + game->mScrnTex.mAngle, 6.2831854820251465);
-			game->mOutline._3C    = 0.0f;
-			game->mOutline.SetGlow(0xFF, 0xFF, 0xFF, 100.0f * (f32)sin(game->mScrnTex.mAngle) + 150.0f);
+			game->mOutline.mThick = 0.0f;
+			game->mOutline.SetLineColor(0xFF, 0xFF, 0xFF, 100.0f * (f32)sin(game->mScrnTex.mAngle) + 150.0f);
 			fn_80023B38(&game->mScrnTex.mColor, frames);
-			game->mOutline.SetTexColor(game->mScrnTex.mColor.mColor[0], game->mScrnTex.mColor.mColor[1], game->mScrnTex.mColor.mColor[2]);
-			fn_80023B38(&game->mColor0, frames);
-			game->mOutline.SetColor2(game->mColor0.mColor.mColor[0], game->mColor0.mColor.mColor[1], game->mColor0.mColor.mColor[2],
-			                         game->mColor0.mColor.mColor[3]);
+			game->mOutline.SetColor2(game->mScrnTex.mColor.mColor.r, game->mScrnTex.mColor.mColor.g, game->mScrnTex.mColor.mColor.b);
+			fn_80023B38(&game->mColor0.mColor, frames);
+			game->mOutline.SetColor3(game->mColor0.mColor.mColor.r, game->mColor0.mColor.mColor.g, game->mColor0.mColor.mColor.b,
+			                         game->mColor0.mColor.mColor.a);
 			game->mBlur.Update(frames);
 		}
 	} else if (game->mMotionControlCamera.IsAction(4)) {
@@ -3681,9 +2380,9 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		game->mWipeTile0.Update(frames);
 		game->mWipeTile1.Update(frames);
 	}
-	fn_80023B38(&game->mColor1, frames);
-	game->mOutline.SetColor3(game->mColor1.mColor.mColor[0], game->mColor1.mColor.mColor[1], game->mColor1.mColor.mColor[2],
-	                         game->mColor1.mColor.mColor[3]);
+	fn_80023B38(&game->mColor1.mColor, frames);
+	game->mOutline.SetColor4(game->mColor1.mColor.mColor.r, game->mColor1.mColor.mColor.g, game->mColor1.mColor.mColor.b,
+	                         game->mColor1.mColor.mColor.a);
 	if (game->_4724 > 0) {
 		if (game->mPad.mPad[0].mSubStickY > 0.0f) {
 			if ((game->_4728 -= 0.01f * frames) < 0.04f) {
@@ -3694,7 +2393,7 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 				game->_4728 = 0.5f;
 			}
 		}
-		game->mOutline._5C = sin(3.1415927f * game->_4728 / 2.0f);
+		game->mOutline.mZoom = sin(3.1415927f * game->_4728 / 2.0f);
 	}
 	fn_80027528(&game->mLogo, frames);
 	fn_8002E8D0(&game->mTitle, frames);
@@ -3703,7 +2402,7 @@ extern "C" void fn_8000FACC(CGame* game, u32 frames)
 		fn_8006D548(&game->mInfoScrn, frames);
 		game->mSubwin.Update(frames);
 		for (i = 0; i < 5; i++) {
-			if (!lbl_8035FA24[i].IsOff()) {
+			if (!IsMirrorOff(&lbl_8035FA24[i])) {
 				fn_80014DA4(&lbl_8035FA24[i], frames);
 			}
 		}
@@ -3764,11 +2463,7 @@ extern "C" {
 void fn_8001146C(CGame* game);
 void fn_80011270(CGame* game);
 BOOL fn_80132B98(XOBJS* objs);
-void* fn_8006F3CC(void);
-void* fn_8006F3BC(void);
 void fn_80141754(CInterfaceCameraAction* action);
-void fn_800236EC(CScrnRoboeyes* eyes, s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, f32 arg5, f32 arg6, f32 arg7, f32 arg8, f32 arg9,
-                 f32 arg10, f32 arg11);
 void fn_801BA3AC(HSD_MObj* mobj, u8 r, u8 g, u8 b);
 HSD_TObj* HSD_MObjGetTObj(HSD_MObj* mobj);
 }
@@ -3796,26 +2491,26 @@ static inline HSD_JObj* GetLeaf(HSD_JObj* jobj)
 // and sets up a mirror for each object that has one, at most five
 extern "C" BOOL fn_80011638(CGame* game)
 {
-	FbMirror* mirror;
+	FbMirrorEx* mirror;
 	s32 mirrors;
 	XObj* obj;
 	s32 mode;
 	s32 i;
 	HSD_JObj* jobj;
 	if (fn_80132B98(&game->mXObjs)) {
-		mode                                                                    = fn_8006F4B8()->mInfo->mCameraMode;
-		((CCameraActionScroll*)lbl_8025C400.mCameraActions.mActions[11])->mZoom = 1;
+		mode                                                                  = GetStageInfo()->mCameraMode;
+		((CCameraActionScroll*)lbl_8025C400.mCameraActions.mTable[11])->mZoom = 1;
 		if (fn_8006F3CC() && fn_8006F3BC()) {
-			game->mCameraActions.mActions[1]->vf14();
+			game->mCameraActions.mTable[1]->vf14();
 		}
 		if (fn_8006F3CC() && fn_8006F3BC()) {
-			((CCameraActionAreaExM*)game->mCameraActions.mActions[1])->vf64();
+			((CCameraActionAreaExM*)game->mCameraActions.mTable[1])->vf64();
 		}
-		((CCameraActionAnim*)game->mCameraActions.mActions[6])->SetObj((XObjCamera*)game->mXObjs.mPools[0].First());
+		((CCameraActionAnim*)game->mCameraActions.mTable[6])->SetObj((XObjCamera*)game->mXObjs.mPools[0].First());
 		game->mMotionControlCamera.Init();
 		if (mode == 1 || mode == 7) {
 			game->mMotionControlCamera.ChangeAction(7);
-			fn_80141754(game->mCameraActions.mActions[7]);
+			fn_80141754(game->mCameraActions.mTable[7]);
 			game->mMotionControlCamera.ApplyAction();
 		} else {
 			game->mMotionControlCamera.ChangeAction(mode);
@@ -3838,28 +2533,30 @@ extern "C" BOOL fn_80011638(CGame* game)
 		mirrors = 0;
 		for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 			obj = game->mXObjs.mObjects[i];
-			if (obj->_228.mFlags & 1) {
-				if (!(game->mStatus.mFlags & 0x2000000000) && (obj->_228.mFlags & 0x20000000) && !(obj->_228.mFlags & 0x400000000000000)) {
+			if (obj->mStatus.mFlags & 1) {
+				if (!(game->mStatus.mFlags & 0x2000000000) && (obj->mStatus.mFlags & 0x20000000)
+				    && !(obj->mStatus.mFlags & 0x400000000000000)) {
 					game->mStatus.mFlags |= 0x2000000000;
 				}
-				if ((obj->_228.mFlags & 0x400) && mirrors < 5) {
+				if ((obj->mStatus.mFlags & 0x400) && mirrors < 5) {
 					game->mStatus.mFlags |= 0x100000000000;
 					jobj = obj->mJObj;
 					if (jobj != NULL) {
-						mirror->mOwner   = obj;
-						jobj             = GetLeaf(jobj);
-						mirror->mJObj    = jobj;
-						mirror->mVisible = FALSE;
-						mirror->mWidth   = 256;
-						mirror->mHeight  = 256;
-						mirror->mFormat  = GX_TF_RGB565;
-						mirror->_0C      = 0;
-						mirror->_10      = 0.0f;
-						mirror->_14      = 0.0f;
-						mirror->_18      = 0;
-						mirror->mBuffer  = mm::Alloc(GXGetTexBufferSize(256, 256, GX_TF_RGB565, GX_FALSE, 0), "(mirror)");
-						mirror->_11C     = TRUE;
-						mirror->mTex.Init(mirror->mBuffer, mirror->mWidth, mirror->mHeight, mirror->mFormat, GX_CLAMP, GX_CLAMP, GX_FALSE);
+						mirror->mOwner           = obj;
+						jobj                     = GetLeaf(jobj);
+						mirror->mJoint           = jobj;
+						mirror->mVisible         = FALSE;
+						mirror->mTexture.mWidth  = 256;
+						mirror->mTexture.mHeight = 256;
+						mirror->mTexture.mFormat = GX_TF_RGB565;
+						mirror->mTexture._0C     = 0;
+						mirror->mTexture.mX      = 0.0f;
+						mirror->mTexture.mY      = 0.0f;
+						mirror->mTexture.mMipmap = 0;
+						mirror->mTexture.mImage  = mm::Alloc(GXGetTexBufferSize(256, 256, GX_TF_RGB565, GX_FALSE, 0), "(mirror)");
+						mirror->mActive          = TRUE;
+						mirror->mTexture.mTex.Init(mirror->mTexture.mImage, mirror->mTexture.mWidth, mirror->mTexture.mHeight,
+						                           mirror->mTexture.mFormat, GX_CLAMP, GX_CLAMP, GX_FALSE);
 						for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
 							HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 							if (mobj != NULL) {
@@ -3874,17 +2571,17 @@ extern "C" BOOL fn_80011638(CGame* game)
 						mirrors++;
 					}
 				}
-				if (!(game->mStatus.mFlags & 0x8000000000) && (obj->_228.mFlags & 0x80000000)) {
+				if (!(game->mStatus.mFlags & 0x8000000000) && (obj->mStatus.mFlags & 0x80000000)) {
 					game->mStatus.mFlags |= 0x8000000000;
 				}
 			}
 		}
 
 		if (game->mStatus.mFlags & 0x2000000000) {
-			f32 fade  = fn_8006F4B8()->mInfo->mMirrorFade / 100.0f;
+			f32 fade  = GetStageInfo()->mMirrorFade / 100.0f;
 			XObj* obj = game->mXObjs.mPools[3].First();
-			if ((obj->_228.mFlags & 1) && fade > 0.0f && fade < 1.0f) {
-				obj->vfE4();
+			if ((obj->mStatus.mFlags & 1) && fade > 0.0f && fade < 1.0f) {
+				obj->vfE4(fade);
 			}
 		}
 		return TRUE;
@@ -3911,11 +2608,11 @@ extern "C" void fn_80010D28(CGame* game)
 		camera = &game->mMotionControlCamera;
 		for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 			obj = game->mXObjs.mObjects[i];
-			if ((obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000)) {
-				if (!(game->mStatus.mFlags & 0x100) && (obj->_228.mFlags & 0x80000000) && obj->IsInView(camera)) {
-					obj->_228.mFlags |= 0x1000000000000;
+			if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
+				if (!(game->mStatus.mFlags & 0x100) && (obj->mStatus.mFlags & 0x80000000) && obj->vf11C(&camera->mCamera)) {
+					obj->mStatus.mFlags |= 0x1000000000000;
 				} else {
-					obj->_228.mFlags &= ~0x1000000000000;
+					obj->mStatus.mFlags &= ~0x1000000000000;
 				}
 			}
 		}
@@ -3925,43 +2622,43 @@ extern "C" void fn_80010D28(CGame* game)
 	shown    = 0;
 	for (i = 0; i < game->mXObjs.mPools[3].mUsed; i++) {
 		obj = game->mXObjs.mPools[3].Get(i);
-		if ((obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000) && !(obj->_228.mFlags & 0xA00040)) {
-			if (!(obj->_228.mFlags & 0x1000000000000)) {
-				game->_C074[shown++] = obj;
+		if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && !(obj->mStatus.mFlags & 0xA00040)) {
+			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
+				game->mDrawLists[1].mObjects[shown++] = obj;
 			}
-			game->_D878[mirrored++] = obj;
+			game->mDrawLists[2].mObjects[mirrored++] = obj;
 		}
 	}
 	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 		obj = game->mXObjs.mObjects[i];
-		if (obj->mAttr.GetKind() != 3 && (obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000) && !(obj->_228.mFlags & 0xA00040)) {
-			if (!(obj->_228.mFlags & 0x1000000000000)) {
-				game->_C074[shown++] = obj;
+		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && !(obj->mStatus.mFlags & 0xA00040)) {
+			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
+				game->mDrawLists[1].mObjects[shown++] = obj;
 			}
-			game->_D878[mirrored++] = obj;
+			game->mDrawLists[2].mObjects[mirrored++] = obj;
 		}
 	}
 	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 		obj = game->mXObjs.mObjects[i];
-		if (obj->mAttr.GetKind() != 3 && (obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000) && (obj->_228.mFlags & 0xA00000)
-		    && !(obj->_228.mFlags & 0x40)) {
-			if (!(obj->_228.mFlags & 0x1000000000000)) {
-				game->_C074[shown++] = obj;
+		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & 0xA00000)
+		    && !(obj->mStatus.mFlags & 0x40)) {
+			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
+				game->mDrawLists[1].mObjects[shown++] = obj;
 			}
-			game->_D878[mirrored++] = obj;
+			game->mDrawLists[2].mObjects[mirrored++] = obj;
 		}
 	}
 	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 		obj = game->mXObjs.mObjects[i];
-		if (obj->mAttr.GetKind() != 3 && (obj->_228.mFlags & 1) && (obj->_228.mFlags & 0x10000) && (obj->_228.mFlags & 0x40)) {
-			if (!(obj->_228.mFlags & 0x1000000000000)) {
-				game->_C074[shown++] = obj;
+		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & 0x40)) {
+			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
+				game->mDrawLists[1].mObjects[shown++] = obj;
 			}
-			game->_D878[mirrored++] = obj;
+			game->mDrawLists[2].mObjects[mirrored++] = obj;
 		}
 	}
-	game->_D874 = shown;
-	game->_F078 = mirrored;
+	game->mDrawLists[1].mCount = shown;
+	game->mDrawLists[2].mCount = mirrored;
 }
 
 /**
@@ -3977,27 +2674,27 @@ extern "C" void fn_80011270(CGame* game)
 	s32 i;
 	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 		if (game->mXObjs.mObjects[i] != game->mXObjs.mPools[2].First() && game->mXObjs.mObjects[i] != game->mXObjs.mPools[0].First()
-		    && (game->mXObjs.mObjects[i]->_228.mFlags & 1) && (game->mXObjs.mObjects[i]->_228.mFlags & 0x4000)) {
-			game->mDrawList[count]  = game->mXObjs.mObjects[i];
-			game->mDrawIndex[count] = i;
+		    && (game->mXObjs.mObjects[i]->mStatus.mFlags & 1) && (game->mXObjs.mObjects[i]->mStatus.mFlags & 0x4000)) {
+			game->mDrawLists[0].mObjects[count] = game->mXObjs.mObjects[i];
+			game->mDrawLists[0].mIndices[count] = i;
 			count++;
 		}
 	}
 	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
 		if (game->mXObjs.mObjects[i] != game->mXObjs.mPools[2].First() && game->mXObjs.mObjects[i] != game->mXObjs.mPools[0].First()
-		    && (game->mXObjs.mObjects[i]->_228.mFlags & 1) && !(game->mXObjs.mObjects[i]->_228.mFlags & 0x4000)) {
-			game->mDrawList[count]  = game->mXObjs.mObjects[i];
-			game->mDrawIndex[count] = i;
+		    && (game->mXObjs.mObjects[i]->mStatus.mFlags & 1) && !(game->mXObjs.mObjects[i]->mStatus.mFlags & 0x4000)) {
+			game->mDrawLists[0].mObjects[count] = game->mXObjs.mObjects[i];
+			game->mDrawLists[0].mIndices[count] = i;
 			count++;
 		}
 	}
-	if (game->mXObjs.mPools[2].First()->_228.mFlags & 1) {
-		game->mDrawList[count++] = game->mXObjs.mPools[2].First();
+	if (game->mXObjs.mPools[2].First()->mStatus.mFlags & 1) {
+		game->mDrawLists[0].mObjects[count++] = game->mXObjs.mPools[2].First();
 	}
-	if (game->mXObjs.mPools[0].First()->_228.mFlags & 1) {
-		game->mDrawList[count++] = game->mXObjs.mPools[0].First();
+	if (game->mXObjs.mPools[0].First()->mStatus.mFlags & 1) {
+		game->mDrawLists[0].mObjects[count++] = game->mXObjs.mPools[0].First();
 	}
-	game->mDrawCount = count;
+	game->mDrawLists[0].mCount = count;
 }
 
 /**
@@ -4010,12 +2707,12 @@ extern "C" void fn_80011270(CGame* game)
 extern "C" void fn_8001146C(CGame* game)
 {
 	game->mLightList = NULL;
-	LightOwnerA* a   = (LightOwnerA*)game->mXObjs.mPools[3].mBase;
-	if ((a->_228.mFlags & 1) && a->GetLights() != NULL) {
+	XObjMap* a       = (XObjMap*)game->mXObjs.mPools[3].mObjects;
+	if ((a->mStatus.mFlags & 1) && a->GetLights() != NULL) {
 		game->mLightList = a->GetLights();
 	} else {
-		LightOwnerB* b = (LightOwnerB*)game->mXObjs.mPools[1].mBase;
-		if (b->_228.mFlags & 1) {
+		XObjLight* b = (XObjLight*)game->mXObjs.mPools[1].mObjects;
+		if (b->mStatus.mFlags & 1) {
 			game->mLightList = b->GetLights();
 		}
 	}
@@ -4027,13 +2724,13 @@ extern "C" void fn_8001146C(CGame* game)
 				HSD_CObjSetProjectionType(light->mShadow.mShadow->camera, 3);
 			}
 		}
-		for (light = game->mLight; light != NULL; light = (CLight*)light->next) {
+		for (light = game->mLights; light != NULL; light = (CLight*)light->next) {
 			if (light->mShadow.IsActive()) {
 				light->mShadow.SetActive(FALSE);
 			}
 		}
 	} else {
-		game->mLightList = game->mLight;
+		game->mLightList = game->mLights;
 	}
 }
 
@@ -4088,7 +2785,7 @@ void CCameraActionAreaExM::vf74(Vec pos)
  */
 BOOL CCameraActionAreaExM::vf78(s32 index)
 {
-	bool set = CamAreaInfo(&lbl_805A054C._24[index]).Check(4);
+	bool set = CamAreaInfo(&lbl_805A054C._24[index]).IsCameraArea();
 	if (set) {
 		return TRUE;
 	}
@@ -4101,7 +2798,7 @@ BOOL CCameraActionAreaExM::vf78(s32 index)
  */
 BOOL CCameraActionAreaExM::vf7C(s32 index)
 {
-	bool set = CamAreaInfo(&lbl_805A054C._1C[index]).Check(0x80);
+	bool set = CamAreaInfo(&lbl_805A054C._1C[index]).IsDisabled();
 	if (set) {
 		return FALSE;
 	}
@@ -4137,7 +2834,7 @@ CVec CVec::operator*(f32 s) const
 // FbMirror::Draw, sets up the state the mirror's surface is drawn with
 extern "C" void fn_80014A64(FbMirror* mirror)
 {
-	if (mirror->mJObj != NULL) {
+	if (mirror->mJoint != NULL) {
 		CGs* gs = &lbl_8025C400.mGs;
 		SetupAll(TRUE);
 		fn_80199AB0(&lbl_8025C400.mGs, 4, 0);
@@ -4161,18 +2858,18 @@ static inline void CopyToTexture(CFbTexEff* effect)
 	fn_8019B5D0(lbl_8025C400.mGs.mCurRenderMode, 1);
 	fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 1);
 	SetupAll(TRUE);
-	if (effect->mBuffer != NULL) {
+	if (effect->mTexture.mImage != NULL) {
 		u16 width, height;
-		if (effect->_18) {
-			width  = effect->mWidth << 1;
-			height = effect->mHeight << 1;
+		if (effect->mTexture.mMipmap) {
+			width  = effect->mTexture.mWidth << 1;
+			height = effect->mTexture.mHeight << 1;
 		} else {
-			width  = effect->mWidth;
-			height = effect->mHeight;
+			width  = effect->mTexture.mWidth;
+			height = effect->mTexture.mHeight;
 		}
 		GXSetTexCopySrc(0, 0, width, height);
-		GXSetTexCopyDst(effect->mWidth, effect->mHeight, effect->mFormat, effect->_18);
-		GXCopyTex(effect->mBuffer, GX_TRUE);
+		GXSetTexCopyDst(effect->mTexture.mWidth, effect->mTexture.mHeight, effect->mTexture.mFormat, effect->mTexture.mMipmap);
+		GXCopyTex(effect->mTexture.mImage, GX_TRUE);
 		GXPixModeSync();
 		InvalidateAll();
 	}
@@ -4216,12 +2913,12 @@ void PSMTXTranspose(const Mtx src, Mtx xPose);
 extern "C" void fn_8000DA7C(CGame* game)
 {
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x2000000000)) {
-		game->mGs.mCamera = game->GetMainCamera();
+		game->mGs.mCamera = game->GetCamera();
 		if (fn_8019997C(game)) {
 			for (CLight* light = game->mLightList; light != NULL; light = (CLight*)light->next) {
 				light->SetPosition(light->mPosition.x, -light->mPosition.y, light->mPosition.z);
 			}
-			game->mLightList->SetCurrent(game->GetMainCamera());
+			game->mLightList->SetCurrent(game->GetCamera());
 
 			Vec rot   = { 0.0f, 0.0f, 0.0f };
 			Vec trans = { 0.0f, 0.0f, 0.0f };
@@ -4246,30 +2943,30 @@ extern "C" void fn_8000DA7C(CGame* game)
 			Mtx reflect;
 			Mtx view;
 			PSMTXReflect(reflect, &point, &normal);
-			PSMTXConcat(game->GetMainCamera()->mViewMtx, reflect, view);
-			for (s32 i = 0; i < game->_D874; i++) {
-				XObj* obj = game->_C074[i];
-				if (!(obj->_228.mFlags & 0x200000) && (obj->_228.mFlags & 0x20000000)) {
+			PSMTXConcat(game->GetCamera()->mViewMtx, reflect, view);
+			for (s32 i = 0; i < game->mDrawLists[1].mCount; i++) {
+				XObj* obj = game->mDrawLists[1].mObjects[i];
+				if (!(obj->mStatus.mFlags & 0x200000) && (obj->mStatus.mFlags & 0x20000000)) {
 					obj->vf120(1);
-					obj->DrawMirrored(view);
+					obj->vfB4(view);
 				}
 			}
 
 			for (CLight* light = game->mLightList; light != NULL; light = (CLight*)light->next) {
 				light->SetPosition(light->mPosition.x, -light->mPosition.y, light->mPosition.z);
 			}
-			game->mLightList->SetCurrent(game->GetMainCamera());
+			game->mLightList->SetCurrent(game->GetCamera());
 			fn_80199944(&game->mGs);
-			for (s32 i = 0; i < game->_D874; i++) {
-				XObj* obj = game->_C074[i];
-				if (!(obj->_228.mFlags & 0x200000) && (obj->_228.mFlags & 0x20000000)) {
+			for (s32 i = 0; i < game->mDrawLists[1].mCount; i++) {
+				XObj* obj = game->mDrawLists[1].mObjects[i];
+				if (!(obj->mStatus.mFlags & 0x200000) && (obj->mStatus.mFlags & 0x20000000)) {
 					obj->vf120(2);
 				}
 			}
 		}
 
 		if (game->mStatus.mFlags & 0x20000002000000) {
-			game->mGs.mCamera = game->GetMainCamera();
+			game->mGs.mCamera = game->GetCamera();
 			if (fn_8019997C(game)) {
 				static Vec floor[4] = {
 					{ -1000.0f, -0.1f, -1000.0f },
@@ -4299,21 +2996,21 @@ extern "C" void fn_8000DA7C(CGame* game)
 extern "C" void fn_8000D704(CGame* game)
 {
 	MtxPtr view;
-	FbMirror* mirror;
+	FbMirrorEx* mirror;
 	s32 i;
 	s32 j;
 	XObj* obj;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x100000000000)) {
 		for (i = 0; i < 5; i++) {
 			mirror = &lbl_8035FA24[i];
-			if (mirror->mJObj != NULL && mirror->mVisible && !mirror->IsOff()) {
+			if (mirror->mJoint != NULL && mirror->mVisible && !IsMirrorOff(mirror)) {
 				game->mGs.mCamera = &mirror->mCamera;
 				if (fn_8019997C(game)) {
-					view = mirror->mViewMtx;
-					for (j = 0; j < game->_F078; j++) {
-						obj = game->_D878[j];
-						if (!(obj->_228.mFlags & 0x200000) && (obj->_228.mFlags & 0x200000000000)) {
-							obj->DrawMirrored(view);
+					view = mirror->mView;
+					for (j = 0; j < game->mDrawLists[2].mCount; j++) {
+						obj = game->mDrawLists[2].mObjects[j];
+						if (!(obj->mStatus.mFlags & 0x200000) && (obj->mStatus.mFlags & 0x200000000000)) {
+							obj->vfB4(view);
 						}
 					}
 					fn_80199944(&game->mGs);
@@ -4335,7 +3032,7 @@ extern "C" void fn_8000D704(CGame* game)
 // looking at the surface through a frustum that just fits it
 extern "C" void fn_80014DA4(FbMirror* mirror, u32 frames)
 {
-	HSD_JObj* jobj = mirror->mJObj;
+	HSD_JObj* jobj = mirror->mJoint;
 	if (jobj != NULL) {
 		Mtx mtx;
 		Mtx view;
@@ -4385,7 +3082,7 @@ extern "C" void fn_80014DA4(FbMirror* mirror, u32 frames)
 			mirror->mCamera.SetFrustum(0.5f + pos.y, -0.5f + pos.y, -0.5f + pos.x, 0.5f + pos.x);
 			mirror->mCamera.SetEye(diff);
 			mirror->mCamera.SetMtx(view);
-			PSMTXCopy(view, mirror->mViewMtx);
+			PSMTXCopy(view, mirror->mView);
 			mirror->mVisible = TRUE;
 		}
 	}
@@ -4398,7 +3095,7 @@ extern "C" void fn_80014DA4(FbMirror* mirror, u32 frames)
 // FbMirror::Init
 extern "C" void fn_800151E0(FbMirror* mirror)
 {
-	mirror->mJObj = NULL;
+	mirror->mJoint = NULL;
 	mirror->mCamera.Init(0.1f, 32768.0f, 0.5f, -0.5f, -0.5f, 0.5f, &lbl_8025C400.mGs.mScreen);
 	mirror->mCamera.SetViewport(0.0f, 256.0f, 0.0f, 256.0f);
 	mirror->mCamera.SetScissor(0, 256, 0, 256);
@@ -4451,18 +3148,33 @@ extern "C" void fn_80018CDC(CFbTexEff* effect)
  */
 extern "C" void fn_80014978(FbSubwin* subwin)
 {
-	subwin->mWidth  = 320;
-	subwin->mHeight = 224;
-	subwin->mFormat = GX_TF_RGB565;
-	subwin->_0C     = 0;
-	subwin->_10     = 0.0f;
-	subwin->_14     = 0.0f;
-	subwin->_18     = 0;
-	subwin->mBuffer = mm::Alloc(GXGetTexBufferSize(320, 224, GX_TF_RGB565, GX_FALSE, 0), "(subwin)");
-	subwin->_11C    = TRUE;
-	subwin->mTex.Init(subwin->mBuffer, subwin->mWidth, subwin->mHeight, subwin->mFormat, GX_CLAMP, GX_CLAMP, GX_FALSE);
-	fn_8001D3D4(&subwin->mCamera, (GXRenderModeObj*)&lbl_8025C400);
+#if defined(VERSION_PAL)
+	GXRenderModeObj* mode = &lbl_8025C400.mGs.mScreen;
+	u16 width             = mode->fbWidth / 2;
+	u16 height            = mode->efbHeight / 2;
+#else
+	u16 width  = 320;
+	u16 height = 224;
+#endif
+	FbTexture* texture = &subwin->mTexture;
+	texture->mWidth    = width;
+	texture->mHeight   = height;
+	texture->mFormat   = GX_TF_RGB565;
+	texture->_0C       = 0;
+	texture->mX        = 0.0f;
+	texture->mY        = 0.0f;
+	texture->mMipmap   = FALSE;
+	texture->mImage    = mm::Alloc(GXGetTexBufferSize(width, height, GX_TF_RGB565, FALSE, 0), "(subwin)");
+	subwin->mActive    = TRUE;
+	texture->mTex.Init(texture->mImage, texture->mWidth, texture->mHeight, texture->mFormat, GX_CLAMP, GX_CLAMP, FALSE);
+	fn_8001D3D4(&subwin->mCamera, &lbl_8025C400.mGs.mScreen);
+#if defined(VERSION_PAL)
+	HSD_RectS16 viewport = { 0, 0, 0, 0 };
+	viewport.xmax        = width;
+	viewport.ymax        = height;
+#else
 	HSD_RectS16 viewport = { 0, 320, 0, 224 };
+#endif
 	HSD_CObjSetViewport(&subwin->mCamera, &viewport);
 	subwin->Reset();
 }
@@ -4473,8 +3185,8 @@ extern "C" void fn_80014978(FbSubwin* subwin)
  */
 extern "C" void fn_80014964(FbSubwin* subwin)
 {
-	subwin->mOpen  = FALSE;
-	subwin->mAlpha = 0.0f;
+	subwin->mEnabled = FALSE;
+	subwin->mAmount  = 0.0f;
 }
 
 /**
@@ -4483,16 +3195,16 @@ extern "C" void fn_80014964(FbSubwin* subwin)
  */
 extern "C" void fn_800148C0(FbSubwin* subwin, u32 frames)
 {
-	if (subwin->mOpen) {
-		if (subwin->mAlpha < 1.0f) {
-			if ((subwin->mAlpha += frames * (1.0f / 18.0f)) >= 1.0f) {
-				subwin->mAlpha = 1.0f;
+	if (subwin->mEnabled) {
+		if (subwin->mAmount < 1.0f) {
+			if ((subwin->mAmount += frames * (1.0f / 18.0f)) >= 1.0f) {
+				subwin->mAmount = 1.0f;
 			}
 		}
 	} else {
-		if (subwin->mAlpha > 0.0f) {
-			if ((subwin->mAlpha -= frames * (1.0f / 18.0f)) <= 0.0f) {
-				subwin->mAlpha = 0.0f;
+		if (subwin->mAmount > 0.0f) {
+			if ((subwin->mAmount -= frames * (1.0f / 18.0f)) <= 0.0f) {
+				subwin->mAmount = 0.0f;
 			}
 		}
 	}

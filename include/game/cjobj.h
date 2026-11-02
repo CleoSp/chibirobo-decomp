@@ -201,6 +201,17 @@ public:
 		HSD_JObjGetRotation(mJObj, (Quaternion*)&mRotate);
 		HSD_JObjGetScale(mJObj, &mScale);
 	}
+
+	// the joint's own values, read straight from it
+	f32 GetTranslateX() const { return HSD_JObjGetTranslationX(mJObj); }
+	f32 GetTranslateY() const { return HSD_JObjGetTranslationY(mJObj); }
+	f32 GetTranslateZ() const { return HSD_JObjGetTranslationZ(mJObj); }
+	f32 GetScaleX() const { return HSD_JObjGetScaleX(mJObj); }
+	f32 GetScaleY() const { return HSD_JObjGetScaleY(mJObj); }
+	f32 GetScaleZ() const { return HSD_JObjGetScaleZ(mJObj); }
+	f32 GetRotationY() const { return HSD_JObjGetRotationY(mJObj); }
+	MtxPtr GetMtx() const { return HSD_JObjGetMtxPtr(mJObj); }
+	Vec GetPos() const { return GetJointPosition(mJObj); }
 };
 typedef char CJObj_size_check[sizeof(CJObj) == 0x38 ? 1 : -1];
 

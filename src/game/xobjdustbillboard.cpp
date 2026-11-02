@@ -85,10 +85,10 @@ extern "C" void fn_800DE7F4(XObjDust* object, s32 id, BOOL force, void* jointAni
 extern "C" void fn_800DEAA0(XObjDust* object)
 {
 	if (object->GetObjFlags() & 1) {
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
-		((CGs*)lbl_8025C400.mGs)->_29C = 1;
-		f32 width                      = 8.0f * object->mMoveScale.x;
-		f32 height                     = 8.0f * object->mMoveScale.y;
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
+		lbl_8025C400.mGs._29C = 1;
+		f32 width             = 8.0f * object->mMoveScale.x;
+		f32 height            = 8.0f * object->mMoveScale.y;
 		u32 color;
 		if (__fpclassifyf(object->mHeading) != FP_NAN) {
 			color = 0xC8C8C800;
@@ -98,11 +98,11 @@ extern "C" void fn_800DEAA0(XObjDust* object)
 			color = 0xC8C8C800;
 		}
 		s32 alpha = (s32)(255.0f * object->mFade);
-		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
+		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
 		Vec rotation = { 0.0f, 0.0f, 0.0f };
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color | (u8)alpha, color, object->mMoveTranslate.x, object->mMoveTranslate.y,
+		fn_80198258(&lbl_8025C400.mGs, 16, color | (u8)alpha, color, object->mMoveTranslate.x, object->mMoveTranslate.y,
 		            object->mMoveTranslate.z, width, height, rotation.x, rotation.y, rotation.z);
-		((CGs*)lbl_8025C400.mGs)->_29C = 0;
+		lbl_8025C400.mGs._29C = 0;
 	}
 }
 

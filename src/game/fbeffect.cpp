@@ -4,12 +4,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-// Keep offset reads for the translated edges behind a reference getter.
-// This preserves their separate lifetimes in the original GX loop.
-static inline f32 GetOutlineOffset(const f32& p)
-{
-	return p;
-}
 // todo: cleanup
 // a quad over the whole w by h screen with the whole texture on it
 // 0 and 1 sit in locals, as literals mwcc reloads them for every store
@@ -315,6 +309,7 @@ void CFbOutline::Update(s32 frames)
  */
 void CFbOutline::Draw(u32 flags)
 {
+	// NONMATCHING: retail reloads the offsets for every vertex
 	Mtx mtx;
 	Mtx44 proj;
 	Mtx texMtx;
@@ -619,11 +614,11 @@ void CFbOutline::Draw(u32 flags)
 		for (i = 0; i < 4; i++) {
 			GXPosition2f32(offset[i][0], offset[i][1]);
 			GXTexCoord2f32(zero, zero);
-			GXPosition2f32(w + GetOutlineOffset(offset[i][0]), offset[i][1]);
+			GXPosition2f32(w + offset[i][0], offset[i][1]);
 			GXTexCoord2f32(one, zero);
-			GXPosition2f32(w + GetOutlineOffset(offset[i][0]), h + GetOutlineOffset(offset[i][1]));
+			GXPosition2f32(w + offset[i][0], h + offset[i][1]);
 			GXTexCoord2f32(one, one);
-			GXPosition2f32(offset[i][0], h + GetOutlineOffset(offset[i][1]));
+			GXPosition2f32(offset[i][0], h + offset[i][1]);
 			GXTexCoord2f32(zero, one);
 		}
 		GXEnd();

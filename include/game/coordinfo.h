@@ -22,6 +22,7 @@ public:
 	UnkStageObj* _00; // _00
 	// _04 vtable
 
+	CoordInfo() { _00 = NULL; }
 	CoordInfo(void* value)
 	    : _00((UnkStageObj*)value)
 	{
@@ -34,7 +35,7 @@ struct UnkObjData {
 	u8 _00[0xC]; // _00
 	u32 _0C;     // _0C, shadow size
 	u8 _10[0x4]; // _10
-	s16 _14;     // _14, category, also which pool in UnkXObjList
+	s16 _14;     // _14, category, also which pool in XOBJS
 	s16 _16;     // _16, item index, some callers test it as flags
 
 	s16 GetCategory() const { return this != NULL ? _14 : 0; }
@@ -60,6 +61,7 @@ public:
 	UnkStageObj* _04; // _04, the placement CoordInfo points at
 	// _08 vtable
 
+	AttrInfo() { _00 = NULL; }
 	AttrInfo(CoordInfo* info)
 	    : _00(GetObjData(info))
 	    , _04(info->_00)

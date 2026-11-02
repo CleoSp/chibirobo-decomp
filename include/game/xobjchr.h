@@ -23,7 +23,7 @@ s32 fn_8009C1BC(AttachmentValues* values, s32 id);
 void fn_8009C398(AttachmentValues* values);
 void fn_8009FCC4(XObjChr* chr);
 BOOL fn_8009FDE4(void* player);
-CVec fn_800A0894(CJObj* object, s32 depth, s32* path);
+CVec fn_800A0894(const CJObj* object, s32 depth, s32* path);
 CVec fn_800A0978(CJObj* object);
 void fn_800A30EC(XObj* player, s32 arg);
 void fn_800B51FC(XObjChr* chr, s32 first, s32 second);

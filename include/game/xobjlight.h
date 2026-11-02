@@ -21,6 +21,7 @@ public:
 	// todo: cleanup
 	XObjLightDesc* GetLightDesc(s32 i) { return (XObjLightDesc*)mArchive.mDesc[i + 1]; }
 	s32 GetLightAnimNum(s32 i) { return mArchive.mNum[i + 2]; }
+	CLight* GetLights() { return mLightNum > 0 ? mLights : NULL; }
 
 	XObjLight();
 };

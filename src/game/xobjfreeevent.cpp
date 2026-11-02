@@ -9,8 +9,8 @@
 static inline void TriggerEvent(XObj* object, u32 first, u32 second)
 {
 	const void* script = object->vf128();
-	if (!fn_8009FDE4(lbl_8025C400.mPlayer))
-		fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)object, first, second);
+	if (!fn_8009FDE4(lbl_8025C400.GetPlayer()))
+		fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)object, first, second);
 }
 
 // XObjFree::Release

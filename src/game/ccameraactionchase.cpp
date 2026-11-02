@@ -57,7 +57,7 @@ void CCameraActionChase::Init()
  */
 void CCameraActionChase::vf14()
 {
-	mTarget = lbl_8025C400.mPlayer;
+	mTarget = lbl_8025C400.GetPlayer();
 	if (mTarget != NULL) {
 		mRestDistance = 105.0f;
 		Mtx mtx;
@@ -85,7 +85,7 @@ void CCameraActionChase::SetCamera(CCamera* camera)
 	SetInterest(camera->mInterest);
 	SetDistance(camera->mDistance);
 	SetFov(camera->mFov);
-	mTarget = lbl_8025C400.mPlayer;
+	mTarget = lbl_8025C400.GetPlayer();
 }
 
 /**

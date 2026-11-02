@@ -18,7 +18,7 @@ extern "C" void fn_80105D58(XObjSpiderBoss* spider, u32 frames)
 {
 	CPad pad(0); // retail does this
 	if (lbl_8025C400.mStatus.mFlags & 0x400ULL) {
-		Vec& move = lbl_8025C400.mPlayer->_158C4;
+		Vec& move = lbl_8025C400.GetPlayer()->_158C4;
 		move.x    = 0.0f;
 		move.y    = 0.0f;
 		move.z    = 0.0f;

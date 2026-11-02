@@ -1,5 +1,5 @@
-#include "game/ccard.h"
 #include "game/cgame.h"
+#include "game/ccard.h"
 #include <stdio.h>
 
 extern "C" char lbl_80378000[];

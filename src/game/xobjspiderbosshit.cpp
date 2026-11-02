@@ -30,11 +30,11 @@ extern "C" void fn_801051B4(XObjSpiderBoss* spider, const Vec* pos, f32 strength
 	if (flags & 0x8000) {
 		return;
 	}
-	XObjChr* player = lbl_8025C400.mPlayer;
+	XObjChr* player = lbl_8025C400.GetPlayer();
 	if (fn_8009C1BC(&player->mAttachments, 2) < 2) {
 		return;
 	}
-	fn_8008A6C0(spider, strength);
+	fn_8008A6C0(spider, pos, strength);
 	spider->mSpiderStatus.mFlags |= 2;
 	f32 x                = pos->x;
 	f32 y                = pos->y;
@@ -45,13 +45,13 @@ extern "C" void fn_801051B4(XObjSpiderBoss* spider, const Vec* pos, f32 strength
 	hit.z                = z;
 	spider->mHitPos      = hit;
 	spider->mHitStrength = strength;
-	CParticle* particle  = (CParticle*)lbl_8025C400.mParticle;
+	CParticle* particle  = &lbl_8025C400.mParticle;
 	particle->Kill(0xB3);
 	Vec rot   = { 0.0f, 0.0f, 0.0f };
 	rot.y     = spider->mTargetRotY;
 	Vec scale = { 1.0f, 1.0f, 1.0f };
 	particle->CreateSRT(0xB3, 1, *pos, scale, rot, TRUE);
-	CSound* sound = (CSound*)&lbl_8025C400.mSound;
+	XSound* sound = &lbl_8025C400.mSound;
 	if (!fn_8001E6C8(sound, 0x127)) {
 		fn_8001E904(sound, 0x127, 255); // npc_spider_bakuhatsu
 	}

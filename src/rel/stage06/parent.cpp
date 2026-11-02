@@ -1,11 +1,6 @@
+#include "game/cgame.h"
 #include "types.h"
 #include "Version.h"
-#include "dolphin/mtx.h"
-#include "game/cgame.h"
-
-extern "C" s32 fn_8001E6C8(void* obj, s32 id);
-extern "C" void* fn_8001DF00(void* obj, Vec* pos, s32 arg);
-extern "C" void fn_8001E468(void* obj, s32 id, void* arg, s32 arg2);
 
 // rel/ana.cpp
 extern "C" s32 CmdDropHeldObj(s32 cmd, void* arg, void* arg2);
@@ -83,7 +78,7 @@ static inline void StopPlayer(RoboView* player)
 
 static inline void SetCam(f32 a, f32 b)
 {
-	RoboView* player = (RoboView*)lbl_8025C400.mPlayer;
+	RoboView* player = (RoboView*)lbl_8025C400.GetPlayer();
 
 	StopPlayer(player);
 	lbl_8_bss_24._04 = 1;
@@ -137,7 +132,7 @@ extern "C" s32 CmdStopRoboPreset(s32 cmd, void* arg, void* arg2)
  */
 extern "C" s32 CmdStopRobo(s32 cmd, void* arg, void* arg2)
 {
-	StopPlayer((RoboView*)lbl_8025C400.mPlayer);
+	StopPlayer((RoboView*)lbl_8025C400.GetPlayer());
 	lbl_8_bss_0._08++;
 	return 0;
 }

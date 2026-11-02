@@ -141,7 +141,7 @@ extern "C" void fn_801361C4(CCameraActionAreaEx* state)
 		CVec axis      = CVec(1.0f, 0.0f, 0.0f);
 		CVec direction = b - a;
 		PSVECNormalize(&direction, &direction);
-		fn_80197538((CGs*)lbl_8025C400.mGs, colors[lbl_8065B328 % 5], center.x, center.y, center.z, 0.0f, 0.0f, 0.0f, width, height, depth);
+		fn_80197538(&lbl_8025C400.mGs, colors[lbl_8065B328 % 5], center.x, center.y, center.z, 0.0f, 0.0f, 0.0f, width, height, depth);
 
 		CamAreaSlot* slot   = &state->_2034[lbl_8065B328];
 		CamAreaEntry* entry = slot->_00;
@@ -153,17 +153,17 @@ extern "C" void fn_801361C4(CCameraActionAreaEx* state)
 				next.Set(slot->_00[0]._10);
 			else
 				next.Set(entry[1]._10);
-			fn_801992BC((CGs*)lbl_8025C400.mGs, NULL, pos.x, pos.y, pos.z, colors[5], next.x, next.y, next.z, colors[5]);
-			fn_80197250((CGs*)lbl_8025C400.mGs, colors[colorIndex], 12, 16, pos.x, pos.y, pos.z, 0.0f, 0.0f, 0.0f, 3.0f, 3.0f, 3.0f);
+			fn_801992BC(&lbl_8025C400.mGs, NULL, pos.x, pos.y, pos.z, colors[5], next.x, next.y, next.z, colors[5]);
+			fn_80197250(&lbl_8025C400.mGs, colors[colorIndex], 12, 16, pos.x, pos.y, pos.z, 0.0f, 0.0f, 0.0f, 3.0f, 3.0f, 3.0f);
 			CVec angle  = entry->_20;
 			f32 sine    = sin(angle.y);
 			f32 cosine  = cos(angle.y);
 			f32 offsetX = 15.0f * sine;
 			f32 offsetZ = 15.0f * cosine;
-			fn_801992BC((CGs*)lbl_8025C400.mGs, NULL, entry->_10.x, entry->_10.y, entry->_10.z, 0xFFFF, entry->_10.x + offsetX,
-			            entry->_10.y, entry->_10.z + offsetZ, 0xFFFF);
+			fn_801992BC(&lbl_8025C400.mGs, NULL, entry->_10.x, entry->_10.y, entry->_10.z, 0xFFFF, entry->_10.x + offsetX, entry->_10.y,
+			            entry->_10.z + offsetZ, 0xFFFF);
 		}
-		fn_80197250((CGs*)lbl_8025C400.mGs, colors[colorIndex], 12, 16, slot->_0C.x, slot->_0C.y, slot->_0C.z, 0.0f, 0.0f, 0.0f, 3.0f, 3.0f,
+		fn_80197250(&lbl_8025C400.mGs, colors[colorIndex], 12, 16, slot->_0C.x, slot->_0C.y, slot->_0C.z, 0.0f, 0.0f, 0.0f, 3.0f, 3.0f,
 		            3.0f);
 	}
 }
@@ -254,7 +254,7 @@ extern "C" void fn_80136A54(CCameraActionAreaEx* state, s32 mode)
 		CVec axis      = CVec(1.0f, 0.0f, 0.0f);
 		CVec direction = b - a;
 		PSVECNormalize(&direction, &direction);
-		fn_80197538((CGs*)lbl_8025C400.mGs, colors[lbl_8065B320 % 5], center.x, center.y, center.z, 0.0f, yaw, 0.0f, width, height, depth);
+		fn_80197538(&lbl_8025C400.mGs, colors[lbl_8065B320 % 5], center.x, center.y, center.z, 0.0f, yaw, 0.0f, width, height, depth);
 	}
 }
 
@@ -329,7 +329,7 @@ extern "C" s32 fn_80137810(CCameraActionAreaEx* state, Vec pos)
 extern "C" void fn_80135E34(CCameraActionAreaEx* state, s32)
 {
 	state->_08 = state->_04;
-	Vec pos    = lbl_8025C400.mPlayer->mMoveTranslate;
+	Vec pos    = lbl_8025C400.GetPlayer()->mMoveTranslate;
 	s32 index  = -1;
 	for (s32 i = 1; i < state->_28; ++i) {
 		if (CamAreaInfo(&state->_24[i]).IsCameraOff())

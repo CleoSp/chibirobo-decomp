@@ -24,7 +24,7 @@ extern "C" void fn_800DA68C(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY
 	FlushCaptureGraphics(graphics);
 	f32(*selectedView)[4];
 	if (view == NULL)
-		selectedView = ((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx;
+		selectedView = lbl_8025C400.mGs.mCamera->mViewMtx;
 	else
 		selectedView = view;
 	Mtx combined, local;
@@ -46,7 +46,7 @@ extern "C" void fn_800DA68C(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY
 		scale.z       = 0.5f * PSVECDistance(current, next);
 		HSD_MtxSRT(local, &scale, &rotation, &position, NULL);
 		PSMTXConcat(selectedView, local, combined);
-		fn_80196C28((CGs*)lbl_8025C400.mGs, combined, cord->mColor, 6);
+		fn_80196C28(&lbl_8025C400.mGs, combined, cord->mColor, 6);
 	}
 	scale.z = 0.9f * cord->mWidth;
 }

@@ -1,129 +1,111 @@
-#include "game/cobj.h"
-#include "game/cjobjset.h"
-#include "game/ctpl.h"
-#include "game/ut.h"
+#include "game/stg.h"
 
-// The texture holder adds an ownership layer without changing CTexObj's layout.
-struct MenuTexture {
-	CTexObj mTexture;
-};
-class MenuCursor;
-struct MenuWindow {
-	BOOL mVisible;
-	f32 mX, mY, mWidth, mHeight;
-	MenuTexture mTex;
-	f32 mTransX, mTransY, mScaleX, mScaleY, mAlpha;
-	MenuCursor* mCursor;
-};
-class CMenu {
-public:
-	s32 mState;
-	f32 mAlpha;
-	s32 mSelect;
-	MenuWindow mWin;
-	BOOL mFading;
-	s32 mFadeDir;
-	f32 mFade, mFadeAlpha;
-	virtual void Init();
-	virtual BOOL Load();
-	virtual void Reset();
-	virtual BOOL Update(u32 frames);
-	virtual BOOL Draw();
-	virtual void Open();
-	virtual void Close();
-	virtual BOOL IsOpen();
-	virtual void StartFade(s32 dir);
-	virtual void StopFade();
-};
-class Menu : public CMenu {
-public:
-	f32 mLineHeight, mMaxWidth, mLines;
-};
-// Only the base subobjects require destruction for these menu variants.
-class MenuMCTestSub : public Menu {
-public:
-	~MenuMCTestSub();
-};
-class MenuMCTest : public Menu {
-public:
-	~MenuMCTest();
-};
-class MenuStageSelect : public Menu {
-public:
-	~MenuStageSelect();
-};
-class MenuSave : public Menu {
-public:
-	~MenuSave();
-};
-class MenuPC : public Menu {
-public:
-	~MenuPC();
-};
-class MenuItem : public Menu {
-public:
-	~MenuItem();
-};
-class MenuStatus : public Menu {
-public:
-	~MenuStatus();
-};
-class MenuMain : public Menu {
-public:
-	~MenuMain();
-};
+// the destructors of the menus and of the status menu's value table
 
-// Each entry carries one value and its independent CStatus flags.
+// a value with flags of its own, the status menu keeps tables of them
 struct MenuStatusEntry {
-	s32 mValue;
-	CStatus mStatus;
+	s32 mValue;      // _00
+	CStatus mStatus; // _04
+
 	MenuStatusEntry();
 	~MenuStatusEntry();
 };
+STATIC_ASSERT(sizeof(MenuStatusEntry) == 0xC);
+
 struct MenuStatusTable {
-	s32 mCount;
-	MenuStatusEntry mEntries[256];
-	MenuStatusEntry mLeft[4];
-	MenuStatusEntry mRight[4];
+	s32 mCount;                    // _000
+	MenuStatusEntry mEntries[256]; // _004
+	MenuStatusEntry mLeft[4];      // _C04
+	MenuStatusEntry mRight[4];     // _C34
+
 	~MenuStatusTable();
 };
+STATIC_ASSERT(sizeof(MenuStatusTable) == 0xC64);
 
-typedef char MenuTexture_size_check[sizeof(MenuTexture) == 0x100 ? 1 : -1];
-typedef char MenuWindow_size_check[sizeof(MenuWindow) == 0x12C ? 1 : -1];
-typedef char CMenu_size_check[sizeof(CMenu) == 0x14C ? 1 : -1];
-typedef char MenuStatusEntry_size_check[sizeof(MenuStatusEntry) == 0xC ? 1 : -1];
-typedef char MenuStatusTable_size_check[sizeof(MenuStatusTable) == 0xC64 ? 1 : -1];
-
+/**
+ * @note Address: 0x8006331C
+ * @note Size: 0x94
+ */
 MenuStatusTable::~MenuStatusTable()
 {
 }
+
+/**
+ * @note Address: 0x800633B0
+ * @note Size: 0x54
+ */
 MenuStatusEntry::~MenuStatusEntry()
 {
 }
+
+/**
+ * @note Address: 0x80063404
+ * @note Size: 0x18
+ */
 MenuStatusEntry::MenuStatusEntry()
 {
 }
+
+/**
+ * @note Address: 0x8006341C
+ * @note Size: 0x90
+ */
 MenuMCTestSub::~MenuMCTestSub()
 {
 }
+
+/**
+ * @note Address: 0x800634AC
+ * @note Size: 0x90
+ */
 MenuMCTest::~MenuMCTest()
 {
 }
+
+/**
+ * @note Address: 0x8006353C
+ * @note Size: 0x90
+ */
 MenuStageSelect::~MenuStageSelect()
 {
 }
+
+/**
+ * @note Address: 0x800635CC
+ * @note Size: 0x90
+ */
 MenuSave::~MenuSave()
 {
 }
+
+/**
+ * @note Address: 0x8006365C
+ * @note Size: 0x90
+ */
 MenuPC::~MenuPC()
 {
 }
+
+/**
+ * @note Address: 0x800636EC
+ * @note Size: 0x90
+ */
 MenuItem::~MenuItem()
 {
 }
+
+/**
+ * @note Address: 0x8006377C
+ * @note Size: 0x90
+ */
 MenuStatus::~MenuStatus()
 {
 }
+
+/**
+ * @note Address: 0x8006380C
+ * @note Size: 0x90
+ */
 MenuMain::~MenuMain()
 {
 }

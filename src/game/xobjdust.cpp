@@ -19,13 +19,13 @@ extern "C" BOOL fn_800DED24(XObjDust* dust, u32 frames);
 extern "C" BOOL fn_800DF0A0(XObjDust* dust)
 {
 	if (__fpclassifyf(dust->mHeading) == FP_NAN) {
-		if (lbl_8025C400.mPlayer->mAnimId == 0x27) {
-			f32 z        = dust->mMoveTranslate.z - lbl_8025C400.mPlayer->mMoveTranslate.z;
-			f32 x        = dust->mMoveTranslate.x - lbl_8025C400.mPlayer->mMoveTranslate.x;
+		if (lbl_8025C400.GetPlayer()->mAnimId == 0x27) {
+			f32 z        = dust->mMoveTranslate.z - lbl_8025C400.GetPlayer()->mMoveTranslate.z;
+			f32 x        = dust->mMoveTranslate.x - lbl_8025C400.GetPlayer()->mMoveTranslate.x;
 			dust->mSpeed = sqrtf(x * x + z * z);
 			if (dust->mSpeed < 20.0f) {
-				dust->mHeading = atan2(dust->mMoveTranslate.x - lbl_8025C400.mPlayer->mMoveTranslate.x,
-				                       dust->mMoveTranslate.z - lbl_8025C400.mPlayer->mMoveTranslate.z);
+				dust->mHeading = atan2(dust->mMoveTranslate.x - lbl_8025C400.GetPlayer()->mMoveTranslate.x,
+				                       dust->mMoveTranslate.z - lbl_8025C400.GetPlayer()->mMoveTranslate.z);
 				dust->mSpeed   = 0.2f * (25.0f - dust->mSpeed);
 				if (dust->mSpeed > 2.0f)
 					dust->mSpeed = 2.0f;
@@ -80,8 +80,8 @@ extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
 				s32 arg            = dust->mEventArg;
 				s32 id             = dust->mEventId;
 				const void* script = dust->vf128();
-				if (!fn_8009FDE4(lbl_8025C400.mPlayer))
-					fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)dust, id, arg);
+				if (!fn_8009FDE4(lbl_8025C400.GetPlayer()))
+					fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)dust, id, arg);
 			}
 			return TRUE;
 		}

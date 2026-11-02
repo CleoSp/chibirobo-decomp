@@ -31,7 +31,7 @@ public:
 	s32 mLastFrame;          // _B0
 	// _B4 vtable
 
-	virtual ~CMovie(); // _08
+	virtual ~CMovie() { } // _08
 
 	void EndDraw();
 	s32 BeginDraw();

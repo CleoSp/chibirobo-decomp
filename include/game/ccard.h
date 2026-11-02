@@ -16,7 +16,7 @@ public:
 	u8 mWorkArea[CARD_WORKAREA_SIZE]; // _20, for CARDMount
 	// _A020 vtable
 
-	virtual ~CCard(); // _08
+	virtual ~CCard() { } // _08
 
 	const char* GetResultString(s32 result);
 	s32 SetStatus(CARDStat* stat);

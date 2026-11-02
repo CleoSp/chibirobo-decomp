@@ -43,7 +43,7 @@ extern "C" void fn_800B7B5C(XObjChr* chr)
 	chr->mAttachmentAnim.Release();
 	chr->mSuitAnim.Release();
 	fn_800B8850(chr);
-	if (chr->mEvt._04 != NULL) {
+	if (chr->mEvt.mData.mScript != NULL) {
 		fn_8007F040(&chr->mEvt, TRUE, FALSE);
 	}
 }

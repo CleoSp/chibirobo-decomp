@@ -1,8 +1,8 @@
 #include "game/evtqueue.h"
 #include "game/xobj.h"
 
-struct Unk80192214;
-extern "C" void fn_80192214(Unk80192214* stack, s32 capacity);
+// allocates a stack's buffer
+extern "C" void fn_80192214(CStack* stack, s32 capacity);
 
 static inline void ClearQueue()
 {
@@ -36,17 +36,17 @@ extern "C" void fn_8007F194(CEvt* evt, u8* context, void* owner)
 		ClearTimers();
 		fn_800929C4(&lbl_8036A0B0, 0);
 	}
-	fn_80192214((Unk80192214*)&evt->_24, 32);
-	fn_80192214((Unk80192214*)&evt->_34, 64);
-	fn_80192214((Unk80192214*)&evt->_44, 128);
+	fn_80192214(&evt->mCalls, 32);
+	fn_80192214(&evt->mFrames, 64);
+	fn_80192214(&evt->mValues, 128);
 	evt->mCameraMemento = NULL;
-	evt->_04            = NULL;
+	evt->mData.mScript  = NULL;
 	evt->_18            = 0;
 	evt->_1C            = 0;
 	evt->_20            = 0;
-	evt->_28            = 0;
-	evt->_38            = 0;
-	evt->_48            = 0;
+	evt->mCalls.mCount  = 0;
+	evt->mFrames.mCount = 0;
+	evt->mValues.mCount = 0;
 	if (evt->_00 == 0) {
 		ClearTimers();
 		ClearQueue();

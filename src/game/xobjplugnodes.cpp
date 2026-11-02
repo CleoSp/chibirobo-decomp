@@ -36,7 +36,7 @@ extern "C" void fn_800DBC98(XObjPlugCordNodes* nodes, XObjPlugCordPoint* points,
 		}
 	}
 	if (nodes->mNode[0].mState == 1) {
-		XObj* object = &lbl_8025C400.mPlayer->mPlug.mWire;
+		XObj* object = &lbl_8025C400.GetPlayer()->mPlug.mWire;
 		object->SetPos(nodes->mNode[0].mPos, 0);
 	}
 }

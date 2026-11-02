@@ -9,48 +9,43 @@ extern "C" double cos(double x);
 extern "C" double atan2(double y, double x);
 extern "C" f32 PSVECDistance(Vec* a, Vec* b);
 
-extern "C" s32 fn_8001E6C8(void* obj, s32 id);
-extern "C" void fn_8001E904(void* obj, s32 id, s32 arg);
-
-// todo: copied inline, clean up
-inline f32 HSD_AObjGetCurrentFrame(HSD_AObj* aobj)
-{
-	((aobj) ? ((void)0) : __assert("aobj.h", 149, "aobj"));
-	return aobj->curr_frame;
-}
-
+// first aobj on the jobj or below it
 static inline HSD_AObj* FindAnim(HSD_JObj* jobj)
 {
 	if (jobj != NULL) {
 		HSD_AObj* aobj = fn_801908F8(jobj);
-		if (aobj != NULL)
+		if (aobj != NULL) {
 			return aobj;
+		}
 		aobj = fn_801905D4(jobj);
-		if (aobj != NULL)
+		if (aobj != NULL) {
 			return aobj;
+		}
 		aobj = fn_801902C4(jobj);
-		if (aobj != NULL)
+		if (aobj != NULL) {
 			return aobj;
+		}
 	}
 	return NULL;
 }
+
 static inline f32 GetAnimFrame(HSD_JObj* jobj)
 {
-	HSD_AObj* aobj = (HSD_AObj*)jobj;
-	aobj           = FindAnim((HSD_JObj*)aobj);
-	if (aobj != NULL)
+	HSD_AObj* aobj = FindAnim(jobj);
+	if (aobj != NULL) {
 		return HSD_AObjGetCurrentFrame(aobj);
+	}
 	return 0.0f;
 }
 
-struct XObj;
+struct TrashObj;
 
 struct UnkKindData {
 	u8 _00[0x14]; // _00
 	s16 _14;      // _14
 };
 
-struct XObj {
+struct TrashObj {
 	HSD_JObj* jobj; // _00
 	u8 _04[0x30];   // _04
 	// _34 vtable
@@ -160,25 +155,27 @@ struct XObj {
 #else
 	u8 _244[0x980 - 0x244]; // _244
 #endif
-	u32* _980;     // _980 in Japan _970
-	u8 _984[0x50]; // _984 in Japan _974
-	s32 _9D4;      // _9D4 in Japan _9C4
-	u8 _9D8[0x70]; // _9D8 in Japan _9C8
-	s32 _A48;      // _A48 in Japan _A38
-	u8 _A4C[0x18]; // _A4C in Japan _A3C
-	XObj* _A64;    // _A64 in Japan _A54
+	u32* _980;      // _980 in Japan _970
+	u8 _984[0x50];  // _984 in Japan _974
+	s32 _9D4;       // _9D4 in Japan _9C4
+	u8 _9D8[0x70];  // _9D8 in Japan _9C8
+	s32 _A48;       // _A48 in Japan _A38
+	u8 _A4C[0x18];  // _A4C in Japan _A3C
+	TrashObj* _A64; // _A64 in Japan _A54
+
+	Vec* GetPos() { return &_C8; }
 };
 
 #if defined(VERSION_JP)
-typedef char TrashXObjViewSizeCheck[sizeof(XObj) == 0xA58 ? 1 : -1];
+typedef char TrashXObjViewSizeCheck[sizeof(TrashObj) == 0xA58 ? 1 : -1];
 #else
-typedef char TrashXObjViewSizeCheck[sizeof(XObj) == 0xA68 ? 1 : -1];
+typedef char TrashXObjViewSizeCheck[sizeof(TrashObj) == 0xA68 ? 1 : -1];
 #endif
 
-static XObj* trashTarget;
+static TrashObj* trashTarget;
 static s32 trashStackNum;
 static f32 trashStackScale;
-static XObj* trashObj;
+static TrashObj* trashObj;
 static s32 trashState;
 static Vec trashPos;
 static Vec trashDest;
@@ -203,16 +200,15 @@ extern "C" s32 CmdStartTrash(s32 cmd, s32 arg, s32* arg2);
  */
 extern "C" void DrawTrashStack(void* arg)
 {
-	XObj* actor;
+	// NONMATCHING: regalloc
+	TrashObj* actor;
 	HSD_JObj* jobj;
 	f32 a;
-
 	f32 angle;
 	f32 x;
 	f32 y;
 	f32 z;
 	s32 count;
-	s32 n;
 	s32 i;
 
 	if (trashTarget == NULL) {
@@ -226,17 +222,16 @@ extern "C" void DrawTrashStack(void* arg)
 		return;
 	}
 
-	n       = trashStackNum;
+	count   = trashStackNum;
 	Vec pos = actor->_C8;
 	angle   = 1.0471976f + actor->_FC;
 	jobj    = actor->jobj;
-	count   = n;
-	if (n < 0) {
+	if (count < 0) {
 		count = 0;
-		jobj  = actor->jobj;
 	}
-	if (count > 10)
+	if (count > 10) {
 		count = 10;
+	}
 
 	for (i = 1; i < count; i++) {
 		int step = i - 1;
@@ -660,25 +655,25 @@ extern "C" void DrawTrashStack(void* arg)
     blr
 */
 
-static inline const Vec* TrashPosition(XObj* obj)
+// the kind id, -1 without kind data
+static inline s16 GetKindId(TrashObj* obj)
 {
-	return &obj->_C8;
+	return obj->_240 != NULL ? (obj->_240 != NULL ? obj->_240->_14 : 0) : -1;
 }
-static inline XObj* HeldTrash()
-{
-	return trashObj;
-}
+
 /**
  * @note Address: stage04 .text 0x1DF4
  * @note Size: 0x7E0
  */
 extern "C" void UpdateTrash(u32 frames)
 {
+	// NONMATCHING: regalloc
 	Vec impactPos;
-	XObj* robot;
-	if ((trashTarget != 0) && trashActive) {
+	TrashObj* robot;
+
+	if (trashTarget != NULL && trashActive) {
 		CPad pad(0);
-		robot = (XObj*)lbl_8025C400.mPlayer;
+		robot = (TrashObj*)lbl_8025C400.GetPlayer();
 		switch (trashState) {
 		case 0:
 			trashObj = robot->_A64;
@@ -690,7 +685,6 @@ extern "C" void UpdateTrash(u32 frames)
 				trashState  = 99;
 			}
 			break;
-
 		case 1:
 			if (robot->_FC == robot->_10C) {
 				robot->_A48 = 6;
@@ -698,18 +692,17 @@ extern "C" void UpdateTrash(u32 frames)
 				trashState++;
 			}
 			break;
-
 		case 2:
 			if (15.0f <= GetAnimFrame(robot->jobj)) {
-				robot->_A64 = 0;
+				robot->_A64 = NULL;
 				trashObj->_228 &= ~0x400000000000000ULL;
-				trashDest.x = TrashPosition(trashTarget)->x;
-				trashDest.y = TrashPosition(trashTarget)->y;
-				trashDest.z = TrashPosition(trashTarget)->z;
+				trashDest.x = trashTarget->GetPos()->x;
+				trashDest.y = trashTarget->GetPos()->y;
+				trashDest.z = trashTarget->GetPos()->z;
 				trashDest.y += 30.0f;
-				trashPos.x  = TrashPosition(trashObj)->x;
-				trashPos.y  = TrashPosition(trashObj)->y;
-				trashPos.z  = TrashPosition(trashObj)->z;
+				trashPos.x  = trashObj->GetPos()->x;
+				trashPos.y  = trashObj->GetPos()->y;
+				trashPos.z  = trashObj->GetPos()->z;
 				trashStep.x = (trashDest.x - trashPos.x) / 36.0f;
 				trashArc    = 0.0f;
 				trashState++;
@@ -717,32 +710,31 @@ extern "C" void UpdateTrash(u32 frames)
 				trashStep.z = (trashDest.z - trashPos.z) / 36.0f;
 			}
 			break;
-
 		case 3: {
-			if ((30.0f <= GetAnimFrame(robot->jobj)) && (GetAnimFrame(robot->jobj) < 33.0f)) {
-				void* obj = &lbl_8025C400.mSound;
+			if (30.0f <= GetAnimFrame(robot->jobj) && GetAnimFrame(robot->jobj) < 33.0f) {
+				XSound* obj = &lbl_8025C400.mSound;
 				if (!fn_8001E6C8(obj, 0x1B9)) {
 					fn_8001E904(obj, 0x1B9, 0xFF);
 				}
 			}
 			trashArc += 0.08726646f * frames;
-			if (((f32)sin(trashArc)) < 0.0f) {
-				trashResult = 2;
-				XObj* held  = HeldTrash();
-				if (((s16)((held->_240 != 0) ? ((held->_240 != 0) ? (held->_240->_14) : (0)) : (-1))) == 8) {
+			if ((f32)sin(trashArc) < 0.0f) {
+				trashResult    = 2;
+				TrashObj* held = trashObj;
+				if (GetKindId(held) == 8) {
 					u32 bit = held->vf148();
 					held->_980[bit >> 5] |= 1 << (bit & 31);
 				}
 				trashObj->vf54();
-				trashObj   = 0;
+				trashObj   = NULL;
 				trashState = 99;
 			} else {
 				Vec pos;
-				pos.x = TrashPosition(trashObj)->x;
-				pos.y = TrashPosition(trashObj)->y;
-				pos.z = TrashPosition(trashObj)->z;
-				pos.y = TrashPosition(trashTarget)->y;
-				if ((PSVECDistance(&trashTarget->_C8, &pos) < 15.0f) && (TrashPosition(trashObj)->y < 30.0f)) {
+				pos.x = trashObj->GetPos()->x;
+				pos.y = trashObj->GetPos()->y;
+				pos.z = trashObj->GetPos()->z;
+				pos.y = trashTarget->GetPos()->y;
+				if (PSVECDistance(&trashTarget->_C8, &pos) < 15.0f && trashObj->GetPos()->y < 30.0f) {
 					trashState = 10;
 				} else {
 					trashPos.x += trashStep.x * frames;
@@ -751,28 +743,26 @@ extern "C" void UpdateTrash(u32 frames)
 					pos.x = trashPos.x;
 					pos.y = trashPos.y;
 					pos.z = trashPos.z;
-					pos.y += 10.0f * ((f32)sin(trashArc));
+					pos.y += 10.0f * (f32)sin(trashArc);
 					trashObj->vf78(&pos, 10.0f);
 				}
 			}
 			break;
 		}
-
 		case 10: {
 			f32 angle;
 			trashResult = 3;
-			impactPos.x = TrashPosition(trashObj)->x;
-			impactPos.y = TrashPosition(trashObj)->y;
-			impactPos.z = TrashPosition(trashObj)->z;
-			angle       = atan2(impactPos.x - TrashPosition(trashTarget)->x, impactPos.z - TrashPosition(trashTarget)->z);
-			impactPos.x += 2.0f * ((f32)sin(angle));
+			impactPos.x = trashObj->GetPos()->x;
+			impactPos.y = trashObj->GetPos()->y;
+			impactPos.z = trashObj->GetPos()->z;
+			angle       = atan2(impactPos.x - trashTarget->GetPos()->x, impactPos.z - trashTarget->GetPos()->z);
+			impactPos.x += 2.0f * (f32)sin(angle);
 			impactPos.y = 0.0f;
-			impactPos.z += 2.0f * ((f32)cos(angle));
+			impactPos.z += 2.0f * (f32)cos(angle);
 			trashObj->vf78(&impactPos, 1.0f);
 			trashState = 99;
 			break;
 		}
-
 		case 99:
 			break;
 		}
@@ -1335,7 +1325,7 @@ extern "C" void UpdateTrash(u32 frames)
  */
 extern "C" void InitTrash(void* arg)
 {
-	XObj* actor;
+	TrashObj* actor;
 	CGame* game = &lbl_8025C400;
 	s32 count;
 	s32 i;
@@ -1344,9 +1334,9 @@ extern "C" void InitTrash(void* arg)
 	trashObj      = NULL;
 	trashboxIndex = -1;
 	trashActive   = 0;
-	count         = game->mObjectCount;
+	count         = game->mXObjs.mObjectCount;
 	for (i = 0; trashboxIndex < 0 && i < count; i++) {
-		actor = game->mObjects[i];
+		actor = (TrashObj*)game->mXObjs.mObjects[i];
 		if (actor->_228 & 1) {
 			if (*actor->_238 == 0x12D) {
 				trashboxIndex = i;
@@ -1378,18 +1368,18 @@ static inline s32 IsNearXZ(const Vec& p, const Vec& q)
 extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
 {
 	CGame* game;
-	XObj* robot;
-	XObj* box;
+	TrashObj* robot;
+	TrashObj* box;
 
 	if (trashboxIndex < 0) {
 		return 0;
 	}
 	game  = &lbl_8025C400;
-	robot = (XObj*)game->mPlayer;
+	robot = (TrashObj*)game->GetPlayer();
 	if (trashboxIndex != robot->_9D4) {
 		return 0;
 	}
-	box = game->mObjects[trashboxIndex];
+	box = (TrashObj*)game->mXObjs.mObjects[trashboxIndex];
 	return IsNearXZ(robot->_C8, box->_C8);
 }
 // CmdIsNearTrashbox
@@ -1470,7 +1460,7 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
  */
 extern "C" s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2)
 {
-	XObj* robot = (XObj*)lbl_8025C400.mPlayer;
+	TrashObj* robot = (TrashObj*)lbl_8025C400.GetPlayer();
 
 	if (robot->_A64 != NULL) {
 		robot->_A48 = 6;
@@ -1514,7 +1504,7 @@ extern "C" s32 CmdStartTrash(s32 cmd, s32 arg, s32* arg2)
 	f32 scale       = arg2[2] / 100.0f;
 	s32 idx         = arg2[0];
 	s32 num         = arg2[1];
-	trashTarget     = game->mObjects[idx];
+	trashTarget     = (TrashObj*)game->mXObjs.mObjects[idx];
 	trashStackNum   = num;
 	trashStackScale = scale;
 	if (trashTarget != NULL) {

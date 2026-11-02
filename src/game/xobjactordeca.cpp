@@ -1,44 +1,72 @@
-#include "game/particle_srt.h"
-#include "game/xobjactorfamily.h"
+#include "game/xobjactor.h"
+#include "game/xchr.h"
+#include "game/gmath.h"
 
-// XObjActorDeca
+extern "C" {
+void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
+void fn_800660E8(void* info, s32 on, s32 arg); // InfoScrn's
+}
 
+/**
+ * @note Address: 0x8012F428
+ * @note Size: 0x24
+ */
 void XObjActorDeca::vf150()
 {
 	mState = NULL;
 }
 
+/**
+ * @note Address: 0x8012F44C
+ * @note Size: 0x58
+ */
 void XObjActorDeca::vf14C(u32 frames)
 {
-	if (mState) {
+	if (mState != NULL) {
 		(this->*mState)(frames);
 	}
 }
 
+/**
+ * @note Address: 0x8012F4A4
+ * @note Size: 0x8C
+ */
 XObjActorDeca::~XObjActorDeca()
 {
 }
 
+/**
+ * @note Address: 0x8012F530
+ * @note Size: 0xA4
+ */
 HSD_JObj* XObjActorDeca::vf168()
 {
 	s32 path[3] = { 0, 3, 0 };
-	return FindJoint(mJObj, 3, path);
+	return FindJointByPath(mJObj, path, 3);
 }
 
+/**
+ * @note Address: 0x8012F5D4
+ * @note Size: 0x54
+ */
 CVec XObjActorDeca::vf16C()
 {
 	s32 path[3] = { 0, 3, 0 };
 	return fn_8007E7C8(this, 3, path);
 }
 
+/**
+ * @note Address: 0x8012F628
+ * @note Size: 0x318
+ */
 Vec XObjActorDeca::GetCameraTarget()
 {
 	if (_C90.mFlags & 4) {
 		CJObj jobj;
 		s32 path[2] = { 0, 3 };
-		jobj.Attach(FindJoint(mJObj, 2, path));
+		jobj.Attach(FindJointByPath(mJObj, path, 2));
 		Vec pos;
-		pos = GetJObjPos(jobj.mJObj);
+		pos = GetJointPosition(jobj.mJObj);
 		Vec target;
 		target = pos;
 		target.y -= 0.5f;
@@ -47,55 +75,60 @@ Vec XObjActorDeca::GetCameraTarget()
 	return fn_80107084(this);
 }
 
-s32 XObjActorDeca::vf124(s32 argc, s32* argv)
+/**
+ * @note Address: 0x8012F940
+ * @note Size: 0x8B8
+ */
+// NONMATCHING: scheduling
+s32 XObjActorDeca::vf124(s32 count, s32* command)
 {
-	UnkPlayer* player = GAME_PLAYER;
+	XObjChr* player = lbl_8025C400.GetPlayer();
 	CJObj jobj;
-	CVec unused;
-	fn_801070A4(this, argc, argv);
-	switch (argv[0]) {
+	CVec target;
+	fn_801070A4(this, count, command);
+	switch (command[0]) {
 	case 1:
-		switch (argv[1]) {
+		switch (command[1]) {
 		case 0:
 			fn_8010771C(this, 0.08726646f);
 			break;
 		case 1:
-			fn_801076FC(this, &GAME_PLAYER->mMoveTranslate, 0.08726646f);
+			fn_801076FC(this, (s32)&lbl_8025C400.GetPlayer()->mMoveTranslate, 0.08726646f);
 			break;
 		case 2:
-			if (FindObj(argv[2]) != NULL) {
-				fn_801076FC(this, &FindObj(argv[2])->mMoveTranslate, 0.017453292f * argv[3]);
+			if (FindObj(command[2]) != NULL) {
+				fn_801076FC(this, (s32)&FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3:
-			fn_801076DC(this, 0.017453292f * argv[2], 0.017453292f * argv[3]);
+			fn_801076DC(this, DEG2RAD * command[2], DEG2RAD * command[3]);
 			break;
 		}
 		break;
 	default:
-		if (argc < 1) {
+		if (count < 1) {
 			return 0;
 		}
-		_9E0 = argv[0];
-		if (argc < 2) {
-			_9E4 = 0;
+		mCmd[0] = command[0];
+		if (count < 2) {
+			mCmd[1] = 0;
 		} else {
-			_9E4 = argv[1];
+			mCmd[1] = command[1];
 		}
-		_9E8[0] = argv[2];
-		_9E8[1] = argv[3];
-		_9E8[2] = argv[4];
-		_9E8[3] = argv[5];
-		_9E8[4] = argv[6];
-		_9E8[5] = argv[7];
-		_9E8[6] = argv[8];
-		_9E8[7] = argv[9];
-		if (_9E4 == 0xD0) {
-			_A2C = (s32)FindObj(_9E8[0]);
+		mCmd[2] = command[2];
+		mCmd[3] = command[3];
+		mCmd[4] = command[4];
+		mCmd[5] = command[5];
+		mCmd[6] = command[6];
+		mCmd[7] = command[7];
+		mCmd[8] = command[8];
+		mCmd[9] = command[9];
+		if (mCmd[1] == 0xD0) {
+			mCmd[19] = (s32)FindObj(mCmd[2]);
 		}
-		switch (_9E0) {
+		switch (mCmd[0]) {
 		case 2:
-			switch (_9E4) {
+			switch (mCmd[1]) {
 			case 0:
 				_C90.mFlags |= 1;
 				break;
@@ -103,73 +136,70 @@ s32 XObjActorDeca::vf124(s32 argc, s32* argv)
 				_C90.mFlags &= ~1;
 				break;
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 3:
-			fn_8001E904(GAME_SOUND, 0x50014, 0xFF);
-			switch (_9E4) {
+			fn_8001E904(&lbl_8025C400.mSound, 0x50014, 0xFF);
+			switch (mCmd[1]) {
 			case 0:
 				_C90.mFlags |= 2;
-				_CA4 = 3.1415927f;
+				_CA4 = PI;
 				break;
 			case 1:
 				_C90.mFlags |= 2;
 				_CA4 = 0.0f;
 				break;
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 4:
-			_A4C   = _9E4;
+			_A4C   = mCmd[1];
 			mState = &XObjActorDeca::StatePickUp;
 			fn_8010706C(this);
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 5:
 			_A4C = -1;
 			if (_A50 != NULL) {
 				_A50->Release();
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 6:
-			if (_9E4 == 1) {
-				fn_800660E8(GAME_EVTMGR, 1, 1);
+			if (mCmd[1] == 1) {
+				fn_800660E8(&lbl_8025C400.mInfoScrn, 1, 1);
 			} else {
-				fn_800660E8(GAME_EVTMGR, 0, 1);
+				fn_800660E8(&lbl_8025C400.mInfoScrn, 0, 1);
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 7:
-			switch (_9E4) {
+			switch (mCmd[1]) {
 			case 1:
-				mStatus.mFlags |= 0x100;
-				player->_980 = 0;
-				player->_980 |= 0x40000000;
-				player->_12DF4 = 0;
+				_998.mFlags |= 0x100;
+				player->_980.mFlags = 0;
+				player->_980.mFlags |= 0x40000000;
+				player->mPadReset = FALSE;
 				break;
 			default: {
-				mStatus.mFlags &= ~0x100;
+				_998.mFlags &= ~0x100;
 				s32 path[5] = { 0, 6, 0, 0, 1 };
-				jobj.Attach(FindJoint(mJObj, 5, path));
-				Vec pos;
-				pos = GetJObjPos(jobj.mJObj);
-				CVec target(pos);
+				jobj.Attach(FindJointByPath(mJObj, path, 5));
+				target   = GetJointPosition(jobj.mJObj);
 				target.y = 0.0f;
-				player->SetMoveTranslate(&target, 0);
-				player->_980 = 0;
-				player->_980 |= 0x20000000;
-				player->_980 |= 7;
-				player->_12DF4 = 1;
-				HSD_JObj* pj   = player->mJObj;
-				HSD_JObjClearUserMtx(pj);
+				player->SetPos(target, 0);
+				player->_980.mFlags = 0;
+				player->_980.mFlags |= 0x20000000;
+				player->_980.mFlags |= 7;
+				player->mPadReset = TRUE;
+				HSD_JObjClearMtxFlags(player->mJObj);
 				break;
 			}
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 8:
-			switch (_9E4) {
+			switch (mCmd[1]) {
 			case 1:
 				_C90.mFlags |= 4;
 				break;
@@ -177,13 +207,13 @@ s32 XObjActorDeca::vf124(s32 argc, s32* argv)
 				_C90.mFlags &= ~4;
 				break;
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		case 9:
 			if (_A50 != NULL) {
-				((UnkCarried*)_A50)->SetAnim(_9E4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				_A50->SetAnim(mCmd[1], FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
-			_9E0 = 0;
+			mCmd[0] = 0;
 			break;
 		}
 		break;
@@ -191,24 +221,28 @@ s32 XObjActorDeca::vf124(s32 argc, s32* argv)
 	return 0;
 }
 
+/**
+ * @note Address: 0x801301F8
+ * @note Size: 0x6EC
+ */
 // picks up the object _A4C names, then holds it
-// NONMATCHING: two registers
+// NONMATCHING: regalloc
 void XObjActorDeca::StatePickUp(u32 frames)
 {
 	switch (_990) {
 	case 0: {
-		XObjActorTao* tao = GAME_TAO;
-		if ((tao->mFlags & 1) && !tao->IsFree()) {
+		XObjActorTao* tao = ((XObjActorTao*)lbl_8025C400.mXObjs.mPools[14].mObjects);
+		if ((tao->mStatus.mFlags & 1) && !tao->IsFree()) {
 			return;
 		}
 		bool busy = false;
 		for (s32 i = 0; i < 15; i++) {
-			XObj* obj = GAME_POOL_975C->Get(i);
-			if (obj->GetDescKind() == 0x159) {
-				if (!(obj->mFlags & 1)) {
+			XObjActorToy* toy = (XObjActorToy*)lbl_8025C400.mXObjs.mPools[10].Get(i);
+			if (toy->GetKind() == 0x159) {
+				if (!(toy->mStatus.mFlags & 1)) {
 					break;
 				}
-				if (!fn_8011566C(obj)) {
+				if (!toy->IsFree()) {
 					busy = true;
 					break;
 				}
@@ -217,8 +251,8 @@ void XObjActorDeca::StatePickUp(u32 frames)
 		if (busy) {
 			return;
 		}
-		XObjActorPapa* papa = GAME_PAPA;
-		if ((papa->mFlags & 1) && !papa->IsFree()) {
+		XObjActorPapa* papa = ((XObjActorPapa*)lbl_8025C400.mXObjs.mPools[13].mObjects);
+		if ((papa->mStatus.mFlags & 1) && !papa->IsFree()) {
 			return;
 		}
 		if (_A50 != NULL) {
@@ -229,24 +263,24 @@ void XObjActorDeca::StatePickUp(u32 frames)
 		} else {
 			_A50 = NULL;
 		}
-		mStatus.mFlags |= 0x2000;
+		_998.mFlags |= 0x2000;
 		_990++;
 	}
 	case 1:
 		if (_A50 != NULL) {
-			if (_A50->mFlags & 0x0040000000000000ULL) {
+			if (_A50->mStatus.mFlags & 0x0040000000000000ULL) {
 				return;
 			}
-			GAME_FLAGS |= 0x1000;
+			lbl_8025C400.mStatus.mFlags |= 0x1000;
 		}
 		_990++;
 	case 2:
 		if (_A4C >= 0 && _A50 != NULL) {
-			((UnkCarried*)_A50)->SetScale(1.0f, 1.0f, 1.0f, 0);
+			_A50->SetScale(1.0f, 1.0f, 1.0f, 0);
 			CJObj jobj;
 			s32 path[2] = { 0, 5 };
-			jobj.Attach(FindJoint(mJObj, 2, path));
-			((UnkCarried*)_A50)->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			jobj.Attach(FindJointByPath(mJObj, path, 2));
+			_A50->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			Mtx m;
 			Mtx transMtx;
 			Mtx hand;
@@ -257,89 +291,100 @@ void XObjActorDeca::StatePickUp(u32 frames)
 			MtxPtr mp       = hand;
 			HSD_JObjCopyMtx(joint, mp);
 
-			_A50->mFlags &= ~0x0200000000000000ULL;
-			if (mFlags & 0x10000) {
-				_A50->mFlags |= 0x10000ULL;
+			_A50->mStatus.mFlags &= ~0x0200000000000000ULL;
+			if (mStatus.mFlags & 0x10000) {
+				_A50->mStatus.mFlags |= 0x10000ULL;
 			} else {
-				_A50->mFlags &= ~0x10000ULL;
+				_A50->mStatus.mFlags &= ~0x10000ULL;
 			}
-			_A50->mFlags &= ~0x0200000000000000ULL;
+			_A50->mStatus.mFlags &= ~0x0200000000000000ULL;
 		}
-		mStatus.mFlags &= ~0x2000;
+		_998.mFlags &= ~0x2000;
 		mState = &XObjActorDeca::StateHold;
 		fn_8010706C(this);
 		break;
 	}
 }
 
-static inline MtxPtr DecaMatrix(const CJObj& obj)
-{
-	return HSD_JObjGetMtxPtr(obj.mJObj);
-}
-
+/**
+ * @note Address: 0x801308E4
+ * @note Size: 0x434
+ */
 // keeps what it carries in its hand
 void XObjActorDeca::StateHold(u32 frames)
 {
 	if (_A4C >= 0 && _A50 != NULL) {
-		((UnkCarried*)_A50)->SetScale(1.0f, 1.0f, 1.0f, 0);
+		_A50->SetScale(1.0f, 1.0f, 1.0f, 0);
 		CJObj jobj;
 		s32 path[2] = { 0, 5 };
-		jobj.Attach(FindJoint(mJObj, 2, path));
+		jobj.Attach(FindJointByPath(mJObj, path, 2));
 		Mtx m;
 		Mtx transMtx;
 		Mtx hand;
-		PSMTXCopy(DecaMatrix(jobj), m);
+		PSMTXCopy(jobj.GetMtx(), m);
 		PSMTXTrans(transMtx, 0.0f, -3.0f, -4.0f);
 		PSMTXConcat(m, transMtx, hand);
 		HSD_JObj* joint = _A50->mJObj;
 		MtxPtr mp       = hand;
 		HSD_JObjCopyMtx(joint, mp);
-		if (mFlags & 0x10000) {
-			_A50->mFlags |= 0x10000ULL;
+		if (mStatus.mFlags & 0x10000) {
+			_A50->mStatus.mFlags |= 0x10000ULL;
 		} else {
-			_A50->mFlags &= ~0x10000ULL;
+			_A50->mStatus.mFlags &= ~0x10000ULL;
 		}
-		_A50->mFlags &= ~0x0200000000000000ULL;
+		_A50->mStatus.mFlags &= ~0x0200000000000000ULL;
 	}
 }
 
-void XObjActorDeca::UpdateAnim(u32 speed)
+/**
+ * @note Address: 0x80131AB0
+ * @note Size: 0x20
+ */
+void XObjActorDeca::UpdateAnim(u32 frames)
 {
-	CXObjIntp::UpdateAnim(speed);
+	CXObjIntp::UpdateAnim(frames);
 }
 
-void XObjActorDeca::Update(u32 frames)
+/**
+ * @note Address: 0x80131AD0
+ * @note Size: 0x20
+ */
+void XObjActorDeca::vfA4(u32 frames)
 {
 	fn_80107DE0(this, frames);
 }
 
-void XObjActorDeca::vf158(u32 frames)
+/**
+ * @note Address: 0x80131AF0
+ * @note Size: 0x1C
+ */
+void XObjActorDeca::vf158()
 {
-	if (mStatus.Check(2)) {
-		mStatus.mFlags &= ~2;
+	if (_998.Check(2)) {
+		_998.mFlags &= ~2;
 	}
 }
 
+/**
+ * @note Address: 0x80131B0C
+ * @note Size: 0xDC
+ */
 void XObjActorDeca::vf15C()
 {
-	mStatus.mFlags = 0;
-	_C90.mFlags    = 0;
-	_C98.mFlags    = 0;
-	_980           = 0.0f;
-	_984           = 0.0f;
-	_988           = 0.0f;
-	_C84           = _988;
-	_C88           = 0.0f;
-	_C8C           = 0;
-	_CA0           = 3.1415927f;
-	_CA4           = 3.1415927f;
-	mState         = &XObjActorDeca::StateHold;
+	_998.mFlags = 0;
+	_C90.mFlags = 0;
+	_C98.mFlags = 0;
+	_980        = 0.0f;
+	_984        = 0.0f;
+	_988        = 0.0f;
+	_C84        = _988;
+	_C88        = 0.0f;
+	_C8C        = 0;
+	_CA0        = PI;
+	_CA4        = PI;
+	mState      = &XObjActorDeca::StateHold;
 	fn_8010706C(this);
-	_9E0 = 0;
-	_9E4 = 0;
-	for (int i = 0; i < 16; i++) {
-		_9E8[i] = 0;
+	for (u32 i = 0; i < 20; i++) {
+		mCmd[i] = 0;
 	}
-	_A28 = 0;
-	_A2C = 0;
 }

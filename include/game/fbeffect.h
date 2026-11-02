@@ -2,7 +2,7 @@
 #define _GAME_FBEFFECT_H
 
 #include "Version.h"
-#include "Dolphin/gx.h"
+#include "game/ctpl.h"
 
 // frame buffer effects CGame owns, the outline at CGame + 0x4204 and the blur at CGame + 0x4268.
 // class names from RTTI. no base class, both RTTI base lists are empty
@@ -38,7 +38,31 @@ public:
 	f32 mPatternScaleY;    // _54
 	s32 mFrame;            // _58, 0 to 3
 	f32 mZoom;             // _5C
-	virtual ~CFbOutline(); // _60 vtable
+	// _60 vtable
+
+	virtual ~CFbOutline() { } // _08
+
+	void SetLineColor(u8 r, u8 g, u8 b, u8 a)
+	{
+		GXColor color = { r, g, b, 4 };
+		mColor0       = color;
+		mColor0.a     = a;
+	}
+	void SetColor2(u8 r, u8 g, u8 b)
+	{
+		GXColor color = { r, g, b, 0x80 };
+		mColor2       = color;
+	}
+	void SetColor3(u8 r, u8 g, u8 b, u8 a)
+	{
+		GXColor color = { r, g, b, a };
+		mColor3       = color;
+	}
+	void SetColor4(u8 r, u8 g, u8 b, u8 a)
+	{
+		GXColor color = { r, g, b, a };
+		mColor4       = color;
+	}
 };
 
 STATIC_ASSERT(sizeof(CFbOutline) == 0x64);
@@ -59,17 +83,19 @@ public:
 #endif
 	void DrawTex();
 
-	u16 mWidth;         // _00
-	u16 mHeight;        // _02
-	void* mBuf;         // _04, w*h*2 RGB565
-	GXTexObj mTexObj;   // _08
-	f32 mAlpha;         // _28
-	f32 mTarget;        // _2C
-	f32 mSpeed;         // _30
-	f32 mOffsetX;       // _34
-	f32 mOffsetY;       // _38
-	u8 mValid;          // _3C
-	virtual ~CFbBlur(); // _40 vtable
+	u16 mWidth;       // _00
+	u16 mHeight;      // _02
+	void* mBuf;       // _04, w*h*2 RGB565
+	GXTexObj mTexObj; // _08
+	f32 mAlpha;       // _28
+	f32 mTarget;      // _2C
+	f32 mSpeed;       // _30
+	f32 mOffsetX;     // _34
+	f32 mOffsetY;     // _38
+	u8 mValid;        // _3C
+	// _40 vtable
+
+	virtual ~CFbBlur() { } // _08
 };
 
 STATIC_ASSERT(sizeof(CFbBlur) == 0x44);

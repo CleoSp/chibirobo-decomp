@@ -1,7 +1,6 @@
 #include "game/hsd_jobj.h"
 #include "game/cgame.h"
 #include "game/arcache.h"
-#include "game/fbmirror.h"
 #include "game/cthread.h"
 #include "PowerPC_EABI_Support/Runtime/MWCPlusLib.h"
 #include "PowerPC_EABI_Support/Runtime/global_destructor_chain.h"
@@ -51,21 +50,21 @@ extern "C" void fn_8001933C(void)
 	__construct_array(GLOBALS + 0x41B4, (ConstructorDestructor)fn_80019700, (ConstructorDestructor)fn_80019600, sizeof(FbMirrorEx), 5);
 	__register_global_object(NULL, (void*)fn_800195C8, GLOBALS + 0x41A8);
 
-	ARPreCache* cache                        = (ARPreCache*)(GLOBALS + 0x5084);
-	*(void***)((u8*)cache + 0x1E4)           = __vt__10ARPreCache;
-	*(void***)((u8*)&cache->mFile[0] + 0xE8) = __vt__5CFile;
-	cache->mFile[0].mArchive                 = NULL;
-	cache->mFile[0].mEntrynum                = -1;
-	cache->mFile[0].mBuffer                  = NULL;
-	cache->mFile[0].mResult                  = 0;
-	cache->mFile[0].mState                   = 1;
-	*(void***)((u8*)&cache->mFile[1] + 0xE8) = __vt__5CFile;
-	cache->mFile[1].mArchive                 = NULL;
-	cache->mFile[1].mEntrynum                = -1;
-	cache->mFile[1].mBuffer                  = NULL;
-	cache->mFile[1].mResult                  = 0;
-	cache->mFile[1].mState                   = 1;
-	cache->_00                               = 0;
+	ARPreCache* cache                      = (ARPreCache*)(GLOBALS + 0x5084);
+	*(void***)((u8*)cache + 0x1E4)         = __vt__10ARPreCache;
+	*(void***)((u8*)&cache->mFile0 + 0xE8) = __vt__5CFile;
+	cache->mFile0.mArchive                 = NULL;
+	cache->mFile0.mEntrynum                = -1;
+	cache->mFile0.mBuffer                  = NULL;
+	cache->mFile0.mResult                  = 0;
+	cache->mFile0.mState                   = 1;
+	*(void***)((u8*)&cache->mFile1 + 0xE8) = __vt__5CFile;
+	cache->mFile1.mArchive                 = NULL;
+	cache->mFile1.mEntrynum                = -1;
+	cache->mFile1.mBuffer                  = NULL;
+	cache->mFile1.mResult                  = 0;
+	cache->mFile1.mState                   = 1;
+	cache->_00                             = 0;
 	__register_global_object(cache, (void*)fn_80019554, (u8*)cache - 0xC);
 
 	CThread* thread                 = (CThread*)(GLOBALS + 0x5278);

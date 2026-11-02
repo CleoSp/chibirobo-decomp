@@ -36,7 +36,7 @@ extern "C" s32 fn_80106AC0()
 {
 	s32 count = 0;
 	for (s32 i = 0; i < 16; ++i) {
-		XObjSpiderSmall* spider = (XObjSpiderSmall*)(lbl_8025C400.mPools[15].mObjects + i * lbl_8025C400.mPools[15].mStride);
+		XObjSpiderSmall* spider = (XObjSpiderSmall*)(lbl_8025C400.mXObjs.mPools[18].mObjects + i * lbl_8025C400.mXObjs.mPools[18].mStride);
 		if (spider->mStatus.mFlags & 1ULL) {
 			if (fn_800F5678(spider)) {
 				++count;
@@ -55,7 +55,7 @@ extern "C" s32 fn_80106B50()
 {
 	s32 count = 0;
 	for (s32 i = 0; i < 16; ++i) {
-		XObjSpiderSmall* spider = (XObjSpiderSmall*)(lbl_8025C400.mPools[15].mObjects + i * lbl_8025C400.mPools[15].mStride);
+		XObjSpiderSmall* spider = (XObjSpiderSmall*)(lbl_8025C400.mXObjs.mPools[18].mObjects + i * lbl_8025C400.mXObjs.mPools[18].mStride);
 		if (spider->mStatus.mFlags & 1ULL) {
 			if (fn_800F5684(spider)) {
 				++count;
@@ -77,7 +77,7 @@ extern "C" void fn_80106BE0(XObjActor* actor, f32 frame)
 			if (actor->_998.mFlags & 0x800) {
 				volume = 255;
 			} else {
-				volume = fn_8001DF00((CSound*)&lbl_8025C400.mSound, &actor->mMoveTranslate, 0);
+				volume = fn_8001DF00(&lbl_8025C400.mSound, &actor->mMoveTranslate, 0);
 			}
 			actor->mAnimSfx.Update(actor->mAnimId, frame, volume);
 		}

@@ -55,7 +55,8 @@ game/infopointdtor.cpp:
 	.text       start:0x8006DB80 end:0x8006DBC8
 
 game/stage_data.cpp:
-	.text       start:0x8006DBC8 end:0x8006F94C
+	.text       start:0x8006DBC8 end:0x8006FCAC
+	.ctors      start:0x801FD674 end:0x801FD678
 
 game/evt.cpp:
 	.text       start:0x8006FCAC end:0x8007EEA4

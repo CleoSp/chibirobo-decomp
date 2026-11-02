@@ -1,4 +1,3 @@
-#include "game/particle_srt.h"
 #include "game/ccameraaction.h"
 extern "C" {
 #include <dolphin/mtx/vec.h>
@@ -16,10 +15,10 @@ extern "C" {
 #include "game/xchr.h"
 #include "game/cgs.h"
 
-#define PLAYER lbl_8025C400.mPlayer
+#define PLAYER lbl_8025C400.GetPlayer()
 // two of the object pools
-#define GAME_POOL_OBJ(i)  ((XObj*)(lbl_8025C400.mPools[19].mObjects + (i) * lbl_8025C400.mPools[19].mStride))
-#define GAME_POOL2_OBJ(i) ((XObj*)(lbl_8025C400.mPools[6].mObjects + (i) * lbl_8025C400.mPools[6].mStride))
+#define GAME_POOL_OBJ(i)  ((XObj*)(lbl_8025C400.mXObjs.mPools[22].mObjects + (i) * lbl_8025C400.mXObjs.mPools[22].mStride))
+#define GAME_POOL2_OBJ(i) ((XObj*)(lbl_8025C400.mXObjs.mPools[9].mObjects + (i) * lbl_8025C400.mXObjs.mPools[9].mStride))
 // lit flag on the second pool's objects
 #define POOL2_LIT(obj) (*((u8*)(obj) + 0xA2C))
 
@@ -62,15 +61,15 @@ static s32 sHideState[256];
 inline void DrawMark(s32 index, f32 x, f32 y, u32 color)
 {
 	CTexObj tex;
-	tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[index], 0);
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+	tex = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[index], 0);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
 	f32 zoom = 1.0f; // never anything else, but it stops the divide being folded away
 	f32 w    = MARK_SCALE * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
 	f32 h    = MARK_SCALE * GXGetTexObjHeight(&tex) / zoom;
 	f32 cx   = w * 0.5f;
 	f32 cy   = -h * 0.5f;
-	fn_80197800((CGs*)lbl_8025C400.mGs, &tex, color, color, color, color, x + cx, y + cy, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+	fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, x + cx, y + cy, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
 }
 
 // in reverse order, same deferred inlining thing
@@ -115,7 +114,7 @@ void CCameraActionScroll2::HideObjs()
 		if (*id == -1) {
 			return;
 		}
-		XObj* obj = lbl_8025C400.mObjects[*id];
+		XObj* obj = lbl_8025C400.mXObjs.mObjects[*id];
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mStatus.mFlags & 0x10000) {
 				*state = 1;
@@ -147,7 +146,7 @@ void CCameraActionScroll2::ShowObjs()
 			id++;
 			state++;
 		} else {
-			lbl_8025C400.mObjects[*id]->mStatus.mFlags |= 0x10000;
+			lbl_8025C400.mXObjs.mObjects[*id]->mStatus.mFlags |= 0x10000;
 			id++;
 			state++;
 		}
@@ -499,14 +498,14 @@ void CCameraActionScroll2::vf20()
 			}
 
 			const char* name = GetStageName(stage);
-			fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 16.0f);
+			fn_801968BC(&lbl_8025C400.mGs, name, 1, 16.0f);
 			f32 nameX = x;
 			f32 nameY = y;
 			sin(2.356194496154785);
 			cos(2.356194496154785);
-			f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f;
-			fn_800652C0(0x141414A0, -1, fn_801968BC((CGs*)lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f, width, 18.0f,
-			            1.0f, 1.0f, 1.0f);
+			f32 width = fn_801968BC(&lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f;
+			fn_800652C0(0x141414A0, -1, fn_801968BC(&lbl_8025C400.mGs, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f, width, 18.0f, 1.0f,
+			            1.0f, 1.0f);
 			fn_80196610(&lbl_8025C400, -1, name, nameX, nameY - 18.0f, 0.0f, 18.0f, 18.0f);
 			break;
 		}
@@ -537,14 +536,14 @@ void CCameraActionScroll2::vf20()
 			f32 markX = x;
 			f32 markY = y;
 			CTexObj tex;
-			tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[161], 0);
-			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+			tex = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[161], 0);
+			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
 			u16 w    = GXGetTexObjWidth(&tex);
 			u16 h    = GXGetTexObjHeight(&tex);
 			f32 zoom = 1.0f;
-			fn_80197800((CGs*)lbl_8025C400.mGs, &tex, color2Off, color2Off, color2Off, color2Off, markX + 23.4f, markY + -20.8f, 0.0f,
+			fn_80197800(&lbl_8025C400.mGs, &tex, color2Off, color2Off, color2Off, color2Off, markX + 23.4f, markY + -20.8f, 0.0f,
 			            MARK_SCALE * (1.1f * w) / zoom, MARK_SCALE * h / zoom, 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
 		} else {
 			DrawMark(163, x, y, color);
 		}
@@ -552,7 +551,7 @@ void CCameraActionScroll2::vf20()
 
 	{
 		Vec ofs = { 0.0f, 0.0f, 0.0f };
-		lbl_8025C400.mPlayer->vf10C(&ofs, &x, &y, NULL, 0);
+		lbl_8025C400.GetPlayer()->vf10C(&ofs, &x, &y, NULL, 0);
 		DrawMark(164, x, y, color);
 	}
 
@@ -575,22 +574,22 @@ void CCameraActionScroll2::vf20()
 	}
 
 	CTexObj tex;
-	tex = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[160], 0);
+	tex = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[160], 0);
 	GXGetTexObjWidth(&tex);
 	GXGetTexObjHeight(&tex);
 	sin(angle);
 	cos(angle);
 	f32 pulse = sin(DEG2RAD * ((sCount * 24) % 360));
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
-	tex        = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[166], 0);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+	tex        = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[166], 0);
 	f32 zoom   = 1.0f;
 	f32 arrowW = zoom * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
 	u16 arrowH = GXGetTexObjHeight(&tex);
 	f32 radius = arrowW / 3.0f + 3.0f * pulse * zoom / zoom;
 	f32 arrowX = radius * (f32)sin(angle) + x;
-	fn_80197800((CGs*)lbl_8025C400.mGs, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, zoom * arrowH / zoom,
-	            0.0f, 0.0f, PI + angle);
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+	fn_80197800(&lbl_8025C400.mGs, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, zoom * arrowH / zoom, 0.0f,
+	            0.0f, PI + angle);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
 
 	// the caption in the corner, with a dark outline
 	CaptionMsg msg = { 7, NULL };
@@ -601,7 +600,7 @@ void CCameraActionScroll2::vf20()
 	u32 alpha      = (u32)fade;
 	u32 white      = alpha | 0xFFFFFF00;
 	f32 frame      = 0.05882353f * msg.mId;
-	captionX -= fn_801968BC((CGs*)lbl_8025C400.mGs, msg.mText, 1, 20.0f);
+	captionX -= fn_801968BC(&lbl_8025C400.mGs, msg.mText, 1, 20.0f);
 	s32 line     = 0;
 	f32 captionY = 24.0f * line + 62.0f;
 	for (s32 i = 0; i < 4; i++) {
@@ -610,15 +609,15 @@ void CCameraActionScroll2::vf20()
 	fn_80196610(&lbl_8025C400, white, msg.mText, captionX, captionY, 0.0f, 20.0f, 20.0f);
 
 	CTexObj icon;
-	icon = ((CTpl*)lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[119], 0);
+	icon = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[119], 0);
 	PSMTXScale(icon.mMtx[1], 0.05882353f, 1.0f, 1.0f);
 	icon.mMtxDirty = TRUE;
 	PSMTXTrans(icon.mMtx[0], frame, 0.0f, 0.0f);
 	icon.mMtxDirty = TRUE;
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
-	fn_80197800((CGs*)lbl_8025C400.mGs, &icon, white, white, white, white, captionX - 12.0f, captionY + 10.0f, 0.0f, 24.0f, 24.0f, 0.0f,
-	            0.0f, 0.0f);
-	fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+	fn_80197800(&lbl_8025C400.mGs, &icon, white, white, white, white, captionX - 12.0f, captionY + 10.0f, 0.0f, 24.0f, 24.0f, 0.0f, 0.0f,
+	            0.0f);
+	fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
 
 	if (lbl_8025C400.mStage >= 0 && lbl_8025C400.mStage < 10) {
 		static const s32 sRoomBase[10] = { 0, 9, 11, 4, 7, 0, 12, 9, 0, 8 };

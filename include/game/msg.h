@@ -249,9 +249,11 @@ public:
 
 	// _44618 vtable
 
-	CMsg();
+	virtual ~CMsg() { } // _08
 
-	virtual ~CMsg(); // _08
+	u32 _4461C; // _4461C
+
+	void SetColor(GXColor color) { mFont.mColor = color; }
 
 	void SetFontPosition(f32 x, f32 y, f32 z)
 	{

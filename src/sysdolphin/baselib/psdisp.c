@@ -598,54 +598,6 @@ static inline void psdisp_tornadoPos(HSD_Particle* pp, f32* x, f32* y, f32* z)
 	*z = gen->pos.z + (h * cG * cF + (-rc * cG * sF - rs * sG));
 }
 
-// psDispSub has the same tornado position spelled out in place instead of calling
-// psdisp_tornadoPos, its locals are allocated like its own block locals
-#define PSDISP_TORNADO_POS(pp, ox, oy, oz)                                      \
-	{                                                                           \
-		HSD_Generator* gen = (pp)->gen;                                         \
-		f32 sG;                                                                 \
-		f32 sF;                                                                 \
-		f32 cG;                                                                 \
-		f32 cF;                                                                 \
-		f32 h;                                                                  \
-		f32 angle;                                                              \
-		f32 radius;                                                             \
-		f32 rc;                                                                 \
-		f32 rs;                                                                 \
-		f32 nrc;                                                                \
-                                                                                \
-		if (gen == NULL) {                                                      \
-			ox = (pp)->pos.x;                                                   \
-			oy = (pp)->pos.y;                                                   \
-			oz = (pp)->pos.z;                                                   \
-		} else {                                                                \
-			sG     = psdisp_sinf((pp)->grav);                                   \
-			sF     = psdisp_sinf((pp)->fric);                                   \
-			cG     = psdisp_cosf((pp)->grav);                                   \
-			cF     = psdisp_cosf((pp)->fric);                                   \
-			h      = (pp)->vel.z - gen->aux.line.x2;                            \
-			angle  = (pp)->vel.x - gen->grav;                                   \
-			radius = gen->radius;                                               \
-			if (radius < 0.0F) {                                                \
-				radius = -radius;                                               \
-			}                                                                   \
-			{                                                                   \
-				f32 spread = gen->angle;                                        \
-				if (spread < 0.0F) {                                            \
-					spread = -spread;                                           \
-				}                                                               \
-				radius += h * psdisp_tanf(spread);                              \
-			}                                                                   \
-			radius *= (pp)->vel.y;                                              \
-			rc  = radius * psdisp_cosf(angle);                                  \
-			rs  = radius * psdisp_sinf(angle);                                  \
-			nrc = -rc;                                                          \
-			ox  = gen->pos.x + (rc * cF + h * sF);                              \
-			oy  = gen->pos.y + (cF * (h * sG) + (sF * (nrc * sG) + rs * cG));   \
-			oz  = gen->pos.z + (cF * (h * cG) + (sF * (nrc * cG) - rs * sG));   \
-		}                                                                       \
-	}
-
 // same, then pushed through the particle's appsrt
 static inline void psdisp_tornadoPosSRT(HSD_Particle* pp, f32* x, f32* y, f32* z)
 {
@@ -1635,22 +1587,9 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 	if (pp->kind & 0x100000) {
 		if (pp->kind & 4) {
 			if (pp->appsrt != NULL) {
-				HSD_psAppSRT* srt;
-				Mtx mtx;
-				Vec v;
-
-				PSDISP_TORNADO_POS(pp, prevX, prevY, prevZ);
-				srt = pp->appsrt;
-				HSD_MtxSRT(mtx, &srt->scale, &srt->rot, &srt->translate, NULL);
-				v.x = prevX;
-				v.y = prevY;
-				v.z = prevZ;
-				PSMTXMultVec(mtx, &v, &v);
-				prevX = v.x;
-				prevY = v.y;
-				prevZ = v.z;
+				psdisp_tornadoPosSRT(pp, &prevX, &prevY, &prevZ);
 			} else {
-				PSDISP_TORNADO_POS(pp, prevX, prevY, prevZ);
+				psdisp_tornadoPos(pp, &prevX, &prevY, &prevZ);
 			}
 		} else {
 			prevX = x - prevX;
@@ -2738,6 +2677,7 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
  */
 void psDispSub(HSD_Particle* pp, u32* cmdList)
 {
+	// NONMATCHING: regalloc
 	f32 x;
 	f32 y;
 	f32 z;
@@ -2781,7 +2721,7 @@ void psDispSub(HSD_Particle* pp, u32* cmdList)
 			f32 depth;
 
 			if (pp->kind & 4) {
-				PSDISP_TORNADO_POS(pp, prevX, prevY, prevZ);
+				psdisp_tornadoPos(pp, &prevX, &prevY, &prevZ);
 			} else {
 				prevX = pp->pos.x - pp->vel.x;
 				prevY = pp->pos.y - pp->vel.y;
@@ -2809,7 +2749,7 @@ void psDispSub(HSD_Particle* pp, u32* cmdList)
 			f32 dy;
 			f32 dz;
 
-			PSDISP_TORNADO_POS(pp, prevX, prevY, prevZ);
+			psdisp_tornadoPos(pp, &prevX, &prevY, &prevZ);
 			dx = pp->pos.x - prevX;
 			dy = pp->pos.y - prevY;
 			dz = pp->pos.z - prevZ;

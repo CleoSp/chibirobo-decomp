@@ -28,9 +28,9 @@ static inline BOOL IsValidStat(SavePreviewRecord* slot)
  * @note Address: 0x80086F24
  * @note Size: 0x26C
  */
-extern "C" bool fn_80086F24(SavePreviewRecord* slot)
+extern "C" BOOL fn_80086F24(SavePreviewRecord* slot)
 {
 	if (!IsValidStat(slot))
-		return false;
+		return FALSE;
 	return IsValidSave(&slot->mHeader) != FALSE;
 }

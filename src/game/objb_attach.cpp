@@ -1,28 +1,26 @@
-#include "game/particle_srt.h"
-#include "game/objb.h"
+#include "game/xobjattachment.h"
+#include "game/cgame.h"
+#include "game/csound.h"
+#include "game/cjobjinlineattach.h"
+#include "game/evt.h"
 #include <math.h>
 
-// XObjAttachment, the things the robot carries, and the four that have their own code:
+// XObjAttachment, the things chibi robo carries, and the four that have their own code:
 // XObjOX, XObjRadar, XObjPopper and XObjCopter
 
-// where a joint of the object is, found by its path down the tree
-extern "C" CVec fn_8007E7F4(XObj* obj, s32 depth, s32* path);
-
 // follows the joint it hangs from
-static inline void CopyOwnerMtx(XObjAttachment* obj)
+static inline void CopyParentMtx(XObjAttachment* object)
 {
-	MtxPtr mtx = HSD_JObjGetMtxPtr(obj->mOwner);
-	HSD_JObjCopyMtx(obj->mJObj, mtx);
+	MtxPtr mtx = HSD_JObjGetMtxPtr(object->mParent);
+	HSD_JObjCopyMtx(object->mJObj, mtx);
 }
 
 static inline void StopSound(s32 id)
 {
-	if (fn_8001E6C8(GAME_SOUND, id)) {
-		fn_8001E660(GAME_SOUND, id);
+	if (fn_8001E6C8(&lbl_8025C400.mSound, id)) {
+		fn_8001E660(&lbl_8025C400.mSound, id);
 	}
 }
-
-// ---- functions ----
 
 extern "C" {
 
@@ -30,11 +28,11 @@ extern "C" {
  * @note Address: 0x800D552C
  * @note Size: 0x54
  */
-void fn_800D552C(XObjAttachment* obj)
+void fn_800D552C(XObjAttachment* object)
 {
-	obj->mShown = TRUE;
-	if (obj->mFlags & 1) {
-		HSD_JObjClearFlagsAll(obj->mJObj, 0x10);
+	object->mVisible = TRUE;
+	if (object->mStatus.mFlags & 1) {
+		HSD_JObjClearFlagsAll(object->mJObj, 0x10);
 	}
 }
 
@@ -42,10 +40,10 @@ void fn_800D552C(XObjAttachment* obj)
  * @note Address: 0x800D5580
  * @note Size: 0x3C
  */
-void fn_800D5580(XObjAttachment* obj)
+void fn_800D5580(XObjAttachment* object)
 {
-	if (obj->mShown) {
-		obj->vfB0(0);
+	if (object->mVisible) {
+		object->vfB0(NULL);
 	}
 }
 
@@ -53,27 +51,27 @@ void fn_800D5580(XObjAttachment* obj)
  * @note Address: 0x800D55BC
  * @note Size: 0x248
  */
-void fn_800D55BC(XObjOX* obj, u32 frames)
+void fn_800D55BC(XObjOX* object, u32 frames)
 {
-	if (obj->mShown) {
-		CopyOwnerMtx(obj);
-		HSD_AObj* aobj = GetAObj(obj->mJObj);
-		s32 anim       = obj->mAnimId;
+	if (object->mVisible) {
+		CopyParentMtx(object);
+		HSD_AObj* aobj = GetAObj(object->mJObj);
+		s32 anim       = object->mAnimId;
 		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		switch (anim) {
 		case 0:
 			if (aobj->flags & 0x44000000) {
-				obj->Hide();
+				object->Hide();
 			}
 			break;
 		case 1:
 			if (aobj->flags & 0x44000000) {
-				obj->Hide();
+				object->Hide();
 			}
 			break;
 		}
-		fn_80090ED4(obj, frames);
+		fn_80090ED4(object, frames);
 	}
 }
 
@@ -81,59 +79,72 @@ void fn_800D55BC(XObjOX* obj, u32 frames)
  * @note Address: 0x800D5804
  * @note Size: 0x70
  */
-void fn_800D5804(XObjOX* obj)
+void fn_800D5804(XObjOX* object)
 {
-	obj->Show();
-	obj->PlayAnim(1, TRUE);
+	object->Show();
+	object->SetAnim(1, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D5874
  * @note Size: 0x70
  */
-void fn_800D5874(XObjOX* obj)
+void fn_800D5874(XObjOX* object)
 {
-	obj->Show();
-	obj->PlayAnim(0, TRUE);
+	object->Show();
+	object->SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+}
+
+// tilts the dish
+/**
+ * @note Address: 0x800D58E4
+ * @note Size: 0x374
+ */
+// NONMATCHING: rodata order
+void fn_800D58E4(XObjRadar* object, f32 angle)
+{
+	s32 path[4] = { 0, 0, 0, 0 };
+	CJObj joint(FindJointByPath(object->mJObj, path, 4));
+	joint.SetRotationX(object->mPitch + angle, 0);
 }
 
 /**
  * @note Address: 0x800D5F94
  * @note Size: 0x5C
  */
-CVec fn_800D5F94(XObjRadar* obj)
+CVec fn_800D5F94(XObjRadar* object)
 {
 	s32 path[4] = { 0, 0, 0, 0 };
-	return fn_8007E7F4(obj, 4, path);
+	return fn_8007E7F4(object, 4, path);
 }
 
 /**
  * @note Address: 0x800D5FF0
  * @note Size: 0x27C
  */
-void fn_800D5FF0(XObjRadar* obj, u32 frames)
+void fn_800D5FF0(XObjRadar* object, u32 frames)
 {
-	if (obj->mShown) {
-		CopyOwnerMtx(obj);
-		HSD_AObj* aobj = GetAObj(obj->mJObj);
-		switch (obj->mState) {
+	if (object->mVisible) {
+		CopyParentMtx(object);
+		HSD_AObj* aobj = GetAObj(object->mJObj);
+		switch (object->mState) {
 		case 1:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
-				obj->mState = 10;
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				object->mState = 10;
 			}
 			break;
 		case 2:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
-				obj->Hide();
-				obj->mState = 0;
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				object->Hide();
+				object->mState = 0;
 			}
 			break;
 		case 10:
 			break;
 		}
-		fn_80090ED4(obj, frames);
+		fn_80090ED4(object, frames);
 	}
 }
 
@@ -141,14 +152,14 @@ void fn_800D5FF0(XObjRadar* obj, u32 frames)
  * @note Address: 0x800D626C
  * @note Size: 0xD4
  */
-void fn_800D626C(XObjRadar* obj)
+void fn_800D626C(XObjRadar* object)
 {
-	obj->mState = 10;
-	obj->PlayAnim(2, TRUE);
-	obj->UpdateAnim(0);
-	obj->PlayAnim(0, FALSE);
-	if (!obj->mShown) {
-		obj->Show();
+	object->mState = 10;
+	object->SetAnim(2, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	object->UpdateAnim(0);
+	object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	if (!object->mVisible) {
+		object->Show();
 	}
 }
 
@@ -156,10 +167,10 @@ void fn_800D626C(XObjRadar* obj)
  * @note Address: 0x800D6344
  * @note Size: 0xD4
  */
-void fn_800D6344(XObjRadar* obj)
+void fn_800D6344(XObjRadar* object)
 {
-	obj->PlayAnim(2, FALSE);
-	obj->mState = 2;
+	object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	object->mState = 2;
 	StopSound(0x18C);
 	StopSound(0x18D);
 	StopSound(0x18E);
@@ -169,7 +180,7 @@ void fn_800D6344(XObjRadar* obj)
  * @note Address: 0x800D6340
  * @note Size: 0x4
  */
-void fn_800D6340(XObjRadar* obj)
+void fn_800D6340(XObjRadar* object)
 {
 }
 
@@ -177,56 +188,56 @@ void fn_800D6340(XObjRadar* obj)
  * @note Address: 0x800D6F98
  * @note Size: 0x50
  */
-void fn_800D6F98(XObjRadar* obj, u32 id)
+void fn_800D6F98(XObjRadar* object, u32 id)
 {
-	fn_800929C4(obj, id);
-	obj->vf94();
-	obj->_98C = obj->_990 = NAN;
+	fn_800929C4(object, id);
+	object->vf94();
+	object->mYaw = object->mPitch = NAN;
 }
 
 /**
  * @note Address: 0x800D6FE8
  * @note Size: 0x398
  */
-void fn_800D6FE8(XObjPopper* obj, u32 frames)
+void fn_800D6FE8(XObjPopper* object, u32 frames)
 {
-	if (obj->mShown) {
-		CopyOwnerMtx(obj);
-		HSD_AObj* aobj = GetAObj(obj->mJObj);
-		s32 anim       = obj->mAnimId;
+	if (object->mVisible) {
+		CopyParentMtx(object);
+		HSD_AObj* aobj = GetAObj(object->mJObj);
+		s32 anim       = object->mAnimId;
 		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		switch (anim) {
 		case 1:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		case 2:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
-				obj->Hide();
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				object->Hide();
 			}
 			break;
 		case 3:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(4, FALSE);
+				object->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		case 4:
 			break;
 		case 5:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(4, FALSE);
+				object->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		case 6:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		}
-		fn_80090ED4(obj, frames);
+		fn_80090ED4(object, frames);
 	}
 }
 
@@ -234,13 +245,13 @@ void fn_800D6FE8(XObjPopper* obj, u32 frames)
  * @note Address: 0x800D7380
  * @note Size: 0xCC
  */
-void fn_800D7380(XObjPopper* obj)
+void fn_800D7380(XObjPopper* object)
 {
-	obj->PlayAnim(2, TRUE);
-	obj->UpdateAnim(0);
-	obj->PlayAnim(4, FALSE);
-	if (!obj->mShown) {
-		obj->Show();
+	object->SetAnim(2, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	object->UpdateAnim(0);
+	object->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	if (!object->mVisible) {
+		object->Show();
 	}
 }
 
@@ -248,45 +259,45 @@ void fn_800D7380(XObjPopper* obj)
  * @note Address: 0x800D744C
  * @note Size: 0x50
  */
-void fn_800D744C(XObjPopper* obj)
+void fn_800D744C(XObjPopper* object)
 {
-	obj->PlayAnim(6, FALSE);
+	object->SetAnim(6, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D749C
  * @note Size: 0x14
  */
-BOOL fn_800D749C(XObjPopper* obj)
+BOOL fn_800D749C(XObjPopper* object)
 {
-	return obj->mAnimId == 5;
+	return object->mAnimId == 5;
 }
 
 /**
  * @note Address: 0x800D74B0
  * @note Size: 0x50
  */
-void fn_800D74B0(XObjPopper* obj)
+void fn_800D74B0(XObjPopper* object)
 {
-	obj->PlayAnim(5, FALSE);
+	object->SetAnim(5, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7500
  * @note Size: 0x50
  */
-void fn_800D7500(XObjPopper* obj)
+void fn_800D7500(XObjPopper* object)
 {
-	obj->PlayAnim(3, FALSE);
+	object->SetAnim(3, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7550
  * @note Size: 0xA8
  */
-void fn_800D7550(XObjPopper* obj)
+void fn_800D7550(XObjPopper* object)
 {
-	obj->PlayAnim(2, FALSE);
+	object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	StopSound(0x186);
 	StopSound(0x18B);
 }
@@ -295,48 +306,48 @@ void fn_800D7550(XObjPopper* obj)
  * @note Address: 0x800D75F8
  * @note Size: 0x70
  */
-void fn_800D75F8(XObjPopper* obj)
+void fn_800D75F8(XObjPopper* object)
 {
-	obj->Show();
-	obj->PlayAnim(1, FALSE);
+	object->Show();
+	object->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7668
  * @note Size: 0x344
  */
-void fn_800D7668(XObjCopter* obj, u32 frames)
+void fn_800D7668(XObjCopter* object, u32 frames)
 {
-	if (obj->mShown) {
-		CopyOwnerMtx(obj);
-		HSD_AObj* aobj = GetAObj(obj->mJObj);
-		s32 anim       = obj->mAnimId;
+	if (object->mVisible) {
+		CopyParentMtx(object);
+		HSD_AObj* aobj = GetAObj(object->mJObj);
+		s32 anim       = object->mAnimId;
 		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		switch (anim) {
 		case 5:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		case 8:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
-				obj->Hide();
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+				object->Hide();
 			}
 			break;
 		case 6:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(2, FALSE);
+				object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		case 7:
 			if (aobj->flags & 0x44000000) {
-				obj->PlayAnim(0, FALSE);
+				object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			}
 			break;
 		}
-		fn_80090ED4(obj, frames);
+		fn_80090ED4(object, frames);
 	}
 }
 
@@ -344,13 +355,13 @@ void fn_800D7668(XObjCopter* obj, u32 frames)
  * @note Address: 0x800D79AC
  * @note Size: 0xCC
  */
-void fn_800D79AC(XObjCopter* obj)
+void fn_800D79AC(XObjCopter* object)
 {
-	obj->PlayAnim(8, TRUE);
-	obj->UpdateAnim(0);
-	obj->PlayAnim(0, FALSE);
-	if (!obj->mShown) {
-		obj->Show();
+	object->SetAnim(8, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	object->UpdateAnim(0);
+	object->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	if (!object->mVisible) {
+		object->Show();
 	}
 }
 
@@ -358,36 +369,36 @@ void fn_800D79AC(XObjCopter* obj)
  * @note Address: 0x800D7A78
  * @note Size: 0x50
  */
-void fn_800D7A78(XObjCopter* obj)
+void fn_800D7A78(XObjCopter* object)
 {
-	obj->PlayAnim(7, FALSE);
+	object->SetAnim(7, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7AC8
  * @note Size: 0x50
  */
-void fn_800D7AC8(XObjCopter* obj)
+void fn_800D7AC8(XObjCopter* object)
 {
-	obj->PlayAnim(3, FALSE);
+	object->SetAnim(3, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7B18
  * @note Size: 0x50
  */
-void fn_800D7B18(XObjCopter* obj)
+void fn_800D7B18(XObjCopter* object)
 {
-	obj->PlayAnim(2, FALSE);
+	object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7B68
  * @note Size: 0x88
  */
-void fn_800D7B68(XObjCopter* obj)
+void fn_800D7B68(XObjCopter* object)
 {
-	obj->PlayAnim(8, FALSE);
+	object->SetAnim(8, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	StopSound(8);
 }
 
@@ -395,58 +406,58 @@ void fn_800D7B68(XObjCopter* obj)
  * @note Address: 0x800D7BF0
  * @note Size: 0x70
  */
-void fn_800D7BF0(XObjCopter* obj)
+void fn_800D7BF0(XObjCopter* object)
 {
-	obj->Show();
-	obj->PlayAnim(5, FALSE);
+	object->Show();
+	object->SetAnim(5, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 /**
  * @note Address: 0x800D7C60
  * @note Size: 0x40
  */
-void fn_800D7C60(XObjAttachment* obj)
+void fn_800D7C60(XObjAttachment* object)
 {
-	obj->Hide();
-	fn_800911C0(obj);
+	object->Hide();
+	fn_800911C0(object);
 }
 
 /**
  * @note Address: 0x800D7CA0
  * @note Size: 0x20
  */
-void fn_800D7CA0(XObjAttachment* obj)
+void fn_800D7CA0(XObjAttachment* object)
 {
-	fn_800928E8(obj);
+	fn_800928E8(object);
 }
 
 /**
  * @note Address: 0x800D7CC0
  * @note Size: 0x8
  */
-void fn_800D7CC0(XObjAttachment* obj, HSD_JObj* owner)
+void fn_800D7CC0(XObjAttachment* object, HSD_JObj* parent)
 {
-	obj->mOwner = owner;
+	object->mParent = parent;
 }
 
 /**
  * @note Address: 0x800D7CC8
  * @note Size: 0x34
  */
-void fn_800D7CC8(XObjAttachment* obj)
+void fn_800D7CC8(XObjAttachment* object)
 {
-	obj->mOwner = NULL;
-	obj->Hide();
+	object->mParent = NULL;
+	object->Hide();
 }
 
 /**
  * @note Address: 0x800D7CFC
  * @note Size: 0x40
  */
-void fn_800D7CFC(XObjAttachment* obj, u32 id)
+void fn_800D7CFC(XObjAttachment* object, u32 id)
 {
-	fn_800929C4(obj, id);
-	obj->vf94();
+	fn_800929C4(object, id);
+	object->vf94();
 }
 
 } // extern "C"

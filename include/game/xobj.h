@@ -25,7 +25,7 @@ public:
 	CAnmQueueEntry mEntry[16]; // _04
 	// _84 vtable
 
-	virtual ~CAnmQueue(); // _08
+	virtual ~CAnmQueue() { } // _08
 
 	// todo: cleanup
 	void Clear()
@@ -85,7 +85,7 @@ public:
 	f32 _780;                    // _780, highest _6FC under the _250[0] mask
 	s32 _784;                    // _784, the floor that is
 	s32 _788;                    // _788
-	u32 _78C;                    // _78C
+	s32 _78C;                    // _78C
 	f32 _790;                    // _790
 	CVec _794;                   // _794
 	CEvt mEvt;                   // _7A4, the object's own script
@@ -101,9 +101,7 @@ public:
 	XObjColorStep mColorStep[2]; // _8B4
 	CJAnim mAnim;                // _8FC, anims from the object's second archive, ids from 1000 up
 
-	XObj(); // fn_8001AFAC, a weak copy
-
-	virtual ~XObj();        // _08
+	virtual ~XObj() { }     // _08
 	virtual void Release(); // _54
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
 	                     f32 blendRate);               // _80
@@ -127,7 +125,7 @@ public:
 	virtual void vfD0(CShadow* shadow);                // _D0
 	virtual void vfD4(CShadow* shadow);                // _D4
 	virtual void vfD8(u32* flags);                     // _D8
-	virtual void vfDC(BOOL enabled, u32 value);        // _DC
+	virtual void vfDC(BOOL enabled, u8 value);         // _DC
 	virtual void vfE0(f32 factor);                     // _E0
 	virtual void vfE4(f32 alpha);                      // _E4
 	virtual void vfE8();                               // _E8
@@ -154,11 +152,82 @@ public:
 	virtual void vf138(const Vec& position, f32 strength);                                      // _138, hit from a position
 	virtual void vf13C(s32 unused, s32 value);                                                  // _13C
 	virtual BOOL vf140(s32 unused, s32 value);                                                  // _140
-	virtual void vf144();                                                                       // _144
+	virtual void vf144(s32 unused, s32 volume);                                                 // _144, the mic volume
 
 	// todo: cleanup
 	s32 GetKind() const { return mAttr._04 != NULL ? mAttr._04->_00 : -1; }
+
+	// which anim archive an anim id is in, 0 for the model's own
+	s32 GetAnimSet(s32 id) const
+	{
+		bool ret = false;
+		if (id >= 1000 && mAnim.mArchive != NULL) {
+			ret = true;
+		}
+		return ret ? id / 1000 : 0;
+	}
+
+	BOOL IsFloorOn(int i) const { return _250[0] & (1 << i); }
+	void ClearFloor(int i) { _250[0] &= ~(1 << i); }
+
+	BOOL HasQueuedAnim() const
+	{
+		for (int i = 0; i < 16; i++) {
+			if (mAnmQueue.mEntry[(mAnmQueue.mNext + i) % 16].mId != -1) {
+				return TRUE;
+			}
+		}
+		return FALSE;
+	}
+
+	// takes the next anim off the queue
+	void PopAnim(s32& id, u16& frame, s16& rate)
+	{
+		for (int i = 0; i < 16; i++) {
+			s32 j = (mAnmQueue.mNext + i) % 16;
+			if (mAnmQueue.mEntry[j].mId != -1) {
+				id                      = mAnmQueue.mEntry[j].mId;
+				frame                   = mAnmQueue.mEntry[j].mFrame;
+				rate                    = mAnmQueue.mEntry[j].mRate;
+				mAnmQueue.mEntry[j].mId = -1;
+				mAnmQueue.mNext         = (j + 1) % 16;
+				return;
+			}
+		}
+	}
+
 	s32 GetPool() const { return mAttr._00 != NULL ? GetObjDataPool(mAttr._00) : -1; }
+
+	// the kind record's category and item, s16 like the record's fields
+	static s16 GetDataCategory(const UnkObjData* data)
+	{
+		if (data != NULL) {
+			return data->_14;
+		}
+		return 0;
+	}
+	static s16 GetDataItem(const UnkObjData* data)
+	{
+		if (data != NULL) {
+			return data->_16;
+		}
+		return 0;
+	}
+	s16 GetCategory() const
+	{
+		if (mAttr._00 != NULL) {
+			return GetDataCategory(mAttr._00);
+		}
+		return -1;
+	}
+	s16 GetItem() const
+	{
+		if (mAttr._00 != NULL) {
+			return GetDataItem(mAttr._00);
+		}
+		return -1;
+	}
+
 	s32 GetObjFlags() const { return mAttr._00 != NULL ? GetObjDataFlags(mAttr._00) : -1; }
 };
 #if defined(VERSION_JP)
@@ -184,8 +253,9 @@ class CStatus;
 extern "C" {
 // ~XObj, the subclass dtors call it with 0
 XObj* __dt__4XObjFv(XObj* object, s32 flags);
-BOOL fn_8008A38C(CJArchive* archive, const char* path);
-void fn_8008A6C0(XObj* object, f32 value);
+BOOL fn_8008A38C(CJAnim* anim, const char* path);
+// the default vf138
+void fn_8008A6C0(XObj* object, const Vec* position, f32 strength);
 CVec fn_8008C274(CXObj* object, s32 floor, const Vec* offset);
 // the default vf12C
 void fn_8008A820(XObj* object, s32 blend, u8 red, u8 green, u8 blue, f32 time);
@@ -199,7 +269,7 @@ void fn_80090864(XObj* object);
 void fn_800908C0(XObj* object, f32 (*view)[4]);
 void fn_80090ED4(XObj* object, u32 frames);
 void fn_800911C0(XObj* object);
-void fn_80091834(CXObj* object, BOOL enabled, u32 value);
+void fn_80091834(CXObj* object, BOOL enabled, u8 mode);
 // walk callback, sets up each material's pe and toon flags
 void fn_80091888(HSD_JObj* joint, f32** arguments, s32 type);
 // the default vf9C, reads the object's coord info
@@ -211,8 +281,6 @@ void fn_800929C4(XObj* object, u32 id);
 void fn_800D40EC(CXObj* object);
 void fn_800EA780(void* context, u32 frames);
 void fn_800EA99C(void* context);
-void fn_800F38F4(XObj* object);
-void fn_800F4350(XObj* object);
 void fn_8010660C(XObj* object);
 void fn_8010706C(void* object);
 s32 fn_801070A4(CXObj* object, s32 index, s32* out);
@@ -231,11 +299,33 @@ extern XObj* lbl_8065B2AC;
 extern CStatus lbl_8065B2B0;
 extern u8 lbl_8065B2D4;
 extern s32 lbl_8065B2D8;
-extern u32 lbl_8065B2DC;
+extern XObj* lbl_8065B2DC;
 extern u8 lbl_8065B2E0;
 extern u32 lbl_8065B2E8;
 extern s32 lbl_8065B2F0;
 extern s32 lbl_8065B2F4;
+}
+
+extern "C" void HSD_MtxGetTranslate(Mtx mat, Vec* vec);
+
+// the jobj's place in the world
+inline Vec GetJObjPos(HSD_JObj* jobj)
+{
+	Vec v;
+	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &v);
+	return v;
+}
+
+// what an object kind's objTable entry starts with, the archive its model is read from
+struct XObjSource {
+	u8 _00[0x4];           // _00
+	CObjArchive* mArchive; // _04
+};
+
+// todo: cleanup, coordinfo.h has UnkObjData's first word as padding
+inline XObjSource*& GetObjDataSource(UnkObjData* data)
+{
+	return *(XObjSource**)data->_00;
 }
 
 #endif

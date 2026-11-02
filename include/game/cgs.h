@@ -27,6 +27,8 @@ class CLight;
 
 class CGsScreen : public GXRenderModeObj {
 public:
+	CGsScreen() { mMode = -1; }
+
 	s32 mMode; // _3C, index into the mode table, -1 before the first set
 #if defined(VERSION_PAL)
 	f32 _40; // _40, europe only, scales by the xfb height
@@ -38,9 +40,9 @@ public:
 	virtual ~CGsScreen() { } // _08
 };
 #if defined(VERSION_PAL)
-typedef char CGsScreen_size_check[sizeof(CGsScreen) == 0x48 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGsScreen) == 0x48);
 #else
-typedef char CGsScreen_size_check[sizeof(CGsScreen) == 0x44 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGsScreen) == 0x44);
 #endif
 
 // CGsRenderMode::Init args
@@ -124,7 +126,7 @@ public:
 		}
 	}
 };
-typedef char CGsRenderMode_size_check[sizeof(CGsRenderMode) == 0x34 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGsRenderMode) == 0x34);
 
 // CGsTevStage::Init args, in GXSetTevColorIn/GXSetTevColorOp order
 struct GsTevOrder {
@@ -222,7 +224,7 @@ public:
 		mTexGenDirty = TRUE;
 	}
 };
-typedef char CGsTevStage_size_check[sizeof(CGsTevStage) == 0x98 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGsTevStage) == 0x98);
 
 // channel setup args, in HSD_Chan's order
 struct GsChanCtrl {
@@ -249,7 +251,7 @@ public:
 		}
 	}
 };
-typedef char CGsChannel_size_check[sizeof(CGsChannel) == 0x38 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGsChannel) == 0x38);
 
 class CGs {
 public:
@@ -288,17 +290,18 @@ public:
 	           // _17B0 vtable
 #endif
 
-	virtual ~CGs(); // _08
+	CGs();
+	virtual ~CGs() { } // _08
 };
 #if defined(VERSION_JP)
-typedef char CGs_size_check[sizeof(CGs) == 0x17A8 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGs) == 0x17A8);
 #elif defined(VERSION_PAL)
-typedef char CGs_size_check[sizeof(CGs) == 0x17B8 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGs) == 0x17B8);
 #else
-typedef char CGs_size_check[sizeof(CGs) == 0x17B4 ? 1 : -1];
+STATIC_ASSERT(sizeof(CGs) == 0x17B4);
 #endif
 
-// CGs with the text rotation on top, the layout is in cgs.cpp
+// game/cgame.h, its text rotation sits right after the CGs
 class CBase;
 
 extern "C" {

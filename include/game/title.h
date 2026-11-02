@@ -13,7 +13,7 @@ public:
 	f32 mAngle;      // _980, _970 in japan
 	f32 mAngleSpeed; // _984, it spins, the scale setters flip y for screen space
 
-	virtual ~Cursor(); // _08, fn_8000871C
+	virtual ~Cursor() { } // _08
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(Cursor) == 0x978);
@@ -32,12 +32,24 @@ struct TitleDust {
 };
 STATIC_ASSERT(sizeof(TitleDust) == 0x18);
 
-// one of the title's texts
-struct TitleLabel {
-	f32 mAlpha;   // _00
-	u8 _04[0x10]; // _04
+// one letter of a name that pops in
+struct StageNameChar {
+	const char* mText; // _00, the letter, one or two bytes
+	f32 mScale;        // _04, grows to 1 and shrinks away
+	f32 mWait;         // _08, frames until it shrinks
+	f32 mBob;          // _0C, the angle it bobs up and down by
+	f32 mTilt;         // _10, the angle it rocks by
 };
-STATIC_ASSERT(sizeof(TitleLabel) == 0x14);
+STATIC_ASSERT(sizeof(StageNameChar) == 0x14);
+
+// a name drawn a letter at a time over bubbles, the stage name and the title's own
+struct StageName {
+	BOOL mActive;             // _00
+	s32 mCount;               // _04
+	u32 mColor;               // _08, the letters' color, the alpha comes from their scale
+	StageNameChar mChars[20]; // _0C
+};
+STATIC_ASSERT(sizeof(StageName) == 0x19C);
 
 // the title screen, CGame keeps it at _4930. class name from RTTI
 class Title {
@@ -49,7 +61,7 @@ public:
 	f32 _10;                   // _10
 	f32 _14;                   // _14
 	f32 _18;                   // _18
-	u32 _1C;                   // _1C
+	s32 _1C;                   // _1C
 	u32 _20;                   // _20
 	u32 _24;                   // _24
 	Cursor mCursor;            // _28
@@ -86,22 +98,23 @@ public:
 	u8 _3808;                  // _3808
 	u8 _3809;                  // _3809
 	u8 _380A[0x380C - 0x380A]; // _380A
-	u32 _380C;                 // _380C
+	s32 _380C;                 // _380C, the options line
 	f32 _3810;                 // _3810
 	f32 _3814;                 // _3814
-	u8 _3818;                  // _3818
-	u8 _3819;                  // _3819
-	u8 _381A[0x3824 - 0x381A]; // _381A
+	u8 _3818;                  // _3818, rumble on
+	u8 _3819;                  // _3819, mono sound
+	u8 _381A[0x3820 - 0x381A]; // _381A
+	s32 _3820;                 // _3820, frames the rumble test has left
 	TitleDust mDust[16];       // _3824
-	u8 _39A4[0x39C8 - 0x39A4]; // _39A4
-	TitleLabel mLabels[20];    // _39C8, faded out together when a card job finishes
-	u8 _3B58[0x3C44 - 0x3B58]; // _3B58
+	u8 _39A4[0x39B4 - 0x39A4]; // _39A4
+	StageName mName;           // _39B4, the letters fade out together when the title is left
+	u8 _3B50[0x3C44 - 0x3B50]; // _3B50
 #if !defined(VERSION_JP)
 	u32 _3C44; // _3C44
 #endif
 	// _3C48 vtable, _3C24 in japan
 
-	virtual ~Title(); // _08, fn_80008650
+	virtual ~Title() { } // _08
 
 	// todo: cleanup
 	void SetMode(s32 mode)

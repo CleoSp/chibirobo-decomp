@@ -39,11 +39,14 @@ STATIC_ASSERT(sizeof(CFbTexEff) == 0x124);
 // the small window the camera's second view goes in, CGame keeps it at _42AC
 class FbSubwin : public CFbTexEff {
 public:
-	BOOL mEnabled;          // _124, fades in while set, out while not
-	CStatus mFlags;         // _128
-	f32 mAmount;            // _130, 0 to 1
-	u8 _134[0x144 - 0x134]; // _134
-	CCamera mCamera;        // _144
+	BOOL mEnabled;   // _124, fades in while set, out while not
+	CStatus mFlags;  // _128
+	f32 mAmount;     // _130, 0 to 1
+	f32 _134;        // _134
+	f32 _138;        // _138
+	f32 _13C;        // _13C
+	f32 _140;        // _140
+	CCamera mCamera; // _144
 
 	virtual void Init();             // _08, fn_80014978
 	virtual void Reset();            // _0C, fn_80014964
@@ -66,6 +69,8 @@ public:
 	virtual void Copy();             // _10, fn_80014BA8
 	virtual void Update(u32 frames); // _14, fn_80014DA4
 	virtual void Draw();             // _18, fn_80014A64
+
+	bool IsUsed() const { return mJoint ? true : false; }
 };
 STATIC_ASSERT(sizeof(FbMirror) == 0x2F0);
 
@@ -73,6 +78,8 @@ STATIC_ASSERT(sizeof(FbMirror) == 0x2F0);
 class FbMirrorEx : public FbMirror {
 public:
 	XObj* mOwner; // _2F0
+
+	~FbMirrorEx();
 
 	virtual void Init(); // _08
 };

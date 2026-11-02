@@ -12,93 +12,15 @@ extern "C" {
 #include "game/cgs.h"
 }
 
-// the area action at 0xE7DF0 in the game object, fn_800095C0 puts __vt__17CCameraActionArea back
-class CCameraActionArea : public CCameraActionAreaExM {
-public:
-	f32 _40;                                       // _40, transition time
-	s32 _44;                                       // _44, camera direction mode
-	BOOL _48;                                      // _48, user-selected entry
-	s32 _4C;                                       // _4C
-	s32 _50;                                       // _50
-	CamAreaEntry* _54;                             // _54
-	CamAreaEntry* _58;                             // _58
-	s32 _5C;                                       // _5C
-	BOOL _60;                                      // _60, manual camera changes enabled
-	XObj* _64;                                     // _64, the camera looks at it
-	CInterfaceVectorInterpolation* mEyeInterp;     // _68
-	CInterfaceInterpolation* mFovInterp;           // _6C
-	CVectorEaseInOutInterpolation _70;             // _70
-	CVectorLinearInterpolation _CC;                // _CC
-	CVectorEaseInOutInterpolation _100;            // _100
-	CVectorEaseOutInterpolation _15C;              // _15C
-	CVectorEaseOutDivideInterpolation _1C0;        // _1C0
-	CInterfaceVectorInterpolation* mEyeInterps[5]; // _1F8
-	CInterpolationLinear _20C;                     // _20C
-	CInterpolationEaseInOut _21C;                  // _21C
-	CInterpolationEaseOut _238;                    // _238
-	CInterpolationEaseOutDivide _258;              // _258
-	CInterfaceInterpolation* mFovInterps[5];       // _268
-	CInterfaceVectorInterpolation* _27C;           // _27C
-	CInterfaceVectorInterpolation* _280[5];        // _280, by mode
-
-	void SetEyeInterpolation(s32 mode, Vec from, Vec to, f32 time)
-	{
-		if (mode == 5) {
-			mode = 4;
-		}
-		Vec target = to;
-		if (mode == 3 || time <= 0.0f) {
-			mEyeInterp = NULL;
-			SetEye(target);
-		} else {
-			mEyeInterp = mEyeInterps[mode];
-			if (mEyeInterp != NULL) {
-				mEyeInterp->Start(from, target, time);
-			}
-		}
+inline void CCameraActionArea::SetEye_I(s32 mode, Vec from, Vec to, f32 time)
+{
+	if (mode == 5) {
+		OSPanic("ccameraactionarea.cpp", 660, "%s%s", "error ! : CCameraActionArea::SetEye_I()\n", "SetEye_I");
+		return;
 	}
-
-	void SetEye_I(s32 mode, Vec from, Vec to, f32 time)
-	{
-		if (mode == 5) {
-			OSPanic("ccameraactionarea.cpp", 660, "%s%s", "error ! : CCameraActionArea::SetEye_I()\n", "SetEye_I");
-			return;
-		}
-		CVec zero(0.0f, 0.0f, 0.0f); // retail builds this and never reads it
-		SetEyeInterpolation(mode, from, to, time);
-	}
-
-	void SetFovInterpolation(s32 mode, f32 from, f32 to, f32 time)
-	{
-		if (mode == 5) {
-			mode = 4;
-		}
-		if (mode == 3 || time <= 0.0f) {
-			mFovInterp = NULL;
-			SetFov(to);
-		} else {
-			mFovInterp = mFovInterps[mode];
-			if (mFovInterp != NULL) {
-				mFovInterp->Start(from, to, time);
-			}
-		}
-	}
-
-	// the vectors are passed by value, hence the copies
-	void SetInte_I(s32 mode, Vec from, Vec to, f32 time)
-	{
-		if (mode == 3 || time <= 0.0f) {
-			_27C = NULL;
-			SetInterest(to);
-			return;
-		}
-		_27C = _280[mode];
-		if (_27C != NULL) {
-			_27C->Start(from, to, time);
-		}
-	}
-};
-STATIC_ASSERT(sizeof(CCameraActionArea) == 0x294);
+	CVec zero(0.0f, 0.0f, 0.0f); // retail builds this and never reads it
+	SetEyeInterpolation(mode, from, to, time);
+}
 
 // a flat unit direction from an angle's y
 inline void YawDir(CVec& dir, const Vec& angle)
@@ -152,11 +74,11 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
 	case 3:
 	case 4:
 		area->SetEye_I(mode, area->mEye, entry->_10, time);
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 		break;
 	case 5:
 		area->SetEyeInterpolation(mode, area->mEye, entry->_10, time);
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 		break;
 	}
 	f32 fov = lbl_805A054C._10;
@@ -164,24 +86,24 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
 		switch (lbl_805A054C._14) {
 		case 0:
 			area->SetFovInterpolation(mode, area->mFov, 0.8f * fov, time);
-			lbl_8025C400.mPlayer->ResetCameraValue();
+			lbl_8025C400.GetPlayer()->ResetCameraValue();
 			break;
 		default:
 			area->SetFovInterpolation(mode, area->mFov, fov, time);
-			lbl_8025C400.mPlayer->ResetCameraValue();
+			lbl_8025C400.GetPlayer()->ResetCameraValue();
 			break;
 		case 2:
 			area->SetFovInterpolation(mode, area->mFov, 1.5f * fov, time);
-			lbl_8025C400.mPlayer->ResetCameraValue();
+			lbl_8025C400.GetPlayer()->ResetCameraValue();
 			break;
 		case 3:
 			area->SetFovInterpolation(mode, area->mFov, 2.0f * fov, time);
-			lbl_8025C400.mPlayer->ResetCameraValue();
+			lbl_8025C400.GetPlayer()->ResetCameraValue();
 			break;
 		}
 	} else {
 		area->SetFovInterpolation(mode, area->mFov, fov, time);
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 	}
 }
 /*
@@ -1658,7 +1580,7 @@ extern "C" void fn_8013964C(CCameraActionArea* area, u32 step)
 			area->_40 = 15.0f;
 			fn_801382E8(area, area->_54, 5, 1, area->_40);
 		}
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 		area->_50 = area->_4C;
 		area->_58 = area->_54;
 		if (area->_44 != 0) {
@@ -1672,7 +1594,7 @@ extern "C" void fn_8013964C(CCameraActionArea* area, u32 step)
 		if (area->mFovInterp != NULL) {
 			area->mFovInterp->Start(area->mFov, fov, 15.0f);
 		}
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 		lbl_805A054C._14 = height;
 		lbl_805A054C._18 = height;
 	}
@@ -2076,14 +1998,14 @@ extern "C" void fn_80139B90(CCameraActionArea* area)
 		fn_80137D00(&lbl_805A054C, 0);
 	}
 	if (lbl_805A054C._04 != lbl_805A054C._08 && lbl_805A054C._04 != -1 && fn_80135D28(&lbl_805A054C) == 7) {
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		camera->ChangeAction(7);
 		lbl_805A054C._18 = lbl_805A054C._14;
-		fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraTable[7], lbl_805A054C._14, 15.0f);
-		fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraTable[7]);
+		fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], lbl_805A054C._14, 15.0f);
+		fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7]);
 		f32 dy = camera->mCamera.mInterest.y - area->_64->GetCameraTarget().y;
 		if (0.0f != dy) {
-			fn_8013A204((CCameraActionMap*)lbl_8025C400.mCameraTable[7], dy, 0.0f, 8.0f);
+			fn_8013A204((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
 		}
 	}
 }
@@ -2101,7 +2023,7 @@ extern "C" void fn_80139C98(CCameraActionArea* area)
 	CamAreaEntry* entry = lbl_805A054C._2034[0]._00;
 	area->_54           = entry;
 	area->_58           = entry;
-	area->_64           = (XObj*)lbl_8025C400.mPlayer;
+	area->_64           = (XObj*)lbl_8025C400.GetPlayer();
 	area->_44           = 0;
 	area->_48           = FALSE;
 }

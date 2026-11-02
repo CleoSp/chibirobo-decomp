@@ -3,9 +3,17 @@
 
 #include "types.h"
 
-// CSound's layout is still in sound.cpp, CGame's XSound sits on top of it
-struct CSound;
 struct Vec;
+class XSound;
+
+// the sound player's base, class name from RTTI. CGame's XSound has the rest
+class CSound {
+public:
+	virtual ~CSound() { } // _08
+
+	s32 mLoadState; // _04, fn_8001F97C's step
+};
+STATIC_ASSERT(sizeof(CSound) == 0x8);
 
 // sound.cpp's table block, the distance falloff per sound kind and, japan only, the random
 // pick tables
@@ -15,27 +23,27 @@ struct SoundTables {
 	s32 effects[10];    // _65C
 	s32 selections[5];  // _684
 };
-typedef char SoundTables_size_check[sizeof(SoundTables) == 0x698 ? 1 : -1];
+STATIC_ASSERT(sizeof(SoundTables) == 0x698);
 
 extern "C" {
 extern SoundTables lbl_80210C10;
 
-// CSound, sound.cpp. sfx ids from 0xFFFF0000 up are music tracks
-void fn_8001DC20(CSound* sound, u32 group, f32 strength, u8 first, u8 second);
-u8 fn_8001DF00(CSound* sound, Vec* pos, s32 kind);
-BOOL fn_8001E044(CSound* sound, const char* name);
-void fn_8001E1A4(CSound* sound, s32 sfx, u16 frames);
-void fn_8001E2CC(CSound* sound, s32 sfx, u16 frames);
-void fn_8001E468(CSound* sound, s32 sfx, u8 vol, u16 frames);
-void fn_8001E4D4(CSound* sound, s32 track);
-void fn_8001E504(CSound* sound, s32 sfx);
-void fn_8001E590(CSound* sound, s32 track);
-void fn_8001E5C0(CSound* sound, s32 sfx, s32 arg2);
-void fn_8001E630(CSound* sound, s32 track);
+// XSound, sound.cpp. sfx ids from 0xFFFF0000 up are music tracks
+void fn_8001DC20(XSound* sound, u32 group, f32 strength, u8 first, u8 second);
+u8 fn_8001DF00(XSound* sound, Vec* pos, s32 kind);
+BOOL fn_8001E044(XSound* sound, const char* name);
+void fn_8001E1A4(XSound* sound, s32 sfx, u16 frames);
+void fn_8001E2CC(XSound* sound, s32 sfx, u16 frames);
+void fn_8001E468(XSound* sound, s32 sfx, u8 vol, u16 frames);
+void fn_8001E4D4(XSound* sound, s32 track);
+void fn_8001E504(XSound* sound, s32 sfx);
+void fn_8001E590(XSound* sound, s32 track);
+void fn_8001E5C0(XSound* sound, s32 sfx, s32 arg2);
+void fn_8001E630(XSound* sound, s32 track);
 // stop, is it playing, and play, which gives back the voice or stream id
-BOOL fn_8001E660(CSound* sound, s32 sfx);
-BOOL fn_8001E6C8(CSound* sound, s32 sfx);
-s32 fn_8001E904(CSound* sound, s32 sfx, u8 vol);
+BOOL fn_8001E660(XSound* sound, s32 sfx);
+BOOL fn_8001E6C8(XSound* sound, s32 sfx);
+s32 fn_8001E904(XSound* sound, s32 sfx, u8 vol);
 
 // hsd axdriver.c: key off an sfx, a pal only one, pause an sfx, stop every stream slot
 BOOL fn_801E62A8(s32 sfx);
@@ -56,7 +64,7 @@ struct AnimSfxEvent {
 	u8 mIndex;  // _16
 	u8 _17;     // _17
 };
-typedef char AnimSfxEvent_size_check[sizeof(AnimSfxEvent) == 0x18 ? 1 : -1];
+STATIC_ASSERT(sizeof(AnimSfxEvent) == 0x18);
 
 // plays an anim's sound events as its frames pass, sound.cpp, vtable at 0x802112A8
 class AnimSfx {
@@ -72,6 +80,6 @@ public:
 	virtual BOOL CheckStop(AnimSfxEvent* event);                    // _14, fn_8001DB90, stops it
 	virtual s32 GetSfx(AnimSfxEvent* event);                        // _18, fn_8001DB48, its sfx
 };
-typedef char AnimSfx_size_check[sizeof(AnimSfx) == 0x10 ? 1 : -1];
+STATIC_ASSERT(sizeof(AnimSfx) == 0x10);
 
 #endif

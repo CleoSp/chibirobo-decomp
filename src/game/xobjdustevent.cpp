@@ -27,15 +27,15 @@ extern "C" BOOL fn_800DED24(XObjDust* dust, u32 frames)
 						s32 arg            = dust->mEventArg;
 						s32 id             = dust->mEventId;
 						const void* script = dust->vf128();
-						if (!fn_8009FDE4(lbl_8025C400.mPlayer))
-							fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)dust, id, arg);
+						if (!fn_8009FDE4(lbl_8025C400.GetPlayer()))
+							fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)dust, id, arg);
 					}
 					return TRUE;
 				}
 			} else
 				return TRUE;
 		} else if (dust->mEventId == 56) {
-			XObj* player = lbl_8025C400.mPlayer;
+			XObj* player = lbl_8025C400.GetPlayer();
 			if (player->mAnimId == 0x8C0) {
 				if (AnimDone(player->mJObj))
 					return TRUE;

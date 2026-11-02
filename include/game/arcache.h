@@ -13,19 +13,20 @@ public:
 	u8 _08[0x4008 - 0x8]; // _08
 	// _4008 vtable
 
-	virtual ~ARCacheInfo() { } // _08 (weak)
+	virtual ~ARCacheInfo(); // _08
 };
-typedef char ARCacheInfo_size_check[sizeof(ARCacheInfo) == 0x400C ? 1 : -1];
+STATIC_ASSERT(sizeof(ARCacheInfo) == 0x400C);
 
 class ARPreCache {
 public:
 	u32 _00;                // _00
-	CFile mFile[2];         // _04
+	CFile mFile0;           // _04
+	CFile mFile1;           // _F0
 	u8 _1DC[0x1E4 - 0x1DC]; // _1DC
 	// _1E4 vtable
 
-	virtual ~ARPreCache() { } // _08 (weak)
+	virtual ~ARPreCache(); // _08
 };
-typedef char ARPreCache_size_check[sizeof(ARPreCache) == 0x1E8 ? 1 : -1];
+STATIC_ASSERT(sizeof(ARPreCache) == 0x1E8);
 
 #endif

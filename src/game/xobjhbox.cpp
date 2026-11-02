@@ -63,13 +63,13 @@ extern "C" u32 fn_800DFB68(XObjHBox* box, s32 unused, u32 flags)
 		return flags;
 	if (box->mAnimId == 0)
 		return flags;
-	lbl_8025C400.mPlayer->_9A90 = 0.0f;
+	lbl_8025C400.GetPlayer()->_9A90 = 0.0f;
 	box->mStatus.mFlags |= 0x4000000000000000ULL;
 	box->mPart.mHit = 1.0f;
-	fn_8001E904((CSound*)&lbl_8025C400.mSound, 285, 255);
+	fn_8001E904(&lbl_8025C400.mSound, 285, 255);
 	const void* script = box->vf128();
-	if (!fn_8009FDE4(lbl_8025C400.mPlayer)) {
-		fn_8007EEA4((CEvt*)(&lbl_8025C400._5D07C), (u8*)script, (u32)box, -1, -1);
+	if (!fn_8009FDE4(lbl_8025C400.GetPlayer())) {
+		fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)box, -1, -1);
 	}
 	HSD_AudioSFXKeyOff(box->mPart.mSfx);
 	return 0;
@@ -79,10 +79,10 @@ extern "C" u32 fn_800DFB68(XObjHBox* box, s32 unused, u32 flags)
  * @note Address: 0x800DFC68
  * @note Size: 0xBC
  */
-extern "C" void fn_800DFC68(XObjHBox* box, f32 strength)
+extern "C" void fn_800DFC68(XObjHBox* box, const Vec* pos, f32 strength)
 {
 	if (box->mAnimId <= 0) {
-		fn_8008A6C0(box, strength);
+		fn_8008A6C0(box, pos, strength);
 		if ((box->mStatus.mFlags & 0x04000000ULL) && strength >= (s32)fn_8006EBC8(31) / 100.0f)
 			box->mStatus.mFlags |= 0x2000000000000000ULL;
 	}
@@ -101,15 +101,15 @@ extern "C" void fn_800DFD24(XObjHBox* box)
 		f32 ring  = box->mRing;
 		f32 inner = 400.0f * ring;
 		f32 outer = 400.0f * (1.0f - ring);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 0, 7, 0);
-		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 2, 4, 15);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
+		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 2, 4, 15);
 		// retail adds an int zero to both radii
 		s32 pad   = 0;
 		u32 color = (u32)(255.0f * ring) | 0xFFFFFF00;
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, inner + pad, inner + pad, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outer + pad, outer + pad, 0.0f, 0.0f, 0.0f);
-		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, inner + pad, inner + pad, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outer + pad, outer + pad, 0.0f, 0.0f, 0.0f);
+		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
 	}
 }
 

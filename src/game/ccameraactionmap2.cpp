@@ -1,4 +1,3 @@
-#include "game/particle_srt.h"
 #include "game/ccameraaction.h"
 extern "C" {
 #include <dolphin/mtx/vec.h>
@@ -662,7 +661,7 @@ extern "C" void fn_8013FA38(CCameraActionMap* map, u32 step)
 		weight = 1.0f;
 	if (weight < 0.0f)
 		weight = 0.0f;
-	if (((CMotionControlCamera*)lbl_8025C400.mCamera)->GetMapDistance() <= 1.0f)
+	if (lbl_8025C400.mMotionControlCamera.GetMapDistance() <= 1.0f)
 		weight = 0.0f;
 	f32 interestHeight = map->mInterest.y;
 	f32 height         = map->_E60;
@@ -1921,7 +1920,7 @@ extern "C" void fn_8013B1C4(CCameraActionMap* map, s32 unused)
 		map->_DB4 = &map->_DB8;
 		map->_DB4->Start(from, to, 0.7f);
 		map->_DB0 = 0;
-		lbl_8025C400.mPlayer->ResetCameraValue();
+		lbl_8025C400.GetPlayer()->ResetCameraValue();
 		lbl_8065B334 = map->_974->_0C;
 		fn_8013A2EC(map, 0x20004);
 	}
@@ -1956,7 +1955,7 @@ extern "C" void fn_8013B3C8(CCameraActionMap* map)
 		}
 		if (map->_E58 == 0) {
 			f32 height = MapAreaHeight(map->_DA8);
-			Vec target = (lbl_8025C400.mPlayer)->GetCameraTarget();
+			Vec target = (lbl_8025C400.GetPlayer())->GetCameraTarget();
 			map->_E30  = &map->_E14;
 			map->_E30->Start(map->mEye.y - target.y - map->_E98, height, 1.0f);
 			if (map->_E5C == 0) {
@@ -1980,7 +1979,7 @@ extern "C" void fn_8013B3C8(CCameraActionMap* map)
 	} else if (map->_DA8 == -1) {
 		if (map->_E58 == 0 || (map->_E58 == 1 && map->_E5C == 0)) {
 			map->_E58  = 0;
-			Vec target = (lbl_8025C400.mPlayer)->GetCameraTarget();
+			Vec target = (lbl_8025C400.GetPlayer())->GetCameraTarget();
 			map->_E30  = &map->_E14;
 			map->_E30->Start(map->mEye.y - target.y - map->_E98, map->_E54, 1.0f);
 		}
@@ -2693,7 +2692,7 @@ extern "C" void fn_8013BD28(CCameraActionMap* map, Vec& out, s32 mode)
 			x = pos.x;
 			z = pos.z;
 		}
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		CVec eye                     = camera->mCamera.mEye;
 		CVec interest                = camera->mCamera.mInterest;
 		f32 angle                    = HALF_PI + (f32)atan2(interest.x - eye.x, interest.z - eye.z);
@@ -2977,21 +2976,18 @@ extern "C" void fn_8013C1D4()
 extern "C" void fn_8013C200(CCameraActionMap* map)
 {
 	CGame* game = &lbl_8025C400;
-	fn_80194FD4((CBase*)game, -1, "\\B000000A0AREA(%3d,---)(%3d)\n", 408.0f, 298.0f, 0.0f, 12.0f, 12.0f, lbl_805A054C._0C,
-	            lbl_805A054C._04);
-	fn_80194FD4((CBase*)game, -1, "\\B000000A0ACMAP2\n", 408.0f, 310.0f, 0.0f, 12.0f, 12.0f);
-	fn_80194FD4((CBase*)game, -1, "\\B00000080CAMSTAT\t   :%8X\nCAMSTATPRE :%8X\n", 360.0f, 322.0f, 0.0f, 12.0f, 12.0f, map->_11D8.mFlags,
+	fn_80194FD4(game, -1, "\\B000000A0AREA(%3d,---)(%3d)\n", 408.0f, 298.0f, 0.0f, 12.0f, 12.0f, lbl_805A054C._0C, lbl_805A054C._04);
+	fn_80194FD4(game, -1, "\\B000000A0ACMAP2\n", 408.0f, 310.0f, 0.0f, 12.0f, 12.0f);
+	fn_80194FD4(game, -1, "\\B00000080CAMSTAT\t   :%8X\nCAMSTATPRE :%8X\n", 360.0f, 322.0f, 0.0f, 12.0f, 12.0f, map->_11D8.mFlags,
 	            map->_11E0.mFlags);
-	fn_80194FD4((CBase*)game, -1, "\\B00000080CHR_InsideCll(%3d,%3d,%3d)\n", 324.0f, 346.0f, 0.0f, 12.0f, 12.0f, map->_EA8[0], map->_EA8[1],
+	fn_80194FD4(game, -1, "\\B00000080CHR_InsideCll(%3d,%3d,%3d)\n", 324.0f, 346.0f, 0.0f, 12.0f, 12.0f, map->_EA8[0], map->_EA8[1],
 	            map->_EA8[2]);
-	fn_80194FD4((CBase*)game, -1, "\\B00000080CAM_InsideCll(%3d,%3d,%3d)\n", 324.0f, 358.0f, 0.0f, 12.0f, 12.0f, map->_4F0, map->_4F4,
-	            map->_4F8);
+	fn_80194FD4(game, -1, "\\B00000080CAM_InsideCll(%3d,%3d,%3d)\n", 324.0f, 358.0f, 0.0f, 12.0f, 12.0f, map->_4F0, map->_4F4, map->_4F8);
 	if (map->_4EC > 0) {
-		fn_80194FD4((CBase*)game, -1, "\\B00000080CamHitCll(%3d,%3d,%3d)\n", 324.0f, 370.0f, 0.0f, 12.0f, 12.0f, map->_4F0, map->_4F4,
-		            map->_4F8);
+		fn_80194FD4(game, -1, "\\B00000080CamHitCll(%3d,%3d,%3d)\n", 324.0f, 370.0f, 0.0f, 12.0f, 12.0f, map->_4F0, map->_4F4, map->_4F8);
 	}
 	if (map->_974 != NULL) {
-		fn_80194FD4((CBase*)game, -1, "\\B00000080INTRSCT(%3d-%3d)\n", 324.0f, 382.0f, 0.0f, 12.0f, 12.0f, map->_974->_0C, map->_974->_10);
+		fn_80194FD4(game, -1, "\\B00000080INTRSCT(%3d-%3d)\n", 324.0f, 382.0f, 0.0f, 12.0f, 12.0f, map->_974->_0C, map->_974->_10);
 	}
 }
 /*
@@ -3221,9 +3217,9 @@ extern "C" void fn_8013C614(CCameraActionMap* map, u32 step)
 		map->_11D8.mFlags &= ~8;
 	}
 	if (map->_44 != NULL && map->_44->mJObj != NULL && (pad.mPad->mTrigger & 0x40) && map->_DAC
-	    && lbl_8025C400.mPlayer->mHang.mState != 3) {
+	    && lbl_8025C400.GetPlayer()->mHang.mState != 3) {
 		if (SetMapYaw(map, map->_44->mMoveRotate.mTarget.y, 10.0f)) {
-			lbl_8025C400.mPlayer->ResetCameraValue();
+			lbl_8025C400.GetPlayer()->ResetCameraValue();
 			fn_8013A2EC(map, 0x20002);
 		}
 	}
@@ -4169,7 +4165,7 @@ extern "C" BOOL fn_8013D2DC(CCameraActionMap* map)
 		s32 side           = entry->_10;
 		CVec dir           = entry->_14;
 		CamAreaRecord* rec = &lbl_805A054C._1C[group];
-		CVec toPlayer      = lbl_8025C400.mPlayer->mMoveTranslate;
+		CVec toPlayer      = lbl_8025C400.GetPlayer()->mMoveTranslate;
 		toPlayer.y         = 0.0f;
 		Vec eye            = map->mEye;
 		eye.y              = 0.0f;
@@ -8552,7 +8548,7 @@ extern "C" void fn_8014102C(XObjChr* player)
 // pool 2's objects, the player's pool
 extern "C" XObj* fn_8014106C(CGame* game, s32 index)
 {
-	return (XObj*)((u8*)game->mPlayer + index * game->_96CC);
+	return game->mXObjs.mPools[2].Get(index);
 }
 
 /**
@@ -8566,13 +8562,13 @@ extern "C" void fn_80141084(CCameraActionMap* map)
 	s32 arg = lbl_805A054C._0C;
 	if (lbl_805A054C._04 != lbl_805A054C._08 && lbl_805A054C._04 != -1) {
 		if (fn_80135D28(&lbl_805A054C) == 1) {
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(1);
+			lbl_8025C400.mMotionControlCamera.ChangeAction(1);
 			lbl_805A054C._18 = lbl_805A054C._14;
-			fn_80138CA4((CCameraActionArea*)lbl_8025C400.mCameraTable[1], 1, 2.0f, arg);
+			fn_80138CA4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], 1, 2.0f, arg);
 			return;
 		}
 		SetFovStep(map, lbl_805A054C._14, 15.0f);
-		fn_80138B2C((CCameraActionArea*)lbl_8025C400.mCameraTable[1], arg, 0, 3, 1, 1.0f);
+		fn_80138B2C((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], arg, 0, 3, 1, 1.0f);
 	}
 	map->_DA4 = map->_DA8;
 	fn_8013BB00(map);
@@ -8742,7 +8738,7 @@ extern "C" void fn_80141288(CCameraActionMap* map, CCamera* camera)
 	map->SetDistance(camera->mDistance);
 	map->SetFov(camera->mFov);
 	map->SetAngle(camera->mAngle);
-	map->_44 = lbl_8025C400.mPlayer;
+	map->_44 = lbl_8025C400.GetPlayer();
 	if (map->_44 != NULL) {
 		map->SetInterest(map->_44->GetCameraTarget());
 	}
@@ -9529,7 +9525,7 @@ extern "C" void fn_80141C50(CCameraActionMap* map)
 {
 	OSPanic(__FILE__, 220, "%s%s", "actionMap::reset\n", "Reset");
 
-	map->_44 = lbl_8025C400.mPlayer;
+	map->_44 = lbl_8025C400.GetPlayer();
 	if (map->_44 != NULL) {
 		Mtx mtx;
 		PSMTXCopy(HSD_JObjGetMtxPtr(map->_44->mJObj), mtx);

@@ -1,10 +1,10 @@
+#include "game/cgame.h"
 #include "game/ccard.h"
 #include "game/ctpl.h"
 #include "Version.h"
 #include <stdio.h>
 #include <string.h>
 #include "game/globals.h"
-#include "game/cgame.h"
 
 #if defined(VERSION_JP)
 enum { BANNER_TEXTURE = 87, ICON_TEXTURE = 88 };
@@ -52,7 +52,7 @@ extern "C" void fn_800884F0(Memcard* card, s32 slot)
 	s32 seconds = time / 60 % 60;
 	sprintf(data->mComment, lbl_802091C0, slot + 1, fn_8006DBF0(0x103), time / 216000, time / 3600 % 60, seconds);
 #endif
-	CTpl* resource   = (CTpl*)lbl_8025C400.mTpl;
+	CTpl* resource   = &lbl_8025C400.mTpl;
 	CTexObj* texture = &resource->mTex;
 	CTexObj banner   = texture->Init(((TPLPalette*)resource->mBuffer)->descriptorArray + BANNER_TEXTURE, 0);
 	memcpy(data->mBanner, SaveTextureData(banner), sizeof(data->mBanner));

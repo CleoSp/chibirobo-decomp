@@ -8,13 +8,13 @@
 
 static inline XObjChr* Player()
 {
-	return lbl_8025C400.mPlayer;
+	return lbl_8025C400.GetPlayer();
 }
 
 // todo: pools 4, 5 and 17 keep a save block right after XObj, no idea what class
 static inline void* PoolSaveData(s32 pool)
 {
-	return *(void**)(lbl_8025C400.mPools[pool].mObjects + sizeof(XObj));
+	return *(void**)(lbl_8025C400.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj));
 }
 
 static inline Params* Stats()

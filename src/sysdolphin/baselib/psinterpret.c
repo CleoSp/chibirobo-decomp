@@ -601,52 +601,51 @@ void modifyDirGenBase(f32 angle, f32 vx, f32 vy, f32 vz, HSD_Particle* pp)
  */
 void modifyDir(f32 angle, HSD_Particle* pp)
 {
+	// NONMATCHING: fifteen register differences
 	f32 ny;
+	f32 azimuth;
 	f32 sin1, cos1, sin2, cos2;
 	f32 speed;
 	f32 randAngle;
 	f32 sinR, cosR;
-	f32 vx;
-	f32 vy;
-	f32 vz;
+	f32 vx, vy, vz;
 	f32 sinAngle, cosAngle;
 
-	vz   = pp->vel.z;
-	cosR = pp->vel.x;
-	vx   = cosR;
-	vy   = pp->vel.y;
+	vz = pp->vel.z;
+	vx = pp->vel.x;
+	vy = pp->vel.y;
 
 	if (__fabsf(vz) < *(f32*)__float_min) {
 		if (vy >= 0.0F) {
-			sinAngle = 1.5707964F;
+			azimuth = 1.5707964F;
 		} else {
-			sinAngle = -1.5707964F;
+			azimuth = -1.5707964F;
 		}
 	} else {
 		// the float result goes through its own temp first
-		f32 t    = atan2(vy, vz);
-		sinAngle = t;
+		f32 t   = atan2(vy, vz);
+		azimuth = t;
 	}
 
-	sin1 = particle_sinf(sinAngle);
-	cos1 = particle_cosf(sinAngle);
+	sin1 = particle_sinf(azimuth);
+	cos1 = particle_cosf(azimuth);
 
 	ny = vy * sin1 + vz * cos1;
 
 	if (__fabsf(ny) < *(f32*)__float_min) {
 		if (vx >= 0.0F) {
-			sinAngle = 1.5707964F;
+			azimuth = 1.5707964F;
 		} else {
-			sinAngle = -1.5707964F;
+			azimuth = -1.5707964F;
 		}
 	} else {
 		// the float result goes through its own temp first
-		f32 t    = atan2(vx, ny);
-		sinAngle = t;
+		f32 t   = atan2(vx, ny);
+		azimuth = t;
 	}
 
-	sin2 = particle_sinf(sinAngle);
-	cos2 = particle_cosf(sinAngle);
+	sin2 = particle_sinf(azimuth);
+	cos2 = particle_cosf(azimuth);
 
 	speed = particle_sqrtf(vx * vx + vy * vy + vz * vz);
 

@@ -1,3 +1,4 @@
+#include "Dolphin/mtx.h"
 #include "game/ccard.h"
 #include "game/memcard.h"
 

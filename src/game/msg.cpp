@@ -330,52 +330,52 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
 	switch (command) {
 	case 0:
 		if (sfx == -2) {
-			fn_8001E630((CSound*)&lbl_8025C400.mSound, -1);
+			fn_8001E630(&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E660((CSound*)&lbl_8025C400.mSound, sfx);
+			fn_8001E660(&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	case 1:
-		fn_8001E904((CSound*)&lbl_8025C400.mSound, sfx, 255);
+		fn_8001E904(&lbl_8025C400.mSound, sfx, 255);
 		break;
 	case 2: {
 		u16 frames = ReadMsgS16(msg);
-		fn_8001E1A4((CSound*)&lbl_8025C400.mSound, sfx, frames);
+		fn_8001E1A4(&lbl_8025C400.mSound, sfx, frames);
 		break;
 	}
 	case 3: {
 		u16 frames = ReadMsgS16(msg);
-		fn_8001E2CC((CSound*)&lbl_8025C400.mSound, sfx, frames);
+		fn_8001E2CC(&lbl_8025C400.mSound, sfx, frames);
 		break;
 	}
 	case 4: {
 		u16 frames = ReadMsgS16(msg);
 		u8 volume  = ReadMsgU8(msg);
-		if (!fn_8001E6C8((CSound*)&lbl_8025C400.mSound, sfx)) {
-			fn_8001E904((CSound*)&lbl_8025C400.mSound, sfx, volume);
+		if (!fn_8001E6C8(&lbl_8025C400.mSound, sfx)) {
+			fn_8001E904(&lbl_8025C400.mSound, sfx, volume);
 		} else {
-			fn_8001E468((CSound*)&lbl_8025C400.mSound, sfx, volume, frames);
+			fn_8001E468(&lbl_8025C400.mSound, sfx, volume, frames);
 		}
 		break;
 	}
 	case 5:
 		if (sfx == -2) {
-			fn_8001E590((CSound*)&lbl_8025C400.mSound, -1);
+			fn_8001E590(&lbl_8025C400.mSound, -1);
 		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
-			fn_8001E5C0((CSound*)&lbl_8025C400.mSound, sfx, 0);
+			fn_8001E5C0(&lbl_8025C400.mSound, sfx, 0);
 		} else {
 			fn_801E94E4(sfx);
 		}
 		break;
 	case 6:
 		if (sfx == -2) {
-			fn_8001E4D4((CSound*)&lbl_8025C400.mSound, -1);
+			fn_8001E4D4(&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E504((CSound*)&lbl_8025C400.mSound, sfx);
+			fn_8001E504(&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	case -1:
-		if (fn_8001E6C8((CSound*)&lbl_8025C400.mSound, sfx)) {
+		if (fn_8001E6C8(&lbl_8025C400.mSound, sfx)) {
 #if defined(VERSION_PAL)
 			msg->mData.mCursor -= 6;
 #else
@@ -611,7 +611,7 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 	if (flags & 1) {
 		anim = lbl_80367A2C[anim];
 	}
-	void* state = &lbl_8025C400._5D080;
+	void* state = &lbl_8025C400.mEvt.mData;
 	XObj* obj   = *(void**)state != NULL ? fn_8007F570(state, id) : NULL;
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		if (anim == -1) {
@@ -892,8 +892,10 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
  */
 extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 {
+	// NONMATCHING: retail tests the four codes one by one
 	s32 command = ReadMsgU8(msg);
-	if (!(command != 255 && command != 254 && command != 253 && command != 252)) {
+	// 252 to 255 wait for a button instead of a time
+	if (command == 255 || command == 254 || command == 253 || command == 252) {
 		if (msg->_00 == 0x23) {
 			if (!msg->mFont.mBlink) {
 				s32 mode = -1;
@@ -917,9 +919,9 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 					if ((pad.mPad->mTrigger & 0x400) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
 						done = TRUE;
 						if (command == 253) {
-							fn_800B54A4(lbl_8025C400.mPlayer, 0);
+							fn_800B54A4(lbl_8025C400.GetPlayer(), 0);
 						} else if (command == 252) {
-							fn_800B54A4(lbl_8025C400.mPlayer, 1);
+							fn_800B54A4(lbl_8025C400.GetPlayer(), 1);
 						}
 					}
 				} else if (((pad.mPad->mTrigger & 0x100) || (pad.mPad->mTrigger & 0x200)) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
@@ -927,7 +929,7 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 				}
 				if (done) {
 					msg->mFont.mBlink = 0;
-					fn_8001DC10((CSound*)&lbl_8025C400.mSound, msg->_445FC);
+					fn_8001DC10(&lbl_8025C400.mSound, msg->_445FC);
 				} else {
 					msg->mData.mCursor -= 2;
 				}
@@ -935,13 +937,9 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 		}
 		return msg->mFont.mBlink;
 	}
-#if defined(VERSION_PAL)
-	f32 frames = (command / 10) * (f32)lbl_80660D4C;
-	frames += (command % 10) * (f32)lbl_80660D4C / 10.0f;
-#else
-	f32 frames = (command / 10) * (f32)60;
-	frames += (command % 10) * (f32)60 / 10.0f;
-#endif
+	// tenths of a second
+	f32 frames = (command / 10) * FRAME_RATE;
+	frames += (command % 10) * FRAME_RATE / 10.0f;
 	msg->_445CC = frames;
 	return 0;
 }
@@ -1168,25 +1166,25 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
 							msg->_445D0 = msg->mData.mLineCount - 1;
 						}
 						msg->mFont.mSelectedLine = msg->_445D0;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & down) {
 						if (++msg->_445D0 >= msg->mData.mLineCount) {
 							msg->_445D0 = 0;
 						}
 						msg->mFont.mSelectedLine = msg->_445D0;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 					} else if (pad.mPad->mTrigger & 0x100) {
 						msg->_445D4              = msg->_445D0;
 						msg->_445D0              = -1;
 						msg->mFont.mFadeOut      = 1;
 						msg->mFont.mSelectedLine = -1;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x88, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
 					} else if (pad.mPad->mTrigger & 0x200) {
 						msg->_445D4              = -1;
 						msg->_445D0              = -1;
 						msg->mFont.mFadeOut      = 1;
 						msg->mFont.mSelectedLine = -1;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x86, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x86, 255);
 					}
 				}
 			} else if (msg->_445E8 > 0) {
@@ -1203,46 +1201,46 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
 							msg->_445DC[msg->_445F0] = 0;
 						}
 						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & down) {
 						if (--msg->_445DC[msg->_445F0] < 0) {
 							msg->_445DC[msg->_445F0] = 9;
 						}
 						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & next) {
 						if (++msg->_445F0 > msg->_445E8 - 1) {
 							msg->_445F0 = msg->_445E8 - 1;
 						} else {
 							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-							fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+							fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 						}
 					} else if (pad.mPad->mRepeat & previous) {
 						if (--msg->_445F0 < msg->_445EC) {
 							msg->_445F0 = msg->_445EC;
 						} else {
 							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-							fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x87, 255);
+							fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
 						}
 					} else if (pad.mPad->mTrigger & 0x100) {
 						msg->mFont.mFadeOut        = 1;
 						msg->mFont.mOtherSelection = -1;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x88, 255);
+						fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
 						s32 result = 0;
 						for (s32 i = 9; i >= 0; i--) {
 							result = result * 10 + msg->_445DC[i];
 						}
-						lbl_8025C400._5D08C = result;
+						lbl_8025C400.mEvt._10 = result;
 					} else if (pad.mPad->mTrigger & 0x200) {
 						msg->mFont.mFadeOut        = 1;
 						msg->mFont.mOtherSelection = -1;
-						fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x86, 255);
-						lbl_8025C400._5D08C = -1;
+						fn_8001E904(&lbl_8025C400.mSound, 0x86, 255);
+						lbl_8025C400.mEvt._10 = -1;
 					}
 				}
 			} else if (msg->_445F8 != 0) {
 				if (msg->_445F8 == 1) {
-					if (lbl_8025C400.mPlayer->mOXMenu.mStarted < 0) {
+					if (lbl_8025C400.GetPlayer()->mOXMenu.mStarted < 0) {
 						msg->_445F8++;
 					}
 				} else {
@@ -1900,9 +1898,9 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
  */
 extern "C" void CMsg_Draw(CMsg* msg)
 {
-	fn_80199AB0((CGs*)lbl_8025C400.mGs, 0, 0);
-	fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
-	fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 0, 3, 0);
+	fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
+	fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+	fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 3, 0);
 	if (msg->_445C8 == 0.0f) {
 		CMsgFont_Draw(&msg->mFont, 1.0f);
 	} else {
@@ -2069,16 +2067,16 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 		case 23: {
 			u32 arg1 = ReadMsgU8(msg);
 			u32 arg2 = ReadMsgU8(msg);
-			if (lbl_8025C400.mPlayer->mOXMenu.mStarted == 0) {
-				fn_800B51FC(lbl_8025C400.mPlayer, arg1, arg2);
+			if (lbl_8025C400.GetPlayer()->mOXMenu.mStarted == 0) {
+				fn_800B51FC(lbl_8025C400.GetPlayer(), arg1, arg2);
 				msg->mData.mCursor -= 3;
 				waiting = TRUE;
 			} else {
 				CPad pad(0);
-				fn_80096E38(&lbl_8025C400.mPlayer->mOXMenu, &pad);
+				fn_80096E38(&lbl_8025C400.GetPlayer()->mOXMenu, &pad);
 				if (pad.mPad->mTrigger & 0x100) {
-					lbl_8025C400._5D08C = lbl_8025C400.mPlayer->mOXMenu._1340;
-					waiting             = FALSE;
+					lbl_8025C400.mEvt._10 = lbl_8025C400.GetPlayer()->mOXMenu._1340;
+					waiting               = FALSE;
 				} else {
 					msg->mData.mCursor -= 3;
 					waiting = TRUE;
@@ -2107,7 +2105,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 			CMsgFont_AddChar(&msg->mFont, text);
 			msg->_445C4 = msg->_445C8;
 			if (msg->_445FC >= 0) {
-				fn_8001DC20((CSound*)&lbl_8025C400.mSound, msg->_445FC, msg->mFont.mSize / 22.0f, text[0], text[1]);
+				fn_8001DC20(&lbl_8025C400.mSound, msg->_445FC, msg->mFont.mSize / 22.0f, text[0], text[1]);
 			}
 			break;
 		}
@@ -2682,8 +2680,8 @@ extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
 	msg->mData.mCursor = msg->mData.mText;
 #if !defined(VERSION_JP)
 	if (msg->mData.mIconColumns == 0) {
-		TPLPalette* palette     = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture        = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette     = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture        = &(&lbl_8025C400.mTpl)->mTex;
 		CTexObj icon            = texture->Init(&palette->descriptorArray[119], 0);
 		msg->mData.mIconColumns = (s32)GXGetTexObjWidth(&icon) / 24;
 	}
@@ -3043,68 +3041,10 @@ extern "C" void CMsg_ResetPos(CMsg* msg)
  * @note Address: 0x800821DC
  * @note Size: 0x32C
  */
-// spreads the glyphs' wobble phases around the circle
-static inline void ResetGlyphPhases(CMsg* msg)
-{
-	for (int i = 0; i < 400; i++) {
-		msg->mFont.mGlyphs[i].mPhaseX = msg->mFont.mGlyphs[i].mPhaseY = (i * 75) % 360;
-	}
-}
-
-// ResetMsgState spelled out, the glyph loop is an inline of its own here
 extern "C" void fn_800821DC(CMsg* msg)
 {
-	msg->mData.mCursor = NULL;
-#if !defined(VERSION_JP)
-	msg->mData.mIconColumns = 0;
-#endif
-	msg->mFont.mActive    = 0;
-	msg->mFont.mFadeIn    = 0;
-	msg->mFont.mFadeOut   = 0;
-	msg->mFont.mBlink     = 0;
-	msg->mFont.mFitLine   = 1;
-	msg->mFont._04_04     = 1;
-	msg->mFont.mCharCount = 0;
-	msg->mFont.mLine      = 0;
-	msg->mFont.mPlacement = 0;
-	Vec zero              = { 0.0f, 0.0f, 0.0f };
-	msg->mFont.mPosition  = zero;
-	msg->mFont.mSize      = 22.0f;
-#if defined(VERSION_JP)
-	msg->mFont.mPrevSize = 22.0f;
-#else
-	msg->mFont.mPrevSize = NAN;
-#endif
-	msg->mFont.mGlyphColor     = msgColorTable[0];
-	msg->mFont.mGlyphAngle     = 0.0f;
-	msg->mFont.mGlyphScaleY    = 1.0f;
-	msg->mFont.mGlyphScaleX    = 1.0f;
-	msg->mFont.mEffect         = 0;
-	msg->mFont.mSelectedLine   = -1;
-	msg->mFont.mOtherSelection = -1;
-	msg->mFont.mAlpha          = 0.0f;
-	msg->mFont.mTextAlpha      = 1.0f;
-	msg->mFont.mHighlightAlpha = 0.0f;
-	msg->mFont._43C6C          = 0;
-	msg->mFont.mBlinkPhase     = 0.0f;
-	msg->mFont.mTexOffset      = 0.0f;
-	ResetGlyphPhases(msg);
-	msg->_445C0 = 1;
-	msg->_445C8 = 0.0f;
-	msg->_445C4 = 0.0f;
-	msg->_445D4 = -1;
-	msg->_445D0 = -1;
-	msg->_445D8 = 0;
-	for (int i = 0; i < 9; i += 3) {
-		for (int j = 0; j < 3; j++) {
-			msg->_445DC[i + j] = 0;
-		}
-	}
-	msg->_445F0 = 0;
-	msg->_445EC = 0;
-	msg->_445E8 = 0;
-	msg->_445F8 = 0;
-	msg->_445FC = -1;
+	// NONMATCHING: regalloc
+	ResetMsgState(msg);
 }
 
 /*
@@ -3614,7 +3554,7 @@ void fn_800869E8(u8* game);
 #if defined(VERSION_PAL)
 static inline void MsgRestoreScissor(u32 x, u32 y, u32 width, u32 height)
 {
-	f32 displayScale = ((CGs*)lbl_8025C400.mGs)->mScreen._40;
+	f32 displayScale = lbl_8025C400.mGs.mScreen._40;
 	u32 scaledHeight = (u32)(height * displayScale);
 	u32 scaledY      = (u32)(y * displayScale);
 	GXSetScissor(x, scaledY, width, scaledHeight);
@@ -3654,7 +3594,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 	if (font->mWindowY + font->mHeight > 414.0f)
 		font->mWindowY = 414.0f - font->mHeight;
 	f32 portraitScale;
-	if (lbl_8025C400._4168 != 0)
+	if (lbl_8025C400.mWipeTile1.mActive != 0)
 		portraitScale = 0.846153855f;
 	else
 		portraitScale = font->mHeight / 52.0f;
@@ -3668,18 +3608,18 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 	f32 expandY       = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
 
 	if (font->mAlpha > 0.0f) {
-		fn_8019B34C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 12, 5);
+		fn_8019B34C(lbl_8025C400.mGs.mCurRenderMode, 12, 5);
 		f32 halfPortrait = portraitWidth * 0.5f;
 		f32 left         = ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - expandX) - halfPortrait;
 		f32 right        = halfPortrait + (expandX + (40.0f + (font->mWindowX + font->mWidth * 0.5f)));
 		f32 top          = (font->mWindowY - 8.0f) - expandY;
 		f32 bottom       = expandY + (8.0f + (font->mWindowY + font->mHeight));
 		f32 windowAlpha  = font->mColor.a != 0 ? font->mAlpha : 0.0f;
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
 		f32 outerRight  = 9.0f + (8.0f + right);
 		f32 outerBottom = 9.0f + (8.0f + bottom);
-		fn_80198614((CGs*)lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000,
-		            outerRight, outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+		fn_80198614(&lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
+		            outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
 
 		Vec fan[10]   = { { 0 } };
 		f32 innerLeft = 1.0f + left, innerRight = right - 1.0f;
@@ -3748,30 +3688,30 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 		}
 		u32 color
 		    = ((u32)font->mColor.r << 24) | ((u32)font->mColor.g << 16) | ((u32)font->mColor.b << 8) | (u32)(font->mColor.a * font->mAlpha);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
-		fn_80198D08((CGs*)lbl_8025C400.mGs, GX_TRIANGLEFAN, ((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, fan, color, 10);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 1, 1);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundLeft, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundRight, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundLeft, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, roundRight, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
+		fn_80198D08(&lbl_8025C400.mGs, GX_TRIANGLEFAN, lbl_8025C400.mGs.mCamera->mViewMtx, fan, color, 10);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 1, 1);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundLeft, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundRight, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundLeft, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundRight, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		color = (u32)(64.0f * windowAlpha);
 		for (s32 i = 0; i < 10; i++) {
 			fan[i].x += 9.0f;
 			fan[i].y += 9.0f;
 		}
-		fn_80198D08((CGs*)lbl_8025C400.mGs, GX_TRIANGLEFAN, ((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, fan, color, 10);
+		fn_80198D08(&lbl_8025C400.mGs, GX_TRIANGLEFAN, lbl_8025C400.mGs.mCamera->mViewMtx, fan, color, 10);
 		f32 shadowLeft = 8.0f + (1.0f + (9.0f + left));
 		f32 shadowTop  = 8.0f + (1.0f + (9.0f + top));
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		f32 shadowRight = ((9.0f + right) - 1.0f) - 8.0f;
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowRight, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowRight, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		f32 shadowBottom = ((9.0f + bottom) - 1.0f) - 8.0f;
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, color, shadowRight, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowRight, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 
-		TPLPalette* palette    = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* sharedTexture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette    = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* sharedTexture = &(&lbl_8025C400.mTpl)->mTex;
 #if defined(VERSION_JP)
 		CTexObj border = sharedTexture->Init(&palette->descriptorArray[112], 0);
 #else
@@ -3816,26 +3756,26 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 		slices[7].x      = edgeRight;
 		slices[7].y      = edgeBottom;
 		color            = 0xFFFFFF00 | (u32)(255.0f * windowAlpha);
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 1, 1);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 1, 1);
 		for (s32 i = 0; i < 8; i++) {
 			PSMTXTrans(border.mMtx[0], slices[i].u, slices[i].v, 0.0f);
 			border.mMtxDirty = TRUE;
 			PSMTXScale(border.mMtx[1], slices[i].scaleU, slices[i].scaleV, 1.0f);
 			border.mMtxDirty = TRUE;
-			fn_80197800((CGs*)lbl_8025C400.mGs, &border, color, color, color, color, slices[i].x, slices[i].y, 1.0f, slices[i].width,
+			fn_80197800(&lbl_8025C400.mGs, &border, color, color, color, color, slices[i].x, slices[i].y, 1.0f, slices[i].width,
 			            slices[i].height, 0.0f, 0.0f, 0.0f);
 		}
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 7, 1);
-		fn_80198614((CGs*)lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000,
-		            outerRight, outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
+		fn_80198614(&lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
+		            outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
 
 		if (font->mMode >= 0 && font->mMode < 1) {
 			if (font->mColor.a != 0) {
 #if defined(VERSION_PAL)
-				f32 displayScale = ((CGs*)lbl_8025C400.mGs)->mScreen._40;
+				f32 displayScale = lbl_8025C400.mGs.mScreen._40;
 				u32 clipHeight   = (u32)(displayScale * (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight));
 #else
 				u32 clipHeight = (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight);
@@ -3852,9 +3792,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			f32 portraitX   = 44.0f * portraitScale + ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - halfPortrait);
 			f32 portraitY   = 12.0f * portraitScale + (font->mHeight * 0.5f + font->mWindowY);
 			XObj* portrait  = NULL;
-			s32 objectCount = lbl_8025C400.mPools[7].mUsed;
-			s32 stride      = lbl_8025C400.mPools[7].mStride;
-			u8* objects     = lbl_8025C400.mPools[7].mObjects;
+			s32 objectCount = lbl_8025C400.mXObjs.mPools[10].mUsed;
+			s32 stride      = lbl_8025C400.mXObjs.mPools[10].mStride;
+			u8* objects     = lbl_8025C400.mXObjs.mPools[10].mObjects;
 			for (s32 i = 0; i < objectCount; i++) {
 				XObj* obj = (XObj*)(objects + i * stride);
 				if (obj->mStatus.mFlags & 1) {
@@ -3915,12 +3855,12 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			fn_800869E8((u8*)&lbl_8025C400);
 #else
 			HSD_StateInvalidate(-1);
-			if (((CGs*)lbl_8025C400.mGs)->mCurRenderMode != NULL)
-				((CGs*)lbl_8025C400.mGs)->mCurRenderMode->Invalidate();
-			if (((CGs*)lbl_8025C400.mGs)->mCurTevStage != NULL)
-				((CGs*)lbl_8025C400.mGs)->mCurTevStage->Invalidate();
-			if (((CGs*)lbl_8025C400.mGs)->mCurChannel != NULL && !((CGs*)lbl_8025C400.mGs)->mCurChannel->mDirty)
-				((CGs*)lbl_8025C400.mGs)->mCurChannel->mDirty = TRUE;
+			if (lbl_8025C400.mGs.mCurRenderMode != NULL)
+				lbl_8025C400.mGs.mCurRenderMode->Invalidate();
+			if (lbl_8025C400.mGs.mCurTevStage != NULL)
+				lbl_8025C400.mGs.mCurTevStage->Invalidate();
+			if (lbl_8025C400.mGs.mCurChannel != NULL && !lbl_8025C400.mGs.mCurChannel->mDirty)
+				lbl_8025C400.mGs.mCurChannel->mDirty = TRUE;
 #endif
 			if (font->mColor.a != 0) {
 #if defined(VERSION_PAL)
@@ -3936,31 +3876,30 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			f32 width  = 24.0f + font->mCurLineWidth;
 			f32 height = font->mData->mHeights[font->mSelectedLine];
 			u32 color  = 0xC87F1600 | (u32)(200.0f * font->mHighlightAlpha);
-			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
+			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
 			CTexObj* highlight = &font->mTexs.mTex[MSG_TEX_ARROW];
 			PSMTXScale(highlight->mMtx[1], 0.25f, 1.0f, 1.0f);
 			highlight->mMtxDirty = TRUE;
 			PSMTXTrans(highlight->mMtx[0], 0.25f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
 			y                    = 2.0f + y;
-			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
 			PSMTXTrans(highlight->mMtx[0], 0.0f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
 			f32 halfWidth        = width * 0.5f;
-			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, (x - halfWidth) - 4.0f, y, 0.0f, 8.0f, height, 0.0f,
-			            0.0f, 0.0f);
+			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, (x - halfWidth) - 4.0f, y, 0.0f, 8.0f, height, 0.0f, 0.0f,
+			            0.0f);
 			PSMTXTrans(highlight->mMtx[0], 0.5f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
-			fn_80197800((CGs*)lbl_8025C400.mGs, highlight, color, color, color, color, 4.0f + (x + halfWidth), y, 0.0f, 8.0f, height, 0.0f,
-			            0.0f, 0.0f);
+			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, 4.0f + (x + halfWidth), y, 0.0f, 8.0f, height, 0.0f, 0.0f,
+			            0.0f);
 			CTexObj* line = &font->mTexs.mTex[MSG_TEX_LINE];
 			f32 lineWidth = GXGetTexObjWidth(line);
 			PSMTXScale(line->mMtx[1], 0.5f * (width / lineWidth), 0.5f, 1.0f);
 			line->mMtxDirty = TRUE;
 			color           = 0xFFFFFF00 | (u32)(40.0f * font->mHighlightAlpha);
-			fn_80197800((CGs*)lbl_8025C400.mGs, line, color, color, color, color, 2.0f + x, y, 0.0f, width, height - 4.0f, 0.0f, 0.0f,
-			            0.0f);
-			fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
+			fn_80197800(&lbl_8025C400.mGs, line, color, color, color, color, 2.0f + x, y, 0.0f, width, height - 4.0f, 0.0f, 0.0f, 0.0f);
+			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
 		}
 		if (font->mOtherSelection >= 0) {
 			s32 line    = font->mGlyphs[font->mCharCount - 1].mLine;
@@ -3993,7 +3932,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 				quad[3]   = point;
 			}
 			u32 color = 0xFF00 | (u32)(200.0f * font->mHighlightAlpha);
-			fn_80198614((CGs*)lbl_8025C400.mGs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x,
+			fn_80198614(&lbl_8025C400.mGs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x,
 			            quad[2].y, quad[2].z, color, quad[3].x, quad[3].y, quad[3].z, color);
 			for (s32 i = 0; i < font->mDigitCount; i++) {
 				f32 digitX = ((font->mDigitCount * font->mSize) * 0.5f + center) - (i + 1) * font->mSize;
@@ -4008,31 +3947,31 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 #else
 				sprintf(text, "%d", font->mDigits[i]);
 #endif
-				f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, text, TRUE, font->mSize);
+				f32 width = fn_801968BC(&lbl_8025C400.mGs, text, TRUE, font->mSize);
 				digitX += (font->mSize - width) * 0.5f;
 				fn_80196610(&lbl_8025C400, color, text, digitX, y, 0.0f, font->mSize, font->mSize);
 			}
 		}
-		fn_8019B34C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 12, 5);
+		fn_8019B34C(lbl_8025C400.mGs.mCurRenderMode, 12, 5);
 	}
 
 	if (font->mTextAlpha > 0.0f) {
-		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0, 0, 4);
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(1);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetTexGen(0, 1, 4, 30);
-		if (((CGs*)lbl_8025C400.mGs)->mCurRenderMode != NULL)
-			fn_8019B278(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, FALSE);
-		if (((CGs*)lbl_8025C400.mGs)->mCurTevStage != NULL)
-			fn_8019AED0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, FALSE);
-		if (((CGs*)lbl_8025C400.mGs)->mCurChannel != NULL)
-			fn_8019AE94(((CGs*)lbl_8025C400.mGs)->mCurChannel, FALSE);
+		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 0, 0, 4);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(1);
+		lbl_8025C400.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
+		if (lbl_8025C400.mGs.mCurRenderMode != NULL)
+			fn_8019B278(lbl_8025C400.mGs.mCurRenderMode, FALSE);
+		if (lbl_8025C400.mGs.mCurTevStage != NULL)
+			fn_8019AED0(lbl_8025C400.mGs.mCurTevStage, FALSE);
+		if (lbl_8025C400.mGs.mCurChannel != NULL)
+			fn_8019AE94(lbl_8025C400.mGs.mCurChannel, FALSE);
 		f32 halfOffset = textOffset * 0.5f;
 		f32 alpha      = font->mTextAlpha;
 		f32 last       = alpha * lastAlpha;
 		Mtx translation, view;
 		PSMTXTrans(translation, 2.0f + (font->mWindowX + halfOffset), 1.0f + font->mWindowY, 0.0f);
-		PSMTXConcat(((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, translation, view);
+		PSMTXConcat(lbl_8025C400.mGs.mCamera->mViewMtx, translation, view);
 		for (s32 i = 0; i < font->mCharCount; i++) {
 			MsgFontGlyph& glyph = font->mGlyphs[i];
 			if (glyph.mLine == font->mSelectedLine) {
@@ -4042,7 +3981,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			}
 		}
 		PSMTXTrans(translation, font->mWindowX + halfOffset, font->mWindowY, 0.0f);
-		PSMTXConcat(((CGs*)lbl_8025C400.mGs)->mCamera->mViewMtx, translation, view);
+		PSMTXConcat(lbl_8025C400.mGs.mCamera->mViewMtx, translation, view);
 		for (s32 i = 0; i < font->mCharCount; i++) {
 			MsgFontGlyph& glyph = font->mGlyphs[i];
 			f32 opacity         = i == font->mCharCount - 1 ? last : alpha;
@@ -4092,15 +4031,15 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 				break;
 			}
 		}
-		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 255, 255, 4);
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(0);
+		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 255, 255, 4);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(0);
 	}
 	if (font->mBlink && (s32)font->_43C6C >= 0) {
-		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0, 0, 4);
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 0);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(1);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetTexGen(0, 1, 4, 30);
+		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 0, 0, 4);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(1);
+		lbl_8025C400.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
 		s32 index = font->_43C6C;
 		if (index >= 2)
 			index = 2;
@@ -4122,12 +4061,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			wave = 0.0f;
 		u32 shadow = (u32)(200.0f * wave);
 		u32 color  = 0xFFFFFF00 | shadow;
-		fn_80197800((CGs*)lbl_8025C400.mGs, cursor, shadow, shadow, shadow, shadow, 2.0f + x, 2.0f + y, 0.0f, width, height, 0.0f, 0.0f,
-		            0.0f);
-		fn_80197800((CGs*)lbl_8025C400.mGs, cursor, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
-		fn_8019B040(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 255, 255, 4);
-		fn_8019AFA0(((CGs*)lbl_8025C400.mGs)->mCurTevStage, 4);
-		((CGs*)lbl_8025C400.mGs)->mCurTevStage->SetNumTexGens(0);
+		fn_80197800(&lbl_8025C400.mGs, cursor, shadow, shadow, shadow, shadow, 2.0f + x, 2.0f + y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+		fn_80197800(&lbl_8025C400.mGs, cursor, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 255, 255, 4);
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(0);
 	}
 }
 /*
@@ -6575,7 +6513,7 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
  */
 extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 {
-	f32 width = fn_801968BC((CGs*)lbl_8025C400.mGs, text, font->_04_04, font->mSize);
+	f32 width = fn_801968BC(&lbl_8025C400.mGs, text, font->_04_04, font->mSize);
 	f32 spacing;
 #if defined(VERSION_JP)
 	spacing = (font->mSize - font->mPrevSize) * 0.5f;
@@ -6589,8 +6527,8 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 	s32 textureWidth;
 	if ((u8)text[0] == 17) {
 #if defined(VERSION_JP)
-		TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
 		CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
 		PSMTXScale(icon.mMtx[1], 1.0f / 14.0f, 1.0f, 1.0f);
 		icon.mMtxDirty = TRUE;
@@ -6598,8 +6536,8 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 		icon.mMtxDirty = TRUE;
 		textureWidth   = (s32)font->mGlyphs[font->mCharCount].mTexture.Set(icon) / 14;
 #else
-		TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+		CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
 		CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
 		s32 index           = (u8)text[1];
 		s32 columns         = font->mData->mIconColumns;
@@ -7199,13 +7137,13 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
 	f32 width      = font->mData->mMaxWidth;
 	f32 height     = font->mData->mTotalHeight;
 #if defined(VERSION_JP)
-	CTexObj* texture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+	CTexObj* texture = &(&lbl_8025C400.mTpl)->mTex;
 #define MSG_INIT_DESCRIPTOR(i) ((i) - 2)
 #else
-	CTexObj* texture = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+	CTexObj* texture = &(&lbl_8025C400.mTpl)->mTex;
 #define MSG_INIT_DESCRIPTOR(i) (i)
 #endif
-	font->mFrame.mTex = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(138)], 0);
+	font->mFrame.mTex = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(138)], 0);
 	font->mScrollX = font->mScrollY = 0.0f;
 	PSMTXTrans(font->mFrame.mTex.mMtx[0], font->mScrollX, font->mScrollY, 0.0f);
 	font->mFrame.mTex.mMtxDirty = TRUE;
@@ -7229,15 +7167,15 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
 	font->mHeight             = height;
 	font->mLineY[font->mLine] = font->mCursorY + (font->mData->mHeights[0] - 22.0f) * 0.5f;
 	font->mTexs.mTex[MSG_TEX_CURSOR]
-	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
+	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
 	font->mTexs.mTex[MSG_TEX_DIGIT]
-	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
+	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
 	font->mTexs.mTex[MSG_TEX_ICON]
-	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
+	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
 	font->mTexs.mTex[MSG_TEX_ARROW]
-	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(117)], 0);
+	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(117)], 0);
 	font->mTexs.mTex[MSG_TEX_LINE]
-	    = texture->Init(&((TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(118)], 0);
+	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(118)], 0);
 #undef MSG_INIT_DESCRIPTOR
 }
 /*
@@ -7968,16 +7906,16 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 				char text[3] = "";
 				text[0]      = p[0];
 				text[1]      = p[1];
-				data->mWidths[data->mLineCount] += fn_801968BC((CGs*)lbl_8025C400.mGs, text, proportional, size);
+				data->mWidths[data->mLineCount] += fn_801968BC(&lbl_8025C400.mGs, text, proportional, size);
 			} else if (*p == 17) {
 #if defined(VERSION_JP)
-				TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+				TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
 				CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
 				data->mWidths[data->mLineCount] += (size / 22.0f) * (GXGetTexObjWidth(&icon) / 14);
 #else
-				TPLPalette* palette = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
+				TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
 				CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
 				data->mWidths[data->mLineCount] += 24.0f * (size / 22.0f);
 #endif
@@ -7985,7 +7923,7 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 				data->mCounts[data->mLineCount]++;
 				char text[2] = "";
 				text[0]      = p[0];
-				data->mWidths[data->mLineCount] += fn_801968BC((CGs*)lbl_8025C400.mGs, text, proportional, size);
+				data->mWidths[data->mLineCount] += fn_801968BC(&lbl_8025C400.mGs, text, proportional, size);
 			}
 			break;
 		}

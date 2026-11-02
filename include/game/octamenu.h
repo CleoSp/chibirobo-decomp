@@ -51,7 +51,7 @@ class OctaMenu {
 public:
 	s32 mOpen;              // _00, above 0 while open, below 0 while it closes
 	s32 _04;                // _04
-	u32 _08;                // _08
+	f32 mFade;              // _08, 1 once it has all faded in
 	f32 _0C;                // _0C, glow, 1 when opened from the pad
 	u32 _10;                // _10
 	OctaMenuItem mItems[8]; // _14
@@ -82,12 +82,12 @@ public:
 	virtual void vf28();          // _28
 	virtual void vf2C();          // _2C
 
-	s32 _280;               // _280, _268 in japan
-	u32 _284;               // _284
-	s32 _288;               // _288, item to start on
-	s32 _28C;               // _28C, queued start item, -1 for none
-	s32 mFocus;             // _290, set on the menu that has the cursor
-	u8 _294[0x298 - 0x294]; // _294
+	s32 _280;      // _280, _268 in japan
+	u32 _284;      // _284
+	s32 _288;      // _288, item to start on
+	s32 _28C;      // _28C, queued start item, -1 for none
+	s32 mFocus;    // _290, set on the menu that has the cursor
+	f32 mHeadTurn; // _294, nan to turn the head with the cursor
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(OctaMenu) == 0x280);

@@ -15,10 +15,7 @@ public:
 	s32 _10;       // _10
 	f32 _14;       // _14
 	s32 _18;       // _18
-	f32 _1C;       // _1C
-	f32 _20;       // _20
-	f32 _24;       // _24
-	f32 _28;       // _28
+	f32 mValue[4]; // _1C, the count shown and the real one, then the box's width shown and wanted
 	Vec mPos[6];   // _2C
 	u8 mVisible;   // _74
 	u8 _75;        // _75

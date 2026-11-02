@@ -1,125 +1,169 @@
-#include "game/particle_srt.h"
-#include "game/xobjactorfamily.h"
-
-// XObjActorMama, Mrs. Sanderson
+#include "game/xobjactor.h"
+#include "game/xchr.h"
+#include "game/gmath.h"
 
 void XObjActorMama::vf150()
 {
 	mState = NULL;
 }
 
+/**
+ * @note Address: 0x80126440
+ * @note Size: 0x58
+ */
 void XObjActorMama::vf14C(u32 frames)
 {
-	if (mState) {
+	if (mState != NULL) {
 		(this->*mState)(frames);
 	}
 }
 
+/**
+ * @note Address: 0x80126498
+ * @note Size: 0x78
+ */
 XObjActorMama::~XObjActorMama()
 {
 }
 
+/**
+ * @note Address: 0x80126510
+ * @note Size: 0xAC
+ */
 HSD_JObj* XObjActorMama::vf168()
 {
 	s32 path[4] = { 0, 4, 0, 0 };
-	return FindJoint(mJObj, 4, path);
+	return FindJointByPath(mJObj, path, 4);
 }
 
+/**
+ * @note Address: 0x801265BC
+ * @note Size: 0x5C
+ */
 CVec XObjActorMama::vf16C()
 {
 	s32 path[4] = { 0, 4, 0, 0 };
 	return fn_8007E7C8(this, 4, path);
 }
 
+/**
+ * @note Address: 0x80126618
+ * @note Size: 0x8
+ */
 f32 XObjActorMama::vf17C()
 {
 	return -0.17453292f;
 }
 
+/**
+ * @note Address: 0x80126620
+ * @note Size: 0x8
+ */
 f32 XObjActorMama::vf178()
 {
 	return 0.17453292f;
 }
 
+/**
+ * @note Address: 0x80126628
+ * @note Size: 0x8
+ */
 f32 XObjActorMama::vf174()
 {
 	return -0.6981317f;
 }
 
+/**
+ * @note Address: 0x80126630
+ * @note Size: 0x8
+ */
 f32 XObjActorMama::vf170()
 {
 	return 0.6981317f;
 }
 
-s32 XObjActorMama::vf124(s32 argc, s32* argv)
+/**
+ * @note Address: 0x80126638
+ * @note Size: 0x210
+ */
+s32 XObjActorMama::vf124(s32 count, s32* command)
 {
-	fn_801070A4(this, argc, argv);
-	switch (argv[0]) {
+	fn_801070A4(this, count, command);
+	switch (command[0]) {
 	case 1:
-		switch (argv[1]) {
+		switch (command[1]) {
 		case 0:
 			fn_8010771C(this, 0.08726646f);
 			break;
 		case 1:
-			fn_801076FC(this, &GAME_PLAYER->mMoveTranslate, 0.08726646f);
+			fn_801076FC(this, (s32)&lbl_8025C400.GetPlayer()->mMoveTranslate, 0.08726646f);
 			break;
 		case 2:
-			if (FindObj(argv[2]) != NULL) {
-				fn_801076FC(this, &FindObj(argv[2])->mMoveTranslate, 0.017453292f * argv[3]);
+			if (FindObj(command[2]) != NULL) {
+				fn_801076FC(this, (s32)&FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3:
-			fn_801076DC(this, 0.017453292f * argv[2], 0.017453292f * argv[3]);
+			fn_801076DC(this, DEG2RAD * command[2], DEG2RAD * command[3]);
 			break;
 		}
 		break;
 	default:
-		if (argc < 1) {
+		if (count < 1) {
 			return 0;
 		}
-		_9E0 = argv[0];
-		if (argc < 2) {
-			_9E4 = 0;
+		mCmd[0] = command[0];
+		if (count < 2) {
+			mCmd[1] = 0;
 		} else {
-			_9E4 = argv[1];
+			mCmd[1] = command[1];
 		}
-		_9E8[0] = argv[2];
-		_9E8[1] = argv[3];
-		_9E8[2] = argv[4];
-		_9E8[3] = argv[5];
-		_9E8[4] = argv[6];
-		_9E8[5] = argv[7];
-		_9E8[6] = argv[8];
-		_9E8[7] = argv[9];
+		mCmd[2] = command[2];
+		mCmd[3] = command[3];
+		mCmd[4] = command[4];
+		mCmd[5] = command[5];
+		mCmd[6] = command[6];
+		mCmd[7] = command[7];
+		mCmd[8] = command[8];
+		mCmd[9] = command[9];
 		break;
 	}
 	return 0;
 }
 
+/**
+ * @note Address: 0x80126848
+ * @note Size: 0x4
+ */
 void XObjActorMama::StateNone(u32 frames)
 {
 }
 
+/**
+ * @note Address: 0x80128230
+ * @note Size: 0x38C
+ */
 // lets go of what she carries
+// NONMATCHING: the first flag test
 void XObjActorMama::Drop()
 {
 	s32 kind = -1;
-	if (TestFlag(_C8C, 4)) {
+	if (_C8C.Check(4)) {
 		_C8C.mFlags &= ~4;
 		kind = 0x7D;
-	} else if (TestFlag(_C8C, 1)) {
+	} else if (_C8C.Check(1)) {
 		_C8C.mFlags &= ~1;
 		kind = 0x40;
-	} else if (TestFlag(_C8C, 2)) {
+	} else if (_C8C.Check(2)) {
 		_C8C.mFlags &= ~2;
 		kind = 0x5B;
-	} else if (TestFlag(_C8C, 8)) {
+	} else if (_C8C.Check(8)) {
 		_C8C.mFlags &= ~8;
 		kind = 0x196;
-	} else if (TestFlag(_C8C, 0x10)) {
+	} else if (_C8C.Check(0x10)) {
 		_C8C.mFlags &= ~0x10;
 		kind = 0x1A1;
-	} else if (TestFlag(_C8C, 0x20)) {
+	} else if (_C8C.Check(0x20)) {
 		_C8C.mFlags &= ~0x20;
 		kind = 0x45B;
 	}
@@ -129,9 +173,9 @@ void XObjActorMama::Drop()
 	switch (kind) {
 	case 0x40:
 		for (s32 i = 0; i < 64; i++) {
-			XObj* obj = GAME_POOL_9734->Get(i);
-			if (kind == obj->GetDescKind()) {
-				obj->mFlags &= ~0x10000ULL;
+			XObj* obj = lbl_8025C400.mXObjs.mPools[8].Get(i);
+			if (kind == obj->GetKind()) {
+				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}
 		break;
@@ -140,46 +184,54 @@ void XObjActorMama::Drop()
 	case 0x196:
 	case 0x45B:
 		for (s32 i = 0; i < 288; i++) {
-			XObj* obj = GAME_POOL_984C->Get(i);
-			if (kind == obj->GetDescKind()) {
-				obj->mFlags &= ~0x10000ULL;
+			XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+			if (kind == obj->GetKind()) {
+				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}
 		break;
 	case 0x1A1:
 		for (s32 i = 0; i < 288; i++) {
-			XObj* obj = GAME_POOL_984C->Get(i);
-			if (obj->GetDescKind() == 0x1A0) {
-				obj->mFlags &= ~0x10000ULL;
-			} else if (kind == obj->GetDescKind()) {
-				obj->mFlags &= ~0x10000ULL;
+			XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+			if (obj->GetKind() == 0x1A0) {
+				obj->mStatus.mFlags &= ~0x10000ULL;
+			} else if (kind == obj->GetKind()) {
+				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}
 		break;
 	}
 }
 
-void XObjActorMama::Update(u32 frames)
+/**
+ * @note Address: 0x80128210
+ * @note Size: 0x20
+ */
+void XObjActorMama::vfA4(u32 frames)
 {
 	fn_80107DE0(this, frames);
 }
 
+/**
+ * @note Address: 0x8012926C
+ * @note Size: 0xB0
+ */
 void XObjActorMama::vf15C()
 {
-	UnkPlayer* player = GAME_PLAYER;
-	if (player->_980 & 0x40000000) {
-		player->_980 = 0;
-		player->_980 |= 0x20000000;
-		player->_980 |= 7;
-		player->_12DF4 = 1;
+	XObjChr* player = lbl_8025C400.GetPlayer();
+	if (player->_980.mFlags & 0x40000000) {
+		player->_980.mFlags = 0;
+		player->_980.mFlags |= 0x20000000;
+		player->_980.mFlags |= 7;
+		player->mPadReset = TRUE;
 	}
-	mStatus.mFlags = 0;
-	_C8C.mFlags    = 0;
-	_980           = 0.0f;
-	_984           = 0.0f;
-	_988           = 0.0f;
-	_C84           = _988;
-	_C88           = 0;
-	mState         = &XObjActorMama::StateNone;
+	_998.mFlags = 0;
+	_C8C.mFlags = 0;
+	_980        = 0.0f;
+	_984        = 0.0f;
+	_988        = 0.0f;
+	_C84        = _988;
+	_C88        = 0;
+	mState      = &XObjActorMama::StateNone;
 	fn_8010706C(this);
 }

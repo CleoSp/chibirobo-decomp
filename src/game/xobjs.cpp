@@ -2,15 +2,13 @@
 #include "game/cgame.h"
 #include "game/xchr.h"
 #include "Dolphin/OS/OSMessage.h"
-#include "Dolphin/OS/OSAlloc.h"
 #include "Dolphin/OS/OSThread.h"
 #include "game/xobjchr.h"
 
 // Dolphin/os.h resolves to the hsd copy, whose OSHeapHandle clashes with OSAlloc.h
 extern "C" void OSPanic(const char* file, int line, const char* message, ...);
 
-struct UnkXObjList;
-extern "C" void fn_80132950(UnkXObjList* list);
+extern "C" void fn_80132950(XOBJS* list);
 
 // one request slot in a reader
 struct UnkXObjReadReq {
@@ -67,7 +65,7 @@ public:
  * @note Address: 0x80132040
  * @note Size: 0xB4
  */
-extern "C" BOOL fn_80132040(XObjRead* self, XObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_80132040(XObjRead* self, XObj* obj, XOBJS* list)
 {
 	obj->mStatus.mFlags |= 0x0080000000000000ULL;
 	return self->ReadStart(obj, list);
@@ -103,7 +101,7 @@ extern "C" void fn_80132140(void* self)
  * @note Address: 0x80132144
  * @note Size: 0xB8
  */
-extern "C" BOOL fn_80132144(XObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_80132144(XObj* obj, XOBJS* list)
 {
 	obj->mStatus.mFlags |= 0x0080000000000000ULL;
 	return lbl_80380748.ReadStart(obj, list);
@@ -129,7 +127,7 @@ extern "C" void fn_801321FC(void* self, UnkXObjReadReq* req)
  * @note Address: 0x801322A4
  * @note Size: 0xB4
  */
-extern "C" BOOL fn_801322A4(XObjRead* self, XObj* obj, UnkXObjList* list)
+extern "C" BOOL fn_801322A4(XObjRead* self, XObj* obj, XOBJS* list)
 {
 	obj->mStatus.mFlags |= 0x0040000000000000ULL;
 	return self->ReadStart(obj, list);
@@ -158,7 +156,7 @@ extern "C" void fn_80132358(void* arg)
 // XObjReadAll::vf18
 extern "C" void fn_801323A4(void* self, UnkXObjReadReq* req)
 {
-	fn_80132950((UnkXObjList*)req->_04);
+	fn_80132950((XOBJS*)req->_04);
 	req->_00 = NULL;
 }
 
@@ -196,7 +194,7 @@ extern "C" void fn_80132428(XObjRead* self)
  * @note Size: 0x9C
  */
 // out of line XObjRead::ReadStart
-extern "C" BOOL fn_80132468(XObjRead* self, void* obj, UnkXObjList* list)
+extern "C" BOOL fn_80132468(XObjRead* self, void* obj, XOBJS* list)
 {
 	return self->ReadStart(obj, list);
 }
@@ -258,7 +256,7 @@ extern "C" s32 fn_80132504(XObjRead* self, OSThreadStartFunction func, void* par
 	for (s32 i = 0; i < 8; i++) {
 		self->_350[i]._00 = NULL;
 	}
-	self->_318 = OSAlloc(stackSize);
+	self->_318 = OSAllocFromHeap(__OSCurrHeap, stackSize);
 	self->_31C = stackSize;
 	if (OSCreateThread(&self->_00, func, param, (u8*)self->_318 + self->_31C, self->_31C, priority, attr)) {
 		self->_31C = stackSize;
@@ -274,7 +272,7 @@ extern "C" s32 fn_80132504(XObjRead* self, OSThreadStartFunction func, void* par
 // CMsgQueue::vf0C
 extern "C" void fn_801325CC(CMsgQueue* self, s32 count)
 {
-	self->_20 = (OSMessage*)OSAlloc(count * sizeof(OSMessage));
+	self->_20 = (OSMessage*)OSAllocFromHeap(__OSCurrHeap, count * sizeof(OSMessage));
 	OSInitMessageQueue(&self->_00, self->_20, count);
 }
 
@@ -297,41 +295,10 @@ extern "C" CObjArchive* fn_80132620(CObjArchive* archives)
  * @note Address: 0x8013265C
  * @note Size: 0x3C
  */
-// one pool of same sized objects
-struct UnkXObjPool {
-	u8* _00;         // _00
-	s32 _04;         // _04, objects handed out so far
-	s32 _08;         // _08, count
-	const char* _0C; // _0C, the pool's name, printed when it runs out
-	s32 _10;         // _10, size of one object
-
-	XObj* Get(s32 i) { return (XObj*)(_00 + i * _10); }
-
-	s32 Find(u64 mask, u64 value)
-	{
-		for (s32 i = 0; i < _08; i++) {
-			if ((Get(i)->mStatus.mFlags & mask) == value) {
-				return i;
-			}
-		}
-		return -1;
-	}
-};
-
-struct UnkXObjList {
-	UnkXObjPool _00[0x17]; // _00
-	XObj* _1CC[0x400];     // _1CC
-	s32 _11CC;             // _11CC, entries used in _1CC
-	s32 _11D0;             // _11D0
-	s32 _11D4;             // _11D4, fn_80132B98's state, 0 when idle
-
-	inline void ReadAll();
-};
-
-extern "C" s32 fn_8013265C(UnkXObjList* list, CXObj* obj)
+extern "C" s32 fn_8013265C(XOBJS* list, CXObj* obj)
 {
-	for (s32 i = 0; i < list->_11CC; i++) {
-		if (list->_1CC[i] == obj) {
+	for (s32 i = 0; i < list->mObjectCount; i++) {
+		if (list->mObjects[i] == obj) {
 			return i;
 		}
 	}
@@ -342,20 +309,20 @@ extern "C" s32 fn_8013265C(UnkXObjList* list, CXObj* obj)
  * @note Address: 0x80132698
  * @note Size: 0x230
  */
-extern "C" XObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 unused, BOOL async)
+extern "C" XObj* fn_80132698(XOBJS* list, CoordInfo* info, s32 unused, BOOL async)
 {
 	XObj* obj;
 	AttrInfo attr(info);
 	s16 pool = attr._00 ? attr._00->_14 : 0;
 
-	s32 idx = list->_00[pool].Find(1, 0);
+	s32 idx = list->mPools[pool].Find(1, 0);
 	if (idx >= 0) {
-		obj = list->_00[pool].Get(idx);
-		if (idx >= list->_00[pool]._04) {
-			list->_1CC[list->_11CC]       = obj;
-			list->_1CC[list->_11CC]->_258 = list->_00[pool]._04;
-			list->_00[pool]._04++;
-			list->_11CC++;
+		obj = list->mPools[pool].Get(idx);
+		if (idx >= list->mPools[pool].mUsed) {
+			list->mObjects[list->mObjectCount]       = obj;
+			list->mObjects[list->mObjectCount]->_258 = list->mPools[pool].mUsed;
+			list->mPools[pool].mUsed++;
+			list->mObjectCount++;
 		}
 		if (async) {
 			obj->mStatus.mFlags |= 0x0040000000000000ULL;
@@ -529,14 +496,14 @@ extern "C" XObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 unused, BOO
  * @note Address: 0x801328C8
  * @note Size: 0x88
  */
-extern "C" void fn_801328C8(UnkXObjList* list)
+extern "C" void fn_801328C8(XOBJS* list)
 {
-	for (s32 i = 0; i < list->_11CC; i++) {
-		list->_1CC[i]->Release();
-		list->_1CC[i] = NULL;
+	for (s32 i = 0; i < list->mObjectCount; i++) {
+		list->mObjects[i]->Release();
+		list->mObjects[i] = NULL;
 	}
-	list->_11CC = 0;
-	list->_11D0 = 0;
+	list->mObjectCount = 0;
+	list->_11D0        = 0;
 }
 
 /**
@@ -544,34 +511,34 @@ extern "C" void fn_801328C8(UnkXObjList* list)
  * @note Size: 0x248
  */
 // grabs an object from its pool for every stage entry, then reads them in order
-inline void UnkXObjList::ReadAll()
+inline void XOBJS::ReadAll()
 {
-	for (s32 i = 0; i < (s32)ARRAY_SIZE(_00); i++) {
-		_00[i]._04 = 0;
+	for (s32 i = 0; i < (s32)ARRAY_SIZE(mPools); i++) {
+		mPools[i].mUsed = 0;
 	}
 
 	s32 i;
 	for (i = 0; fn_8006F4A0(i)->_00 >= 0; i++) {
 		CoordInfo info(fn_8006F4A0(i));
-		if (_1CC[i] == NULL) {
+		if (mObjects[i] == NULL) {
 			s16 idx = GetObjData(&info)->_14;
-			if (_00[idx]._04 >= _00[idx]._08) {
-				OSPanic(__FILE__, 161, "%s%s", fn_801911B4("%s:: cnt=%d, max=%d\n", _00[idx]._0C, _00[idx]._04, _00[idx]._08),
-				        __FUNCTION__);
+			if (mPools[idx].mUsed >= mPools[idx].mCount) {
+				OSPanic(__FILE__, 161, "%s%s",
+				        fn_801911B4("%s:: cnt=%d, max=%d\n", mPools[idx].mName, mPools[idx].mUsed, mPools[idx].mCount), __FUNCTION__);
 			}
-			_1CC[i]       = _00[idx].Get(_00[idx]._04);
-			_1CC[i]->_258 = _00[idx]._04;
-			_00[idx]._04++;
+			mObjects[i]       = mPools[idx].Get(mPools[idx].mUsed);
+			mObjects[i]->_258 = mPools[idx].mUsed;
+			mPools[idx].mUsed++;
 		}
 	}
-	_11CC = i;
-	_11D0 = 0;
+	mObjectCount = i;
+	_11D0        = 0;
 
-	for (s32 i = 0; i < _11CC; i++) {
+	for (s32 i = 0; i < mObjectCount; i++) {
 		UnkStageObj* obj = fn_8006F4A0(i);
 		CoordInfo info(obj);
 		if ((obj->_34 & 0x80000000ULL) == 0) {
-			while (!_1CC[_11D0]->vf9C(info)) { }
+			while (!mObjects[_11D0]->vf9C(info)) { }
 		}
 		_11D0++;
 		if (lbl_8025C400.mReset != 0) {
@@ -581,8 +548,8 @@ inline void UnkXObjList::ReadAll()
 	_11D4 = 2;
 }
 
-// out of line UnkXObjList::ReadAll
-extern "C" void fn_80132950(UnkXObjList* list)
+// out of line XOBJS::ReadAll
+extern "C" void fn_80132950(XOBJS* list)
 {
 	list->ReadAll();
 }
@@ -758,7 +725,7 @@ extern "C" BOOL fn_800B8EC4(XObj* player);
 extern "C" BOOL fn_800B78FC(XObj* player);
 
 // steps through the stage read and the player setup calls, true when done
-extern "C" u8 fn_80132B98(UnkXObjList* list)
+extern "C" u8 fn_80132B98(XOBJS* list)
 {
 	if (list->_11D4 == 0) {
 		lbl_80380008.ReadStart((void*)1, list);
@@ -767,13 +734,13 @@ extern "C" u8 fn_80132B98(UnkXObjList* list)
 	if (list->_11D4 == 2) {
 		list->_11D4 = 3;
 	}
-	if (list->_11D4 == 3 && fn_800B8EC4(lbl_8025C400.mPlayer)) {
+	if (list->_11D4 == 3 && fn_800B8EC4(lbl_8025C400.GetPlayer())) {
 		list->_11D4 = 4;
 	}
-	if (list->_11D4 == 4 && fn_800B78FC(lbl_8025C400.mPlayer)) {
+	if (list->_11D4 == 4 && fn_800B78FC(lbl_8025C400.GetPlayer())) {
 		list->_11D4 = 5;
 	}
-	if (list->_11D4 == 5 && fn_800B9758(lbl_8025C400.mPlayer)) {
+	if (list->_11D4 == 5 && fn_800B9758(lbl_8025C400.GetPlayer())) {
 		list->_11D4 = 0;
 	}
 	return list->_11D4 == 0;

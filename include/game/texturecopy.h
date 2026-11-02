@@ -13,7 +13,7 @@ void GXCopyTex(void* image, u8 clear);
 
 static inline CGs* CaptureGraphics()
 {
-	return (CGs*)lbl_8025C400.mGs;
+	return &lbl_8025C400.mGs;
 }
 
 static inline void FlushCaptureGraphics(CGs* graphics)

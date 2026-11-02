@@ -1,12 +1,10 @@
-#include "game/cgs.h"
+#include "game/cgame.h"
 #include "game/ccamera.h"
 #include "game/clight.h"
 #include "Version.h"
 extern "C" {
 #include <dolphin/gx/gx.h>
 }
-
-extern "C" CGs lbl_8025C400;
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -155,11 +153,6 @@ static inline void SetupDrawState(CGs* gs)
 		gs->mCurChannel->Setup(FALSE);
 	}
 }
-
-class CBase : public CGs {
-public:
-	Vec mTextRot; // _17B4, cleared by the light setup
-};
 
 // one character out of a text string, \C and \B followed by eight hex digits set the text
 // and background colors and give no character
@@ -446,8 +439,7 @@ static inline GXColor GsZeroColor()
 	GXColor c = { 0, 0, 0, 0 };
 	return c;
 }
-// Construct the result before entering the channel multiplication, preserving
-// the original temporary order alongside the two input colors.
+// a times b per channel, out of 255, into a
 static inline GXColor GsMulColor(GXColor& a, GXColor b, GXColor c)
 {
 	c.r = (u32)(a.r * b.r) / 255;
@@ -506,7 +498,7 @@ extern "C" void fn_8019B850(CGsScreen* screen, s32 mode, u16 hor, u16 ver)
 	GXAdjustForOverscan(lbl_80237728[screen->mMode], screen, hor, ver);
 	screen->viWidth   = 660;
 	screen->viXOrigin = (720 - screen->viWidth) / 2;
-	// viTVMode is a VITVMode in the sdk, the hsd header has it as a u32
+	// viTVMode is a VITVMode in the sdk, signed
 	if (((s32)screen->viTVMode & 3) == 1) {
 		screen->viYOrigin /= 2;
 	}
@@ -1768,8 +1760,9 @@ extern "C" void fn_80199AB0(CGs* gs, s32 chan, u8 enable)
  * @note Address: 0x8019997C
  * @note Size: 0x134
  */
-extern "C" MtxPtr fn_8019997C(CBase* gs)
+extern "C" MtxPtr fn_8019997C(CBase* base)
 {
+	CGs* gs    = &base->mGs;
 	MtxPtr mtx = gs->mCamera->SetCurrent();
 	if (mtx != NULL) {
 		if (gs->mLight != NULL) {
@@ -1790,12 +1783,14 @@ extern "C" MtxPtr fn_8019997C(CBase* gs)
 				}
 			}
 		}
+#if !defined(VERSION_JP)
 		// todo: cleanup, the only spelling that matched, the original was probably an inline
-		Vec zero     = { 0.0f, 0.0f, 0.0f };
-		zero.x       = 0.0f;
-		zero.y       = 0.0f;
-		zero.z       = 0.0f;
-		gs->mTextRot = zero;
+		Vec zero       = { 0.0f, 0.0f, 0.0f };
+		zero.x         = 0.0f;
+		zero.y         = 0.0f;
+		zero.z         = 0.0f;
+		base->mTextRot = zero;
+#endif
 	}
 	return mtx;
 }
@@ -3339,8 +3334,9 @@ extern "C" void fn_80196518(CBase* gs, u32 color, const char* format, f32 x, f32
  */
 // draws text with one sprite per character and a background tile behind each when the
 // background color isn't zero
-extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char* text, f32 x, f32 y, f32 z, f32 size, f32 height)
+extern "C" void fn_801950C8(CBase* base, u32 color, BOOL proportional, const char* text, f32 x, f32 y, f32 z, f32 size, f32 height)
 {
+	CGs* gs = &base->mGs;
 	f32 offsX;
 	f32 curX = x;
 	f32 curY = y;
@@ -3416,7 +3412,11 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 
 		sCur->mSprite.SetTrans(centerX, centerY, z);
 		sCur->mSprite.SetScale(scaleX, scaleY, 1.0f);
-		sCur->mSprite.SetRot(gs->mTextRot.x, gs->mTextRot.y, gs->mTextRot.z);
+#if defined(VERSION_JP)
+		sCur->mSprite.SetRot(0.0f, 0.0f, 0.0f);
+#else
+		sCur->mSprite.SetRot(base->mTextRot.x, base->mTextRot.y, base->mTextRot.z);
+#endif
 		SetCenter(&sCur->mSprite, u, v, 0.0f);
 		SetColor(&sCur->mSprite, glyph.mColor);
 		SetBillboard(&sCur->mSprite, gs->_29C);
@@ -3424,7 +3424,11 @@ extern "C" void fn_801950C8(CBase* gs, u32 color, BOOL proportional, const char*
 		if (sCur->mHasBg = glyph.mBgColor != 0) {
 			sCur->mBg.SetTrans(centerX, centerY, z);
 			sCur->mBg.SetScale(advance / 2.0f, scaleY, 1.0f);
-			sCur->mBg.SetRot(gs->mTextRot.x, gs->mTextRot.y, gs->mTextRot.z);
+#if defined(VERSION_JP)
+			sCur->mBg.SetRot(0.0f, 0.0f, 0.0f);
+#else
+			sCur->mBg.SetRot(base->mTextRot.x, base->mTextRot.y, base->mTextRot.z);
+#endif
 			SetCenter(&sCur->mBg, 2.0f * (offsX / advance) + 1.0f - textWidth / advance, v, 0.0f);
 			SetColor(&sCur->mBg, glyph.mBgColor);
 			SetBillboard(&sCur->mBg, gs->_29C);
@@ -4872,8 +4876,9 @@ extern "C" void fn_80194FD4(CBase* gs, u32 color, const char* fmt, f32 x, f32 y,
  * @note Address: 0x801943FC
  * @note Size: 0xBD8
  */
-extern "C" void fn_801943FC(CBase* gs, u32 color, const char* text, f32 x, f32 y, f32 z, f32 w, f32 h)
+extern "C" void fn_801943FC(CBase* base, u32 color, const char* text, f32 x, f32 y, f32 z, f32 w, f32 h)
 {
+	CGs* gs = &base->mGs;
 	if (gs->mCurRenderMode == &gs->mRenderMode) {
 		gs->mRenderMode.mLineWidth    = 12;
 		gs->mRenderMode.mLineTexOffs  = 5;
@@ -4910,9 +4915,15 @@ extern "C" void fn_801943FC(CBase* gs, u32 color, const char* text, f32 x, f32 y
 	Mtx scale;
 	Mtx mtx;
 	PSMTXTrans(trans, x + width * w * 0.5f, y, z);
-	PSMTXRotRad(rotX, 'x', gs->mTextRot.x);
-	PSMTXRotRad(rotY, 'y', gs->mTextRot.y);
-	PSMTXRotRad(rotZ, 'z', gs->mTextRot.z);
+#if defined(VERSION_JP)
+	PSMTXRotRad(rotX, 'x', 0.0f);
+	PSMTXRotRad(rotY, 'y', 0.0f);
+	PSMTXRotRad(rotZ, 'z', 0.0f);
+#else
+	PSMTXRotRad(rotX, 'x', base->mTextRot.x);
+	PSMTXRotRad(rotY, 'y', base->mTextRot.y);
+	PSMTXRotRad(rotZ, 'z', base->mTextRot.z);
+#endif
 	if (gs->mCamera->projection_type == PROJ_ORTHO) {
 		PSMTXScale(scale, w, h, 1.0f);
 	} else {

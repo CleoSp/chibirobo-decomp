@@ -15,7 +15,7 @@ extern "C" {
 #include "game/cscrn.h"
 }
 
-#define PLAYER lbl_8025C400.mPlayer
+#define PLAYER lbl_8025C400.GetPlayer()
 
 extern "C" {
 void fn_8001D2D0(CCamera* camera);
@@ -31,7 +31,7 @@ CCameraActionMap lbl_805C47DC[2];
 
 inline CInterfaceCameraAction* CMotionControlCamera::GetAction(s32 type)
 {
-	return lbl_8025C400.mCameraTable[type];
+	return lbl_8025C400.mCameraActions.mTable[type];
 }
 
 // deferred inlining, so these go last to first
@@ -88,16 +88,16 @@ void CMotionControlCamera::Init()
 	SetEye(mCamera.mEye);
 	SetInterest(mCamera.mInterest);
 	SetAngle(mCamera.mAngle);
-	mMode           = 0;
-	mAction         = NULL;
-	mPrevAction     = NULL;
-	mPushedAction   = NULL;
-	_1E0            = -1;
-	_1DC            = -1;
-	mFlags.mFlags   = 0;
-	mInterestMode   = 0;
-	mEyeMode        = 0;
-	mFollow.mDivide = 12.0f;
+	mMode         = 0;
+	mAction       = NULL;
+	mPrevAction   = NULL;
+	mPushedAction = NULL;
+	_1E0          = -1;
+	_1DC          = -1;
+	mFlags.mFlags = 0;
+	mInterestMode = 0;
+	mEyeMode      = 0;
+	mFollowDivide = 12.0f;
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ClearHideList();
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->SaveCamInfo(NULL);
 	lbl_8025C400.mStatus.mFlags |= 0x1000000000000ULL;
@@ -123,7 +123,7 @@ void CMotionControlCamera::Update(u32 step)
 	}
 
 	CPad pad(0);
-	if (lbl_8025C400._5D080 == NULL && (lbl_8025C400.mStatus.mFlags & 0x1000000000000ULL)) {
+	if (lbl_8025C400.mEvt.mData.mScript == NULL && (lbl_8025C400.mStatus.mFlags & 0x1000000000000ULL)) {
 		CCameraActionScroll2* room = (CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2);
 		if (room->GetLimits(lbl_8025C400.mStage) != NULL && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
 			if (mAction == GetAction(CAMACTION_AREA) || mAction == GetAction(CAMACTION_SCROLL) || mAction == GetAction(CAMACTION_MAP)) {
@@ -147,12 +147,12 @@ void CMotionControlCamera::Update(u32 step)
 		if (mAction != GetAction(CAMACTION_CHASE)) {
 			ChangeAction(CAMACTION_CHASE);
 		} else {
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->RestoreAction();
+			lbl_8025C400.mMotionControlCamera.RestoreAction();
 		}
 	}
 
 	BOOL look = FALSE;
-	if (((pad.mPad->mTrigger & 0x800) || (pad.mPad->mTrigger & 0x200)) && lbl_8025C400._5D080 == NULL) {
+	if (((pad.mPad->mTrigger & 0x800) || (pad.mPad->mTrigger & 0x200)) && lbl_8025C400.mEvt.mData.mScript == NULL) {
 		bool free = false;
 		if ((lbl_8025C400.mStatus.mFlags & 1) && !(lbl_8025C400.mStatus.mFlags & 0x22)) {
 			bool blocked = false;
@@ -174,7 +174,7 @@ void CMotionControlCamera::Update(u32 step)
 					look = TRUE;
 				}
 			} else if (pad.mPad->mTrigger & 0x800) {
-				fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x85, 0xFF);
+				fn_8001E904(&lbl_8025C400.mSound, 0x85, 0xFF);
 			}
 		}
 	}
@@ -184,7 +184,7 @@ void CMotionControlCamera::Update(u32 step)
 			if (PlayerCanLook()) {
 				StartEye();
 			} else {
-				fn_8001E904((CSound*)&lbl_8025C400.mSound, 0x85, 0xFF);
+				fn_8001E904(&lbl_8025C400.mSound, 0x85, 0xFF);
 			}
 		} else {
 			EndEye();
@@ -1072,16 +1072,16 @@ void CMotionControlCamera::Interpolate(u32 step)
 			mCamera.SetInterest(mInterest);
 			break;
 		case 2:
-			mFollow.Follow(mInterest, mCamera.mInterest);
-			mCamera.SetInterest(mFollow.mValue);
+			Follow(mInterest, mCamera.mInterest);
+			mCamera.SetInterest(mFollowValue);
 			break;
 		case 3: {
 			// keep the height, only follow it round
 			Vec interest = mCamera.mInterest;
 			interest.y   = mInterest.y;
 			mCamera.SetInterest(interest);
-			mFollow.Follow(mInterest, mCamera.mInterest);
-			mCamera.SetInterest(mFollow.mValue);
+			Follow(mInterest, mCamera.mInterest);
+			mCamera.SetInterest(mFollowValue);
 			break;
 		}
 		}
@@ -1096,8 +1096,8 @@ void CMotionControlCamera::Interpolate(u32 step)
 			break;
 		case 2:
 		case 3:
-			mFollow.Follow(mEye, mCamera.mEye);
-			mCamera.SetEye(mFollow.mValue);
+			Follow(mEye, mCamera.mEye);
+			mCamera.SetEye(mFollowValue);
 			break;
 		}
 	}
@@ -1924,11 +1924,11 @@ void CMotionControlCamera::StartEye()
 	if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
 		lbl_8025C400.mStatus.mFlags |= 0x100;
 		PushAction(GetAction(CAMACTION_EYE));
-		fn_800BADAC(lbl_8025C400.mPlayer);
-		fn_800A30EC(lbl_8025C400.mPlayer, 1);
-		fn_80023438((CScrnWipe*)lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f,
-		            400.0f, 0.15f, 0xFF, 0);
-		fn_8001E904((CSound*)&lbl_8025C400.mSound, 4, 0xFF);
+		fn_800BADAC(lbl_8025C400.GetPlayer());
+		fn_800A30EC(lbl_8025C400.GetPlayer(), 1);
+		fn_80023438(&lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f, 400.0f, 0.15f,
+		            0xFF, 0);
+		fn_8001E904(&lbl_8025C400.mSound, 4, 0xFF);
 	}
 }
 
@@ -1941,10 +1941,10 @@ void CMotionControlCamera::EndEye()
 	if (lbl_8025C400.mStatus.mFlags & 0x100) {
 		lbl_8025C400.mStatus.mFlags &= ~0x300ULL;
 		PopAction();
-		fn_800A30EC(lbl_8025C400.mPlayer, 0);
-		fn_80023438((CScrnWipe*)lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f,
-		            500.0f, 0.2f, 0, 1);
-		fn_8001E904((CSound*)&lbl_8025C400.mSound, 2, 0xFF);
+		fn_800A30EC(lbl_8025C400.GetPlayer(), 0);
+		fn_80023438(&lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f, 500.0f, 0.2f,
+		            0, 1);
+		fn_8001E904(&lbl_8025C400.mSound, 2, 0xFF);
 	}
 }
 
@@ -2123,11 +2123,11 @@ f32 CMotionControlCamera::GetMapDistance()
 void CCameraActions::Init()
 {
 	mTable[CAMACTION_DEFAULT] = &mDefault;
-	mTable[CAMACTION_AREA]    = (CInterfaceCameraAction*)mArea;
+	mTable[CAMACTION_AREA]    = &mArea;
 	mTable[CAMACTION_CHASE]   = &mChase;
 	mTable[CAMACTION_EVT]     = &mEvt;
 	mTable[CAMACTION_SCROLL2] = &mScroll2;
-	mTable[CAMACTION_EYE]     = (CInterfaceCameraAction*)mEye;
+	mTable[CAMACTION_EYE]     = &mEye;
 	mTable[CAMACTION_ANIM]    = &mAnim;
 	mTable[CAMACTION_MAP]     = &mMap;
 	mTable[CAMACTION_LADR]    = &mLadr;

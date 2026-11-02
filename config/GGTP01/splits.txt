@@ -13,9 +13,16 @@ Sections:
 	.sdata2     type:rodata align:16
 	.sbss2      type:bss align:32
 
+game/cgame.cpp:
+	.text       start:0x800078A0 end:0x800195FC
+
 game/cgameinit.cpp:
 	.text       start:0x800195FC end:0x80019740
 	.ctors      start:0x80200064 end:0x80200068
+
+game/gxa.cpp:
+	.text       start:0x80019740 end:0x8001E050
+	.ctors      start:0x80200068 end:0x8020006C
 
 game/sound.cpp:
 	.text       start:0x8001E050 end:0x8001FCD0
@@ -24,12 +31,22 @@ game/sound.cpp:
 	.sdata      start:0x80661048 end:0x80661050
 	.sdata2     start:0x80662F34 end:0x80662F6C
 
+game/gxb.cpp:
+	.text       start:0x8001FCD0 end:0x80031940
+
 game/titlestates.cpp:
 	.text       start:0x80031940 end:0x80031C98
 	.ctors      start:0x8020006C end:0x80200070
 
+game/stg.cpp:
+	.text       start:0x80031C98 end:0x800648F0
+
 game/menu_cleanup.cpp:
 	.text       start:0x800650A0 end:0x80065620
+
+game/infoscrn.cpp:
+	.text       start:0x80065620 end:0x8006F940
+	.bss        start:0x8036DB70 end:0x8036DE98
 
 game/infopointinit.cpp:
 	.text       start:0x8006F940 end:0x8006F9CC
@@ -39,7 +56,8 @@ game/infopointdtor.cpp:
 	.text       start:0x8006F9CC end:0x8006FA14
 
 game/stage_data.cpp:
-	.text       start:0x8006FA14 end:0x80071794
+	.text       start:0x8006FA14 end:0x80071AF4
+	.ctors      start:0x80200078 end:0x8020007C
 
 game/evt.cpp:
 	.text       start:0x80071AF4 end:0x80080DB8
@@ -114,6 +132,9 @@ game/memcardinit.cpp:
 	.text       start:0x8008C2B0 end:0x8008C2FC
 	.ctors      start:0x80200080 end:0x80200084
 
+game/obja.cpp:
+	.text       start:0x8008C2FC end:0x80094B50
+
 game/xobjcameradtor.cpp:
 	.text       start:0x80094B50 end:0x80094C2C
 
@@ -125,6 +146,12 @@ game/xobjlightdtor.cpp:
 
 game/xobjlight.cpp:
 	.text       start:0x80094EE4 end:0x800951E0
+
+game/obja_map.cpp:
+	.text       start:0x800951E0 end:0x80095C28
+
+game/obja_chr.cpp:
+	.text       start:0x80095C28 end:0x800B9E08
 
 game/xobjchrrestore.cpp:
 	.text       start:0x800B9E6C end:0x800BA0CC
@@ -195,6 +222,15 @@ game/oxmenudtor.cpp:
 game/cptcldtor.cpp:
 	.text       start:0x800BF888 end:0x800BF8D0
 
+game/objb_act.cpp:
+	.text       start:0x800BF8D4 end:0x800D7BFC
+
+game/objb_attach.cpp:
+	.text       start:0x800D7BFC end:0x800DA40C
+
+game/objb_plug.cpp:
+	.text       start:0x800DA40C end:0x800DC1E0
+
 game/xobjplugnodedraw.cpp:
 	.text       start:0x800DCBA0 end:0x800DCD5C
 
@@ -230,6 +266,9 @@ game/inventory.cpp:
 
 game/params.cpp:
 	.text       start:0x800DF400 end:0x800DF9FC
+
+game/objb_sound.cpp:
+	.text       start:0x800DF9FC end:0x800DFC70
 
 game/xobjfreedtor.cpp:
 	.text       start:0x800DFC70 end:0x800DFCD0
@@ -282,6 +321,22 @@ game/xobjcoindtor.cpp:
 game/xobjflagsinit.cpp:
 	.text       start:0x800E4BF0 end:0x800E4C7C
 	.ctors      start:0x80200084 end:0x80200088
+
+game/objb_leticker.cpp:
+	.text       start:0x800E4C7C end:0x800E8EF8
+	.ctors      start:0x80200088 end:0x8020008C
+
+game/objb_army.cpp:
+	.text       start:0x800E8EF8 end:0x800EC8B4
+	.ctors      start:0x8020008C end:0x80200090
+
+game/xobjspider.cpp:
+	.text       start:0x800EC8B4 end:0x800F723C
+	.ctors      start:0x80200090 end:0x80200094
+
+game/xobjspidersmall.cpp:
+	.text       start:0x800F723C end:0x80102808
+	.bss        start:0x803855D0 end:0x80386B00
 
 game/xobjspidersmallinit.cpp:
 	.text       start:0x80102808 end:0x80102984
@@ -339,9 +394,30 @@ game/xobjactorlook.cpp:
 game/xobjactorupdate.cpp:
 	.text       start:0x8010A604 end:0x8010AC48
 
+game/scrc.cpp:
+	.text       start:0x8010AC48 end:0x80117AAC
+
 game/xobjactor3init.cpp:
 	.text       start:0x80117AAC end:0x80117D44
 	.ctors      start:0x8020009C end:0x802000A0
+
+game/xobjactortoy.cpp:
+	.text       start:0x80117D44 end:0x80125618
+
+game/xobjactorjenny.cpp:
+	.text       start:0x80125618 end:0x80128C28
+
+game/xobjactormama.cpp:
+	.text       start:0x80128C28 end:0x8012BB28
+
+game/xobjactorpapa.cpp:
+	.text       start:0x8012BB28 end:0x8012F064
+
+game/xobjactortao.cpp:
+	.text       start:0x8012F064 end:0x80131C34
+
+game/xobjactordeca.cpp:
+	.text       start:0x80131C34 end:0x801343F4
 
 game/xobjreadanmdtor.cpp:
 	.text       start:0x801343F4 end:0x80134478

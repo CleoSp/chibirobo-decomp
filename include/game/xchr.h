@@ -28,6 +28,24 @@ public:
 	// _440 vtable
 
 	virtual ~Params(); // _08 (weak)
+
+	// money and scrap stay between 0 and 99999
+	void SetMoney(s32 value)
+	{
+		mMoney = value > 0 ? value : 0;
+		if (mMoney < 0)
+			mMoney = 0;
+		if (mMoney > 99999)
+			mMoney = 99999;
+	}
+	void SetScrap(s32 value)
+	{
+		mScrap = value > 0 ? value : 0;
+		if (mScrap < 0)
+			mScrap = 0;
+		if (mScrap > 99999)
+			mScrap = 99999;
+	}
 };
 STATIC_ASSERT(sizeof(Params) == 0x444);
 
@@ -83,6 +101,14 @@ struct XObjChrMenu {
 
 	// todo: cleanup
 	u8 IsOpen() const { return mAtc.mOpen != 0 || mDrs.mOpen != 0; }
+	bool IsClosing() const
+	{
+		bool ret = false;
+		if (mAtc.mOpen < 0 || mDrs.mOpen < 0) {
+			ret = true;
+		}
+		return ret;
+	}
 };
 
 class XObjChr : public XObj {
@@ -97,7 +123,7 @@ public:
 	CVec _9FC;                 // _9FC
 	u8 _A0C[0xA2C - 0xA0C];    // _A0C
 	s32 _A2C;                  // _A2C, 3 after his anim goes back to standing
-	u32 _A30;                  // _A30
+	f32 _A30;                  // _A30
 	s32 _A34;                  // _A34, flash timer
 	s32 _A38;                  // _A38
 	f32 _A3C;                  // _A3C
@@ -121,8 +147,11 @@ public:
 	XObjChrLook mLook;         // _959C
 	s32 mAttachment;           // _95D0, the AtcMenu pick
 	s32 mAttachmentRequest;    // _95D4, -1 when there's none
-	s32 _95D8;                 // _95D8
-	u8 _95DC[0x960C - 0x95DC]; // _95DC
+	s32 _95D8;                 // _95D8, how far the attachment change is
+	s32 _95DC;                 // _95DC
+	s32 _95E0;                 // _95E0
+	s32 _95E4;                 // _95E4
+	u8 _95E8[0x960C - 0x95E8]; // _95E8
 	CObjVec _960C;             // _960C
 	CVec _963C;                // _963C
 	Params mParams;            // _964C
@@ -152,7 +181,7 @@ public:
 	AttachmentValues mAttachments; // _12DFC, goes in the save as is
 	XObjChrMenu mMenu;             // _12E44, _12D44 in japan
 	OXMenu mOXMenu;                // _13390, _13260 in japan
-	u32 _146D8;                    // _146D8
+	BOOL _146D8;                   // _146D8, set while he's off the floor
 	CPtcl mPtcl;                   // _146DC, _1329C in japan
 	CPtclDust3 mPtcls[50];         // _146F0
 	CTexObj mTex[2];               // _15690
@@ -184,6 +213,9 @@ public:
 			_9AA8 = _9AAC;
 		}
 	}
+
+	// how far above the floor he is
+	f32 GetHeight() const { return _146D8 ? mMoveTranslate.y - _790 : 0.0f; }
 
 	// todo: cleanup
 	s32 GetAttachment() const { return mAttachmentRequest >= 0 ? mAttachmentRequest : mAttachment; }

@@ -91,25 +91,25 @@ class XObjPlug : public XObj {
 public:
 	XObjPlugCord mCord;     // _980
 	u8 _D14[0xD3C - 0xD14]; // _D14
-	u32 _D3C;               // _D3C, XActLift's _54 with 0x10000 set
+	s32 _D3C;               // _D3C, XActLift's _54 with 0x10000 set
 	s32 mLoadState;         // _D40
 	u32 _D44;               // _D44
 	XObjWireEff mWire;      // _D48
 
 	XObjPlug();
 
-	virtual ~XObjPlug();                        // _08 (weak)
-	virtual void Release();                     // _54
-	virtual void vf90(u32 id);                  // _90
-	virtual void vf94();                        // _94
-	virtual void vf98();                        // _98
-	virtual BOOL vf9C(const CoordInfo& info);   // _9C
-	virtual void vfA4(u32 frames);              // _A4
-	virtual void vfB0(Mtx view);                // _B0
-	virtual void vfB4(Mtx view);                // _B4
-	virtual void vfB8();                        // _B8
-	virtual void vfC0();                        // _C0
-	virtual void vfDC(BOOL enabled, u32 value); // _DC
+	virtual ~XObjPlug();                       // _08 (weak)
+	virtual void Release();                    // _54
+	virtual void vf90(u32 id);                 // _90
+	virtual void vf94();                       // _94
+	virtual void vf98();                       // _98
+	virtual BOOL vf9C(const CoordInfo& info);  // _9C
+	virtual void vfA4(u32 frames);             // _A4
+	virtual void vfB0(Mtx view);               // _B0
+	virtual void vfB4(Mtx view);               // _B4
+	virtual void vfB8();                       // _B8
+	virtual void vfC0();                       // _C0
+	virtual void vfDC(BOOL enabled, u8 value); // _DC
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjPlug) == 0x16C0);
@@ -185,13 +185,19 @@ extern "C" {
 // the cord, the scale arguments go unused
 void fn_800DA4D0(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY, f32 scaleZ);
 void fn_800DA68C(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY, f32 scaleZ);
-void fn_800DB7A8(XObjPlugCord* cord, BOOL enabled, u32 alpha);
+void fn_800DB7A8(XObjPlugCord* cord, BOOL enabled, u8 alpha);
 void fn_800DB7D8(XObjPlugCord* cord, u32 index, const Vec* source);
 void fn_800DB810(XObjPlugCord* cord, f32 x, f32 y, f32 z);
 void fn_800DBA7C(XObjPlugCord* cord, s32 count, f32 x, f32 y, f32 z, f32 speed);
 void fn_800DBC98(XObjPlugCordNodes* nodes, XObjPlugCordPoint* points, s32 count);
 void fn_800DBDDC(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32 value);
 void fn_800DC43C(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32 time, s32 mode);
+
+// the copter's anims, game/objb_attach.cpp
+void fn_800D7A78(XObjCopter* copter);
+void fn_800D7AC8(XObjCopter* copter);
+void fn_800D7B68(XObjCopter* copter);
+void fn_800D7BF0(XObjCopter* copter);
 }
 
 #endif

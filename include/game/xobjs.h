@@ -3,9 +3,9 @@
 
 #include "game/xobj.h"
 
-struct UnkXObjList;
+class XOBJS;
 // index of obj in the list, -1 when it isn't there
-extern "C" s32 fn_8013265C(UnkXObjList* list, CXObj* obj);
-extern "C" XObj* fn_80132698(UnkXObjList* list, CoordInfo* info, s32 unused, BOOL async);
+extern "C" s32 fn_8013265C(XOBJS* list, CXObj* obj);
+extern "C" XObj* fn_80132698(XOBJS* list, CoordInfo* info, s32 unused, BOOL async);
 
 #endif

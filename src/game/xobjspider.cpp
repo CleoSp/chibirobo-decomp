@@ -1,131 +1,79 @@
-#include "game/particle_srt.h"
 #include "game/xobjspider.h"
+#include "game/hsd_jobj.h"
+#include "game/cgame.h"
+#include "game/cgs.h"
+#include "game/cpad.h"
+#include "game/cscrn.h"
+#include "game/xchr.h"
+#include "game/xobjflags.h"
+#include "game/ut.h"
+#include <sysdolphin/rumble.h>
+#include "game/globals.h"
 #include "game/gmath.h"
 extern "C" {
 #include <dolphin/mtx/mtx.h>
 }
 
-// XObjSpider, the small spiders. the class name is from its vtable, the functions that
-// aren't its virtuals or states have no names, so they are extern "C" under their address
+// one of the coins a spider knocks loose, it hops up and drops to mTarget
+struct CoinBounce {
+	XObj* mCoin; // _00
+	Vec mPos;    // _04
+	s32 mPhase;  // _10
+	s32 mCount;  // _14
+	Vec mTarget; // _18
+};
+STATIC_ASSERT(sizeof(CoinBounce) == 0x24);
 
 extern "C" {
-s32 fn_8009C1BC(void* slots, s32 id);
-f32 fn_800A2D88(const CJObj* obj); // the frame of the first anim
-void fn_800EAB58(UnkSpiderPart* part, u8 carry, bool turned);
-void fn_800F4350(XObjSpider* self);
-void fn_800F38F4(XObjSpider* self);
+void fn_800EA554(Vec* position, Vec* target, s32 anim);
+void fn_800EA780(void* unused, u32 frames);
+void fn_800EA99C(void* unused);
+void fn_800EB928(XObjSpider* spider);
+s32 fn_800EBA30(XObjSpider* spider);
+BOOL fn_800EBBF0(XObjSpider* spider);
+u32 fn_800EBDB0(XObjSpider* spider);
+BOOL fn_800EBDBC(XObjSpider* spider);
+void fn_800EAF18(CarryInfo* carry, u8 slot, u32 frames, s32 mode);
+f32 fn_800EF854(const Vec* first, const Vec* second);
+void fn_800F0090(XObjSpider* spider, u32 frames);
+void fn_800F0B7C(XObjSpider* spider);
+void fn_800F1068(XObjSpider* spider, u32 frames);
+void fn_800F1730(XObjSpider* spider, u32 frames);
+void fn_800F1B10(XObjSpider* spider, u32 frames);
+void fn_800F38F4(XObjSpider* spider);
+void fn_800F4350(XObjSpider* spider);
+
+UnkStageObj* fn_8006EDB4(s32 index);
+bool fn_8012CA54(void* obj);
+XObj* fn_80132698(void* list, const CoordInfo& info, s32 unused, BOOL async);
+CVec fn_800621E0(XObj* obj);
+void fn_8010CDDC(f32 x, f32 y, f32 z);
+s32 fn_8009C1BC(AttachmentValues* values, s32 id);
+void HSD_MtxGetScale(Mtx mat, Vec* vec);
+void HSD_StateInvalidate(s32 state);
+int rand();
+void OSReport(const char* fmt, ...);
+
+extern AnimSfxEvent lbl_8022AB90[]; // the spider's anim sounds
+extern u8 lbl_8065B2B8;             // the coins' manager, it has no data of its own
+extern CoinBounce lbl_8037E640[11];
+extern s32 lbl_8065B2C4; // how many coins are out
+extern s32 lbl_8065B2BC;
+extern u8 lbl_8065B2C0;
 }
 
-extern "C" {
-void HSD_PadRumbleOn(u8 no);
-void HSD_PadRumbleOffN(u8 no);
-void HSD_PadRumbleRemove(u8 no);
+// the frame the jobj's first anim is at, and the frame it ends at
+static inline f32 GetAnimFrame(HSD_JObj* jobj)
+{
+	HSD_AObj* aobj = GetAObj(jobj);
+	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 }
 
-#define GAME_44    (*(u8**)(lbl_8025C400 + 0x44))
-#define GAME_290   (*(void**)(lbl_8025C400 + 0x290))
-#define GAME_QUAKE (lbl_8025C400 + 0x965C)
-#define GAME_5D08C (*(s32*)(lbl_8025C400 + 0x5D08C))
-#define GAME_5D080 (*(void**)(lbl_8025C400 + 0x5D080))
-
-#define GAME_ITEMS ((UnkObjPool*)(lbl_8025C400 + 0x9720)) // 96 of them
-
-// one of the things that drop down, kind 0x104 objects
-struct UnkSpiderDrop {
-	XObj* mObj; // _00
-	Vec mPos;   // _04
-	s32 mState; // _10
-	s32 mTimer; // _14
-	Vec mTo;    // _18, it falls to mTo.y
-};
-
-// one point of the shadow's ring
-struct UnkShadowVtx {
-	Vec mPos;   // _00
-	u32 mColor; // _0C
-};
-
-// the three render objects the game keeps at _290, an id count of 0 means not set
-struct UnkSpiderRenderA {
-	u8 _00[0xC]; // _00
-	s32 _0C;     // _0C
-	s32 _10;     // _10
-	s32 _14;     // _14
-	s32 _18;     // _18
-};
-
-struct UnkSpiderRenderB {
-	u8 _00[0x74]; // _00
-	s32 _74;      // _74
-	s32 _78;      // _78
-	s32 _7C;      // _7C
-};
-
-struct UnkSpiderRenderC {
-	u8 _00[0x30]; // _00
-	s32 _30;      // _30
-};
-
-// the game object, the parts the spiders reach
-struct UnkSpiderGame {
-	u8 _0000[0x290];           // _0000
-	UnkSpiderRenderA* _290;    // _0290
-	UnkSpiderRenderB* _294;    // _0294
-	UnkSpiderRenderC* _298;    // _0298
-	u8 _029C[0x19B4 - 0x29C];  // _029C
-	u8 mPadNo;                 // _19B4, the pad that rumbles
-	u8 _19B5[0x4B];            // _19B5
-	BOOL mRumbleOn;            // _1A00
-	u8 _1A04[0x10C];           // _1A04
-	u64 mFlags;                // _1B10
-	u8 _1B18[0x331C - 0x1B18]; // _1B18
-	s32 _331C;                 // _331C
-	s32 _3320;                 // _3320
-	s32 _3324;                 // _3324
-	u8 _3328[0x96BC - 0x3328]; // _3328
-	XObj* mChr;                // _96BC, the robot
-	u8 _96C0[0x97AC - 0x96C0]; // _96C0
-	void* _97AC;               // _97AC
-	u8 _97B0[0x9860 - 0x97B0]; // _97B0
-	XObj* mObjs[0x400];        // _9860
-	s32 mObjCount;             // _A860
-
-	// an event or a menu holds the robot
-	bool IsBusy()
-	{
-		bool result = false;
-		if ((_331C != 0 || _3320 != 0) && ((UnkSpiderGame*)lbl_8025C400)->_3324 == 0) {
-			result = true;
-		}
-		return result;
-	}
-	bool CanAct()
-	{
-		bool result = false;
-		if ((mFlags & 1) && !(mFlags & 0x22) && !IsBusy()) {
-			result = true;
-		}
-		return result;
-	}
-
-	void StartRumble()
-	{
-		if (mRumbleOn) {
-			HSD_PadRumbleOn(mPadNo);
-		}
-	}
-	void StopRumble()
-	{
-		if (mRumbleOn) {
-			HSD_PadRumbleOffN(mPadNo);
-		}
-		if (mRumbleOn) {
-			HSD_PadRumbleRemove(mPadNo);
-		}
-	}
-};
-#define GAME         ((UnkSpiderGame*)lbl_8025C400)
-#define GAME_OBJLIST (lbl_8025C400 + 0x9694)
+static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
+{
+	HSD_AObj* aobj = GetAObj(jobj);
+	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
+}
 
 // puts a CObjVec at a value and its target there too
 static inline void SetNow(CObjVec& vec, const Vec& v)
@@ -134,66 +82,16 @@ static inline void SetNow(CObjVec& vec, const Vec& v)
 	vec.mTarget.Set(v);
 }
 
-extern "C" {
-void fn_800EA554(Vec* pos, Vec* to, s32 anim);
-void fn_800EA780(void* mgr, u32 frames);
-void fn_800EA99C(void* mgr);
-void fn_800EB928(XObjSpider* self);
-s32 fn_800EBA30(XObjSpider* self);
-BOOL fn_800EBBF0(XObjSpider* self);
-u32 fn_800EBDB0(XObjSpider* self);
-void fn_800EAF18(UnkSpiderPart* part, u8 carry, u32 frames, s32 mode);
-void fn_800F1068(XObjSpider* self, u32 frames);
-void fn_800F1B10(XObjSpider* self, u32 frames);
-void fn_800F1730(XObjSpider* self, u32 frames);
-void fn_800F0090(XObjSpider* self, u32 frames);
-void fn_800F0B7C(XObjSpider* self);
-s32 fn_8006EBC8(s32 id);
-bool fn_8012CA54(void* obj);
-void* fn_8006EDB4(s16 id);
-XObj* fn_80132698(void* list, const CoordInfo& info, s32 unused, BOOL async);
-CVec fn_800621E0(XObj* obj);
-void HSD_MtxGetScale(Mtx mat, Vec* vec);
-void PSMTXScale(Mtx mtx, f32 x, f32 y, f32 z);
-void fn_8010CDDC(f32 x, f32 y, f32 z);
-void fn_800242A8(void* quake, f32 a, f32 b, f32 c, f32 d, f32 e, f32 f, f32 g);
-void fn_8001E660(CSound* sound, s32 sfx);
-int rand();
-void fn_8019B56C(void* gx, s32 a, s32 b, s32 c, s32 d);
-void fn_80198258(void* game, s32 kind, u32 a, u32 b, f32 x, f32 y, f32 z, f32 sx, f32 sz, f32 rx, f32 ry, f32 rz);
-void fn_801988EC(void* game, s32 kind, void* tex, void* verts, s32 count);
-void HSD_MtxGetTranslate(Mtx mat, Vec* vec);
-void OSReport(const char* fmt, ...);
-XObj* fn_8007F570(void* list, s16 id);
-void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
-void HSD_StateInvalidate(s32 state);
-void fn_8019B278(void* mode, BOOL force);
-void fn_8019AED0(void* stage, BOOL force);
-void fn_8019AE94(void* obj, BOOL force);
-void fn_8019AFA0(void* stage, s32 mode);
-void fn_8019B34C(void* mode, s32 a, s32 b);
-void fn_801992BC(void* game, s32 kind, u32 color0, u32 color1, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
-
-extern AnimSfxEntry lbl_8022AB90[]; // the spider's sounds
-extern XObj* lbl_8037E5C0[16];      // the objects the spiders carry, kind 0x13C
-extern s32 lbl_8037E600[16];        // which spider has each of them, -1 for none
-extern u8 lbl_8065B2B8;             // the drops' manager, it has no data of its own
-extern UnkSpiderDrop lbl_8037E640[11];
-extern s32 lbl_8065B2C4; // how many drops are out
-extern s32 lbl_8065B2BC;
-extern u8 lbl_8065B2C0;
-}
-
-// the carried object plays its anim 2 from where its anim ends, once
-static inline void HitCarried(XObjSpider* self)
+// the slot's model plays its anim 2 from where its anim ends, once
+static inline void HitCarried(XObjSpider* spider)
 {
-	if (!(self->mPart.mStatus.mFlags & 2)) {
-		XObj* obj = lbl_8037E5C0[self->mCarry];
-		if (obj != NULL && self->mPart.mState == 2) {
-			f32 end = GetAnimEndFrame(obj->mJObj);
-			obj->SetAnim(2, TRUE, NULL, NULL, NULL, end - GetAnimFrame(obj->mJObj), 1.0f, 0.0f, 10.0f);
-			self->mPart.mState++;
-			self->mPart.mStatus.mFlags |= 2;
+	if (!(spider->mCarry.mFlags.mFlags & 2)) {
+		XObj* model = lbl_8037E5C0[spider->mSlot];
+		if (model != NULL && spider->mCarry.mState == 2) {
+			f32 end = GetAnimEndFrame(model->mJObj);
+			model->SetAnim(2, TRUE, NULL, NULL, NULL, end - GetAnimFrame(model->mJObj), 1.0f, 0.0f, 10.0f);
+			spider->mCarry.mState++;
+			spider->mCarry.mFlags.mFlags |= 2;
 		}
 	}
 }
@@ -201,253 +99,235 @@ static inline void HitCarried(XObjSpider* self)
 // starts reading the object a stage table entry places
 static inline XObj* ReadObj(s16 id)
 {
-	return fn_80132698(GAME_OBJLIST, CoordInfo(fn_8006EDB4(id)), 0, TRUE);
+	return fn_80132698(&lbl_8025C400.mXObjs, CoordInfo(fn_8006EDB4(id)), 0, TRUE);
 }
 
 // turns it toward a point and says how far that is
-static inline f32 HeadTo(XObjSpider* self, const Vec& to)
+static inline f32 HeadTo(XObjSpider* spider, const Vec& to)
 {
-	self->mDir = atan2(to.x - self->mMoveTranslate.x, to.z - self->mMoveTranslate.z);
-	f32 dx     = to.x - self->mMoveTranslate.x;
-	f32 dy     = to.y - self->mMoveTranslate.y;
-	f32 dz     = to.z - self->mMoveTranslate.z;
-	return sqrtf(dx * dx + dy * dy + dz * dz);
+	spider->mDir = atan2(to.x - spider->mMoveTranslate.x, to.z - spider->mMoveTranslate.z);
+	f32 x        = to.x - spider->mMoveTranslate.x;
+	f32 y        = to.y - spider->mMoveTranslate.y;
+	f32 z        = to.z - spider->mMoveTranslate.z;
+	return sqrtf(x * x + y * y + z * z);
 }
 
 // where the robot is
 static inline Vec GetChrPos()
 {
-	return GAME->mChr->mMoveTranslate;
+	return lbl_8025C400.GetPlayer()->mMoveTranslate;
 }
 
-// takes the first of the carried objects nobody has
-static inline void TakeCarried(XObjSpider* self)
+// takes the first of the slot models nobody has
+static inline void TakeSlot(XObjSpider* spider)
 {
 	for (int i = 0; i < 16; i++) {
 		if (lbl_8037E600[i] == -1) {
-			self->mPart2.mObj = lbl_8037E5C0[i];
-			self->mCarry      = i;
-			lbl_8037E600[i]   = self->_258;
+			spider->_AC8.mObj = lbl_8037E5C0[i];
+			spider->mSlot     = i;
+			lbl_8037E600[i]   = spider->_258;
 			return;
 		}
 	}
 }
 
 // a step sound, which one of the five goes by the spider's index
-static inline void PlayStep(XObjSpider* self)
+static inline void PlayStep(XObjSpider* spider)
 {
-	switch (self->_258 % 5) {
+	switch (spider->_258 % 5) {
 	case 0:
-		fn_8001E904(GAME_SOUND, 0x12B, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12B, 255);
 		break;
 	case 1:
-		fn_8001E904(GAME_SOUND, 0x12C, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12C, 255);
 		break;
 	case 2:
-		fn_8001E904(GAME_SOUND, 0x12D, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12D, 255);
 		break;
 	case 3:
-		fn_8001E904(GAME_SOUND, 0x12E, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12E, 255);
 		break;
 	case 4:
-		fn_8001E904(GAME_SOUND, 0x12F, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12F, 255);
 		break;
 	}
 }
 
 // how far apart two points are on the floor
-static inline f32 DistXZ(const Vec* a, const Vec* b)
+static inline f32 DistXZ(const Vec* first, const Vec* second)
 {
-	f32 dx = a->x - b->x;
-	f32 dy = 0.0f;
-	f32 dz = a->z - b->z;
-	return sqrtf(dx * dx + dy * dy + dz * dz);
+	f32 x = first->x - second->x;
+	f32 y = 0.0f;
+	f32 z = first->z - second->z;
+	return sqrtf(x * x + y * y + z * z);
 }
 
 // the event's object with the id, ids from 10000 up
 static inline XObj* FindEvtObj(s16 id)
 {
-	return GAME_5D080 != NULL ? fn_8007F570(&GAME_5D080, id) : NULL;
+	return lbl_8025C400.mEvt.mData.mScript != NULL ? fn_8007F570(&lbl_8025C400.mEvt.mData, id) : NULL;
 }
 
-static inline XObj* GetObj(s16 id)
+// takes all the coins back
+static inline void ResetCoins()
 {
-	return GAME->mObjs[id];
-}
-
-// hands the matrix back to the srt values
-static inline void HSD_JObjClearUserMtx(HSD_JObj* jobj)
-{
-	JOBJ_H_ASSERT(1199, jobj);
-	jobj->flags &= ~0x03800000;
-	HSD_JObjSetMtxDirty(jobj);
-}
-
-// the joint at the end of a path of child and next steps
-static inline HSD_JObj* GetJoint(HSD_JObj* jobj, s32* path, s32 depth)
-{
-	if (jobj == NULL) {
-		return NULL;
+	lbl_8065B2C4 = 0;
+	for (int i = 0; i < 11; i++) {
+		lbl_8037E640[i].mCoin  = NULL;
+		lbl_8037E640[i].mPhase = 0;
+		lbl_8037E640[i].mCount = 0;
 	}
-	for (s32 i = 0; i < depth; i++, path++) {
-		jobj = HSD_JObjGetChild(jobj);
-		for (s32 j = 0; j < *path; j++) {
-			jobj = HSD_JObjGetNext(jobj);
-			if (jobj == NULL) {
-				return NULL;
-			}
+	for (int i = 0; i < 96; i++) {
+		XObjCoin* coin = (XObjCoin*)lbl_8025C400.mXObjs.mPools[7].Get(i);
+		if (coin->GetKind() == 0x104) {
+			coin->mBouncing = 0;
 		}
 	}
-	return jobj;
 }
 
-// the jobj's place in the world
-static inline Vec GetJObjPos(HSD_JObj* jobj)
+// the object with the id
+static inline XObj* GetObj(s16 id)
 {
-	Vec v;
-	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &v);
-	return v;
+	return lbl_8025C400.mXObjs.mObjects[id];
 }
 
-// the states by number, Update calls them
+// the state handlers by number, Update calls them
 // NONMATCHING: __sinit, retail has 0x1C8 bytes of .data in front of the initializer it copies
-typedef void (XObjSpider::*XObjSpiderState)(u32 frames);
-static XObjSpiderState lbl_8022AC50[10] = {
+static XObjSpider::Func sStates[10] = {
 	&XObjSpider::State0, &XObjSpider::State1, &XObjSpider::State2, &XObjSpider::State3, &XObjSpider::State4,
 	&XObjSpider::State5, &XObjSpider::State6, &XObjSpider::State7, &XObjSpider::State8, &XObjSpider::State9,
 };
 
-// ---- functions ----
-// takes all the drops back, fn_800EA99C has it too
-static inline void ResetDrops()
-{
-	lbl_8065B2C4 = 0;
-	for (int i = 0; i < 11; i++) {
-		lbl_8037E640[i].mObj   = NULL;
-		lbl_8037E640[i].mState = 0;
-		lbl_8037E640[i].mTimer = 0;
-	}
-	for (int i = 0; i < 96; i++) {
-		XObj* obj = GAME_ITEMS->Get(i);
-		if (obj->GetDescKind() == 0x104) {
-			((u8*)obj)[0x9E8] = 0;
-		}
-	}
-}
-
 static s32 sThreadPath[] = { 0 };
 static s32 sHoldPath[]   = { 0 };
 
-void XObjSpider::Init(u32 id)
+/**
+ * @note Address: 0x800F4868
+ * @note Size: 0x58
+ */
+void XObjSpider::vf90(u32 id)
 {
 	fn_800929C4(this, id);
 	fn_800F4350(this);
 	SetState(0);
-	mStatus.mFlags |= 0x4000000;
+	mFlags.mFlags |= 0x04000000;
 }
 
+/**
+ * @note Address: 0x800F4818
+ * @note Size: 0x50
+ */
 void XObjSpider::vf94()
 {
 	fn_800F4350(this);
 	SetState(0);
-	mStatus.mFlags |= 0x4000000;
+	mFlags.mFlags |= 0x04000000;
 }
 
+/**
+ * @note Address: 0x800F4350
+ * @note Size: 0x4C8
+ */
+// NONMATCHING: .rodata, retail has six more Vecs in front of the zero Vecs
 // puts everything back to how it starts
-extern "C" void fn_800F4350(XObjSpider* self)
+extern "C" void fn_800F4350(XObjSpider* spider)
 {
-	self->mDir           = 0.0f;
-	self->mSpeed         = 0.0f;
-	self->_988           = 0.0f;
-	self->_98C           = 0.0f;
-	self->mTurnSpeed     = 0.1f;
-	self->mFallSpeed     = 0.0f;
-	self->mState         = 0;
-	self->mPrevState     = 0;
-	self->mStep          = 0;
-	self->mTimer         = 0;
-	self->mStatus.mFlags = 0;
-	self->mWait          = 0;
-	self->_9C0           = 1.0f;
-	self->_9C4           = 1.0f;
-	Vec v0               = { 0.0f, 0.0f, 0.0f };
-	self->mHitPos        = v0;
-	Vec v1               = { 0.0f, 0.0f, 0.0f };
-	self->mHome          = v1;
-	Vec v2               = { 0.0f, 0.0f, 0.0f };
-	self->mWallPos       = v2;
-	Vec v3               = { 0.0f, 0.0f, 0.0f };
-	self->_9FC           = v3;
-	Vec v4               = { 0.0f, 0.0f, 0.0f };
-	self->_A08           = v4;
-	Vec v5               = { 0.0f, 0.0f, 0.0f };
-	self->_A14           = v5;
-	self->_A38           = 0.0f;
-	self->_A40           = 0.0f;
-	self->_A44           = 0;
-	self->_A48           = 0;
-	self->mHitDist       = 0.0f;
-	self->mWall          = 0;
-	self->mMaxLife       = 3;
-	self->mLife          = self->mMaxLife;
-	self->mArgs[0]       = 0;
-	self->mArgs[1]       = 0;
-	self->_A88           = 0;
-	self->mThreadAlpha   = 1.0f;
-	self->mFlags |= 8;
-	self->mPart.mPos.x         = 0.0f;
-	self->mPart.mPos.y         = 0.0f;
-	self->mPart.mPos.z         = 0.0f;
-	self->mPart._10.x          = 0.0f;
-	self->mPart._10.y          = 0.0f;
-	self->mPart._10.z          = 0.0f;
-	self->mPart.mRotY          = 0.0f;
-	self->mPart._24            = 0.0f;
-	self->mPart.mState         = 0;
-	self->mPart._2C            = 0;
-	self->mPart.mStatus.mFlags = 0;
-	self->mPart.mObj           = NULL;
-	self->mRadius              = 20.0f;
-	self->mPart2.mObj          = NULL;
-	self->mCarry               = 0xFF;
-	Vec v6                     = { 0.0f, 0.0f, 0.0f };
-	self->mArea                = v6;
-	self->mAreaW               = 0.0f;
-	self->mAreaD               = 0.0f;
-	Vec v7                     = { 0.0f, 0.0f, 0.0f };
-	self->_A60                 = v7;
-	self->_A6C                 = 0.0f;
-	self->_B10                 = 2;
-	self->_B14[0]              = 0;
-	self->_B14[1]              = 0;
-	self->_B14[2]              = 0;
-	self->_B14[3]              = 0;
-	self->_B24[0]              = 100;
-	self->_B24[1]              = 100;
-	self->_B24[2]              = 100;
-	self->_B54                 = 0;
-	self->_B50                 = 0;
-	self->_B5C                 = NULL;
-	self->_B58                 = 0;
-	self->_B60                 = 0;
+	spider->mDir          = 0.0f;
+	spider->mSpeed        = 0.0f;
+	spider->_988          = 0.0f;
+	spider->_98C          = 0.0f;
+	spider->mTurnSpeed    = 0.1f;
+	spider->mFallSpeed    = 0.0f;
+	spider->mState        = 0;
+	spider->mPrevState    = 0;
+	spider->mPhase        = 0;
+	spider->mCounter      = 0;
+	spider->mFlags.mFlags = 0;
+	spider->mWait         = 0;
+	spider->_9C0          = 1.0f;
+	spider->_9C4          = 1.0f;
+	Vec hitPos            = { 0.0f, 0.0f, 0.0f };
+	spider->mHitPos       = hitPos;
+	Vec home              = { 0.0f, 0.0f, 0.0f };
+	spider->mHome         = home;
+	Vec wallPos           = { 0.0f, 0.0f, 0.0f };
+	spider->mWallPos      = wallPos;
+	Vec target            = { 0.0f, 0.0f, 0.0f };
+	spider->mTarget       = target;
+	Vec v08               = { 0.0f, 0.0f, 0.0f };
+	spider->_A08          = v08;
+	Vec v14               = { 0.0f, 0.0f, 0.0f };
+	spider->_A14          = v14;
+	spider->_A38          = 0.0f;
+	spider->_A40          = 0.0f;
+	spider->_A44          = 0;
+	spider->_A48          = 0;
+	spider->mHitStrength  = 0.0f;
+	spider->mWall         = 0;
+	spider->mMaxHits      = 3;
+	spider->mHits         = spider->mMaxHits;
+	spider->mCommand      = 0;
+	spider->mArgs[0]      = 0;
+	spider->_A88          = 0;
+	spider->mThreadAlpha  = 1.0f;
+	spider->mStatus.mFlags |= 8;
+	spider->mCarry.mPos.x        = 0.0f;
+	spider->mCarry.mPos.y        = 0.0f;
+	spider->mCarry.mPos.z        = 0.0f;
+	spider->mCarry._10.x         = 0.0f;
+	spider->mCarry._10.y         = 0.0f;
+	spider->mCarry._10.z         = 0.0f;
+	spider->mCarry.mAngle        = 0.0f;
+	spider->mCarry._24           = 0.0f;
+	spider->mCarry.mState        = 0;
+	spider->mCarry._2C           = 0;
+	spider->mCarry.mFlags.mFlags = 0;
+	spider->mCarry.mObj          = NULL;
+	spider->mRadius              = 20.0f;
+	spider->_AC8.mObj            = NULL;
+	spider->mSlot                = 255;
+	Vec areaPos                  = { 0.0f, 0.0f, 0.0f };
+	spider->mAreaPos             = areaPos;
+	spider->mAreaWidth           = 0.0f;
+	spider->mAreaDepth           = 0.0f;
+	Vec startPos                 = { 0.0f, 0.0f, 0.0f };
+	spider->mStartPos            = startPos;
+	spider->_A6C                 = 0.0f;
+	spider->_B10                 = 2;
+	spider->_B14[0]              = 0;
+	spider->_B14[1]              = 0;
+	spider->_B14[2]              = 0;
+	spider->_B14[3]              = 0;
+	spider->_B24[0]              = 100;
+	spider->_B24[1]              = 100;
+	spider->_B24[2]              = 100;
+	spider->_B54                 = 0;
+	spider->_B50                 = 0;
+	spider->mEffect              = NULL;
+	spider->mEffectId            = 0;
+	spider->mEffectOn            = 0;
 	for (int i = 0; i < 8; i++) {
-		self->mTies[i].mObj   = NULL;
-		self->mTies[i].mJoint = NULL;
+		spider->mTies[i].mObj   = NULL;
+		spider->mTies[i].mJoint = NULL;
 	}
-	if (self->_258 == 0) {
-		ResetDrops();
+	if (spider->_258 == 0) {
+		ResetCoins();
 	}
-	self->_B94         = 0;
-	self->_B98         = 0;
-	self->_B9C         = -1;
-	self->mRumble      = 0;
-	self->mRumbleTimer = 0;
+	spider->mHitState    = 0;
+	spider->mHitTimer    = 0;
+	spider->_B9C         = -1;
+	spider->mRumble      = 0;
+	spider->mRumbleTimer = 0;
 }
 
-BOOL XObjSpider::vf9C(void* info)
+/**
+ * @note Address: 0x800F3898
+ * @note Size: 0x5C
+ */
+BOOL XObjSpider::vf9C(const CoordInfo& info)
 {
-	if (fn_80091C80(this, info)) {
-		mStatus.mFlags &= ~0x4000000;
+	if (fn_80091C80(this, &info)) {
+		mFlags.mFlags &= ~0x04000000U;
 		fn_800F4350(this);
 		fn_800F38F4(this);
 		return TRUE;
@@ -455,35 +335,44 @@ BOOL XObjSpider::vf9C(void* info)
 	return FALSE;
 }
 
-// NONMATCHING: the cleared tables and the object loop take other registers
-void XObjSpider::Reset()
+/**
+ * @note Address: 0x800F373C
+ * @note Size: 0x15C
+ */
+void XObjSpider::vf98()
 {
 	fn_800928E8(this);
-	mSe.mTable = lbl_8022AB90;
+	mSfx.mEvents = lbl_8022AB90;
 	if (_258 == 0) {
-		XObj** list = lbl_8037E5C0;
-		for (int i = 0; i < 16; i++) {
+		for (u32 i = 0; i < 16; ++i) {
 			lbl_8037E5C0[i] = NULL;
 			lbl_8037E600[i] = -1;
 		}
-		lbl_8065B2C0        = 0;
-		lbl_8065B2BC        = 0;
-		s32 n               = 0;
-		UnkSpiderGame* game = GAME;
-		for (int i = 0; i < game->mObjCount; i++) {
-			XObj* obj = game->mObjs[i];
-			if ((obj->mFlags & 1) && *(s32*)obj->_238 == 0x13C) {
-				n++;
-				*list++ = obj;
-				if (n >= 16) {
-					return;
+		lbl_8065B2C0  = 0;
+		lbl_8065B2BC  = 0;
+		s32 found     = 0;
+		s32 count     = lbl_8025C400.mXObjs.mObjectCount;
+		XObj** output = lbl_8037E5C0;
+		for (s32 i = 0; i < count; ++i) {
+			XObj* candidate = lbl_8025C400.mXObjs.mObjects[i];
+			if (candidate->mStatus.mFlags & 1ULL) {
+				UnkStageObj* placement = candidate->mCoord._00;
+				if (placement->_00 == 0x13C) {
+					++found;
+					*output++ = candidate;
+					if (found >= 16)
+						break;
 				}
 			}
 		}
 	}
 }
 
-void XObjSpider::Update(u32 frames)
+/**
+ * @note Address: 0x800F31E0
+ * @note Size: 0x55C
+ */
+void XObjSpider::vfA4(u32 frames)
 {
 	CPad pad(0);
 
@@ -491,8 +380,11 @@ void XObjSpider::Update(u32 frames)
 	case 0:
 		break;
 	case 1:
-		if (GAME->mFlags & 0x800000000ULL) {
-			GAME->StartRumble();
+		if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
+			CPadOne* rumble = &lbl_8025C400.mPad.mPad[0];
+			if (rumble->mConnected) {
+				HSD_PadRumbleOn(rumble->mPort);
+			}
 			mRumbleTimer = 24 / frames;
 			mRumble++;
 		} else {
@@ -501,101 +393,116 @@ void XObjSpider::Update(u32 frames)
 		break;
 	case 2:
 		if (--mRumbleTimer < 0) {
-			UnkSpiderGame* game = GAME;
-			game->StopRumble();
+			CPadOne* rumble = &lbl_8025C400.mPad.mPad[0];
+			if (rumble->mConnected) {
+				HSD_PadRumbleOffN(rumble->mPort);
+			}
+			if (rumble->mConnected) {
+				HSD_PadRumbleRemove(rumble->mPort);
+			}
 			mRumble = 0;
 		}
 		break;
 	}
 
-	if (GAME->mFlags & 0x400) {
+	if (lbl_8025C400.mStatus.mFlags & 0x400) {
 		return;
 	}
 	if (_258 == 0) {
 		fn_800EA780(&lbl_8065B2B8, frames);
 	}
-	if (!(mFlags & 0x10000) && mState != 1) {
+	if (!(mStatus.mFlags & 0x10000) && mState != 1) {
 		return;
 	}
 	vf148();
 	fn_800F1B10(this, frames);
-	if (!(mStatus.mFlags & 0x8000000)) {
-		(this->*lbl_8022AC50[mState])(frames);
-		CVec v;
+	if (!(mFlags.mFlags & 0x08000000)) {
+		(this->*sStates[mState])(frames);
+		CVec move;
 		if (mWall == 4) {
 			mMoveTranslate.x = mWallPos.x;
-			v.y              = mSpeed * (f32)sin(mDir);
-			v.z              = mSpeed * (f32)cos(mDir);
-			v.x              = 0.0f;
-			mMoveRotate.z    = -1.5707964f;
+			move.y           = mSpeed * (f32)sin(mDir);
+			move.z           = mSpeed * (f32)cos(mDir);
+			move.x           = 0.0f;
+			mMoveRotate.z    = -HALF_PI;
 			SetRotateY(mDir, mTurnSpeed);
 		} else if (mWall == 5) {
 			mMoveTranslate.x = mWallPos.x;
-			v.y              = mSpeed * (f32)sin(mDir);
-			v.z              = mSpeed * (f32)cos(mDir);
-			v.x              = 0.0f;
-			mMoveRotate.z    = 1.5707964f;
+			move.y           = mSpeed * (f32)sin(mDir);
+			move.z           = mSpeed * (f32)cos(mDir);
+			move.x           = 0.0f;
+			mMoveRotate.z    = HALF_PI;
 			SetRotateY(mDir, mTurnSpeed);
 		} else if (mWall == 2) {
 			mMoveTranslate.z = mWallPos.z;
-			v.y              = mSpeed * (f32)sin(mDir);
-			v.x              = mSpeed * (f32)cos(mDir);
-			v.z              = 0.0f;
-			mMoveRotate.x    = -1.5707964f;
-			mMoveRotate.z    = mDir - 1.5707964f;
+			move.y           = mSpeed * (f32)sin(mDir);
+			move.x           = mSpeed * (f32)cos(mDir);
+			move.z           = 0.0f;
+			mMoveRotate.x    = -HALF_PI;
+			mMoveRotate.z    = mDir - HALF_PI;
 		} else if (mWall == 3) {
 			mMoveTranslate.z = mWallPos.z;
-			v.y              = mSpeed * (f32)sin(mDir);
-			v.x              = mSpeed * (f32)cos(mDir);
-			v.z              = 0.0f;
-			mMoveRotate.x    = 1.5707964f;
-			mMoveRotate.z    = 1.5707964f + mDir;
-		} else if (mStatus.mFlags & 0x100) {
-			v.x = 0.0f;
-			v.z = 0.0f;
-			v.y = mSpeed;
+			move.y           = mSpeed * (f32)sin(mDir);
+			move.x           = mSpeed * (f32)cos(mDir);
+			move.z           = 0.0f;
+			mMoveRotate.x    = HALF_PI;
+			mMoveRotate.z    = HALF_PI + mDir;
+		} else if (mFlags.mFlags & 0x100) {
+			move.x = 0.0f;
+			move.z = 0.0f;
+			move.y = mSpeed;
 			SetRotateY(mDir, mTurnSpeed);
 		} else {
-			if (mStatus.mFlags & 8) {
+			if (mFlags.mFlags & 8) {
 				mMoveTranslate.y += mFallSpeed;
 			} else {
 				mMoveTranslate.y = mHome.y;
 			}
-			v.x = mSpeed * (f32)sin(mDir);
-			v.z = mSpeed * (f32)cos(mDir);
-			v.y = 0.0f;
+			move.x = mSpeed * (f32)sin(mDir);
+			move.z = mSpeed * (f32)cos(mDir);
+			move.y = 0.0f;
 			SetRotateY(mDir, mTurnSpeed);
 		}
-		SetNow(mMoveTranslate, mMoveTranslate + v * (f32)frames);
-		SetMoveTranslate(&mMoveTranslate, 0);
+		SetNow(mMoveTranslate, mMoveTranslate + move * (f32)frames);
+		SetPos(mMoveTranslate, 0);
 	}
 	fn_80090ED4(this, frames);
-	fn_800EAF18(&mPart, mCarry, frames, 0);
+	fn_800EAF18(&mCarry, mSlot, frames, 0);
 	fn_800F1068(this, frames);
 }
 
+/**
+ * @note Address: 0x800F3184
+ * @note Size: 0x5C
+ */
 void XObjSpider::vfAC()
 {
-	vfB0(0);
-	bool turned = false;
-	if (mWall == 3) {
-		turned = true;
-	}
-	fn_800EAB58(&mPart, mCarry, turned);
+	vfB0(NULL);
+	bool sideways = false;
+	if (mWall == 3)
+		sideways = true;
+	fn_800EAB58(&mCarry, mSlot, sideways);
 }
 
+/**
+ * @note Address: 0x800F3180
+ * @note Size: 0x4
+ */
 void XObjSpider::vfB8()
 {
 }
 
+/**
+ * @note Address: 0x800F2E44
+ * @note Size: 0x33C
+ */
 // NONMATCHING: the float registers of the ring loop are numbered the other way
-// the shadow: a disc and a ring around it that fades out
-void XObjSpider::vfBC(Vec* pos, f32 scale)
+// the shadow, a disc and a ring around it that fades out
+void XObjSpider::vfBC(const Vec* origin, f32 opacity)
 {
-	if (!(mFlags & 8)) {
+	if (!(mStatus.mFlags & 8ULL))
 		return;
-	}
-	switch (Get25C()) {
+	switch (_25C) {
 	case 3:
 	case 4:
 	case 5:
@@ -604,144 +511,160 @@ void XObjSpider::vfBC(Vec* pos, f32 scale)
 	case 9:
 		return;
 	}
-	Vec p    = *pos;
+	Vec pos  = *origin;
 	Vec rot  = { -HALF_PI, 0.0f, 0.0f };
-	Vec size = mMoveScale * (f32)(mInfo != NULL ? *(u32*)(mInfo->_00 + 0xC) : 0);
+	Vec size = mMoveScale * (f32)(mAttr._00 != NULL ? mAttr._00->_0C : 0);
 	size.x   = mRadius;
 	size.y   = mRadius;
 	size.z   = mRadius;
-	fn_8019B56C(GAME_290, 1, 4, 5, 0xF);
-	u32 alpha = 128.0f * scale;
-	fn_80198258(lbl_8025C400, 0xC, 160.0f * scale, alpha, p.x, p.y, p.z, size.x, size.z, rot.x, rot.y, rot.z);
-	UnkShadowVtx verts[26];
+	fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+	u32 edge = 128.0f * opacity;
+	fn_80198258(&lbl_8025C400.mGs, 12, 160.0f * opacity, edge, pos.x, pos.y, pos.z, size.x, size.z, rot.x, rot.y, rot.z);
+	PrimVertex verts[26];
 	for (int i = 0; i < 13; i++) {
-		f32 a                   = 0.5235988f * i;
-		verts[i * 2].mPos.x     = p.x - size.x * 0.5f * (f32)sin(a);
-		verts[i * 2].mPos.z     = p.z + size.z * 0.5f * (f32)cos(a);
-		verts[i * 2].mPos.y     = p.y;
-		verts[i * 2].mColor     = alpha;
-		verts[i * 2 + 1].mPos.x = p.x - (1.5f + size.x * 0.5f) * (f32)sin(a);
-		verts[i * 2 + 1].mPos.z = p.z + (1.5f + size.z * 0.5f) * (f32)cos(a);
-		verts[i * 2 + 1].mPos.y = p.y;
-		verts[i * 2 + 1].mColor = 0;
+		f32 angle              = (PI / 6) * i;
+		verts[i * 2].pos.x     = pos.x - size.x * 0.5f * (f32)sin(angle);
+		verts[i * 2].pos.z     = pos.z + size.z * 0.5f * (f32)cos(angle);
+		verts[i * 2].pos.y     = pos.y;
+		verts[i * 2].color     = edge;
+		verts[i * 2 + 1].pos.x = pos.x - (1.5f + size.x * 0.5f) * (f32)sin(angle);
+		verts[i * 2 + 1].pos.z = pos.z + (1.5f + size.z * 0.5f) * (f32)cos(angle);
+		verts[i * 2 + 1].pos.y = pos.y;
+		verts[i * 2 + 1].color = 0;
 	}
-	fn_801988EC(lbl_8025C400, 0x98, GAME_44 + 0xE8, verts, 0x1A);
+	fn_801988EC(&lbl_8025C400.mGs, GX_TRIANGLESTRIP, lbl_8025C400.mGs.mCamera->mViewMtx, verts, 26);
 }
 
+/**
+ * @note Address: 0x800F2E40
+ * @note Size: 0x4
+ */
 void XObjSpider::vfC8()
 {
 }
 
+/**
+ * @note Address: 0x800F2E3C
+ * @note Size: 0x4
+ */
 void XObjSpider::vfCC()
 {
 }
 
+/**
+ * @note Address: 0x800F29A4
+ * @note Size: 0x498
+ */
 // NONMATCHING: the joint path and the two points are laid out differently on the stack
 // the thread it hangs from, a line from its joint up to the ceiling
 void XObjSpider::vfC0()
 {
-	if (mStatus.mFlags & 0x80) {
+	if (mFlags.mFlags & 0x80) {
 		Vec top;
 		CJObj joint;
 		u32 color = (u32)(90.0f * mThreadAlpha) | 0xFFFFFF00;
-		joint.Attach(GetJoint(mJObj, sThreadPath, 1));
-		top = GetJObjPos(joint.mJObj);
+		joint.Attach(FindJointByPath(mJObj, sThreadPath, 1));
+		top = GetJointPosition(joint.mJObj);
 		CVec pos(top);
-		UnkSpiderGame* game = GAME;
+		CGs* gs = &lbl_8025C400.mGs;
 		HSD_StateInvalidate(-1);
-		UnkSpiderGame* game2 = GAME;
-		if (game2->_290 != NULL) {
-			UnkSpiderRenderA* a = game->_290;
-			if (a->_0C == 0) {
-				a->_0C = 1;
+		CGs* gs2 = &lbl_8025C400.mGs;
+		if (gs2->mCurRenderMode != NULL) {
+			CGsRenderMode* mode = gs->mCurRenderMode;
+			if (mode->mPEDirty == 0) {
+				mode->mPEDirty = 1;
 			}
-			if (a->_10 == 0) {
-				a->_10 = 1;
+			if (mode->mCullDirty == 0) {
+				mode->mCullDirty = 1;
 			}
-			if (a->_14 == 0) {
-				a->_14 = 1;
+			if (mode->mLineDirty == 0) {
+				mode->mLineDirty = 1;
 			}
-			if (a->_18 == 0) {
-				a->_18 = 1;
-			}
-		}
-		UnkSpiderRenderB* b = game->_294;
-		if (b != NULL) {
-			if (b->_74 == 0) {
-				b->_74 = 1;
-			}
-			if (b->_78 == 0) {
-				b->_78 = 1;
-			}
-			if (b->_7C == 0) {
-				b->_7C = 1;
+			if (mode->mPointDirty == 0) {
+				mode->mPointDirty = 1;
 			}
 		}
-		UnkSpiderRenderC* c = game->_298;
-		if (c != NULL) {
-			if (c->_30 == 0) {
-				c->_30 = 1;
+		CGsTevStage* stage = gs->mCurTevStage;
+		if (stage != NULL) {
+			if (stage->mStageDirty == 0) {
+				stage->mStageDirty = 1;
+			}
+			if (stage->mNumGensDirty == 0) {
+				stage->mNumGensDirty = 1;
+			}
+			if (stage->mTexGenDirty == 0) {
+				stage->mTexGenDirty = 1;
 			}
 		}
-		UnkSpiderGame* game3 = GAME;
-		if (game2->_290 != NULL) {
-			fn_8019B278(game3->_290, 1);
+		CGsChannel* channel = gs->mCurChannel;
+		if (channel != NULL) {
+			if (channel->mDirty == 0) {
+				channel->mDirty = 1;
+			}
 		}
-		if (game3->_294 != NULL) {
-			fn_8019AED0(game3->_294, 1);
+		CGs* gs3 = &lbl_8025C400.mGs;
+		if (gs2->mCurRenderMode != NULL) {
+			fn_8019B278(gs3->mCurRenderMode, 1);
 		}
-		if (game3->_298 != NULL) {
-			fn_8019AE94(game3->_298, 1);
+		if (gs3->mCurTevStage != NULL) {
+			fn_8019AED0(gs3->mCurTevStage, 1);
 		}
-		fn_8019AFA0(GAME->_294, 4);
-		fn_8019B34C(game2->_290, 0x12, 5);
-		fn_801992BC(lbl_8025C400, 0, color, color, pos.x, pos.y, pos.z, top.x, 300.0f, top.z);
-		fn_8019B34C(game2->_290, 0xC, 5);
+		if (gs3->mCurChannel != NULL) {
+			fn_8019AE94(gs3->mCurChannel, 1);
+		}
+		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+		fn_8019B34C(gs2->mCurRenderMode, 0x12, 5);
+		fn_801992BC(&lbl_8025C400.mGs, NULL, pos.x, pos.y, pos.z, color, top.x, 300.0f, top.z, color);
+		fn_8019B34C(gs2->mCurRenderMode, 0xC, 5);
 	}
 }
 
+/**
+ * @note Address: 0x800F2454
+ * @note Size: 0x550
+ */
 // NONMATCHING: argv[1] is read into another register
-// the event commands: 100 ties another object to one of its joints, or lets go of all
-// of them, anything else is kept for the states to read
-extern "C" s32 fn_800F2454(XObjSpider* self, s32 argc, s32* argv)
+// the event commands, 100 ties another object to one of its joints or lets go of all
+// of them, anything else is kept for fn_800F1730
+extern "C" s32 fn_800F2454(XObjSpider* spider, s32 argc, s32* argv)
 {
 	for (int i = 0; i < argc; i++) { }
 	switch (argv[0]) {
 	case 100:
 		if (argv[1] == 0) {
-			self->mStatus.mFlags &= ~0x20000000;
+			spider->mFlags.mFlags &= ~0x20000000;
 			for (u32 i = 0; i < 8; i++) {
-				if (self->mTies[i].mObj != NULL) {
-					HSD_JObjClearUserMtx(self->mTies[i].mObj->mJObj);
-					self->mTies[i].mObj   = NULL;
-					self->mTies[i].mJoint = NULL;
+				if (spider->mTies[i].mObj != NULL) {
+					HSD_JObjClearMtxFlags(spider->mTies[i].mObj->mJObj);
+					spider->mTies[i].mObj   = NULL;
+					spider->mTies[i].mJoint = NULL;
 				}
 			}
 		} else {
 			u32 i;
-			for (i = 0; self->mTies[i].mObj != NULL && i < 8; i++) { }
+			for (i = 0; spider->mTies[i].mObj != NULL && i < 8; i++) { }
 			if (i < 8) {
 				OSReport("id = %d, argv[1]=%d\n", i);
-				self->mStatus.mFlags |= 0x20000000;
+				spider->mFlags.mFlags |= 0x20000000;
 				if (argv[1] >= 10000) {
-					self->mTies[i].mObj = FindEvtObj(argv[1]);
+					spider->mTies[i].mObj = FindEvtObj(argv[1]);
 				} else {
-					self->mTies[i].mObj = GetObj(argv[1]);
+					spider->mTies[i].mObj = GetObj(argv[1]);
 				}
-				if (self->mTies[i].mObj == NULL) {
+				if (spider->mTies[i].mObj == NULL) {
 					OSReport("NULL==============\n");
 				}
 				s32 path[8];
 				s32 depth = argv[2];
-				for (int j = 0; j < depth; j++) {
+				for (s32 j = 0; j < depth; j++) {
 					path[j] = argv[3 + j];
 				}
-				self->mTies[i].mJoint = GetJointByPath(self->mJObj, path, depth);
-				Mtx m;
-				XObj* obj = self->mTies[i].mObj;
-				PSMTXTrans(m, obj->mMoveTranslate.x, obj->mMoveTranslate.y, obj->mMoveTranslate.z);
-				PSMTXConcat(HSD_JObjGetMtxPtr(self->mTies[i].mJoint), m, self->mTies[i].mMtx);
-				HSD_JObjCopyMtx(self->mTies[i].mObj->mJObj, self->mTies[i].mMtx);
+				spider->mTies[i].mJoint = GetJointByPath(spider->mJObj, path, depth);
+				Mtx mtx;
+				XObj* obj = spider->mTies[i].mObj;
+				PSMTXTrans(mtx, obj->mMoveTranslate.x, obj->mMoveTranslate.y, obj->mMoveTranslate.z);
+				PSMTXConcat(HSD_JObjGetMtxPtr(spider->mTies[i].mJoint), mtx, spider->mTies[i].mMtx);
+				HSD_JObjCopyMtx(spider->mTies[i].mObj->mJObj, spider->mTies[i].mMtx);
 			}
 		}
 		break;
@@ -749,379 +672,401 @@ extern "C" s32 fn_800F2454(XObjSpider* self, s32 argc, s32* argv)
 		if (argc < 1) {
 			return 0;
 		}
-		self->mArgs[0] = argv[0];
+		spider->mCommand = argv[0];
 		if (argc < 2) {
-			self->mArgs[1] = 0;
+			spider->mArgs[0] = 0;
 		} else {
-			self->mArgs[1] = argv[1];
+			spider->mArgs[0] = argv[1];
 		}
 		if (argc < 3) {
-			self->mArgs[2] = 0;
+			spider->mArgs[1] = 0;
 		} else {
-			self->mArgs[2] = argv[2];
+			spider->mArgs[1] = argv[2];
 		}
 		if (argc < 4) {
-			self->mArgs[3] = 0;
+			spider->mArgs[2] = 0;
 		} else {
-			self->mArgs[3] = argv[3];
+			spider->mArgs[2] = argv[3];
 		}
 		if (argc < 5) {
-			self->mArgs[4] = 0;
+			spider->mArgs[3] = 0;
 		} else {
-			self->mArgs[4] = argv[4];
+			spider->mArgs[3] = argv[4];
 		}
 		if (argc < 6) {
-			self->mArgs[5] = 0;
+			spider->mArgs[4] = 0;
 		} else {
-			self->mArgs[5] = argv[5];
+			spider->mArgs[4] = argv[5];
 		}
 		break;
 	}
 	return 0;
 }
 
-void XObjSpider::vf138(const Vec* pos, f32 f)
+/**
+ * @note Address: 0x800F2364
+ * @note Size: 0xF0
+ */
+void XObjSpider::vf138(const Vec& from, f32 strength)
 {
-	if (mStatus.mFlags & 2) {
+	if (mFlags.mFlags & 2)
 		return;
-	}
-	if (mStatus.mFlags & 0x10) {
+	if (mFlags.mFlags & 0x10)
 		return;
-	}
-	if (mStatus.mFlags & 0x8000) {
+	if (mFlags.mFlags & 0x8000)
 		return;
-	}
-	if (fn_8009C1BC((u8*)GAME->mChr + 0x12DFC, 2) < 2) {
+	if (fn_8009C1BC(&lbl_8025C400.GetPlayer()->mAttachments, 2) < 2)
 		return;
-	}
-	fn_8008A6C0(this, pos, f);
-	mStatus.mFlags |= 2;
-	Vec v    = { 0.0f, 0.0f, 0.0f };
-	v        = *pos;
-	mHitPos  = v;
-	mHitDist = f;
+	fn_8008A6C0(this, &from, strength);
+	mFlags.mFlags |= 2;
+	Vec pos      = { 0.0f, 0.0f, 0.0f };
+	pos          = from;
+	mHitPos      = pos;
+	mHitStrength = strength;
 }
 
-s32 XObjSpider::vf100(s32 a, s32 b)
+/**
+ * @note Address: 0x800F2350
+ * @note Size: 0x14
+ */
+s32 XObjSpider::vf100(s32 unused, s32 value)
 {
-	mStatus.mFlags |= 1;
-	return b;
+	mFlags.mFlags |= 1;
+	return value;
 }
 
+/**
+ * @note Address: 0x800F0B7C
+ * @note Size: 0x4EC
+ */
 // NONMATCHING: the return temp and the target sit the other way on the stack
-// shoots the part from its joint, ahead of it or at the robot
-extern "C" void fn_800F0B7C(XObjSpider* self)
+// shoots the carried model from its joint, ahead of it or at the robot
+extern "C" void fn_800F0B7C(XObjSpider* spider)
 {
 	CJObj joint;
 	s32 path[8] = { 0, 0, 0, 0, 1, 1, 0, 0 };
-	joint.Attach(GetJoint(self->mJObj, path, 8));
-	CVec pos(GetJObjPos(joint.mJObj));
-	switch (self->Get25C()) {
+	joint.Attach(FindJointByPath(spider->mJObj, path, 8));
+	CVec pos(GetJointPosition(joint.mJObj));
+	switch (spider->_25C) {
 	case 0:
-		self->mShotTo.x = pos.x + 72.0f * (f32)sin(self->mDir);
-		self->mShotTo.y = pos.y;
-		self->mShotTo.z = pos.z + 72.0f * (f32)cos(self->mDir);
+		spider->mShotTo.x = pos.x + 72.0f * (f32)sin(spider->mDir);
+		spider->mShotTo.y = pos.y;
+		spider->mShotTo.z = pos.z + 72.0f * (f32)cos(spider->mDir);
 		break;
 	case 12:
 	case 13:
-		self->mShotTo.x = pos.x + 72.0f * (f32)sin(HALF_PI + self->mDir);
-		self->mShotTo.y = pos.y + 72.0f * (f32)cos(HALF_PI + self->mDir);
-		self->mShotTo.z = pos.z;
+		spider->mShotTo.x = pos.x + 72.0f * (f32)sin(HALF_PI + spider->mDir);
+		spider->mShotTo.y = pos.y + 72.0f * (f32)cos(HALF_PI + spider->mDir);
+		spider->mShotTo.z = pos.z;
 		break;
 	default:
-		Vec chr       = GAME->mChr->mMoveTranslate;
-		self->mShotTo = chr;
+		Vec chr         = lbl_8025C400.GetPlayer()->mMoveTranslate;
+		spider->mShotTo = chr;
 		break;
 	}
-	self->_A44 = 1;
-	self->_A48 = 10;
-	self->mPart.mStatus.mFlags |= 1;
-	self->mPart.mPos.x = pos.x;
-	self->mPart.mPos.y = pos.y;
-	self->mPart.mPos.z = pos.z;
-	XObj* obj          = (XObj*)(GAME_POOL2->mData + self->_258 * GAME_POOL2->mSize);
-	CVec to(self->mShotTo);
-	self->mPart.mRotY  = atan2(to.y - self->mPart.mPos.y, to.x - self->mPart.mPos.x);
-	self->mPart.mObj   = obj;
-	self->mPart.mState = 1;
-	fn_8001E904(GAME_SOUND, 0x12A, 0xFF);
+	spider->_A44 = 1;
+	spider->_A48 = 10;
+	spider->mCarry.mFlags.mFlags |= 1;
+	spider->mCarry.mPos.x = pos.x;
+	spider->mCarry.mPos.y = pos.y;
+	spider->mCarry.mPos.z = pos.z;
+	XObj* self            = lbl_8025C400.mXObjs.mPools[17].Get(spider->_258);
+	CVec to(spider->mShotTo);
+	spider->mCarry.mAngle = atan2(to.y - spider->mCarry.mPos.y, to.x - spider->mCarry.mPos.x);
+	spider->mCarry.mObj   = self;
+	spider->mCarry.mState = 1;
+	fn_8001E904(&lbl_8025C400.mSound, 0x12A, 255);
 }
 
+/**
+ * @note Address: 0x800F1068
+ * @note Size: 0x6C8
+ */
 // NONMATCHING: the matrix pointers and the tie loop take other registers
 // reads the object it holds up and keeps it on its joint, and moves the tied objects
 // along with their joints
-extern "C" void fn_800F1068(XObjSpider* self, u32 frames)
+extern "C" void fn_800F1068(XObjSpider* spider, u32 frames)
 {
-	switch (self->_B60) {
+	switch (spider->mEffectOn) {
 	case 0:
 		break;
 	case 1:
-		if (!fn_8012CA54(GAME->_97AC)) {
+		if (!fn_8012CA54(lbl_8025C400.mXObjs.mPools[14].mObjects)) {
 			break;
 		}
-		if (self->_B5C != NULL) {
-			self->_B5C->Release();
+		if (spider->mEffect != NULL) {
+			spider->mEffect->Release();
 		}
-		if (self->_B58 >= 0) {
-			self->_B5C = ReadObj(self->_B58);
+		if (spider->mEffectId >= 0) {
+			spider->mEffect = ReadObj(spider->mEffectId);
 		} else {
-			self->_B5C = NULL;
+			spider->mEffect = NULL;
 		}
-		self->_B60++;
+		spider->mEffectOn++;
 	case 2:
-		if (self->_B5C != NULL) {
-			if (self->_B5C->mFlags & 0x0040000000000000ULL) {
+		if (spider->mEffect != NULL) {
+			if (spider->mEffect->mStatus.mFlags & 0x0040000000000000ULL) {
 				break;
 			}
-			GAME->mFlags |= 0x1000;
+			lbl_8025C400.mStatus.mFlags |= 0x1000;
 		}
-		self->_B60++;
+		spider->mEffectOn++;
 	case 3:
-		if (self->_B58 < 0 || self->_B5C == NULL) {
+		if (spider->mEffectId < 0 || spider->mEffect == NULL) {
 			break;
 		}
-		self->_B5C->SetScale(1.0f, 1.0f, 1.0f, 0);
+		spider->mEffect->SetScale(1.0f, 1.0f, 1.0f, 0);
 		CJObj joint;
-		joint.Attach(GetJoint(self->mJObj, sHoldPath, 1));
-		PSMTXCopy(HSD_JObjGetMtxPtr(joint.mJObj), self->_B64);
+		joint.Attach(FindJointByPath(spider->mJObj, sHoldPath, 1));
+		PSMTXCopy(HSD_JObjGetMtxPtr(joint.mJObj), spider->mEffectMtx);
 		Vec scale;
-		HSD_MtxGetScale(self->_B64, &scale);
-		scale.x = fn_800621E0(self->_B5C).x / scale.x;
-		scale.y = fn_800621E0(self->_B5C).y / scale.y;
-		scale.z = fn_800621E0(self->_B5C).z / scale.z;
-		Mtx s;
-		PSMTXScale(s, scale.x, scale.y, scale.z);
-		Mtx t;
-		Mtx m;
-		PSMTXConcat(self->_B64, s, m);
-		PSMTXTrans(t, 0.0f, 5.0f, 0.0f);
-		PSMTXConcat(m, t, m);
-		HSD_JObjCopyMtx(self->_B5C->mJObj, m);
-		self->_B5C->mFlags &= ~0x0200000000000000ULL;
+		HSD_MtxGetScale(spider->mEffectMtx, &scale);
+		scale.x = fn_800621E0(spider->mEffect).x / scale.x;
+		scale.y = fn_800621E0(spider->mEffect).y / scale.y;
+		scale.z = fn_800621E0(spider->mEffect).z / scale.z;
+		Mtx scaleMtx;
+		PSMTXScale(scaleMtx, scale.x, scale.y, scale.z);
+		Mtx up;
+		Mtx mtx;
+		PSMTXConcat(spider->mEffectMtx, scaleMtx, mtx);
+		PSMTXTrans(up, 0.0f, 5.0f, 0.0f);
+		PSMTXConcat(mtx, up, mtx);
+		HSD_JObjCopyMtx(spider->mEffect->mJObj, mtx);
+		spider->mEffect->mStatus.mFlags &= ~0x0200000000000000ULL;
 		break;
 	}
-	if (self->mStatus.mFlags & 0x20000000) {
+	if (spider->mFlags.mFlags & 0x20000000) {
 		for (u32 i = 0; i < 8; i++) {
-			if (self->mTies[i].mJoint != NULL && self->mTies[i].mObj != NULL) {
-				Mtx m;
-				XObj* obj = self->mTies[i].mObj;
-				PSMTXTrans(m, obj->mMoveTranslate.x, obj->mMoveTranslate.y, obj->mMoveTranslate.z);
-				PSMTXConcat(HSD_JObjGetMtxPtr(self->mTies[i].mJoint), m, self->mTies[i].mMtx);
-				HSD_JObjCopyMtx(self->mTies[i].mObj->mJObj, self->mTies[i].mMtx);
+			if (spider->mTies[i].mJoint != NULL && spider->mTies[i].mObj != NULL) {
+				Mtx mtx;
+				XObj* obj = spider->mTies[i].mObj;
+				PSMTXTrans(mtx, obj->mMoveTranslate.x, obj->mMoveTranslate.y, obj->mMoveTranslate.z);
+				PSMTXConcat(HSD_JObjGetMtxPtr(spider->mTies[i].mJoint), mtx, spider->mTies[i].mMtx);
+				HSD_JObjCopyMtx(spider->mTies[i].mObj->mJObj, spider->mTies[i].mMtx);
 			}
 		}
 	}
 }
 
-// the hits: it loses life when the robot hits it, more for a hard hit, then blinks red
+/**
+ * @note Address: 0x800F1B10
+ * @note Size: 0x840
+ */
+// the hits, it loses hits when the robot hits it, more for a hard hit, then blinks red
 // for a while. and when the robot touches it, the robot gets hit
-extern "C" void fn_800F1B10(XObjSpider* self, u32 frames)
+extern "C" void fn_800F1B10(XObjSpider* spider, u32 frames)
 {
-	switch (self->_B94) {
+	switch (spider->mHitState) {
 	case 0:
-		if ((self->mStatus.mFlags & 2) && !(self->mStatus.mFlags & 0x10)) {
-			fn_8001E660(GAME_SOUND, 0x12A);
-			self->mStatus.mFlags &= ~2;
-			if (self->mHitDist >= fn_8006EBC8(0x1F) / 100.0f) {
-				self->mLife -= 5;
-				if (self->mLife <= 0) {
-					self->mLife = 0;
+		if ((spider->mFlags.mFlags & 2) && !(spider->mFlags.mFlags & 0x10)) {
+			fn_8001E660(&lbl_8025C400.mSound, 0x12A);
+			spider->mFlags.mFlags &= ~2;
+			if (spider->mHitStrength >= (s32)fn_8006EBC8(0x1F) / 100.0f) {
+				spider->mHits -= 5;
+				if (spider->mHits <= 0) {
+					spider->mHits = 0;
 				}
-			} else if (--self->mLife <= 0) {
-				self->mLife = 0;
+			} else if (--spider->mHits <= 0) {
+				spider->mHits = 0;
 			}
-			if (self->mLife <= 0) {
-				self->mSpeed = 0.0f;
-				self->SetState(3);
-				self->mStatus.mFlags |= 0x10;
+			if (spider->mHits <= 0) {
+				spider->mSpeed = 0.0f;
+				spider->SetState(3);
+				spider->mFlags.mFlags |= 0x10;
 			} else {
-				self->_B94 = 1;
-				self->_B98 = 0;
-				self->mStatus.mFlags |= 0x10;
+				spider->mHitState = 1;
+				spider->mHitTimer = 0;
+				spider->mFlags.mFlags |= 0x10;
 			}
 		}
 		break;
 	case 1:
-		if (self->mTimer % 30 < 15) {
-			self->SetColor(1, 0x80, 0, 0, 0.0f);
+		if (spider->mCounter % 30 < 15) {
+			spider->vf12C(1, 0x80, 0, 0, 0.0f);
 		} else {
-			self->SetColor(1, 0, 0, 0, 0.0f);
+			spider->vf12C(1, 0, 0, 0, 0.0f);
 		}
-		self->_B98++;
-		if (self->_B98 > 20) {
-			self->mStatus.mFlags &= ~0x10;
-			self->SetColor(1, 0, 0, 0, 0.0f);
-			self->_B98 = 0;
-			self->_B94 = 0;
+		spider->mHitTimer++;
+		if (spider->mHitTimer > 20) {
+			spider->mFlags.mFlags &= ~0x10;
+			spider->vf12C(1, 0, 0, 0, 0.0f);
+			spider->mHitTimer = 0;
+			spider->mHitState = 0;
 		}
 		break;
 	}
-	Vec chr = GAME->mChr->mMoveTranslate;
-	if (self->mWall == 3) {
-		f32 dx = chr.x - self->_A14.x;
-		f32 dy = 8.0f + chr.y - self->_A14.y;
-		f32 dz = chr.z - chr.z;
-		if (sqrtf(dx * dx + dy * dy + dz * dz) < 8.0f && (self->mStatus.mFlags & 0x800)) {
-			GAME->mChr->vf138(&chr, 7.0f);
-			HitCarried(self);
+	Vec chr = lbl_8025C400.GetPlayer()->mMoveTranslate;
+	if (spider->mWall == 3) {
+		f32 x = chr.x - spider->_A14.x;
+		f32 y = 8.0f + chr.y - spider->_A14.y;
+		f32 z = chr.z - chr.z;
+		if (sqrtf(x * x + y * y + z * z) < 8.0f && (spider->mFlags.mFlags & 0x800)) {
+			lbl_8025C400.GetPlayer()->vf138(chr, 7.0f);
+			HitCarried(spider);
 		}
 	} else {
-		f32 dx = chr.x - self->_A14.x;
-		f32 dy = 0.0f;
-		f32 dz = chr.z - self->_A14.z;
-		f32 y  = chr.y;
-		if (sqrtf(dx * dx + dy * dy + dz * dz) < 2.0f && (self->mStatus.mFlags & 0x800) && Abs(y - self->mMoveTranslate.y) < 4.0f) {
-			GAME->mChr->vf138(&chr, 7.0f);
-			HitCarried(self);
+		f32 x    = chr.x - spider->_A14.x;
+		f32 y    = 0.0f;
+		f32 z    = chr.z - spider->_A14.z;
+		f32 chrY = chr.y;
+		if (sqrtf(x * x + y * y + z * z) < 2.0f && (spider->mFlags.mFlags & 0x800) && Abs(chrY - spider->mMoveTranslate.y) < 4.0f) {
+			lbl_8025C400.GetPlayer()->vf138(chr, 7.0f);
+			HitCarried(spider);
 		}
 	}
-	fn_800F1730(self, frames);
-	fn_800F0090(self, frames);
+	fn_800F1730(spider, frames);
+	fn_800F0090(spider, frames);
 }
 
+/**
+ * @note Address: 0x800F1730
+ * @note Size: 0x3E0
+ */
 // does what the last event command said
-extern "C" void fn_800F1730(XObjSpider* self, u32 frames)
+extern "C" void fn_800F1730(XObjSpider* spider, u32 frames)
 {
-	switch (self->mArgs[0]) {
+	switch (spider->mCommand) {
 	case 0:
 		break;
 	case 1:
-		self->SetState(3);
-		self->mArgs[0] = 0;
+		spider->SetState(3);
+		spider->mCommand = 0;
 		break;
 	case 2:
-		if (self->mStatus.mFlags & 0x10000) {
-			GAME_5D08C = 1;
-		} else {
-			GAME_5D08C = 0;
-		}
-		self->mArgs[0] = 0;
+		if (spider->mFlags.mFlags & 0x10000)
+			lbl_8025C400.mEvt._10 = 1;
+		else
+			lbl_8025C400.mEvt._10 = 0;
+		spider->mCommand = 0;
 		break;
 	case 3:
-		if (self->mStatus.mFlags & 0x80000) {
-			GAME_5D08C = 1;
-		} else {
-			GAME_5D08C = 0;
-		}
-		self->mArgs[0] = 0;
+		if (spider->mFlags.mFlags & 0x80000)
+			lbl_8025C400.mEvt._10 = 1;
+		else
+			lbl_8025C400.mEvt._10 = 0;
+		spider->mCommand = 0;
 		break;
 	case 4:
-		self->mStatus.mFlags |= 0x200000;
-		self->mArgs[0] = 0;
+		spider->mFlags.mFlags |= 0x00200000;
+		spider->mCommand = 0;
 		break;
 	case 5:
-		self->mStatus.mFlags |= 0x400000;
-		self->mArgs[0] = 0;
+		spider->mFlags.mFlags |= 0x00400000;
+		spider->mCommand = 0;
 		break;
 	case 6:
-		self->mFlags |= 0x100000;
-		self->mArgs[0] = 0;
+		spider->mStatus.mFlags |= 0x00100000;
+		spider->mCommand = 0;
 		break;
 	case 7:
-		if (self->mArgs[1] == 1) {
-			self->mStatus.mFlags &= ~0x8000000;
-		} else {
-			self->mStatus.mFlags |= 0x8000000;
-		}
-		self->mArgs[0] = 0;
-		self->mArgs[1] = 0;
+		if (spider->mArgs[0] == 1)
+			spider->mFlags.mFlags &= ~0x08000000;
+		else
+			spider->mFlags.mFlags |= 0x08000000;
+		spider->mCommand = 0;
+		spider->mArgs[0] = 0;
 		break;
 	case 8:
-		fn_800F38F4(self);
-		self->mArgs[0] = 0;
+		fn_800F38F4(spider);
+		spider->mCommand = 0;
 		break;
 	case 9:
-		self->mHome.x          = self->mArgs[1] / 100.0f;
-		self->mHome.y          = self->mArgs[2] / 100.0f;
-		self->mHome.z          = self->mArgs[3] / 100.0f;
-		self->_A60.x           = self->mHome.x;
-		self->_A60.y           = self->mHome.y;
-		self->_A60.z           = self->mHome.z;
-		self->mMoveTranslate.x = self->mHome.x;
-		self->mMoveTranslate.y = (f32) * (s32*)&self->_25C[4] + self->mHome.y; // _260, the height it hangs at
-		self->mMoveTranslate.z = self->mHome.z;
-		self->mMoveTranslate.mTarget.Set(self->mMoveTranslate.x, self->mMoveTranslate.y, self->mMoveTranslate.z);
-		self->mArgs[0] = 0;
+		spider->mHome.x          = spider->mArgs[0] / 100.0f;
+		spider->mHome.y          = spider->mArgs[1] / 100.0f;
+		spider->mHome.z          = spider->mArgs[2] / 100.0f;
+		spider->mStartPos.x      = spider->mHome.x;
+		spider->mStartPos.y      = spider->mHome.y;
+		spider->mStartPos.z      = spider->mHome.z;
+		spider->mMoveTranslate.x = spider->mHome.x;
+		spider->mMoveTranslate.y = (f32)spider->_260 + spider->mHome.y;
+		spider->mMoveTranslate.z = spider->mHome.z;
+		spider->mMoveTranslate.mTarget.Set(spider->mMoveTranslate.x, spider->mMoveTranslate.y, spider->mMoveTranslate.z);
+		spider->mCommand = 0;
 		break;
 	case 10:
-		self->mArea.x  = self->mArgs[1] / 100.0f;
-		self->mArea.y  = self->mArgs[2] / 100.0f;
-		self->mArea.z  = self->mArgs[3] / 100.0f;
-		self->mAreaW   = self->mArgs[4];
-		self->mAreaD   = self->mArgs[5];
-		self->mArgs[0] = 0;
+		spider->mAreaPos.x = spider->mArgs[0] / 100.0f;
+		spider->mAreaPos.y = spider->mArgs[1] / 100.0f;
+		spider->mAreaPos.z = spider->mArgs[2] / 100.0f;
+		spider->mAreaWidth = spider->mArgs[3];
+		spider->mAreaDepth = spider->mArgs[4];
+		spider->mCommand   = 0;
 		break;
 	case 11:
-		self->mArgs[0] = 0;
+		spider->mCommand = 0;
 		break;
 	case 12:
-		self->mArgs[0] = 0;
+		spider->mCommand = 0;
 		break;
 	case 13:
-		self->mStatus.mFlags |= 0x10000000;
-		self->mArgs[0] = 0;
+		spider->mFlags.mFlags |= 0x10000000;
+		spider->mCommand = 0;
 		break;
 	case 14:
-		self->_B58     = self->mArgs[1];
-		self->_B60     = 1;
-		self->mArgs[0] = 0;
+		spider->mEffectId = spider->mArgs[0];
+		spider->mEffectOn = 1;
+		spider->mCommand  = 0;
 		break;
 	case 15:
-		self->_B60 = 0;
-		self->_B58 = -1;
-		if (self->_B5C != NULL) {
-			self->_B5C->Release();
-		}
-		self->mArgs[0] = 0;
+		spider->mEffectOn = 0;
+		spider->mEffectId = -1;
+		if (spider->mEffect != NULL)
+			spider->mEffect->Release();
+		spider->mCommand = 0;
 		break;
 	case 16:
-		self->mArgs[0] = 0;
+		spider->mCommand = 0;
 		break;
 	case 17:
-		self->mArgs[0] = 0;
+		spider->mCommand = 0;
 		break;
 	case 18:
-		self->mArgs[0] = 0;
+		spider->mCommand = 0;
 		break;
 	case 19:
-		self->SetState(5);
-		self->mArgs[0] = 0;
+		spider->SetState(5);
+		spider->mCommand = 0;
 		break;
 	}
 }
 
+/**
+ * @note Address: 0x800F0058
+ * @note Size: 0x38
+ */
 void XObjSpider::State0(u32 frames)
 {
-	if (Get25C() != 0xB) {
-		return;
-	}
-	if (!(mStatus.mFlags & 0x400000)) {
-		return;
-	}
-	SetState(4);
+	if (_25C == 11 && (mFlags.mFlags & 0x400000))
+		SetState(4);
 }
 
-// hit: stops, then plays anim 0x15 and goes on, or goes to state 3 when it has no life left
+/**
+ * @note Address: 0x800EFDB0
+ * @note Size: 0x2A8
+ */
+// hit, stops, then plays anim 21 and goes on, or dies when it has no hits left
 void XObjSpider::State1(u32 frames)
 {
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
-		fn_8001E904(GAME_SOUND, 0x129, 0xFF);
-		mStatus.mFlags &= ~0x800;
-		mStatus.mFlags |= 0x10;
+		fn_8001E904(&lbl_8025C400.mSound, 0x129, 255);
+		mFlags.mFlags &= ~0x800U;
+		mFlags.mFlags |= 0x10;
 		mSpeed = 0.0f;
-		if (mLife <= 0) {
-			mStatus.mFlags |= 0x10000;
+		if (mHits <= 0) {
+			mFlags.mFlags |= 0x10000;
 			SetState(3);
 		} else {
-			SetAnim(0x15, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			mStep++;
+			SetAnim(21, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			++mPhase;
 		}
 		break;
 	case 1:
-		f32 end = GetAnimEndFrame(mJObj);
-		if (end - frames <= GetAnimFrame(mJObj)) {
-			mStatus.mFlags &= ~0x10;
+		HSD_AObj* aobj = GetAObj(mJObj);
+		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
+		aobj           = GetAObj(mJObj);
+		f32 current    = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
+		if (end - (f32)frames <= current) {
+			mFlags.mFlags &= ~0x10U;
 			SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			SetState(4);
 		}
@@ -1129,54 +1074,62 @@ void XObjSpider::State1(u32 frames)
 	}
 }
 
+/**
+ * @note Address: 0x800EFDAC
+ * @note Size: 0x4
+ */
 void XObjSpider::State2(u32 frames)
 {
 }
 
-// dies: blinks, stops its sound, drops what it carries, shakes the screen, then
-// leaves one of the drops where it was
+/**
+ * @note Address: 0x800EF958
+ * @note Size: 0x454
+ */
+// dies, blinks, stops its sound, lets go of its slot, shakes the screen, then leaves
+// one of the coins where it was
 void XObjSpider::State3(u32 frames)
 {
-	mTimer++;
-	if (mTimer % 30 < 15) {
-		SetColor(1, 0, 0x80, 0, 0.0f);
+	mCounter++;
+	if (mCounter % 30 < 15) {
+		vf12C(1, 0, 0x80, 0, 0.0f);
 	} else {
-		SetColor(1, 0, 0, 0, 0.0f);
+		vf12C(1, 0, 0, 0, 0.0f);
 	}
 	Vec pos;
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
-		fn_8001E660(GAME_SOUND, 0x132);
+		fn_8001E660(&lbl_8025C400.mSound, 0x132);
 		SetAnim(0x19, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		if (mCarry != 0xFF) {
-			if (mPart2.mObj != NULL) {
-				mPart2.mObj->mFlags &= ~0x10000ULL;
+		if (mSlot != 255) {
+			if (_AC8.mObj != NULL) {
+				_AC8.mObj->mStatus.mFlags &= ~0x10000ULL;
 			}
-			lbl_8037E600[mCarry] = -1;
-			mPart2.mObj          = NULL;
-			mCarry               = 0xFF;
+			lbl_8037E600[mSlot] = -1;
+			_AC8.mObj           = NULL;
+			mSlot               = 255;
 		}
-		mWait = 0x2C;
-		mStep++;
+		mWait = 44;
+		mPhase++;
 		break;
 	case 1:
 		mWait -= frames;
 		if (mWait < 0) {
 			fn_8010CDDC(mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);
-			if (!(GAME->mFlags & 0x100)) {
-				fn_800242A8(GAME_QUAKE, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.4f);
+			if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
+				fn_800242A8(&lbl_8025C400.mQuake, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.4f);
 			}
-			mStep++;
+			mPhase++;
 		}
 		break;
 	case 2:
 		f32 end = GetAnimEndFrame(mJObj);
 		if (end - frames <= GetAnimFrame(mJObj)) {
-			mStep++;
-			mTimer = 0;
-			mFlags &= ~0x10000ULL;
-			mStatus.mFlags |= 0x80000;
-			mStatus.mFlags &= ~0x100000;
+			mPhase++;
+			mCounter = 0;
+			mStatus.mFlags &= ~0x10000ULL;
+			mFlags.mFlags |= 0x80000;
+			mFlags.mFlags &= ~0x100000;
 			pos.x = mMoveTranslate.x;
 			pos.y = mMoveTranslate.y;
 			pos.z = mMoveTranslate.z;
@@ -1188,11 +1141,11 @@ void XObjSpider::State3(u32 frames)
 			} else {
 				anim = 0;
 			}
-			Vec to;
-			to.x = mHome.x;
-			to.y = 0.0f;
-			to.z = mHome.z;
-			fn_800EA554(&pos, &to, anim);
+			Vec target;
+			target.x = mHome.x;
+			target.y = 0.0f;
+			target.z = mHome.z;
+			fn_800EA554(&pos, &target, anim);
 		}
 		break;
 	case 3:
@@ -1200,24 +1153,38 @@ void XObjSpider::State3(u32 frames)
 	}
 }
 
-// lands: drops into its anim, then takes the first free one of the carried objects
+/**
+ * @note Address: 0x800EF854
+ * @note Size: 0x104
+ */
+// NONMATCHING: the sum is done in another order
+extern "C" f32 fn_800EF854(const Vec* first, const Vec* second)
+{
+	return DistXZ(first, second);
+}
+
+/**
+ * @note Address: 0x800EDEE4
+ * @note Size: 0x16C
+ */
+// lands, drops into its anim, then takes the first free slot
 void XObjSpider::State5(u32 frames)
 {
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
-		mStatus.mFlags |= 0x40;
-		mStatus.mFlags |= 0x400;
-		mStatus.mFlags |= 0x8000;
+		mFlags.mFlags |= 0x40;
+		mFlags.mFlags |= 0x400;
+		mFlags.mFlags |= 0x8000;
 		SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		mStep++;
+		mPhase++;
 		break;
 	case 1:
-		if (GAME_5D080 == NULL) {
-			mStatus.mFlags &= ~0x40;
-			mStatus.mFlags &= ~0x80;
-			mStatus.mFlags &= ~0x100;
-			mStatus.mFlags &= ~0x8000;
-			TakeCarried(this);
+		if (lbl_8025C400.mEvt.mData.mScript == NULL) {
+			mFlags.mFlags &= ~0x40;
+			mFlags.mFlags &= ~0x80;
+			mFlags.mFlags &= ~0x100;
+			mFlags.mFlags &= ~0x8000;
+			TakeSlot(this);
 			SetState(4);
 		}
 		break;
@@ -1226,61 +1193,65 @@ void XObjSpider::State5(u32 frames)
 	}
 }
 
+/**
+ * @note Address: 0x800ED2A4
+ * @note Size: 0xC40
+ */
 // NONMATCHING: the spider count loop isn't strength reduced, the robot position temp sits elsewhere
 // hangs from the ceiling and swings, drops down its thread when the robot comes near,
-// climbs back, then takes one of the carried objects and walks off
+// climbs back, then takes a slot and walks off
 void XObjSpider::State6(u32 frames)
 {
 	CVec chr(GetChrPos());
 	CPad pad(0);
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
-		mTimer = rand() % 30;
-		mStep  = 10;
+		mCounter = rand() % 30;
+		mPhase   = 10;
 		break;
 	case 10:
-		if (--mTimer < 0) {
-			mTimer = rand() % 30;
+		if (--mCounter < 0) {
+			mCounter = rand() % 30;
 			SetAnim(0x11, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			mStep = 1;
+			mPhase = 1;
 		}
 		break;
 	case 1:
-		mTimer++;
-		mMoveTranslate.x = mHome.x + (f32)(8.0f * (f32)sin(DEG2RAD * (f32)((mTimer * 4) % 360))) - 4.0f;
-		if (Get25C() == 11) {
-			if (mStatus.mFlags & 0x200000) {
-				fn_8001E904(GAME_SOUND, 0x131, 0xFF);
-				mStatus.mFlags |= 0x100000;
-				mStep++;
+		mCounter++;
+		mMoveTranslate.x = mHome.x + (f32)(8.0f * (f32)sin(DEG2RAD * (f32)((mCounter * 4) % 360))) - 4.0f;
+		if (_25C == 11) {
+			if (mFlags.mFlags & 0x200000) {
+				fn_8001E904(&lbl_8025C400.mSound, 0x131, 255);
+				mFlags.mFlags |= 0x100000;
+				mPhase++;
 				SetAnim(0x10, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 				mSpeed = -1.6f;
 			}
 		} else {
 			f32 dist;
 			if (mWall == 3) {
-				f32 dx = chr.x - mMoveTranslate.x;
-				f32 dy = chr.y - mMoveTranslate.y;
-				f32 dz = 0.0f;
-				dist   = sqrtf(dx * dx + dy * dy + dz * dz);
+				f32 x = chr.x - mMoveTranslate.x;
+				f32 y = chr.y - mMoveTranslate.y;
+				f32 z = 0.0f;
+				dist  = sqrtf(x * x + y * y + z * z);
 			} else {
-				f32 dx = chr.x - mMoveTranslate.x;
-				f32 dy = 0.0f;
-				f32 dz = chr.z - mMoveTranslate.z;
-				dist   = sqrtf(dx * dx + dy * dy + dz * dz);
+				f32 x = chr.x - mMoveTranslate.x;
+				f32 y = 0.0f;
+				f32 z = chr.z - mMoveTranslate.z;
+				dist  = sqrtf(x * x + y * y + z * z);
 			}
-			if (dist <= 68.0f && GAME->CanAct() && GAME_5D080 == NULL) {
-				s32 n = 0;
+			if (dist <= 68.0f && lbl_8025C400.IsRunning() && lbl_8025C400.mEvt.mData.mScript == NULL) {
+				s32 dropped = 0;
 				for (int i = 0; i < 16; i++) {
-					XObjSpider* other = (XObjSpider*)GAME_POOL2->Get(i);
-					if ((other->mFlags & 1) && (other->mStatus.mFlags & 0x100000)) {
-						n++;
+					XObjSpider* other = (XObjSpider*)lbl_8025C400.mXObjs.mPools[17].Get(i);
+					if ((other->mStatus.mFlags & 1) && (other->mFlags.mFlags & 0x100000)) {
+						dropped++;
 					}
 				}
-				if (n < 10) {
-					fn_8001E904(GAME_SOUND, 0x131, 0xFF);
-					mStatus.mFlags |= 0x100000;
-					mStep++;
+				if (dropped < 10) {
+					fn_8001E904(&lbl_8025C400.mSound, 0x131, 255);
+					mFlags.mFlags |= 0x100000;
+					mPhase++;
 					SetAnim(0x10, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					mSpeed = -1.6f;
 				}
@@ -1289,10 +1260,10 @@ void XObjSpider::State6(u32 frames)
 		break;
 	case 2:
 		if (mMoveTranslate.y < 20.0f + mHome.y) {
-			fn_8001E660(GAME_SOUND, 0x131);
-			mStep++;
+			fn_8001E660(&lbl_8025C400.mSound, 0x131);
+			mPhase++;
 			SetAnim(0x12, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			mDir   = atan2(_9FC.x - mMoveTranslate.x, _9FC.z - mMoveTranslate.z);
+			mDir   = atan2(mTarget.x - mMoveTranslate.x, mTarget.z - mMoveTranslate.z);
 			_988   = mDir;
 			mSpeed = 0.0f;
 		}
@@ -1300,18 +1271,18 @@ void XObjSpider::State6(u32 frames)
 	case 3:
 		f32 end = GetAnimEndFrame(mJObj);
 		if (end - frames <= GetAnimFrame(mJObj)) {
-			mStep++;
+			mPhase++;
 			SetAnim(0x13, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			mDir   = atan2(_9FC.x - mMoveTranslate.x, _9FC.z - mMoveTranslate.z);
+			mDir   = atan2(mTarget.x - mMoveTranslate.x, mTarget.z - mMoveTranslate.z);
 			_988   = mDir;
 			mSpeed = -0.5f;
 		}
 		break;
 	case 4:
 		if (mMoveTranslate.y < 8.0f + mHome.y) {
-			mStep++;
+			mPhase++;
 			SetAnim(0x14, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			fn_8001E904(GAME_SOUND, 0x128, 0xFF);
+			fn_8001E904(&lbl_8025C400.mSound, 0x128, 255);
 		}
 		break;
 	case 5:
@@ -1319,49 +1290,53 @@ void XObjSpider::State6(u32 frames)
 			mMoveTranslate.y = mHome.y;
 			mSpeed           = 0.0f;
 		}
-		f32 end2 = GetAnimEndFrame(mJObj);
-		if (end2 - frames <= GetAnimFrame(mJObj)) {
-			mStatus.mFlags &= ~0x40;
-			mStatus.mFlags &= ~0x80;
-			mStatus.mFlags &= ~0x100;
+		f32 landEnd = GetAnimEndFrame(mJObj);
+		if (landEnd - frames <= GetAnimFrame(mJObj)) {
+			mFlags.mFlags &= ~0x40;
+			mFlags.mFlags &= ~0x80;
+			mFlags.mFlags &= ~0x100;
 			SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			mStatus.mFlags &= ~0x8000;
-			TakeCarried(this);
+			mFlags.mFlags &= ~0x8000;
+			TakeSlot(this);
 			SetState(4);
 		}
 		break;
 	case 6:
 		if (pad.mPad->mTrigger & 0x200) {
-			mStatus.mFlags = 0;
-			mStatus.mFlags |= 0x40;
-			mStatus.mFlags |= 0x80;
-			mStatus.mFlags |= 0x100;
+			mFlags.mFlags = 0;
+			mFlags.mFlags |= 0x40;
+			mFlags.mFlags |= 0x80;
+			mFlags.mFlags |= 0x100;
 			mMoveTranslate.y = 48.0f + mHome.y;
-			mStep            = 0;
+			mPhase           = 0;
 		}
 		break;
 	}
 }
 
+/**
+ * @note Address: 0x800EC91C
+ * @note Size: 0x988
+ */
 // backs off to its home spot, its steps sounding, then waits out the event
 void XObjSpider::State7(u32 frames)
 {
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
 		SetAnim(0xC, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		mSpeed = 0.0f;
-		mStep++;
+		mPhase++;
 		break;
 	case 1:
 		f32 end = GetAnimEndFrame(mJObj);
 		if (end - frames <= GetAnimFrame(mJObj)) {
 			SetAnim(8, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			_9FC.x = mHome.x;
-			_9FC.y = mMoveTranslate.y;
-			_9FC.z = mHome.z;
-			mDir   = PI + (f32)atan2(_9FC.x - mMoveTranslate.x, _9FC.z - mMoveTranslate.z);
-			mSpeed = -0.5f;
-			mStep++;
+			mTarget.x = mHome.x;
+			mTarget.y = mMoveTranslate.y;
+			mTarget.z = mHome.z;
+			mDir      = PI + (f32)atan2(mTarget.x - mMoveTranslate.x, mTarget.z - mMoveTranslate.z);
+			mSpeed    = -0.5f;
+			mPhase++;
 		}
 		break;
 	case 2:
@@ -1370,13 +1345,13 @@ void XObjSpider::State7(u32 frames)
 		} else if (15.0f <= GetAnimFrame(mJObj) && 15.0f >= GetAnimFrame(mJObj)) {
 			PlayStep(this);
 		}
-		if (DistXZ(&_9FC, &mMoveTranslate) <= 2.0f) {
-			mSpeed   = 0.0f;
-			f32 end2 = GetAnimEndFrame(mJObj);
-			if (end2 - frames <= GetAnimFrame(mJObj)) {
+		if (DistXZ(&mTarget, &mMoveTranslate) <= 2.0f) {
+			mSpeed      = 0.0f;
+			f32 walkEnd = GetAnimEndFrame(mJObj);
+			if (walkEnd - frames <= GetAnimFrame(mJObj)) {
 				SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				if (GAME_5D080 != NULL) {
-					mStep++;
+				if (lbl_8025C400.mEvt.mData.mScript != NULL) {
+					mPhase++;
 				} else {
 					SetState(4);
 				}
@@ -1384,34 +1359,63 @@ void XObjSpider::State7(u32 frames)
 		}
 		break;
 	case 3:
-		if (GAME_5D080 == NULL) {
+		if (lbl_8025C400.mEvt.mData.mScript == NULL) {
 			SetState(4);
 		}
 		break;
 	}
 }
 
+/**
+ * @note Address: 0x800EC918
+ * @note Size: 0x4
+ */
 void XObjSpider::State8(u32 frames)
 {
 }
 
-extern "C" u32 fn_800EBDB0(XObjSpider* self)
+/**
+ * @note Address: 0x800EBDBC
+ * @note Size: 0x64
+ */
+// whether it is inside its area, kept mRadius off the edges
+extern "C" BOOL fn_800EBDBC(XObjSpider* spider)
 {
-	return (self->mStatus.mFlags >> 19) & 1;
+	f32 left  = spider->mAreaPos.x + spider->mRadius;
+	f32 right = (spider->mAreaPos.x + spider->mAreaWidth) - spider->mRadius;
+	f32 near  = spider->mAreaPos.z + spider->mRadius;
+	f32 far   = (spider->mAreaPos.z + spider->mAreaDepth) - spider->mRadius;
+	if (left > spider->mMoveTranslate.x || right < spider->mMoveTranslate.x || near > spider->mMoveTranslate.z
+	    || far < spider->mMoveTranslate.z)
+		return FALSE;
+	return TRUE;
 }
 
-// whether another spider is closer than 24
-extern "C" BOOL fn_800EBBF0(XObjSpider* self)
+/**
+ * @note Address: 0x800EBDB0
+ * @note Size: 0xC
+ */
+extern "C" u32 fn_800EBDB0(XObjSpider* spider)
+{
+	return (spider->mFlags.mFlags >> 19) & 1;
+}
+
+/**
+ * @note Address: 0x800EBBF0
+ * @note Size: 0x1C0
+ */
+// whether another spider that dropped down is closer than 24
+extern "C" BOOL fn_800EBBF0(XObjSpider* spider)
 {
 	for (int i = 0; i < 16; i++) {
-		XObj* obj = GAME_POOL2->Get(i);
-		if ((obj->mFlags & 1) && (obj->mFlags & 1) && (obj->mFlags & 0x10000)) {
+		XObj* obj = lbl_8025C400.mXObjs.mPools[17].Get(i);
+		if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 			XObjSpider* other = (XObjSpider*)obj;
-			if ((other->mStatus.mFlags & 0x100000) && other->_258 != self->_258) {
-				f32 dx = other->mMoveTranslate.x - self->mMoveTranslate.x;
-				f32 dy = other->mMoveTranslate.y - self->mMoveTranslate.y;
-				f32 dz = other->mMoveTranslate.z - self->mMoveTranslate.z;
-				if (sqrtf(dx * dx + dy * dy + dz * dz) < 24.0f) {
+			if ((other->mFlags.mFlags & 0x100000) && other->_258 != spider->_258) {
+				f32 x = other->mMoveTranslate.x - spider->mMoveTranslate.x;
+				f32 y = other->mMoveTranslate.y - spider->mMoveTranslate.y;
+				f32 z = other->mMoveTranslate.z - spider->mMoveTranslate.z;
+				if (sqrtf(x * x + y * y + z * z) < 24.0f) {
 					return TRUE;
 				}
 			}
@@ -1420,18 +1424,22 @@ extern "C" BOOL fn_800EBBF0(XObjSpider* self)
 	return FALSE;
 }
 
-// the id of another spider closer than 24, -1 when there is none
-extern "C" s32 fn_800EBA30(XObjSpider* self)
+/**
+ * @note Address: 0x800EBA30
+ * @note Size: 0x1C0
+ */
+// the index of another spider that dropped down closer than 24, -1 when there is none
+extern "C" s32 fn_800EBA30(XObjSpider* spider)
 {
 	for (int i = 0; i < 16; i++) {
-		XObj* obj = GAME_POOL2->Get(i);
-		if ((obj->mFlags & 1) && (obj->mFlags & 1) && (obj->mFlags & 0x10000)) {
+		XObj* obj = lbl_8025C400.mXObjs.mPools[17].Get(i);
+		if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 			XObjSpider* other = (XObjSpider*)obj;
-			if ((other->mStatus.mFlags & 0x100000) && other->_258 != self->_258) {
-				f32 dx = other->mMoveTranslate.x - self->mMoveTranslate.x;
-				f32 dy = other->mMoveTranslate.y - self->mMoveTranslate.y;
-				f32 dz = other->mMoveTranslate.z - self->mMoveTranslate.z;
-				if (sqrtf(dx * dx + dy * dy + dz * dz) < 24.0f) {
+			if ((other->mFlags.mFlags & 0x100000) && other->_258 != spider->_258) {
+				f32 x = other->mMoveTranslate.x - spider->mMoveTranslate.x;
+				f32 y = other->mMoveTranslate.y - spider->mMoveTranslate.y;
+				f32 z = other->mMoveTranslate.z - spider->mMoveTranslate.z;
+				if (sqrtf(x * x + y * y + z * z) < 24.0f) {
 					return other->_258;
 				}
 			}
@@ -1440,185 +1448,197 @@ extern "C" s32 fn_800EBA30(XObjSpider* self)
 	return -1;
 }
 
-extern "C" void fn_800EB928(XObjSpider* self)
+/**
+ * @note Address: 0x800EB928
+ * @note Size: 0x108
+ */
+extern "C" void fn_800EB928(XObjSpider* spider)
 {
-	switch (self->_258 % 5) {
+	switch (spider->_258 % 5) {
 	case 0:
-		fn_8001E904(GAME_SOUND, 0x12B, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12B, 255);
 		break;
 	case 1:
-		fn_8001E904(GAME_SOUND, 0x12C, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12C, 255);
 		break;
 	case 2:
-		fn_8001E904(GAME_SOUND, 0x12D, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12D, 255);
 		break;
 	case 3:
-		fn_8001E904(GAME_SOUND, 0x12E, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12E, 255);
 		break;
 	case 4:
-		fn_8001E904(GAME_SOUND, 0x12F, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, 0x12F, 255);
 		break;
 	}
 }
 
+/**
+ * @note Address: 0x800EAF18
+ * @note Size: 0xA10
+ */
 // NONMATCHING: retail has another 0x24 bytes of .rodata in front of the joint paths
-// the part's anims: it opens, follows its joint on the carried object while the anim
-// plays, then closes and hides
-extern "C" void fn_800EAF18(UnkSpiderPart* part, u8 carry, u32 frames, s32 mode)
+// the slot model's anims, it opens, follows mObj's joint while the anim plays, then
+// closes and hides
+extern "C" void fn_800EAF18(CarryInfo* carry, u8 slot, u32 frames, s32 mode)
 {
-	if (carry == 0xFF) {
-		part->mState = 0;
-		part->mStatus.mFlags &= ~1;
+	if (slot == 255) {
+		carry->mState = 0;
+		carry->mFlags.mFlags &= ~1;
 		return;
 	}
-	if (lbl_8037E5C0[carry] == NULL) {
-		part->mState = 0;
-		part->mStatus.mFlags &= ~1;
+	if (lbl_8037E5C0[slot] == NULL) {
+		carry->mState = 0;
+		carry->mFlags.mFlags &= ~1;
 		return;
 	}
-	switch (part->mState) {
+	switch (carry->mState) {
 	case 0:
 		break;
 	case 1:
-		lbl_8037E5C0[carry]->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		part->mState++;
+		lbl_8037E5C0[slot]->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		carry->mState++;
 		break;
 	case 2:
-		if (part->mObj != NULL) {
+		if (carry->mObj != NULL) {
 			CJObj joint;
 			s32 path[8] = { 0, 0, 0, 0, 1, 1, 0, 0 };
-			joint.Attach(GetJoint(part->mObj->mJObj, path, 8));
-			part->mPos = GetJObjPos(joint.mJObj);
+			joint.Attach(FindJointByPath(carry->mObj->mJObj, path, 8));
+			carry->mPos = GetJointPosition(joint.mJObj);
 		}
-		f32 end = GetAnimEndFrame(lbl_8037E5C0[carry]->mJObj);
-		if (end - frames <= GetAnimFrame(lbl_8037E5C0[carry]->mJObj)) {
-			lbl_8037E5C0[carry]->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			part->mState++;
+		f32 end = GetAnimEndFrame(lbl_8037E5C0[slot]->mJObj);
+		if (end - frames <= GetAnimFrame(lbl_8037E5C0[slot]->mJObj)) {
+			lbl_8037E5C0[slot]->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			carry->mState++;
 		}
 		break;
 	case 3:
-		if (part->mObj != NULL) {
+		if (carry->mObj != NULL) {
 			CJObj joint;
 			s32 path[8] = { 0, 0, 0, 0, 1, 1, 0, 0 };
-			joint.Attach(GetJoint(part->mObj->mJObj, path, 8));
-			part->mPos = GetJObjPos(joint.mJObj);
+			joint.Attach(FindJointByPath(carry->mObj->mJObj, path, 8));
+			carry->mPos = GetJointPosition(joint.mJObj);
 		}
-		f32 end2 = GetAnimEndFrame(lbl_8037E5C0[carry]->mJObj);
-		if (end2 - frames <= GetAnimFrame(lbl_8037E5C0[carry]->mJObj)) {
-			lbl_8037E5C0[carry]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			part->mState = 0;
-			part->mStatus.mFlags &= ~1;
-			part->mStatus.mFlags &= ~2;
+		f32 closeEnd = GetAnimEndFrame(lbl_8037E5C0[slot]->mJObj);
+		if (closeEnd - frames <= GetAnimFrame(lbl_8037E5C0[slot]->mJObj)) {
+			lbl_8037E5C0[slot]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			carry->mState = 0;
+			carry->mFlags.mFlags &= ~1;
+			carry->mFlags.mFlags &= ~2;
 		}
 		break;
 	}
 }
 
-// a test mode: the pad's direction sends it a step that way, up its thread and back
+/**
+ * @note Address: 0x800EBE20
+ * @note Size: 0xAF8
+ */
+// a test mode, the pad's direction sends it a step that way, up its thread and back
 void XObjSpider::State9(u32 frames)
 {
 	CPad pad(0);
 	if (pad.mPad->mTrigger & 0x20) {
-		mStep            = 0;
+		mPhase           = 0;
 		mSpeed           = 0.0f;
 		mMoveTranslate.x = mHome.x;
 		mMoveTranslate.y = mHome.y;
 		mMoveTranslate.z = mHome.z;
 		SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		mStatus.mFlags &= ~0x100;
+		mFlags.mFlags &= ~0x100;
 	}
-	switch (mStep) {
+	switch (mPhase) {
 	case 0:
 		if (pad.mPad->mTrigger & 0x200) {
 			u32 button = pad.mPad->mButton;
 			if (button & 8) {
-				_9FC.x = mHome.x;
-				_9FC.y = mHome.y;
-				_9FC.z = mHome.z - 60.0f;
+				mTarget.x = mHome.x;
+				mTarget.y = mHome.y;
+				mTarget.z = mHome.z - 60.0f;
 				SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				mStep++;
+				mPhase++;
 				mSpeed = 0.3f;
 				mDir   = PI;
 			} else if (button & 4) {
-				_9FC.x = mHome.x;
-				_9FC.y = mHome.y;
-				_9FC.z = 60.0f + mHome.z;
+				mTarget.x = mHome.x;
+				mTarget.y = mHome.y;
+				mTarget.z = 60.0f + mHome.z;
 				SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				mStep++;
+				mPhase++;
 				mSpeed = 0.3f;
 				mDir   = PI;
 			} else if (button & 1) {
-				_9FC.x = mHome.x - 60.0f;
-				_9FC.y = mHome.y;
-				_9FC.z = mHome.z;
+				mTarget.x = mHome.x - 60.0f;
+				mTarget.y = mHome.y;
+				mTarget.z = mHome.z;
 				SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				mStep++;
+				mPhase++;
 				mSpeed = 0.3f;
 				mDir   = PI;
 			} else if (button & 2) {
-				_9FC.x = 60.0f + mHome.x;
-				_9FC.y = mHome.y;
-				_9FC.z = mHome.z;
+				mTarget.x = 60.0f + mHome.x;
+				mTarget.y = mHome.y;
+				mTarget.z = mHome.z;
 				SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				mStep++;
+				mPhase++;
 				mSpeed = 0.3f;
 				mDir   = PI;
 			}
 		}
 		break;
 	case 1:
-		if (HeadTo(this, _9FC) < 20.0f) {
-			mStep++;
+		if (HeadTo(this, mTarget) < 20.0f) {
+			mPhase++;
 			SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		}
 		break;
 	case 2:
-		if (HeadTo(this, _9FC) < 1.0f) {
-			mStatus.mFlags |= 0x100;
+		if (HeadTo(this, mTarget) < 1.0f) {
+			mFlags.mFlags |= 0x100;
 			mSpeed = 0.0f;
 		}
 		HSD_AObj* aobj = GetAObj(mJObj);
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		aobj           = GetAObj(mJObj);
-		if (end - frames <= (aobj != NULL ? HSD_AObjGetCurrFrame(aobj) : 0.0f)) {
-			mStatus.mFlags |= 0x100;
+		if (end - frames <= (aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f)) {
+			mFlags.mFlags |= 0x100;
 			mSpeed = 0.0f;
-			mStep++;
+			mPhase++;
 			SetAnim(5, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			mSpeed = 0.3f;
 		}
 		break;
 	case 3:
 		if (mMoveTranslate.y >= 80.0f) {
-			mStep++;
+			mPhase++;
 			mSpeed = -0.3f;
 		}
 		break;
 	case 4:
 		if (mMoveTranslate.y <= 20.0f + mHome.y) {
-			mStep++;
+			mPhase++;
 			mMoveTranslate.y = 0.0f;
-			mStatus.mFlags &= ~0x100;
-			_9FC.x = mHome.x;
-			_9FC.y = mHome.y;
-			_9FC.z = mHome.z;
+			mFlags.mFlags &= ~0x100;
+			mTarget.x = mHome.x;
+			mTarget.y = mHome.y;
+			mTarget.z = mHome.z;
 			SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			mSpeed = 0.3f;
 		}
 		break;
 	case 5: {
-		f32 distance = HeadTo(this, _9FC);
+		f32 distance = HeadTo(this, mTarget);
 		s32 done     = 0;
 		if (distance < 1.0f) {
 			mSpeed = 0.0f;
 			done   = 1;
 		}
-		f32 end2 = GetAnimEndFrame(mJObj);
-		if (end2 - frames <= GetAnimFrame(mJObj)) {
+		f32 backEnd = GetAnimEndFrame(mJObj);
+		if (backEnd - frames <= GetAnimFrame(mJObj)) {
 			done++;
 		}
 		if (done >= 2) {
-			mStep = 0;
+			mPhase = 0;
 			SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		}
 		break;
@@ -1626,134 +1646,161 @@ void XObjSpider::State9(u32 frames)
 	}
 }
 
-// draws the carried object where the part is
-extern "C" void fn_800EAB58(UnkSpiderPart* part, u8 carry, bool turned)
+/**
+ * @note Address: 0x800EAB58
+ * @note Size: 0x3C0
+ */
+extern "C" void fn_800EAB58(CarryInfo* carry, u8 slot, bool sideways)
 {
-	if (carry == 0xFF) {
-		return;
+	if (slot != 255 && (carry->mFlags.mFlags & 1)) {
+		XObj* model = lbl_8037E5C0[slot];
+		if (model != NULL) {
+			HSD_JObj* joint = model->mJObj;
+			HSD_JObjSetTranslateX(joint, carry->mPos.x);
+			HSD_JObjSetTranslateY(joint, carry->mPos.y);
+			HSD_JObjSetTranslateZ(joint, carry->mPos.z);
+			if (sideways) {
+				HSD_JObjSetRotationX(joint, HALF_PI);
+				HSD_JObjSetRotationZ(joint, HALF_PI + carry->mAngle);
+			} else {
+				HSD_JObjSetRotationY(joint, carry->mAngle);
+			}
+			HSD_JObjDispAll(joint, NULL, 7, 0);
+		}
 	}
-	if (!(part->mStatus.mFlags & 1)) {
-		return;
-	}
-	XObj* obj = lbl_8037E5C0[carry];
-	if (obj == NULL) {
-		return;
-	}
-	HSD_JObj* jobj = obj->mJObj;
-	HSD_JObjSetTranslateX(jobj, part->mPos.x);
-	HSD_JObjSetTranslateY(jobj, part->mPos.y);
-	HSD_JObjSetTranslateZ(jobj, part->mPos.z);
-	if (turned) {
-		HSD_JObjSetRotationX(jobj, HALF_PI);
-		HSD_JObjSetRotationZ(jobj, HALF_PI + part->mRotY);
-	} else {
-		HSD_JObjSetRotationY(jobj, part->mRotY);
-	}
-	HSD_JObjDispAll(jobj, NULL, 7, 0);
 }
 
-extern "C" void fn_800EA99C(void* mgr)
+/**
+ * @note Address: 0x800EA99C
+ * @note Size: 0x1BC
+ */
+extern "C" void fn_800EA99C(void* unused)
 {
 	lbl_8065B2C4 = 0;
 	for (int i = 0; i < 11; i++) {
-		lbl_8037E640[i].mObj   = NULL;
-		lbl_8037E640[i].mState = 0;
-		lbl_8037E640[i].mTimer = 0;
+		lbl_8037E640[i].mCoin  = NULL;
+		lbl_8037E640[i].mPhase = 0;
+		lbl_8037E640[i].mCount = 0;
 	}
 	for (int i = 0; i < 96; i++) {
-		XObj* obj = GAME_ITEMS->Get(i);
-		if (obj->GetDescKind() == 0x104) {
-			((u8*)obj)[0x9E8] = 0;
+		XObj* obj = lbl_8025C400.mXObjs.mPools[7].Get(i);
+		if (obj->GetKind() == 0x104) {
+			((XObjCoin*)obj)->mBouncing = 0;
 		}
 	}
 }
 
-// NONMATCHING: the drop pointer is set up through r0, the height sum is commuted
-// moves the drops: shown, bobbing, then falling to where they land
-extern "C" void fn_800EA780(void* mgr, u32 frames)
+/**
+ * @note Address: 0x800EA780
+ * @note Size: 0x21C
+ */
+// NONMATCHING: regalloc
+// moves the coins, shown, hopping, then falling to where they land
+extern "C" void fn_800EA780(void* unused, u32 frames)
 {
-	Vec pos;
-	f32 fall         = 0.8f * (f32)frames;
-	UnkSpiderDrop* d = lbl_8037E640;
-	for (int i = 0; i < 11; i++, d++) {
-		XObj* obj = d->mObj;
-		if (obj != NULL) {
-			s32 state = d->mState;
-			s32 timer = d->mTimer;
-			f32 toY   = d->mTo.y;
-			pos       = d->mPos;
-			switch (state) {
-			case 3:
-				break;
+	f32 fall = 0.8f * (f32)frames;
+	for (s32 i = 0; i < 11; ++i) {
+		CoinBounce* entry = &lbl_8037E640[i];
+		XObj* coin        = entry->mCoin;
+		if (coin != NULL) {
+			s32 phase   = entry->mPhase;
+			s32 counter = entry->mCount;
+			f32 targetY = entry->mTarget.y;
+			f32 x       = entry->mPos.x;
+			f32 y       = entry->mPos.y;
+			f32 z       = entry->mPos.z;
+			switch (phase) {
 			case 0:
-				obj->mFlags |= 0x10000;
-				state++;
+				coin->mStatus.mFlags |= 0x10000ULL;
+				++phase;
 				break;
-			case 1:
-				timer++;
-				f32 bob = 10.0f * (f32)sin(DEG2RAD * (f32)((timer * 16) % 360)) + 0.2f;
-				if (bob < 0.2f) {
-					obj->SetTranslateY(pos.y + 0.2f, 0);
-					state++;
+			case 1: {
+				++counter;
+				f32 height = 10.0f * (f32)sin(DEG2RAD * (f32)((counter * 16) % 360)) + 0.2f;
+				if (height < 0.2f) {
+					coin->SetTranslateY(y + 0.2f, 0);
+					++phase;
 				} else {
-					obj->SetTranslateY(pos.y + bob, 0);
+					coin->SetTranslateY(y + height, 0);
 				}
-				break;
-			case 2:
-				pos.y -= fall;
-				if (pos.y <= toY) {
-					obj->mFlags &= ~0x100000ULL;
-					pos.y = toY;
-					state++;
-				}
-				obj->SetTranslateY(pos.y + 0.2f, 0);
 				break;
 			}
-			d->mState = state;
-			d->mTimer = timer;
-			d->mPos   = pos;
+			case 2:
+				y -= fall;
+				if (y <= targetY) {
+					coin->mStatus.mFlags &= ~0x100000ULL;
+					y = targetY;
+					++phase;
+				}
+				coin->SetTranslateY(y + 0.2f, 0);
+				break;
+			case 3:
+				break;
+			}
+			entry->mPhase = phase;
+			entry->mCount = counter;
+			entry->mPos.x = x;
+			entry->mPos.y = y;
+			entry->mPos.z = z;
 		}
 	}
 }
 
-// NONMATCHING: the object loop multiplies instead of stepping the offset
-// puts one of the free drops at pos and plays its anim
-extern "C" void fn_800EA554(Vec* pos, Vec* to, s32 anim)
+/**
+ * @note Address: 0x800EA554
+ * @note Size: 0x22C
+ */
+// NONMATCHING: the pool loop steps another register
+// puts one of the free coins at position and plays its anim
+extern "C" void fn_800EA554(Vec* position, Vec* target, s32 anim)
 {
-	if (lbl_8065B2C4 >= 11) {
+	if (lbl_8065B2C4 >= 11)
 		return;
-	}
-	UnkObjPool* pool = GAME_ITEMS;
-	for (u32 i = 0; i < 96; i++) {
-		XObj* obj = pool->Get(i);
-		if ((obj->mFlags & 1) && obj->GetDescKind() == 0x104 && (obj->mFlags & 1) && ((u8*)obj)[0x9E8] == 0) {
-			((u8*)obj)[0x9E8]                 = 1;
-			lbl_8037E640[lbl_8065B2C4].mState = 0;
-			lbl_8037E640[lbl_8065B2C4].mTimer += 2;
-			lbl_8037E640[lbl_8065B2C4].mPos.x = pos->x;
-			lbl_8037E640[lbl_8065B2C4].mPos.y = pos->y + 0.2f;
-			lbl_8037E640[lbl_8065B2C4].mPos.z = pos->z;
-			lbl_8037E640[lbl_8065B2C4].mTo.x  = to->x;
-			lbl_8037E640[lbl_8065B2C4].mTo.y  = to->y;
-			lbl_8037E640[lbl_8065B2C4].mTo.z  = to->z;
-			lbl_8037E640[lbl_8065B2C4].mObj   = obj;
-			lbl_8037E640[lbl_8065B2C4].mObj->SetTranslateX(pos->x, 0);
-			lbl_8037E640[lbl_8065B2C4].mObj->SetTranslateY(pos->y + 0.2f, 0);
-			lbl_8037E640[lbl_8065B2C4].mObj->SetTranslateZ(pos->z, 0);
-			lbl_8037E640[lbl_8065B2C4].mObj->mFlags |= 0x100000;
-			lbl_8037E640[lbl_8065B2C4].mObj->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			lbl_8065B2C4++;
-			return;
+	u32 stride = lbl_8025C400.mXObjs.mPools[7].mStride;
+	u8* pool   = lbl_8025C400.mXObjs.mPools[7].mObjects;
+	u32 offset = 0;
+	for (s32 i = 0; i < 96; ++i, offset += stride) {
+		XObjCoin* coin = (XObjCoin*)(pool + offset);
+		if (coin->mStatus.mFlags & 1ULL) {
+			if (coin->GetKind() == 0x104) {
+				if ((coin->mStatus.mFlags & 1ULL) && !coin->mBouncing) {
+					coin->mBouncing                   = 1;
+					lbl_8037E640[lbl_8065B2C4].mPhase = 0;
+					lbl_8037E640[lbl_8065B2C4].mCount += 2;
+					lbl_8037E640[lbl_8065B2C4].mPos.x    = position->x;
+					lbl_8037E640[lbl_8065B2C4].mPos.y    = position->y + 0.2f;
+					lbl_8037E640[lbl_8065B2C4].mPos.z    = position->z;
+					lbl_8037E640[lbl_8065B2C4].mTarget.x = target->x;
+					lbl_8037E640[lbl_8065B2C4].mTarget.y = target->y;
+					lbl_8037E640[lbl_8065B2C4].mTarget.z = target->z;
+					lbl_8037E640[lbl_8065B2C4].mCoin     = coin;
+					lbl_8037E640[lbl_8065B2C4].mCoin->SetTranslateX(position->x, 0);
+					lbl_8037E640[lbl_8065B2C4].mCoin->SetTranslateY(position->y + 0.2f, 0);
+					lbl_8037E640[lbl_8065B2C4].mCoin->SetTranslateZ(position->z, 0);
+					lbl_8037E640[lbl_8065B2C4].mCoin->mStatus.mFlags |= 0x100000ULL;
+					lbl_8037E640[lbl_8065B2C4].mCoin->SetAnim(anim, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+					++lbl_8065B2C4;
+					break;
+				}
+			}
 		}
 	}
 }
 
+/**
+ * @note Address: 0x800EA40C
+ * @note Size: 0x148
+ */
 // NONMATCHING: the jobj and the anim id swap registers
 void XObjSpider::vf148()
 {
-	if ((mFlags & 1) && (mFlags & 0x10000)) {
-		s32 anim  = mAnimId;
-		f32 frame = GetAnimFrame(mJObj);
-		mSe.Play(anim, fn_8001DF00(GAME_SOUND, &mMoveTranslate, 0), frame);
+	if (mStatus.mFlags & 1ULL) {
+		if (mStatus.mFlags & 0x10000ULL) {
+			HSD_JObj* joint = mJObj;
+			s32 id          = mAnimId;
+			HSD_AObj* aobj  = GetAObj(joint);
+			f32 frame       = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
+			mSfx.Update(id, frame, fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0));
+		}
 	}
 }

@@ -192,15 +192,6 @@ public:
 };
 STATIC_ASSERT(sizeof(CVectorEaseOutDivideInterpolation) == 0x38);
 
-extern "C" {
-// weak copies of the scalar interpolations' ctors, the vector ones build mAxes with them
-CInterpolationNone* fn_8001A3A8(CInterpolationNone* interp);
-CInterpolationEaseOutDivide* fn_8001AC64(CInterpolationEaseOutDivide* interp);
-CInterpolationEaseOut* fn_8001AC80(CInterpolationEaseOut* interp);
-CInterpolationLinear* fn_8001AC9C(CInterpolationLinear* interp);
-CInterpolationEaseInOut* fn_8001ACB8(CInterpolationEaseInOut* interp);
-}
-
 class CInterfaceCameraAction {
 public:
 	CVec mEye;      // _00
@@ -266,13 +257,13 @@ public:
 // base of the area, map and reset actions. fields from _40 on differ per subclass
 class CCameraActionAreaExM : public CInterfaceCameraAction {
 public:
-	virtual void vf64();         // _64
-	virtual f32 vf68();          // _68
-	virtual void vf6C();         // _6C
-	virtual void vf70(s32 mode); // _70
-	virtual void vf74();         // _74
-	virtual s32 vf78(s32 id);    // _78, whether an area camera entry exists
-	virtual void vf7C();         // _7C
+	virtual void vf64();          // _64
+	virtual f32 vf68();           // _68
+	virtual s32 vf6C();           // _6C
+	virtual void vf70(s32 mode);  // _70
+	virtual void vf74(Vec pos);   // _74
+	virtual BOOL vf78(s32 id);    // _78, whether an area camera entry exists
+	virtual BOOL vf7C(s32 index); // _7C
 };
 
 // an entry in CCameraActionMap's _570 and _9A0 lists
@@ -398,6 +389,11 @@ public:
 	CamAreaRecord* GetRecord() const { return _04; }
 	bool Is_2C_1() const { return _04->_2C == 1; }
 	bool IsCameraOff() const { return (_04->_2E & 4) == 0; }
+	bool IsCameraArea() const
+	{
+		u16 flags = _04->_2E & 4;
+		return flags != 0;
+	}
 	u16 IsDisabled() const { return _04->_2E & 0x80; }
 	f32 GetTop() const { return _04->mTop / 100.0f; }
 	f32 GetBottom() const { return _04->mBottom / 100.0f; }
@@ -443,6 +439,88 @@ STATIC_ASSERT(sizeof(CCameraActionAreaEx) == 0x3C34);
 // todo: old name, the prototypes below still use it
 typedef CCameraActionAreaEx CamAreaState;
 extern "C" CCameraActionAreaEx lbl_805A054C;
+
+// the area action, CCameraActions holds it at _40
+class CCameraActionArea : public CCameraActionAreaExM {
+public:
+	f32 _40;                                       // _40, transition time
+	s32 _44;                                       // _44, camera direction mode
+	BOOL _48;                                      // _48, user-selected entry
+	s32 _4C;                                       // _4C
+	s32 _50;                                       // _50
+	CamAreaEntry* _54;                             // _54
+	CamAreaEntry* _58;                             // _58
+	s32 _5C;                                       // _5C
+	BOOL _60;                                      // _60, manual camera changes enabled
+	XObj* _64;                                     // _64, the camera looks at it
+	CInterfaceVectorInterpolation* mEyeInterp;     // _68
+	CInterfaceInterpolation* mFovInterp;           // _6C
+	CVectorEaseInOutInterpolation _70;             // _70
+	CVectorLinearInterpolation _CC;                // _CC
+	CVectorEaseInOutInterpolation _100;            // _100
+	CVectorEaseOutInterpolation _15C;              // _15C
+	CVectorEaseOutDivideInterpolation _1C0;        // _1C0
+	CInterfaceVectorInterpolation* mEyeInterps[5]; // _1F8
+	CInterpolationLinear _20C;                     // _20C
+	CInterpolationEaseInOut _21C;                  // _21C
+	CInterpolationEaseOut _238;                    // _238
+	CInterpolationEaseOutDivide _258;              // _258
+	CInterfaceInterpolation* mFovInterps[5];       // _268
+	CInterfaceVectorInterpolation* _27C;           // _27C
+	CInterfaceVectorInterpolation* _280[5];        // _280, by mode
+
+	virtual void Update(u32 step); // _10
+
+	void SetEyeInterpolation(s32 mode, Vec from, Vec to, f32 time)
+	{
+		if (mode == 5) {
+			mode = 4;
+		}
+		Vec target = to;
+		if (mode == 3 || time <= 0.0f) {
+			mEyeInterp = NULL;
+			SetEye(target);
+		} else {
+			mEyeInterp = mEyeInterps[mode];
+			if (mEyeInterp != NULL) {
+				mEyeInterp->Start(from, target, time);
+			}
+		}
+	}
+
+	void SetEye_I(s32 mode, Vec from, Vec to, f32 time);
+
+	void SetFovInterpolation(s32 mode, f32 from, f32 to, f32 time)
+	{
+		if (mode == 5) {
+			mode = 4;
+		}
+		if (mode == 3 || time <= 0.0f) {
+			mFovInterp = NULL;
+			SetFov(to);
+		} else {
+			mFovInterp = mFovInterps[mode];
+			if (mFovInterp != NULL) {
+				mFovInterp->Start(from, to, time);
+			}
+		}
+	}
+
+	// the vectors are passed by value, hence the copies
+	void SetInte_I(s32 mode, Vec from, Vec to, f32 time)
+	{
+		if (mode == 3 || time <= 0.0f) {
+			_27C = NULL;
+			SetInterest(to);
+			return;
+		}
+		_27C = _280[mode];
+		if (_27C != NULL) {
+			_27C->Start(from, to, time);
+		}
+	}
+};
+STATIC_ASSERT(sizeof(CCameraActionArea) == 0x294);
 
 // puts the camera back behind the player, see ccameraactionreset.cpp
 class CCameraActionReset : public CCameraActionAreaExM {
@@ -709,8 +787,6 @@ public:
 };
 STATIC_ASSERT(sizeof(CCameraActionAnim) == 0x48);
 
-// defined in ccameraactionarea.cpp
-class CCameraActionArea;
 class CMotionControlCamera;
 
 extern "C" {

@@ -17,6 +17,6 @@ public:
 	virtual void Init() { }                  // _1C
 	virtual u32 Get_38() { return 0x20019; } // _54
 };
-typedef char CCameraActionEye_size_check[sizeof(CCameraActionEye) == 0x80 ? 1 : -1];
+STATIC_ASSERT(sizeof(CCameraActionEye) == 0x80);
 
 #endif

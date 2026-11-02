@@ -379,14 +379,14 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
     blr
 */
 
-#define EVT_PLAYER (*lbl_8025C400.mPlayer)
+#define EVT_PLAYER (*lbl_8025C400.GetPlayer())
 
 extern "C" s32 GetStageNum(void);
 
 // WARP, ABORT and RETURN all finish through this
 static inline void CEvt_End(CEvt* evt)
 {
-	evt->_04 = 0;
+	evt->mData.mScript = 0;
 	if (evt->_54 != 0 && evt->_58 != 0) {
 		evt->_58 = 0;
 #if defined(VERSION_JP)
@@ -398,7 +398,7 @@ static inline void CEvt_End(CEvt* evt)
 	Inventory* inventory = &EVT_PLAYER.mParams.mInventory;
 	inventory->mCompact  = TRUE;
 	fn_800DC62C(inventory);
-	evt->_04 = 0;
+	evt->mData.mScript = 0;
 }
 
 /**
@@ -2494,13 +2494,13 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 	switch (type) {
 	case 0:
 		if (sfx == -2) {
-			fn_8001E630((CSound*)(u8*)&lbl_8025C400.mSound, -1);
+			fn_8001E630(&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E660((CSound*)(u8*)&lbl_8025C400.mSound, sfx);
+			fn_8001E660(&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	case 1:
-		fn_8001E904((CSound*)(u8*)&lbl_8025C400.mSound, sfx, 0xFF);
+		fn_8001E904(&lbl_8025C400.mSound, sfx, 0xFF);
 		lbl_8065B244._00 = 0;
 		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
 		break;
@@ -2511,16 +2511,18 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
 		break;
 	case 2:
-		fn_8001E1A4((CSound*)(u8*)&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
+		fn_8001E1A4(&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 3:
-		fn_8001E2CC((CSound*)(u8*)&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
+		fn_8001E2CC(&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 4: {
-		CSound* sound;
-		u16 frames = CEvt_Evaluate(evt) * 2;
-		u8 vol     = CEvt_Evaluate(evt);
-		sound      = (CSound*)(u8*)&lbl_8025C400.mSound;
+		XSound* sound;
+		u16 frames;
+		u8 vol;
+		frames = CEvt_Evaluate(evt) * 2;
+		vol    = CEvt_Evaluate(evt);
+		sound  = &lbl_8025C400.mSound;
 		if (!fn_8001E6C8(sound, sfx)) {
 			fn_8001E904(sound, sfx, vol);
 		} else {
@@ -2530,18 +2532,18 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 	}
 	case 5:
 		if (sfx == -2) {
-			fn_8001E590((CSound*)(u8*)&lbl_8025C400.mSound, -1);
+			fn_8001E590(&lbl_8025C400.mSound, -1);
 		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
-			fn_8001E5C0((CSound*)(u8*)&lbl_8025C400.mSound, sfx, 0);
+			fn_8001E5C0(&lbl_8025C400.mSound, sfx, 0);
 		} else {
 			fn_801E94E4(sfx);
 		}
 		break;
 	case 6:
 		if (sfx == -2) {
-			fn_8001E4D4((CSound*)(u8*)&lbl_8025C400.mSound, -1);
+			fn_8001E4D4(&lbl_8025C400.mSound, -1);
 		} else {
-			fn_8001E504((CSound*)(u8*)&lbl_8025C400.mSound, sfx);
+			fn_8001E504(&lbl_8025C400.mSound, sfx);
 		}
 		break;
 	default:
@@ -2801,7 +2803,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1    = CEvt_Evaluate(evt);
 		u8 a1    = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023EE0((CScrnColor*)lbl_8025C400.mFade, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		fn_80023EE0(&lbl_8025C400.mFade, r0, g0, b0, a0, r1, g1, b1, a1, time);
 		break;
 	}
 	case EVT_ATOM_MONO: {
@@ -2814,7 +2816,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1    = CEvt_Evaluate(evt);
 		u8 a1    = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023EE0((CScrnColor*)lbl_8025C400.mColor, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		fn_80023EE0(&lbl_8025C400.mColor0.mColor, r0, g0, b0, a0, r1, g1, b1, a1, time);
 		break;
 	}
 	case EVT_ATOM_WIPE: {
@@ -2837,25 +2839,23 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
 		switch (type) {
 		case 0:
-			fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCircle, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			fn_80023438(&lbl_8025C400.mWipeCircle, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			break;
 		case 1:
-			fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTile, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			fn_80023438(&lbl_8025C400.mWipeTile0, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			break;
 		default:
 			if (type >= 2000) {
 				if (open) {
-					fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 57.0f, 57.0f, 0.0f, 0.0f, time, a1,
-					            !open);
+					fn_80023438(&lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 57.0f, 57.0f, 0.0f, 0.0f, time, a1, !open);
 				} else {
-					fn_80023438((CScrnWipe*)lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 0.0f, 0.0f, 57.0f, 57.0f, time, a1,
-					            !open);
+					fn_80023438(&lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 0.0f, 0.0f, 57.0f, 57.0f, time, a1, !open);
 				}
 			} else if (type >= 1000) {
-				TPLPalette* palette                 = (TPLPalette*)((CTpl*)lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture                    = &((CTpl*)lbl_8025C400.mTpl)->mTex;
-				*(CTexObj*)lbl_8025C400.mWipeTexObj = texture->Init(&palette->descriptorArray[type - 1000], 0);
-				fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTex, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+				TPLPalette* palette        = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
+				CTexObj* texture           = &(&lbl_8025C400.mTpl)->mTex;
+				lbl_8025C400.mWipeTex.mTex = texture->Init(&palette->descriptorArray[type - 1000], 0);
+				fn_80023438(&lbl_8025C400.mWipeTex, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			} else {
 #if defined(VERSION_PAL)
 				const s32 line = 3542;
@@ -2881,8 +2881,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1       = CEvt_Evaluate(evt);
 		u8 a1       = CEvt_Evaluate(evt);
 		f32 time    = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023438((CScrnWipe*)lbl_8025C400.mWipeTile2, r0, g0, b0, a0, r1, g1, b1, 320.0f, 200.0f, 640.0f, height0, 640.0f, height1, time,
-		            a1, !open);
+		fn_80023438(&lbl_8025C400.mWipeTile1, r0, g0, b0, a0, r1, g1, b1, 320.0f, 200.0f, 640.0f, height0, 640.0f, height1, time, a1,
+		            !open);
 		break;
 	}
 	case EVT_ATOM_HUD:
@@ -2890,19 +2890,19 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		case EVT_HUD_BATTERY: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 0, 2 }, { 1, 2 }, { 0, 3 }, { 1, 3 } };
-			fn_800664C4(lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			fn_800664C4(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
 			break;
 		}
 		case EVT_HUD_CLOCK: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 3 }, { 0, 4 }, { 1, 4 } };
-			fn_80066250((InfoScrn*)lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode, 0);
+			fn_80066250(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode, 0);
 			break;
 		}
 		case EVT_HUD_SCORE: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
-			fn_80066190((InfoScrn*)lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			fn_80066190(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
 			break;
 		}
 		case 3:
@@ -2915,20 +2915,20 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 			s32 index = CEvt_Evaluate(evt);
 			if (index >= 0) {
 				EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
-				fn_8006613C(lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+				fn_8006613C(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
 			} else {
 				switch (index) {
 				case -1:
-					fn_80066BFC(lbl_8025C400.mInfoScrn);
+					fn_80066BFC(&lbl_8025C400.mInfoScrn);
 					break;
 				case -2:
-					fn_80066BF0(lbl_8025C400.mInfoScrn);
+					fn_80066BF0(&lbl_8025C400.mInfoScrn);
 					break;
 				case -3:
-					fn_80066B9C(lbl_8025C400.mInfoScrn, CEvt_Evaluate(evt));
+					fn_80066B9C(&lbl_8025C400.mInfoScrn, CEvt_Evaluate(evt));
 					break;
 				case -4:
-					evt->_10 = fn_80066A84(lbl_8025C400.mInfoScrn);
+					evt->_10 = fn_80066A84(&lbl_8025C400.mInfoScrn);
 					break;
 				}
 			}
@@ -2952,14 +2952,14 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 			step = (end - start) / (FRAMES_PER_SEC * time);
 		}
 		if (start >= 0.0f)
-			lbl_8025C400._4290 = start;
+			lbl_8025C400.mBlur.mAlpha = start;
 		if (end >= 0.0f)
-			lbl_8025C400._4294 = end;
+			lbl_8025C400.mBlur.mTarget = end;
 		if (step < 0.0f)
 			step = -step;
-		lbl_8025C400._4298 = step;
-		lbl_8025C400._429C = near;
-		lbl_8025C400._42A0 = far;
+		lbl_8025C400.mBlur.mSpeed   = step;
+		lbl_8025C400.mBlur.mOffsetX = near;
+		lbl_8025C400.mBlur.mOffsetY = far;
 		break;
 	}
 	case EVT_ATOM_SHAKE: {
@@ -2970,7 +2970,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		f32 y1   = CEvt_Evaluate(evt) / 100.0f;
 		f32 z1   = CEvt_Evaluate(evt) / 100.0f;
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_800242A8((CScrnQuake*)lbl_8025C400.mQuake, x0, y0, z0, x1, y1, z1, time);
+		fn_800242A8(&lbl_8025C400.mQuake, x0, y0, z0, x1, y1, z1, time);
 		break;
 	}
 	default:
@@ -4340,14 +4340,14 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 extern "C" s32 CEvt__cmd_PRINTF(CEvt* evt)
 {
 	// the print itself is compiled out
-	for (s32 i = evt->_48 - 1; i >= 0; i--) { }
+	for (s32 i = evt->mValues.mCount - 1; i >= 0; i--) { }
 
 	u8 c;
 	u8* str;
 	do {
-		str      = evt->_04;
-		c        = *str;
-		evt->_04 = str + 1;
+		str                = evt->mData.mScript;
+		c                  = *str;
+		evt->mData.mScript = str + 1;
 	} while (c != 0);
 
 	return 0;
@@ -4382,7 +4382,7 @@ static inline XObj* CEvt_FindObj(s16 id)
 {
 	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
 		if (lbl_802247B0.mEntry[i].mId == id) {
-			XObj* obj = lbl_8025C400.mObjects[lbl_802247B0.mEntry[i].mIndex];
+			XObj* obj = lbl_8025C400.mXObjs.mObjects[lbl_802247B0.mEntry[i].mIndex];
 			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 				return obj;
 			}
@@ -4417,10 +4417,10 @@ static inline XObj* CEvt_GetObj(CEvt* evt, s16 id)
 		return obj;
 	}
 	if (id >= 0) {
-		return lbl_8025C400.mObjects[id];
+		return lbl_8025C400.mXObjs.mObjects[id];
 	}
 	if (id == -1) {
-		return (XObj*)evt->_08;
+		return (XObj*)evt->mData._04;
 	}
 	return (XObj*)id;
 }
@@ -4475,7 +4475,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 		f32 angle    = CEvt_Evaluate(evt);
 		Vec rotation = { 0.0f, 0.0f, 0.0f };
 		rotation.y   = DEG2RAD * angle;
-		((CParticle*)lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+		(&lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
 	} else if (type == EVT_ATOM_OBJ) {
 		s16 id      = CEvt_Evaluate(evt);
 		XObj* obj   = CEvt_GetObj(evt, id);
@@ -4490,7 +4490,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 			translate    = obj->mMoveTranslate + translate;
 			Vec rotation = { 0.0f, 0.0f, 0.0f };
 			rotation.y   = DEG2RAD * angle;
-			((CParticle*)lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+			(&lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
 		} else {
 			CEvt_Warn(fn_801911B4("ptcl(..., @OBJ, %d, ...) obj(%d) killed!", id, id));
 		}
@@ -4508,13 +4508,13 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 			if (obj->mJObj == NULL) {
 				CEvt_Warn(fn_801911B4("ptcl(%d, @LEAD, %d, ...) ... obj(%d) is collision!\n", code, id, id));
 			}
-			((CParticle*)lbl_8025C400.mParticle)->Create(code, 0, GetJointByPath(obj->mJObj, path, depth), TRUE);
+			(&lbl_8025C400.mParticle)->Create(code, 0, GetJointByPath(obj->mJObj, path, depth), TRUE);
 		} else {
 			CEvt_Warn(fn_801911B4("ptcl(..., @LEAD, %d, ...) obj(%d) killed!", id, id));
 		}
 		for (s32 i = 0; i < depth; i++) { }
 	} else if (type == EVT_ATOM_KILL) {
-		((CParticle*)lbl_8025C400.mParticle)->Kill((s32)code);
+		(&lbl_8025C400.mParticle)->Kill((s32)code);
 	} else {
 #if defined(VERSION_PAL)
 		const s32 line = 3315;
@@ -5721,7 +5721,7 @@ static inline XObj* CEvt_FindObjUnchecked(s16 id)
 {
 	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
 		if (lbl_802247B0.mEntry[i].mId == id) {
-			XObj* obj = lbl_8025C400.mObjects[lbl_802247B0.mEntry[i].mIndex];
+			XObj* obj = lbl_8025C400.mXObjs.mObjects[lbl_802247B0.mEntry[i].mIndex];
 			if (obj != NULL) {
 				return obj;
 			}
@@ -5731,7 +5731,7 @@ static inline XObj* CEvt_FindObjUnchecked(s16 id)
 	return NULL;
 }
 
-extern "C" BOOL fn_80132144(XObj* obj, UnkXObjList* list);
+extern "C" BOOL fn_80132144(XObj* obj, XOBJS* list);
 
 /**
  * @note Address: 0x80073768
@@ -5742,9 +5742,9 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 	u16 type = CEvt_Evaluate(evt);
 	switch (type) {
 	case EVT_ATOM_ANIM: {
-		s16 id            = CEvt_Evaluate(evt);
-		XObj* obj         = CEvt_GetObj(evt, id);
-		UnkXObjList* list = (UnkXObjList*)CEvt_Evaluate(evt);
+		s16 id      = CEvt_Evaluate(evt);
+		XObj* obj   = CEvt_GetObj(evt, id);
+		XOBJS* list = (XOBJS*)CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
 				CEvt_Warn(fn_801911B4("read(@ANIM, %d, %s) ... obj(%d) is collision!", id, (const char*)list, id));
@@ -5767,7 +5767,7 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 			CEvt_FindObjUnchecked(id);
 		}
 		const char* name = (const char*)CEvt_Evaluate(evt);
-		fn_8001E044((CSound*)(u8*)&lbl_8025C400.mSound, name);
+		fn_8001E044(&lbl_8025C400.mSound, name);
 		break;
 	}
 	default:
@@ -5893,9 +5893,9 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 		obj->_264.x = obj->mMoveTranslate.x;
 		obj->_264.y = obj->mMoveTranslate.y;
 		obj->_264.z = obj->mMoveTranslate.z;
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->UpdateTarget(obj);
+		lbl_8025C400.mMotionControlCamera.UpdateTarget(obj);
 		u8* carry;
-		u8* player = (u8*)lbl_8025C400.mPlayer;
+		u8* player = (u8*)lbl_8025C400.GetPlayer();
 		if (obj == (XObj*)player) {
 			fn_800B5E1C((XObjChr*)player);
 			fn_8009FCC4((XObjChr*)player);
@@ -6188,49 +6188,49 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 			if (evt->_58 == 1) {
 				EVT_OWNER_445F8(owner) = 2;
 				evt->_58++;
-				evt->_04--;
+				evt->mData.mScript--;
 				return 1;
 			}
 			if (evt->_58 == 2) {
 				if (*(u32*)(owner + 0x804) != 0) {
-					evt->_04--;
+					evt->mData.mScript--;
 					return 1;
 				}
 				evt->_58                  = 0;
 				EVT_OWNER_445C0(evt->_54) = 1;
-				if (evt->_04[4] == 0) {
-					evt->_04 = fn_8006E580(evt->_04);
+				if (evt->mData.mScript[4] == 0) {
+					evt->mData.mScript = fn_8006E580(evt->mData.mScript);
 					return 0;
 				}
 			}
 		}
 		owner = evt->_54;
 		if (EVT_OWNER_445C0(owner) != 0) {
-			CMsg_Open((CMsg*)owner, cmd, evt->_04 + 4, (MsgFormatArgs*)&evt->_44);
+			CMsg_Open((CMsg*)owner, cmd, evt->mData.mScript + 4, (MsgFormatArgs*)&evt->mValues.mBuf);
 			EVT_OWNER_445C0(evt->_54) = 0;
-			evt->_04--;
+			evt->mData.mScript--;
 			if (cmd == EVT_CMD_SELECT) {
-				fn_8001E904((CSound*)(u8*)&lbl_8025C400.mSound, 0x86, 0xFF);
+				fn_8001E904(&lbl_8025C400.mSound, 0x86, 0xFF);
 			}
 			return 1;
 		}
 		if (EVT_OWNER_445F8(owner) > 0) {
-			evt->_58 = 1;
-			evt->_04 = fn_8006E580(evt->_04);
+			evt->_58           = 1;
+			evt->mData.mScript = fn_8006E580(evt->mData.mScript);
 			return 0;
 		}
 		if (*(u32*)(owner + 0x804) != 0) {
-			evt->_04--;
+			evt->mData.mScript--;
 			return 1;
 		}
 		if (cmd == EVT_CMD_SELECT) {
 			evt->_10 = EVT_OWNER_445D4(owner);
 		}
 		EVT_OWNER_445C0(evt->_54) = 1;
-		evt->_04                  = fn_8006E580(evt->_04);
+		evt->mData.mScript        = fn_8006E580(evt->mData.mScript);
 		return 0;
 	}
-	evt->_04 = fn_8006E580(evt->_04);
+	evt->mData.mScript = fn_8006E580(evt->mData.mScript);
 	return 0;
 }
 
@@ -6354,16 +6354,16 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
     blr
 */
 
-/**
- * @note Address: 0x80074CF4
- * @note Size: 0x760
- */
-// the y turn that faces from at to
+// the y angle that faces from toward to
 static inline f32 CEvt_Angle(const Vec& from, const Vec& to)
 {
 	return atan2(to.x - from.x, to.z - from.z);
 }
 
+/**
+ * @note Address: 0x80074CF4
+ * @note Size: 0x760
+ */
 extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 {
 	s16 id    = CEvt_Evaluate(evt);
@@ -6379,21 +6379,25 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 			CEvt_Warn(fn_801911B4("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(x * 100.0f), (s32)(y * 100.0f),
 			                      (s32)(z * 100.0f), (s32)(time * 100.0f), anim, dir, id));
 		}
-		u8* player = (u8*)lbl_8025C400.mPlayer;
+		u8* player = (u8*)lbl_8025C400.GetPlayer();
 		if (obj == (XObj*)player) {
 			fn_800C591C(player + PLAYER_BE8);
 		}
-		f32 distance = PSVECDistance(&obj->mMoveTranslate, &CVec(x, y, z));
+		f32 distance;
+		{
+			CVec target(x, y, z);
+			distance = PSVECDistance(&obj->mMoveTranslate, &target);
+		}
 		if (distance < 0.1f) {
 			// already there
 			obj->SetPos(x, y, z, 0);
 		} else {
 			if (time == 0.0f) {
-				obj->SetMoveDir(&CVec(x, y, z), distance);
+				obj->SetMoveDir(CVec(x, y, z), distance);
 			} else if (time > 0.0f) {
-				obj->SetMoveDir(&CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
+				obj->SetMoveDir(CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
 			} else {
-				obj->SetMoveDir(&CVec(x, y, z), -time);
+				obj->SetMoveDir(CVec(x, y, z), -time);
 			}
 			if (dir != -1) {
 				f32 yaw;
@@ -6957,7 +6961,7 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 			// retail's format says %d but passes a float
 			CEvt_Warn(fn_801911B4("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(time * 100.0f), anim, dir, id));
 		}
-		u8* player = (u8*)lbl_8025C400.mPlayer;
+		u8* player = (u8*)lbl_8025C400.GetPlayer();
 		if (obj == (XObj*)player) {
 			fn_800C591C(player + PLAYER_BE8);
 		}
@@ -6967,11 +6971,11 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 		target.x += distance * (f32)sin(yaw);
 		target.z += distance * (f32)cos(yaw);
 		if (time == 0.0f) {
-			obj->SetMoveDir(&target, distance);
+			obj->SetMoveDir(target, distance);
 		} else if (time > 0.0f) {
-			obj->SetMoveDir(&target, distance / (FRAMES_PER_SEC * time));
+			obj->SetMoveDir(target, distance / (FRAMES_PER_SEC * time));
 		} else {
-			obj->SetMoveDir(&target, -time);
+			obj->SetMoveDir(target, -time);
 		}
 		if (anim != -1) {
 			if (anim & 0xFFFF0000) {
@@ -7464,12 +7468,12 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 {
 	s32 ret = 0;
 	// rewind to here until the menu closes
-	u8* cmd = evt->_04 - 1;
+	u8* cmd = evt->mData.mScript - 1;
 	s32 id  = CEvt_Evaluate(evt);
 	if (evt->_20 != 0) {
-		if (lbl_8025C400._8580 != 0) {
-			evt->_04 = cmd;
-			ret      = 1;
+		if (lbl_8025C400.mMenu.mActive != 0) {
+			evt->mData.mScript = cmd;
+			ret                = 1;
 		} else {
 			evt->_20 = 0;
 		}
@@ -7478,7 +7482,7 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 		if (arg >= 0) {
 			fn_800B54A4(&EVT_PLAYER, arg);
 		} else {
-			u8* player = (u8*)lbl_8025C400.mPlayer;
+			u8* player = (u8*)lbl_8025C400.GetPlayer();
 			bool busy  = false;
 			if (*(s32*)(player + PLAYER_MENU_12E44) != 0 || *(s32*)(player + PLAYER_MENU_130DC) != 0) {
 				busy = true;
@@ -7488,25 +7492,25 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 			}
 		}
 	} else if (id == 1001) {
-		s32 a                                                  = CEvt_Evaluate(evt);
-		s32 b                                                  = CEvt_Evaluate(evt);
-		*(s32*)((u8*)lbl_8025C400.mPlayer + PLAYER_MENU_130D0) = a;
-		*(s32*)((u8*)lbl_8025C400.mPlayer + PLAYER_MENU_13368) = b;
+		s32 a                                                      = CEvt_Evaluate(evt);
+		s32 b                                                      = CEvt_Evaluate(evt);
+		*(s32*)((u8*)lbl_8025C400.GetPlayer() + PLAYER_MENU_130D0) = a;
+		*(s32*)((u8*)lbl_8025C400.GetPlayer() + PLAYER_MENU_13368) = b;
 	} else {
-		UnkEvtMenu* menu = (UnkEvtMenu*)lbl_8025C400._8584[id];
+		UnkEvtMenu* menu = (UnkEvtMenu*)lbl_8025C400.mMenu.mMenus[id];
 #if defined(VERSION_JP)
 		// no null check in japan
 		menu->vf1C();
-		lbl_8025C400._8580 = 1;
+		lbl_8025C400.mMenu.mActive = 1;
 #else
 		if (menu != 0) {
 			menu->vf1C();
-			lbl_8025C400._8580 = 1;
+			lbl_8025C400.mMenu.mActive = 1;
 		}
 #endif
-		evt->_20 = 1;
-		ret      = 1;
-		evt->_04 = cmd;
+		evt->_20           = 1;
+		ret                = 1;
+		evt->mData.mScript = cmd;
 	}
 	return ret;
 }
@@ -7520,7 +7524,7 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 extern "C" s32 CEvt__cmd_LIGHT(CEvt* evt)
 {
 	s32 index     = CEvt_Evaluate(evt);
-	CLight* light = lbl_8025C400._E7E20;
+	CLight* light = lbl_8025C400.mLightList;
 	for (s32 i = 0; i < index; i++) {
 		light = (CLight*)light->next;
 		if (light == NULL) {
@@ -7574,7 +7578,7 @@ extern "C" s32 CEvt__cmd_KILL(CEvt* evt)
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, can't kill that
 			CEvt_Warn(fn_801911B4("kill(%d) ... obj(%d) lifted!", id, id));
@@ -7608,7 +7612,7 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
 	XObj* obj = CEvt_GetObj(evt, id);
 	u8 on     = CEvt_Evaluate(evt);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, leave it be
 			CEvt_Warn(fn_801911B4("disp(%d, %d) ... obj(%d) lifted!", id, on, id));
@@ -7632,7 +7636,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		u8* player = (u8*)lbl_8025C400.mPlayer;
+		u8* player = (u8*)lbl_8025C400.GetPlayer();
 		if ((u8*)obj == player)
 			fn_800C591C(player + PLAYER_BE8);
 	}
@@ -7640,8 +7644,8 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 		s16 direction = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			obj->SetRotationY(DEG2RAD * direction, 0);
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->UpdateTarget(obj);
-			u8* player = (u8*)lbl_8025C400.mPlayer;
+			lbl_8025C400.mMotionControlCamera.UpdateTarget(obj);
+			u8* player = (u8*)lbl_8025C400.GetPlayer();
 			if ((u8*)obj == player) {
 				fn_800B5E1C((XObjChr*)player);
 				u8* carry = player + PLAYER_CARRY;
@@ -7687,7 +7691,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 		}
 		case EVT_ATOM_CAM:
 			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-				CCamera* camera = (CCamera*)lbl_8025C400.mCamera;
+				CCamera* camera = &lbl_8025C400.mMotionControlCamera.mCamera;
 				direction       = RAD2DEG * (f32)atan2(camera->mEye.x - obj->mMoveTranslate.x, camera->mEye.z - obj->mMoveTranslate.z);
 			} else {
 				CEvt_Warn(fn_801911B4("mdir(%d, @CAM, ...): obj(%d) killed!", id, id));
@@ -8615,8 +8619,8 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 	u8 b      = CEvt_Evaluate(evt);
 	f32 time  = CEvt_Evaluate(evt) / 100.0f;
 	if (obj == (XObj*)-2) {
-		for (s32 i = 0; i < lbl_8025C400.mObjectCount; i++) {
-			XObj* current = lbl_8025C400.mObjects[i];
+		for (s32 i = 0; i < lbl_8025C400.mXObjs.mObjectCount; i++) {
+			XObj* current = lbl_8025C400.mXObjs.mObjects[i];
 			if ((current->mStatus.mFlags & 1) && current->mJObj != NULL) {
 				if (mode == EVT_ATOM_MODULATE) {
 					current->vf12C(0, r, g, b, time);
@@ -9104,7 +9108,7 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 
 extern "C" void fn_80092C88(XObj* obj, s32 anim, f32 frame);
 
-#define EVT_CAMERA_ACTION(type) (((CInterfaceCameraAction**)&lbl_8025C400.mCameraTable)[type])
+#define EVT_CAMERA_ACTION(type) (((CInterfaceCameraAction**)&lbl_8025C400.mCameraActions.mTable)[type])
 
 /**
  * @note Address: 0x80077858
@@ -9123,7 +9127,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 mode      = CEvt_Evaluate(evt);
 		f32 time      = CEvt_Evaluate(evt) / 100.0f;
 		if (fn_8006F3BC() != NULL && area->vf78(id) != 0) {
-			CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+			CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 			camera->ChangeAction(CAMACTION_AREA);
 			fn_80138B2C((CCameraActionArea*)area, id, direction, mode, 0, time);
 			if (mode == 3) {
@@ -9138,7 +9142,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 z    = CEvt_Evaluate(evt) / 100.0f;
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38 = 11;
 		Vec eye     = { 0.0f, 0.0f, 0.0f };
 		eye.x       = x;
@@ -9158,7 +9162,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 time      = CEvt_Evaluate(evt) / 100.0f;
 		u32 type      = command == 240 ? 2 : 1;
 		BOOL relative = (u16)(command - 251) <= 1 ? true : false;
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		switch (axis) {
 		case 2: {
 			Vec angle  = { 0.0f, 0.0f, 0.0f };
@@ -9190,7 +9194,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 z    = CEvt_Evaluate(evt) / 100.0f;
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38  = 11;
 		Vec interest = { 0.0f, 0.0f, 0.0f };
 		interest.x   = x;
@@ -9207,7 +9211,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		XObj* obj = CEvt_GetObj(evt, (s16)id);
 		if (obj != NULL) {
 			Vec target = obj->GetCameraTarget();
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+			lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 			action->_38  = 11;
 			Vec interest = target;
 			action->SetInterest_Interp(mode, interest, time);
@@ -9220,7 +9224,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 id    = CEvt_Evaluate(evt);
 		XObj* obj = CEvt_GetObj(evt, (s16)id);
 		if (obj != NULL) {
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+			lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 			action->_38 = 11;
 			action->SetInterest_Interp(3, obj, 0.0f);
 		} else {
@@ -9237,7 +9241,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 fov  = CEvt_Evaluate(evt);
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_EVT);
+		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38 = action->Get_38() | 8;
 		action->SetFov_Interp(mode, fov, time);
 		break;
@@ -9246,8 +9250,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 anim = CEvt_Evaluate(evt);
 		CEvt_Evaluate(evt);
 		CEvt_Evaluate(evt);
-		((CMotionControlCamera*)lbl_8025C400.mCamera)->ChangeAction(CAMACTION_ANIM);
-		XObj* obj = (XObj*)lbl_8025C400._9694[0].mObjects;
+		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_ANIM);
+		XObj* obj = (XObj*)lbl_8025C400.mXObjs.mPools[0].mObjects;
 		if (obj != NULL && (obj->mStatus.mFlags & 1) != 0) {
 			fn_80092C88(obj, anim, 0.0f);
 		}
@@ -9256,7 +9260,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 	case EVT_ATOM_RESET: {
 		s32 mode                     = CEvt_Evaluate(evt);
 		f32 time                     = CEvt_Evaluate(evt) / 100.0f;
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_EVT)) {
 			reset->mMode = mode;
 			reset->mTime = time;
@@ -9266,7 +9270,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		break;
 	}
 	case 230: { // finish the active scripted camera
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_AREA)) {
 			fn_80138EBC((CCameraActionArea*)EVT_CAMERA_ACTION(CAMACTION_AREA));
 		} else if (camera->IsAction(CAMACTION_EVT)) {
@@ -9278,7 +9282,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		break;
 	}
 	case 236: { // save camera
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		camera->EndEye();
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
@@ -9291,9 +9295,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 	case 237: { // restore camera
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->SetMemento(&lbl_8036AA3C[slot]);
+			lbl_8025C400.mMotionControlCamera.SetMemento(&lbl_8036AA3C[slot]);
 		} else if (evt->mCameraMemento != NULL) {
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->SetMemento(evt->mCameraMemento);
+			lbl_8025C400.mMotionControlCamera.SetMemento(evt->mCameraMemento);
 			evt->mCameraMemento = NULL;
 		}
 		break;
@@ -9302,7 +9306,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 mode = CEvt_Evaluate(evt);
 		if (mode <= 0) {
 			s32 sign = mode >> 31;
-			fn_8014872C((CMotionControlCamera*)lbl_8025C400.mCamera, (mode ^ sign) - sign);
+			fn_8014872C(&lbl_8025C400.mMotionControlCamera, (mode ^ sign) - sign);
 		}
 		break;
 	}
@@ -9315,10 +9319,10 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 			lbl_8025C400.mStatus.mFlags |= 0x80ULL;
 			break;
 		case 0:
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->EndEye();
+			lbl_8025C400.mMotionControlCamera.EndEye();
 			break;
 		case 1:
-			((CMotionControlCamera*)lbl_8025C400.mCamera)->StartEye();
+			lbl_8025C400.mMotionControlCamera.StartEye();
 			break;
 		case 2: {
 			f32 degrees                                                        = CEvt_Evaluate(evt);
@@ -12459,7 +12463,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 static inline XObj* CEvt_Born(s32 index)
 {
 	CoordInfo info(GetSpawnData(index));
-	return (XObj*)fn_80132698((UnkXObjList*)lbl_8025C400._9694, &info, 1, FALSE);
+	return (XObj*)fn_80132698(&lbl_8025C400.mXObjs, &info, 1, FALSE);
 }
 
 /**
@@ -12492,7 +12496,7 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 		fn_8008C8A4(obj);
 		fn_8008D220(obj);
 		*(s32*)((u8*)obj + XOBJ_80C) = arg;
-		s16 index                    = fn_8013265C((UnkXObjList*)lbl_8025C400._9694, (CXObj*)obj);
+		s16 index                    = fn_8013265C(&lbl_8025C400.mXObjs, (CXObj*)obj);
 		if (CEvt_FindObj(id) == NULL) {
 			lbl_802247B0.mEntry[lbl_802247B0.mCount].mId    = id;
 			lbl_802247B0.mEntry[lbl_802247B0.mCount].mIndex = index;
@@ -12847,32 +12851,32 @@ static inline void CEvt_Attach(CEvt* evt, u8* script, u32 owner, s16 tag1 = -1, 
 	if (script == NULL) {
 		return;
 	}
-	if (evt->_04 != NULL && evt->_00 == 0) {
+	if (evt->mData.mScript != NULL && evt->_00 == 0) {
 		EvtQueue_Push(script, owner, tag1, tag2);
 		return;
 	}
-	evt->_04 = NULL;
-	evt->_18 = 0;
-	evt->_1C = 0;
-	evt->_20 = 0;
-	evt->_28 = 0;
-	evt->_38 = 0;
-	evt->_48 = 0;
+	evt->mData.mScript  = NULL;
+	evt->_18            = 0;
+	evt->_1C            = 0;
+	evt->_20            = 0;
+	evt->mCalls.mCount  = 0;
+	evt->mFrames.mCount = 0;
+	evt->mValues.mCount = 0;
 	if (evt->_00 == 0) {
 		lbl_80369A3C._00 = 0;
 		for (s32 i = 0; i < 128; i++) {
 			lbl_80369A3C._04[i] = NULL;
 		}
 	}
-	evt->_10 = 0;
-	evt->_14 = 0;
-	evt->_58 = 0;
-	evt->_5C = -1;
-	evt->_5E = -1;
-	evt->_04 = script;
-	evt->_08 = evt->_00 != 0 ? evt->_00 : owner;
-	evt->_5C = tag1;
-	evt->_5E = tag2;
+	evt->_10           = 0;
+	evt->_14           = 0;
+	evt->_58           = 0;
+	evt->_5C           = -1;
+	evt->_5E           = -1;
+	evt->mData.mScript = script;
+	evt->mData._04     = evt->_00 != 0 ? evt->_00 : owner;
+	evt->_5C           = tag1;
+	evt->_5E           = tag2;
 }
 
 /**
@@ -12891,7 +12895,7 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
 			CEvt_Warn(fn_801911B4("attach(%d, ...): obj(%d) killed!", id, id));
 		}
 	} else if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		obj->mEvt._04 = NULL;
+		obj->mEvt.mData.mScript = NULL;
 		if (obj->mEvt._54 != NULL && obj->mEvt._58 != 0) {
 			obj->mEvt._58                  = 0;
 			EVT_OWNER_445C0(obj->mEvt._54) = 1;
@@ -13265,10 +13269,6 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     blr
 */
 
-/**
- * @note Address: 0x8007AE5C
- * @note Size: 0x630
- */
 // puts an anim in the first free slot after the one playing
 static inline void CEvt_QueueAnim(XObj* obj, s32 anim, u16 frame, s16 rate)
 {
@@ -13283,6 +13283,10 @@ static inline void CEvt_QueueAnim(XObj* obj, s32 anim, u16 frame, s16 rate)
 	}
 }
 
+/**
+ * @note Address: 0x8007AE5C
+ * @note Size: 0x630
+ */
 extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 {
 	s16 id    = CEvt_Evaluate(evt);
@@ -13298,10 +13302,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 			if (obj->mJObj == NULL) {
 				CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) is collision!", id, anim, frame, rate, id));
 			} else if (count == 0) {
-				obj->mAnmQueue.mNext = 0;
-				for (int i = 0; i < 16; i++) {
-					obj->mAnmQueue.mEntry[i].mId = -1;
-				}
+				obj->mAnmQueue.Clear();
 				if (anim & 0xFFFF0000) {
 					s32 jointId     = anim & 0xFFFF;
 					s32 matId       = anim >> 16;
@@ -14246,10 +14247,10 @@ extern "C" s32 CEvt__cmd_ABORT(CEvt* evt)
 		queue->_04[idx]    = 0;
 		queue->_00         = (queue->_00 + 1) % 0x80;
 		if (script != 0) {
-			evt->_04 = script;
-			evt->_08 = val08;
-			evt->_5C = val5C;
-			evt->_5E = val5E;
+			evt->mData.mScript = script;
+			evt->mData._04     = val08;
+			evt->_5C           = val5C;
+			evt->_5E           = val5E;
 			return 0;
 		}
 	}
@@ -14263,8 +14264,8 @@ extern "C" s32 CEvt__cmd_ABORT(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_RETURN(CEvt* evt)
 {
-	if (evt->_28 > 0) {
-		evt->_04 = evt->_24[--evt->_28];
+	if (evt->mCalls.mCount > 0) {
+		evt->mData.mScript = (u8*)evt->mCalls.mBuf[--evt->mCalls.mCount];
 		return 0;
 	}
 	// nothing to return to, end the script like ABORT
@@ -14278,10 +14279,10 @@ extern "C" s32 CEvt__cmd_RETURN(CEvt* evt)
 		queue->_04[idx]    = 0;
 		queue->_00         = (queue->_00 + 1) % 0x80;
 		if (script != 0) {
-			evt->_04 = script;
-			evt->_08 = val08;
-			evt->_5C = val5C;
-			evt->_5E = val5E;
+			evt->mData.mScript = script;
+			evt->mData._04     = val08;
+			evt->_5C           = val5C;
+			evt->_5E           = val5E;
 			return 0;
 		}
 	}
@@ -14296,11 +14297,11 @@ extern "C" s32 CEvt__cmd_RETURN(CEvt* evt)
 extern "C" s32 CEvt__cmd_LIB(CEvt* evt)
 {
 	// like RUN but the target is a 2 byte index into the library table
-	evt->_24[evt->_28++] = evt->_04 + 2;
-	u8* p                = evt->_04;
-	s16 idx              = p[0] + (p[1] << 8);
-	evt->_04             = p + 2;
-	evt->_04             = fn_8006E6D4(idx);
+	evt->mCalls.mBuf[evt->mCalls.mCount++] = (s32)(evt->mData.mScript + 2);
+	u8* p                                  = evt->mData.mScript;
+	s16 idx                                = p[0] + (p[1] << 8);
+	evt->mData.mScript                     = p + 2;
+	evt->mData.mScript                     = fn_8006E6D4(idx);
 	return 0;
 }
 
@@ -14310,8 +14311,8 @@ extern "C" s32 CEvt__cmd_LIB(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_RUN(CEvt* evt)
 {
-	evt->_24[evt->_28++] = evt->_04 + 4;
-	evt->_04             = fn_8006E580(evt->_04);
+	evt->mCalls.mBuf[evt->mCalls.mCount++] = (s32)(evt->mData.mScript + 4);
+	evt->mData.mScript                     = fn_8006E580(evt->mData.mScript);
 	return 0;
 }
 
@@ -14321,7 +14322,7 @@ extern "C" s32 CEvt__cmd_RUN(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_GOTO(CEvt* evt)
 {
-	evt->_04 = fn_8006E580(evt->_04);
+	evt->mData.mScript = fn_8006E580(evt->mData.mScript);
 	return 0;
 }
 
@@ -14331,7 +14332,7 @@ extern "C" s32 CEvt__cmd_GOTO(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_SETSP(CEvt* evt)
 {
-	evt->_44[evt->_48++] = CEvt_Evaluate(evt);
+	evt->mValues.mBuf[evt->mValues.mCount++] = CEvt_Evaluate(evt);
 	return 0;
 }
 
@@ -14341,7 +14342,7 @@ extern "C" s32 CEvt__cmd_SETSP(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_POPBP(CEvt* evt)
 {
-	evt->_48 = evt->_34[--evt->_38];
+	evt->mValues.mCount = evt->mFrames.mBuf[--evt->mFrames.mCount];
 	return 0;
 }
 /*
@@ -14362,7 +14363,7 @@ extern "C" s32 CEvt__cmd_POPBP(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_PUSHBP(CEvt* evt)
 {
-	evt->_34[evt->_38++] = evt->_48;
+	evt->mFrames.mBuf[evt->mFrames.mCount++] = evt->mValues.mCount;
 	return 0;
 }
 
@@ -14393,7 +14394,7 @@ static inline void Compare(u8& result, u8 op, s32 lhs, s32 rhs)
 static inline bool EvalCmp(CEvt* evt)
 {
 	u8 result = false;
-	s32 op    = *evt->_04;
+	s32 op    = *evt->mData.mScript;
 
 	switch (op) {
 	// anything that isn't a comparison is true when nonzero
@@ -14447,7 +14448,7 @@ static inline bool EvalCmp(CEvt* evt)
 	case EVT_EXPR_LESS_EQUAL:
 	case EVT_EXPR_GREATER:
 	case EVT_EXPR_GREATER_EQUAL: {
-		evt->_04++;
+		evt->mData.mScript++;
 		// the operand read second is the left side of the test
 		s32 rhs = CEvt_Evaluate(evt);
 		s32 lhs = CEvt_Evaluate(evt);
@@ -14470,9 +14471,9 @@ extern "C" s32 CEvt_EvalCmp(CEvt* evt)
 {
 	// a true test skips the 4 byte jump offset, a false one takes it
 	if (EvalCmp(evt)) {
-		evt->_04 += 4;
+		evt->mData.mScript += 4;
 	} else {
-		evt->_04 = fn_8006E580(evt->_04);
+		evt->mData.mScript = fn_8006E580(evt->mData.mScript);
 	}
 	return 0;
 }
@@ -14625,7 +14626,7 @@ extern "C" s32 CEvt__cmd_SET(CEvt* evt)
 }
 
 extern "C" void fn_8009C2C8(void* attachments, s32 index, s32 value);
-#define EVT_PAD ((CPadOne*)lbl_8025C400.mPadOne[0])
+#define EVT_PAD (&lbl_8025C400.mPad.mPad[0])
 
 static inline void EvtSetBattery(Params* stats, f32 value)
 {
@@ -14642,7 +14643,7 @@ static inline void EvtSetBattery(Params* stats, f32 value)
  */
 extern "C" void CEvt_EvalSet(CEvt* evt)
 {
-	u8 op = *evt->_04;
+	u8 op = *evt->mData.mScript;
 	s32 value;
 	switch (op) {
 	case EVT_EXPR_EQUAL:
@@ -14661,9 +14662,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 	case EVT_EXPR_AND_ASSIGN:
 	case EVT_EXPR_OR_ASSIGN:
 	case EVT_EXPR_XOR_ASSIGN: {
-		evt->_04++;
+		evt->mData.mScript++;
 		s32 rhs         = CEvt_Evaluate(evt);
-		u8* destination = evt->_04;
+		u8* destination = evt->mData.mScript;
 		value           = CEvt_Evaluate(evt);
 		if (op == EVT_EXPR_ADD_ASSIGN)
 			value += rhs;
@@ -14681,7 +14682,7 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 			value |= rhs;
 		else if (op == EVT_EXPR_XOR_ASSIGN)
 			value ^= rhs;
-		evt->_04 = destination;
+		evt->mData.mScript = destination;
 		break;
 	}
 	default:
@@ -14689,14 +14690,14 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 		break;
 	}
 	{
-		s32 op = *evt->_04;
-		evt->_04++;
+		s32 op = *evt->mData.mScript;
+		evt->mData.mScript++;
 		s32 index;
 		switch (op) {
 		case EVT_EXPR_STACK:
-			index = *evt->_04;
-			evt->_04++;
-			evt->_44[index + evt->_34[evt->_38 - 1]] = value;
+			index = *evt->mData.mScript;
+			evt->mData.mScript++;
+			evt->mValues.mBuf[index + evt->mFrames.mBuf[evt->mFrames.mCount - 1]] = value;
 			break;
 		case EVT_EXPR_FLAG:
 			index = CEvt_Evaluate(evt);
@@ -15597,8 +15598,8 @@ static inline s32 EvtRead16(const u8* p)
  */
 extern "C" s32 CEvt_Evaluate(CEvt* evt)
 {
-	s32 op = *evt->_04;
-	evt->_04++;
+	s32 op = *evt->mData.mScript;
+	evt->mData.mScript++;
 	s32 result;
 	switch (op) {
 	case EVT_EXPR_EQUAL:
@@ -15651,17 +15652,17 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		result = !CEvt_Evaluate(evt);
 		break;
 	case EVT_EXPR_IMM16:
-		result = (s16)EvtRead16(evt->_04);
-		evt->_04 += 2;
+		result = (s16)EvtRead16(evt->mData.mScript);
+		evt->mData.mScript += 2;
 		break;
 	case EVT_EXPR_IMM32:
-		result = ReadResourceOffset(evt->_04);
-		evt->_04 += 4;
+		result = ReadResourceOffset(evt->mData.mScript);
+		evt->mData.mScript += 4;
 		break;
 	case EVT_EXPR_ADDRESS_OF: {
-		s32 offset = ReadResourceOffset(evt->_04);
-		evt->_04 += 4;
-		s32 library = fn_8006E66C(evt->_04);
+		s32 offset = ReadResourceOffset(evt->mData.mScript);
+		evt->mData.mScript += 4;
+		s32 library = fn_8006E66C(evt->mData.mScript);
 		if (library != 0)
 			result = (s32)(fn_8006E724(library) + offset);
 		else
@@ -15669,15 +15670,15 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		break;
 	}
 	case EVT_EXPR_STACK: {
-		s32 index = *evt->_04;
-		evt->_04++;
-		result = evt->_44[index + evt->_34[evt->_38 - 1]];
+		s32 index = *evt->mData.mScript;
+		evt->mData.mScript++;
+		result = evt->mValues.mBuf[index + evt->mFrames.mBuf[evt->mFrames.mCount - 1]];
 		break;
 	}
 	case EVT_EXPR_PARENT_STACK: {
-		s32 index = *evt->_04;
-		evt->_04++;
-		result = evt->_44[index + evt->_34[evt->_38 - 2]];
+		s32 index = *evt->mData.mScript;
+		evt->mData.mScript++;
+		result = evt->mValues.mBuf[index + evt->mFrames.mBuf[evt->mFrames.mCount - 2]];
 		break;
 	}
 	case EVT_EXPR_FLAG:
@@ -15733,8 +15734,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		}
 		case 6:
 			result = RAD2DEG
-			       * WrapAngle(-(f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY) + lbl_8025C400._E5DEC[1]
-			                   - ((XObj*)((u8*)lbl_8025C400.mPlayer))->mMoveRotate.y);
+			       * WrapAngle(-(f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY) + lbl_8025C400.mMotionControlCamera.mCamera.mAngle.y
+			                   - ((XObj*)((u8*)lbl_8025C400.GetPlayer()))->mMoveRotate.y);
 			break;
 		case 7:
 			if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
@@ -15796,7 +15797,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		result = EVT_PLAYER.mParams.mRank;
 		break;
 	case EVT_EXPR_HOLD: {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.mPlayer + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL) {
 			if ((s16)held->GetPool() == 24)
 				result = 1000;
@@ -18217,16 +18218,17 @@ static inline void EvtWaitFor(CEvt* evt, u8 command, u8* start, s32 ready, s32& 
 {
 	if (command == EVT_CMD_WAIT) {
 		if (ready == 0) {
-			evt->_04 = start;
-			yield    = 1;
+			evt->mData.mScript = start;
+			yield              = 1;
 		}
 	} else
 		evt->_10 = ready;
 }
 
-static inline bool EvtZero2(const f32* p)
+// a wipe is done once its size stops
+static inline bool EvtZero2(const CScrnWipe& wipe)
 {
-	return 0.0f == p[0] && 0.0f == p[1];
+	return 0.0f == wipe.mSpeedWidth && 0.0f == wipe.mSpeedHeight;
 }
 
 static inline bool EvtZero3(const f32* p)
@@ -18234,9 +18236,10 @@ static inline bool EvtZero3(const f32* p)
 	return 0.0f == p[0] && 0.0f == p[1] && 0.0f == p[2];
 }
 
-static inline bool EvtZero4(const f32* p)
+// a screen color is done once its speed is all zero
+static inline bool EvtZero4(const ScrnColorF& speed)
 {
-	return 0.0f == p[0] && 0.0f == p[1] && 0.0f == p[2] && 0.0f == p[3];
+	return 0.0f == speed.r && 0.0f == speed.g && 0.0f == speed.b && 0.0f == speed.a;
 }
 
 struct EvtAreaWaitState {
@@ -18254,7 +18257,7 @@ void fn_80061308(void* object, s32 arg1, s32 arg2);
 }
 
 // todo: pools 4, 5 and 17 keep flag bits right after XObj, no idea what class
-#define EVT_CALL_BITS(pool) (*(u32**)(lbl_8025C400.mPools[pool].mObjects + sizeof(XObj)))
+#define EVT_CALL_BITS(pool) (*(u32**)(lbl_8025C400.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj)))
 
 /**
  * @note Address: 0x80078754
@@ -18263,16 +18266,16 @@ void fn_80061308(void* object, s32 arg1, s32 arg2);
 extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 {
 	s32 yield  = 0;
-	u8* start  = evt->_04 - 1;
-	u8* begin  = evt->_04;
+	u8* start  = evt->mData.mScript - 1;
+	u8* begin  = evt->mData.mScript;
 	u16 length = EvtRead16(begin);
-	evt->_04 += 2;
+	evt->mData.mScript += 2;
 	u8* end      = begin + length;
 	XObj* target = CEvt_GetObj(evt, (s16)CEvt_Evaluate(evt));
 	s32 count    = 0;
 	s32 args[24];
 	for (s32 i = 0;; i++) {
-		if (evt->_04 >= end)
+		if (evt->mData.mScript >= end)
 			break;
 		if (i < 24) {
 			args[i] = CEvt_Evaluate(evt);
@@ -18313,9 +18316,9 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		if (evt->_1C != 0) {
 			if (lbl_8025C400.mStatus.mFlags & 0x800) {
 				CPad pad(0);
-				fn_80096E38(&lbl_8025C400.mPlayer->mOXMenu, &pad);
-				evt->_04 = start;
-				yield    = 1;
+				fn_80096E38(&lbl_8025C400.GetPlayer()->mOXMenu, &pad);
+				evt->mData.mScript = start;
+				yield              = 1;
 			} else {
 				evt->_1C = 0;
 				evt->_10 = EVT_PLAYER.mOXMenu._1340;
@@ -18334,26 +18337,26 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 				fn_800B51FC(&EVT_PLAYER, mode, args[0]);
 				evt->_1C = 1;
 			}
-			evt->_04 = start;
-			yield    = 1;
+			evt->mData.mScript = start;
+			yield              = 1;
 		}
 		break;
 	case -16:
 		if (args[0] == 231) {
-			lbl_8025C400._43E0 = args[1];
-			lbl_8025C400._43E4 = args[2];
-			lbl_8025C400._43E8 = args[3];
-			lbl_8025C400._43EC = args[4];
+			lbl_8025C400.mSubwin._134 = args[1];
+			lbl_8025C400.mSubwin._138 = args[2];
+			lbl_8025C400.mSubwin._13C = args[3];
+			lbl_8025C400.mSubwin._140 = args[4];
 		} else if (args[0] == 225) {
 			Vec pos = { 0.0f, 0.0f, 0.0f };
 			pos.x   = args[1] / 100.0f;
 			pos.y   = args[2] / 100.0f;
 			pos.z   = args[3] / 100.0f;
-			fn_800136B4(lbl_8025C400.mSubwin, &pos, DEG2RAD * args[4], DEG2RAD * args[5], args[6], args[7]);
-			lbl_8025C400._43D0 = 1;
-			lbl_8025C400._43D4 = 0;
+			fn_800136B4(&lbl_8025C400.mSubwin, &pos, DEG2RAD * args[4], DEG2RAD * args[5], args[6], args[7]);
+			lbl_8025C400.mSubwin.mEnabled      = 1;
+			lbl_8025C400.mSubwin.mFlags.mFlags = 0;
 		} else if (args[0] == 209 || args[0] == 230) {
-			lbl_8025C400._43D0 = 0;
+			lbl_8025C400.mSubwin.mEnabled = 0;
 		}
 		break;
 	case -17: {
@@ -18460,7 +18463,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 				obj->vfD8(flags);
 			}
 			if (mask & ((u64)0x4000 << 32)) {
-				XObjChr* player = lbl_8025C400.mPlayer;
+				XObjChr* player = lbl_8025C400.GetPlayer();
 				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
 					s16 item = obj->GetObjFlags();
 					switch (item) {
@@ -18483,8 +18486,8 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 					case 22:
 					case 56:
 						if (!fn_800B9758(player)) {
-							evt->_04 = start;
-							yield    = 1;
+							evt->mData.mScript = start;
+							yield              = 1;
 						}
 						break;
 					}
@@ -18504,7 +18507,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			if (mask & 0x20000)
 				obj->vfDC(0, 0);
 			if (mask & ((u64)0x4000 << 32)) {
-				XObjChr* player = lbl_8025C400.mPlayer;
+				XObjChr* player = lbl_8025C400.GetPlayer();
 				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
 					s16 item = obj->GetObjFlags();
 					switch (item) {
@@ -18572,8 +18575,8 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		break;
 	case -36:
 		lbl_8025C400.mStatus.mFlags &= ~((u64)0x20 << 32);
-		for (s32 i = 0; i < lbl_8025C400.mObjectCount; i++) {
-			XObj* obj = lbl_8025C400.mObjects[i];
+		for (s32 i = 0; i < lbl_8025C400.mXObjs.mObjectCount; i++) {
+			XObj* obj = lbl_8025C400.mXObjs.mObjects[i];
 			if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x20000000)) {
 				lbl_8025C400.mStatus.mFlags |= (u64)0x20 << 32;
 				break;
@@ -18626,7 +18629,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 #endif
 		break;
 	case -200:
-		fn_80061308(lbl_8025C400._8584[0], args[0], args[1]);
+		fn_80061308(lbl_8025C400.mMenu.mMenus[0], args[0], args[1]);
 		break;
 	default:
 		if (target != NULL && (target->mStatus.mFlags & 1)) {
@@ -18651,7 +18654,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 {
-	u8* start = evt->_04 - 1;
+	u8* start = evt->mData.mScript - 1;
 	s32 yield = 0;
 	u16 mode  = CEvt_Evaluate(evt);
 	switch (mode) {
@@ -18661,15 +18664,15 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 			if (evt->_18 == 0) {
 				evt->_18 = (duration / 100) * FRAMES_PER_SEC * 100;
 				evt->_18 += 100.0f * ((duration % 100 * FRAMES_PER_SEC) / 100.0f);
-				evt->_04 = start;
-				yield    = 1;
+				evt->mData.mScript = start;
+				yield              = 1;
 			} else {
 				evt->_18 -= step * 100;
 				if (evt->_18 <= 0)
 					evt->_18 = 0;
 				else {
-					evt->_04 = start;
-					yield    = 1;
+					evt->mData.mScript = start;
+					yield              = 1;
 				}
 			}
 		} else
@@ -18677,20 +18680,20 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		break;
 	}
 	case EVT_ATOM_FADE:
-		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400._3E90) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400.mFade.mSpeed) != 0, yield);
 		break;
 	case EVT_ATOM_MONO:
-		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400._46DC) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400.mColor0.mColor.mSpeed) != 0, yield);
 		break;
 	case EVT_ATOM_WIPE:
-		EvtWaitFor(
-		    evt, command, start,
-		    (EvtZero2(lbl_8025C400._3EF8) && EvtZero2(lbl_8025C400._3F5C) && EvtZero2(lbl_8025C400._40C0) && EvtZero2(lbl_8025C400._4124))
-		        != 0,
-		    yield);
+		EvtWaitFor(evt, command, start,
+		           (EvtZero2(lbl_8025C400.mWipeCircle) && EvtZero2(lbl_8025C400.mWipeTex) && EvtZero2(lbl_8025C400.mWipeCustom)
+		            && EvtZero2(lbl_8025C400.mWipeTile0))
+		               != 0,
+		           yield);
 		break;
 	case EVT_ATOM_LETTERBOX:
-		EvtWaitFor(evt, command, start, EvtZero2(lbl_8025C400._4188) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero2(lbl_8025C400.mWipeTile1) != 0, yield);
 		break;
 	case 203:
 		if (command != EVT_CMD_WAIT)
@@ -18764,7 +18767,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		break;
 	}
 	case EVT_ATOM_SFX:
-		EvtWaitFor(evt, command, start, !fn_8001E6C8((CSound*)(u8*)&lbl_8025C400.mSound, CEvt_Evaluate(evt)), yield);
+		EvtWaitFor(evt, command, start, !fn_8001E6C8(&lbl_8025C400.mSound, CEvt_Evaluate(evt)), yield);
 		break;
 	case EVT_ATOM_COLOR: {
 		s16 id    = CEvt_Evaluate(evt);
@@ -18783,7 +18786,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 	case EVT_ATOM_REAL: {
 		s32 index = CEvt_Evaluate(evt);
 		if (index == 1)
-			EvtWaitFor(evt, command, start, fn_800665FC(lbl_8025C400.mInfoScrn), yield);
+			EvtWaitFor(evt, command, start, fn_800665FC(&lbl_8025C400.mInfoScrn), yield);
 		else {
 #if defined(VERSION_PAL)
 			OSPanic("evt.cpp", 4157, "%s%s", fn_801911B4("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
@@ -18795,7 +18798,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 	}
 	case EVT_ATOM_CAM: {
 		s32 ready                    = 1;
-		CMotionControlCamera* camera = (CMotionControlCamera*)lbl_8025C400.mCamera;
+		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_RESET))
 			ready = 0;
 		if (camera->IsAction(CAMACTION_AREA)) {
@@ -18808,7 +18811,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
                       || action->mFovInterp != NULL || action->mAngleInterp != NULL);
 		}
 		if (camera->IsAction(CAMACTION_ANIM)) {
-			XObj* obj = (XObj*)lbl_8025C400._9694[0].mObjects;
+			XObj* obj = (XObj*)lbl_8025C400.mXObjs.mPools[0].mObjects;
 			if (obj != NULL && (obj->mStatus.mFlags & 1))
 				ready = !fn_80092B80(obj);
 		}
@@ -18831,10 +18834,10 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		break;
 	}
 	case EVT_ATOM_ZBLUR:
-		EvtWaitFor(evt, command, start, !(0.0f != lbl_8025C400._4298), yield);
+		EvtWaitFor(evt, command, start, !(0.0f != lbl_8025C400.mBlur.mSpeed), yield);
 		break;
 	case EVT_ATOM_SHAKE:
-		EvtWaitFor(evt, command, start, EvtZero3(lbl_8025C400._967C) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero3(&lbl_8025C400.mQuake.mShake[2].x) != 0, yield);
 		break;
 	case EVT_ATOM_CUE: {
 		s32 beat = lbl_8065B244._00;
@@ -18844,20 +18847,20 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 			beat += 1000;
 		}
 		if (command == EVT_CMD_WAIT && beat == 0) {
-			evt->_04 = start;
-			yield    = 1;
+			evt->mData.mScript = start;
+			yield              = 1;
 		} else
 			evt->_10 = beat;
 		break;
 	}
 	case EVT_ATOM_MOVIE: {
 		s32 frame = CEvt_Evaluate(evt);
-		s32 ready = (*(s32*)lbl_8025C400.mMovie) == 0;
+		s32 ready = lbl_8025C400.mMovie.mMovie.mState == 0;
 		if (!ready && frame >= 0)
-			ready = ((CMovie*)lbl_8025C400.mMovie)->mFrame >= frame;
+			ready = lbl_8025C400.mMovie.mMovie.mFrame >= frame;
 		if (command == EVT_CMD_WAIT && ready == 0) {
-			evt->_04 = start;
-			yield    = 1;
+			evt->mData.mScript = start;
+			yield              = 1;
 		} else
 			evt->_10 = ready;
 		break;
@@ -18896,11 +18899,11 @@ extern "C" EvtCmdEntry evtCmdTable[];
  */
 extern "C" void CEvt_Update(CEvt* evt, s32 step)
 {
-	if (evt->_04 != NULL) {
+	if (evt->mData.mScript != NULL) {
 		s32 result = 0;
 		while (result == 0) {
-			u8 command = *evt->_04;
-			evt->_04++;
+			u8 command = *evt->mData.mScript;
+			evt->mData.mScript++;
 			for (s32 i = 1; i < 50; i++) {
 				if (command == evtCmdTable[i].command) {
 					result = (evt->*evtCmdTable[i].handler)(command, step);
@@ -18912,7 +18915,7 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
 		}
 	}
 	if (evt->_00 == 0 && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
-		if (evt->_04 == NULL) {
+		if (evt->mData.mScript == NULL) {
 			for (s32 i = 0; i < 10; i++) {
 				if (lbl_8036A050._00[i] > 0) {
 					if ((lbl_8036A050._00[i] -= step) <= 0) {
@@ -18931,7 +18934,7 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
 				}
 			}
 		}
-		if (evt->_04 == NULL) {
+		if (evt->mData.mScript == NULL) {
 			UnkEvtQueue* queue = &lbl_80369A3C;
 			s32 index          = queue->_00;
 			u8* script         = queue->_04[index];

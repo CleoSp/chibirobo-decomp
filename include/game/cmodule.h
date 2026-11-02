@@ -2,6 +2,7 @@
 #define _GAME_CMODULE_H
 
 #include "Dolphin/os.h"
+#include "Dolphin/OS/OSModule.h"
 #include "game/cfile.h"
 
 // one rel module, read with its own file and linked in place. class name and the

@@ -25,7 +25,7 @@ public:
 	// _4C vtable
 
 	virtual ~CPtclOne() { }          // _08 (weak)
-	virtual void Reset();            // _0C, fn_800245F0
+	virtual void Init();             // _0C, fn_800245F0
 	virtual void Update(u32 frames); // _10, fn_80024E08
 	virtual void Draw(CGs* gs);      // _14, fn_80024D80
 };
@@ -56,7 +56,7 @@ public:
 	s32 mCounter; // _0C
 	// _10 vtable
 
-	virtual ~CPtcl(); // _08
+	virtual ~CPtcl() { } // _08
 
 	CPtclOne* Get(s32 i) { return (CPtclOne*)(mPtcls + (u32)i * (u32)mStride); }
 };

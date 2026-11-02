@@ -4,7 +4,7 @@
  * @note Address: 0x800DB7A8
  * @note Size: 0x30
  */
-extern "C" void fn_800DB7A8(XObjPlugCord* cord, BOOL enabled, u32 alpha)
+extern "C" void fn_800DB7A8(XObjPlugCord* cord, BOOL enabled, u8 alpha)
 {
 	if (enabled) {
 		cord->mFlags |= 6;

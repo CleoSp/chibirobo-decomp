@@ -339,9 +339,8 @@ BOOL CJArchive::ReadCheck()
 {
 	switch (mState) {
 	case 1: {
-		s32 result;
 		CObjArchive* archive = mArchive;
-		result               = archive->mFile.GetResult();
+		s32 result           = archive->mFile.GetResult();
 		if (result == 0) {
 			archive->mFile.CloseHandle();
 		}

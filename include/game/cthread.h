@@ -18,6 +18,7 @@ public:
 	// _320 vtable
 
 	virtual ~CThread() { } // _08 (weak), the DOL has no __dt__7CThreadFv, fn_8001950C is a weak copy
+	virtual BOOL Create(void* (*func)(void*), void* param, u32 stackSize, s32 priority, u16 attr); // _0C
 
 	// todo: cleanup, card jobs and the movie all start threads like this
 	inline void Start(OSThreadStartFunction entry, void* arg, u8* stack, u32 size)

@@ -130,6 +130,24 @@ inline void HSD_JObjGetScale(HSD_JObj* jobj, Vec* scale)
 	*scale = jobj->scale;
 }
 
+inline f32 HSD_JObjGetScaleX(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(899, jobj);
+	return jobj->scale.x;
+}
+
+inline f32 HSD_JObjGetScaleY(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(911, jobj);
+	return jobj->scale.y;
+}
+
+inline f32 HSD_JObjGetScaleZ(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(923, jobj);
+	return jobj->scale.z;
+}
+
 inline void HSD_JObjSetTranslateX(HSD_JObj* jobj, f32 x)
 {
 	JOBJ_H_ASSERT(952, jobj);

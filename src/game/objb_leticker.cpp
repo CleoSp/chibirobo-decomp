@@ -1,95 +1,65 @@
-#include "game/objb_leticker.h"
+#include "game/xobjleticker.h"
+#include "game/xchr.h"
+#include "game/ccameraaction.h"
+#include "game/cmotioncontrolcamera.h"
+#include "game/cgame.h"
+#include "game/cgs.h"
+#include "game/cpad.h"
+#include "game/cparticle.h"
+#include "game/gmath.h"
+#include <math.h>
+extern "C" {
+#include <dolphin/mtx/mtx.h>
+#include <dolphin/mtx/vec.h>
+#include <dolphin/os.h>
+}
+#include <sysdolphin/controller.h>
 
 // XObjLeticker, and the camera that turns around it in steps, CCameraActionLeticker
 
-class CCamera;
+extern "C" {
+void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
+BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
+bool fn_800E4790(XObj* obj, HSD_JObj* jobj);
+extern XObjFloor* lbl_8022A008[];
+extern XObjFloor* lbl_8065A6D0[2];
+}
 
-// __vt__12XObjLeticker
-class XObjLeticker : public XObj {
-public:
-	typedef void (XObjLeticker::*StateFunc)();
+static inline f32 GetAnimFrame(HSD_JObj* jobj)
+{
+	HSD_AObj* aobj = GetAObj(jobj);
+	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
+}
 
-	StateFunc mState;  // _980
-	s32 mStep;         // _98C
-	s32 mParts[2];     // _990, indices in the game's object table
-	s32 mPartCount;    // _998
-	s32 _99C;          // _99C
-	s32 _9A0;          // _9A0
-	s32 _9A4[4];       // _9A4
-	s32 mStateTime;    // _9B4
-	XObjPoint mBox[2]; // _9B8, the point the parts stand on
-	f32 _9F8;          // _9F8
-	f32 _9FC;          // _9FC
-	f32 _A00;          // _A00
-	Vec _A04;          // _A04
-	u8 _A10[0x14];     // _A10
-	u8 _A24;           // _A24
-	u8 _A25[0x3];      // _A25
-	f32 _A28;          // _A28
-	u8 mParticleOn;    // _A2C
-	u8 _A2D;           // _A2D
-	u8 _A2E[0x2];      // _A2E
-	s32 _A30;          // _A30
-	f32 _A34;          // _A34
-	s32 mMode;         // _A38
-	AnimSfx mSfx;      // _A3C
-	u8 _A4C[0x4];      // _A4C
+static inline f32 GetAnimEndFrame(HSD_JObj* jobj)
+{
+	HSD_AObj* aobj = GetAObj(jobj);
+	return aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
+}
 
-	virtual void Reset();                      // _98
-	virtual void Update(u32 frames);           // _A4
-	virtual void vfAC();                       // _AC
-	virtual void vfC0();                       // _C0
-	virtual void vf138(const Vec* pos, f32 f); // _138
-	virtual void vf148();                      // _148
+// sets the object's floor boxes, they take effect at once
+static inline void SetFloors(XObj* obj, XObjFloor* floors)
+{
+	obj->mFloors = floors;
+	obj->_250[1] = 0;
+	obj->_250[0] = 0;
+	fn_8008D220(obj);
+	fn_8008C8A4(obj);
+}
 
-	BOOL TurnParts(f32 angle);
-
-	void StateLift();
-	void StateCount();
-	void StateRide();
-};
-typedef char XObjLeticker_size_check[sizeof(XObjLeticker) == 0xA50 ? 1 : -1];
-
-// __vt__21CCameraActionLeticker, turns around the leticker a quarter at a time
-class CCameraActionLeticker : public CCameraActionLadr {
-public:
-	Vec* mTarget;   // _44
-	f32 mTurnTo;    // _48
-	f32 mTurnSpeed; // _4C
-	s32 mTurnTime;  // _50
-	u8 mBounded;    // _54
-	f32 mMinX;      // _58
-	f32 mMaxX;      // _5C
-	f32 mMinZ;      // _60
-	f32 mMaxZ;      // _64
-	u8 _68[0x4];    // _68
-
-	CCameraActionLeticker() { mTarget = NULL; }
-
-	virtual void Update(u32 step);      // _10
-	virtual void vf14();                // _14
-	virtual u32 vf50() { return 0; }    // _50
-	virtual u32 Get_38() { return 11; } // _54
-	virtual f32 vf58() { return 0.1f; } // _58
-	virtual Vec GetCameraTarget();      // _64
-
-	// whether the eye at that angle stays inside the room
-	bool CanTurn(f32 angle)
-	{
-		if (!mBounded) {
-			return true;
+// puts an anim in the first free slot of the object's queue
+static inline void PushAnim(XObj* obj, s32 id, u16 frame, s16 rate)
+{
+	for (int i = 0; i < 16; i++) {
+		s32 j = (obj->mAnmQueue.mNext + i) % 16;
+		if (obj->mAnmQueue.mEntry[j].mId == -1) {
+			obj->mAnmQueue.mEntry[j].mId    = id;
+			obj->mAnmQueue.mEntry[j].mFrame = frame;
+			obj->mAnmQueue.mEntry[j].mRate  = rate;
+			return;
 		}
-		Vec eye;
-		CalcEye(&eye, angle);
-		OSReport("%4.2f %4.2f\n", eye.x, eye.z);
-		if (eye.x < mMinX || mMaxX < eye.x || eye.z < mMinZ || mMaxZ < eye.z) {
-			OSReport("CCameraActionLeticker::Update %4.2f %4.2f %d\n", eye.x, eye.z, (s32)(57.295776f * mTurnTo));
-			return false;
-		}
-		return true;
 	}
-};
-typedef char CCameraActionLeticker_size_check[sizeof(CCameraActionLeticker) == 0x6C ? 1 : -1];
+}
 
 static inline f32 Cos(f32 x)
 {
@@ -117,74 +87,88 @@ static inline s32 GetSide(f32 angle)
 	return side;
 }
 
-static AnimSfxEntry sSfx[] = {
+// whether the eye at that angle stays inside the room
+static inline bool CanTurn(CCameraActionLeticker* camera, f32 angle)
+{
+	if (!camera->mBounded) {
+		return true;
+	}
+	Vec eye;
+	camera->CalcEye(&eye, angle);
+#if !defined(VERSION_PAL)
+	OSReport("%4.2f %4.2f\n", eye.x, eye.z);
+#endif
+	if (eye.x < camera->mMinX || camera->mMaxX < eye.x || eye.z < camera->mMinZ || camera->mMaxZ < eye.z) {
+#if !defined(VERSION_PAL)
+		OSReport("CCameraActionLeticker::Update %4.2f %4.2f %d\n", eye.x, eye.z, (s32)(57.295776f * camera->mTurnTo));
+#endif
+		return false;
+	}
+	return true;
+}
+
+static AnimSfxEvent sSfx[] = {
 	{ 7, 10.0f, -1.0f, 1, 0x190, 0xFF, 0, 0, 0 },
 	{ -1 },
 };
 
-extern "C" XObjPoint* lbl_8022A008[];
-extern "C" bool fn_800E4790(XObj* obj, HSD_JObj* jobj);
-extern "C" XObjPoint* lbl_8065A6D0[2];
+extern "C" {
 
-// ---- functions ----
-
+// turns the first linked object to the angle, then puts _A04 at the top of its stack
 /**
  * @note Address: 0x800E260C
  * @note Size: 0x3AC
  */
-// NONMATCHING: this and part swap saved registers
-BOOL XObjLeticker::TurnParts(f32 angle)
+// NONMATCHING: regalloc
+BOOL fn_800E260C(XObjLeticker* leticker, f32 angle)
 {
-	XObj* part = GAME_OBJTABLE[mParts[0]];
-	f32 my     = HSD_JObjGetRotationY(mJObj);
+	XObj* part = lbl_8025C400.GetObject(leticker->mLinked[0]);
+	f32 my     = HSD_JObjGetRotationY(leticker->mJObj);
 	f32 c      = cos(HSD_JObjGetRotationY(part->mJObj) - (angle + my));
 	if (c < (f32)cos(0.08726646f)) {
-		_9F8 = 0.0f;
-		_A30 = 0;
+		leticker->_9F8 = 0.0f;
+		leticker->_A30 = 0;
 		if (part->mAnimId == 0) {
-			part->SetRotateY(angle + HSD_JObjGetRotationY(mJObj), 0.1f);
-			_A28 = angle;
+			part->SetRotateY(angle + HSD_JObjGetRotationY(leticker->mJObj), 0.1f);
+			leticker->mHeading = angle;
 		}
 	}
 	if (GetAnimFrame(part->mJObj) < GetAnimEndFrame(part->mJObj)) {
 		return TRUE;
 	}
 	s32 path[9]    = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	HSD_JObj* jobj = FindJoint(part->mJObj, path, _99C + 1);
+	HSD_JObj* jobj = FindJointByPath(part->mJObj, path, leticker->_99C + 1);
 	if (jobj != NULL) {
 		MtxPtr mtx = HSD_JObjGetMtxPtr(jobj);
 		Vec pos;
 		pos.x = pos.y = pos.z = 0.0f;
-		PSMTXMultVec(mtx, &pos, &_A04);
+		PSMTXMultVec(mtx, &pos, &leticker->_A04);
 	}
 	return TRUE;
 }
-
-extern "C" {
 
 /**
  * @note Address: 0x800E2EAC
  * @note Size: 0x1A4
  */
-// NONMATCHING: the loop index, pointer and part take other saved registers
 void fn_800E2EAC(XObjLeticker* obj, Vec* dir)
 {
 	XObj* part;
-	for (s32 i = 0; i < obj->mPartCount; i++) {
-		part = GAME_OBJS[obj->mParts[i]];
+	for (s32 i = 0; i < obj->mLinkedCount; i++) {
+		part = lbl_8025C400.GetObject(obj->mLinked[i]);
 		part->SetTranslateX(obj->mMoveTranslate.x, 0);
 		part->SetTranslateZ(obj->mMoveTranslate.z, 0);
 	}
 	if (0.0f < PSVECMag(dir)) {
-		obj->SetColor(1, 0, 0, 0, 0.5f);
+		obj->vf12C(1, 0, 0, 0, 0.5f);
 		obj->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	} else {
-		obj->SetColor(1, 0xFF, 0, 0, 1.0f);
+		obj->vf12C(1, 0xFF, 0, 0, 1.0f);
 		obj->SetAnim(7, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	}
-	if (obj->mParticleOn) {
-		GAME_PARTICLE->Kill(0xA5);
-		obj->mParticleOn = FALSE;
+	if (obj->mPtcl) {
+		(&lbl_8025C400.mParticle)->Kill(0xA5);
+		obj->mPtcl = FALSE;
 	}
 }
 
@@ -196,18 +180,18 @@ void fn_800E2EAC(XObjLeticker* obj, Vec* dir)
  */
 void XObjLeticker::vf148()
 {
-	if (mMode != 3) {
-		GAME_FLAGS &= ~0x80ULL;
-		GAME_CAMERA->PopAction();
+	if (mState != 3) {
+		lbl_8025C400.mStatus.mFlags &= ~0x80ULL;
+		lbl_8025C400.mMotionControlCamera.PopAction();
 	}
 	_A2D = FALSE;
 	_A30 = 0;
-	if (mMode == 2) {
-		_9A0 = _9A4[GetSide(_A28)];
+	if (mState == 2) {
+		_9A0 = _9A4[GetSide(mHeading)];
 		_9FC = 10.0f * _9A0;
 		_9F8 = 10.0f * _99C;
 	}
-	SetColor(1, 0, 0, 0, 0.5f);
+	vf12C(1, 0, 0, 0, 0.5f);
 	SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
@@ -215,7 +199,7 @@ void XObjLeticker::vf148()
  * @note Address: 0x800E3AF0
  * @note Size: 0x4
  */
-void XObjLeticker::vf138(const Vec* pos, f32 f)
+void XObjLeticker::vf138(const Vec& pos, f32 f)
 {
 }
 
@@ -225,9 +209,9 @@ void XObjLeticker::vf138(const Vec* pos, f32 f)
  */
 void XObjLeticker::StateRide()
 {
-	XObj* player   = GAME_PLAYER;
+	XObj* player   = lbl_8025C400.GetPlayer();
 	s32 path[2]    = { 0, 9 };
-	HSD_JObj* jobj = FindJoint(mJObj, path, 2);
+	HSD_JObj* jobj = FindJointByPath(mJObj, path, 2);
 	switch (mStep) {
 	case 0:
 		break;
@@ -236,13 +220,52 @@ void XObjLeticker::StateRide()
 		pos.x = pos.y = pos.z = 0.0f;
 		pos.y                 = 0.5f;
 		PSMTXMultVec(HSD_JObjGetMtxPtr(jobj), &pos, &pos);
-		player->SetMoveTranslate(&pos, 0);
+		player->SetPos(pos, 0);
 		player->SetRotationY(player->mMoveRotate.y - 0.5235988f, 0);
 		break;
 	}
 }
 
 extern "C" {
+
+// whether the spot under the joint is free, nothing near it in the way
+/**
+ * @note Address: 0x800E4790
+ * @note Size: 0x31C
+ */
+bool fn_800E4790(XObj* obj, HSD_JObj* jobj)
+{
+	CVec pos;
+	if (jobj != NULL) {
+		MtxPtr mtx = HSD_JObjGetMtxPtr(jobj);
+		pos.x = pos.y = pos.z = 0.0f;
+		PSMTXMultVec(mtx, &pos, &pos);
+	}
+	pos.y -= 6.0f;
+	for (s32 i = 0; i < lbl_8025C400.mXObjs.mObjectCount; ++i) {
+		XObj* target = lbl_8025C400.GetObject(i);
+		if (!(target->mStatus.mFlags & 1ULL) || !(target->mStatus.mFlags & 0x10000ULL)) {
+			continue;
+		}
+		if ((s32)obj->mId == (s32)target->mId) {
+			continue;
+		}
+		if ((s16)target->GetPool() == 2) {
+			continue;
+		}
+		f32 x    = target->mMoveTranslate.x - pos.x;
+		f32 z    = target->mMoveTranslate.z - pos.z;
+		f32 dist = sqrtf(x * x + z * z);
+		if (dist > 100.0f + (5.0f + target->_6F8)) {
+			continue;
+		}
+		CVec hit, normal;
+		if (target->vfFC(&pos, &pos, 5.0f, 12.0f, &hit, &normal, 0, 0) & 2) {
+			return false;
+		}
+	}
+	return true;
+}
 
 /**
  * @note Address: 0x800E4AAC
@@ -251,27 +274,27 @@ extern "C" {
 s32 fn_800E4AAC(XObj* obj, const Vec* pos)
 {
 	f32 angle = WrapAngle((f32)atan2(pos->x - obj->mMoveTranslate.x, pos->z - obj->mMoveTranslate.z) - obj->mMoveRotate.y);
-	if (3.0f + obj->mMoveTranslate.y < GAME_PLAYER->mMoveTranslate.y) {
+	if (3.0f + obj->mMoveTranslate.y < lbl_8025C400.GetPlayer()->mMoveTranslate.y) {
 		return 0;
 	}
 	if (Cos(0.7853982f) < Cos(angle)) {
 		s32 path[2] = { 0, 2 };
-		if (fn_800E4790(obj, FindJoint(obj->mJObj, path, 2))) {
+		if (fn_800E4790(obj, FindJointByPath(obj->mJObj, path, 2))) {
 			return -1;
 		}
 	} else if (Cos(angle) < Cos(3.9269907f)) {
 		s32 path[2] = { 0, 6 };
-		if (fn_800E4790(obj, FindJoint(obj->mJObj, path, 2))) {
+		if (fn_800E4790(obj, FindJointByPath(obj->mJObj, path, 2))) {
 			return -2;
 		}
 	} else if (0.0f < Sin(angle)) {
 		s32 path[2] = { 0, 4 };
-		if (fn_800E4790(obj, FindJoint(obj->mJObj, path, 2))) {
+		if (fn_800E4790(obj, FindJointByPath(obj->mJObj, path, 2))) {
 			return -3;
 		}
 	} else {
 		s32 path[2] = { 0, 8 };
-		if (fn_800E4790(obj, FindJoint(obj->mJObj, path, 2))) {
+		if (fn_800E4790(obj, FindJointByPath(obj->mJObj, path, 2))) {
 			return -4;
 		}
 	}
@@ -284,11 +307,10 @@ s32 fn_800E4AAC(XObj* obj, const Vec* pos)
  * @note Address: 0x800E4E58
  * @note Size: 0x364
  */
-// NONMATCHING: part and the two loop pointers take other saved registers
 void XObjLeticker::vfC0()
 {
-	XObj* part = GAME_OBJTABLE[mParts[0]];
-	switch (mMode) {
+	XObj* part = lbl_8025C400.GetObject(mLinked[0]);
+	switch (mState) {
 	case 3:
 		if (!(0.0f < _9F8) || (!_A2D && part->mAnimId != 1)) {
 			break;
@@ -298,10 +320,10 @@ void XObjLeticker::vfC0()
 		Vec pts[50];
 		Vec pos = mMoveTranslate;
 		PSMTXTrans(mtx, pos.x, pos.y, pos.z);
-		f32 twist = 6.0f * (_9F8 / _9FC) * (f32)sin(0.017453292f * (mStateTime * 5)) + 72.0f;
+		f32 twist = 6.0f * (_9F8 / _9FC) * (f32)sin(0.017453292f * (mFuncTime * 5)) + 72.0f;
 		u32 i;
 		for (i = 0; i < 50; i++) {
-			f32 angle = 0.017453292f * mStateTime + 0.017453292f * (twist * (s32)i);
+			f32 angle = 0.017453292f * mFuncTime + 0.017453292f * (twist * (s32)i);
 			f32 y     = 12.0f + 0.2f * (24.0f * (s32)i / 50.0f) * _9F8 / _9FC;
 			pts[i].x  = 7.1f * (f32)sin(angle);
 			pts[i].y  = y;
@@ -312,12 +334,12 @@ void XObjLeticker::vfC0()
 		pts[49].y = pts[44].y;
 		pts[49].z = pts[44].z;
 		PSMTXMultVecArray(mtx, pts, pts, 50);
-		fn_80198F1C(lbl_8025C400, pts, colors, 50);
-		if (!fn_8001E6C8(GAME_SOUND, 0xB0)) {
-			fn_8001E904(GAME_SOUND, 0xB0, 0xFF);
+		fn_80198F1C(&lbl_8025C400.mGs, pts, colors, 50);
+		if (!fn_8001E6C8(&lbl_8025C400.mSound, 0xB0)) {
+			fn_8001E904(&lbl_8025C400.mSound, 0xB0, 0xFF);
 			HSD_AudioSFXSetPitchByID(0xB0, 600.0f * (_A34 - 1.0f));
 		} else {
-			fn_8001E468(GAME_SOUND, 0xB0, fn_8001DF00(GAME_SOUND, &part->mMoveTranslate, 0), 0);
+			fn_8001E468(&lbl_8025C400.mSound, 0xB0, fn_8001DF00(&lbl_8025C400.mSound, &part->mMoveTranslate, 0), 0);
 		}
 		break;
 	}
@@ -327,18 +349,18 @@ void XObjLeticker::vfC0()
  * @note Address: 0x800E51BC
  * @note Size: 0x324
  */
-// NONMATCHING: the dol has one more branch to the end of the switch
+// NONMATCHING: control flow
 void XObjLeticker::vfAC()
 {
 	vfB0(0);
-	switch (mMode) {
+	switch (mState) {
 	case 1: {
-		XObj* part     = GAME_OBJTABLE[mParts[0]];
+		XObj* part     = lbl_8025C400.GetObject(mLinked[0]);
 		s32 path[8]    = { 0, 0, 0, 0, 0, 0, 0, 0 };
-		HSD_JObj* jobj = FindJoint(part->mJObj, path, 7);
+		HSD_JObj* jobj = FindJointByPath(part->mJObj, path, 7);
 		HSD_JObjClearFlags(jobj, 0x10);
 		f32 y;
-		for (s32 i = 0; 0.0f < (y = _A00 - 24.0f * i); i++) {
+		for (s32 i = 0; 0.0f < (y = mHeight - 24.0f * i); i++) {
 			HSD_JObjSetTranslateY(jobj, y);
 			HSD_JObjDispAll(jobj, NULL, 7, 0);
 		}
@@ -347,7 +369,7 @@ void XObjLeticker::vfAC()
 		break;
 	}
 	case 2:
-		GAME_OBJTABLE[mParts[0]]->mFlags &= ~0x80000000ULL;
+		lbl_8025C400.GetObject(mLinked[0])->mStatus.mFlags &= ~0x80000000ULL;
 		break;
 	default:
 		break;
@@ -365,7 +387,7 @@ void XObjLeticker::StateCount()
 	if (_9A0 < count) {
 		count = 10;
 	}
-	part = GAME_OBJTABLE[mParts[0]];
+	part = lbl_8025C400.GetObject(mLinked[0]);
 	if (_99C != count) {
 		if (GetAnimEndFrame(part->mJObj) <= GetAnimFrame(part->mJObj)) {
 			if (_99C < count) {
@@ -379,24 +401,20 @@ void XObjLeticker::StateCount()
 				_99C--;
 				part->SetAnim(24 - _99C, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f);
 				if (_99C == 0) {
-					PushMsg(part, 0, 0, 100);
+					PushAnim(part, 0, 0, 100);
 				}
 			} else {
 				_9F8 = (_99C - 1) * 10;
 			}
 			if (_A2D) {
-				fn_8001E904(GAME_SOUND, 0xAC, 0xFF);
+				fn_8001E904(&lbl_8025C400.mSound, 0xAC, 0xFF);
 				HSD_AudioSFXSetPitchByID(0xAC, 600.0f * (_A34 - 1.0f));
 			}
 		}
-		part->mPoints       = lbl_8022A008[_99C];
-		part->mPointMaskOld = 0;
-		part->mPointMask    = 0;
-		fn_8008D220(part);
-		fn_8008C8A4(part);
+		SetFloors(part, lbl_8022A008[_99C]);
 	}
-	if (!(mFlags & 0x0800000000000000ULL)) {
-		SetColor(1, 0, 0, 0, 0.5f);
+	if (!(mStatus.mFlags & 0x0800000000000000ULL)) {
+		vf12C(1, 0, 0, 0, 0.5f);
 		SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	}
 }
@@ -407,69 +425,61 @@ void XObjLeticker::StateCount()
  */
 void XObjLeticker::StateLift()
 {
-	XObj* base = GAME_OBJTABLE[mParts[0]];
-	XObj* top  = GAME_OBJTABLE[mParts[1]];
+	XObj* base = lbl_8025C400.GetObject(mLinked[0]);
+	XObj* top  = lbl_8025C400.GetObject(mLinked[1]);
 	if (base == NULL || top == NULL) {
 		return;
 	}
 	f32 height = 4.0f * (s32)(_9F8 / 3.0f) + 0.5f;
-	if (_A00 == height) {
+	if (mHeight == height) {
 		_A24 = TRUE;
-	} else if (_A00 < height) {
-		_A00 += 0.5f;
-		if (height < _A00) {
-			_A00 = height;
+	} else if (mHeight < height) {
+		mHeight += 0.5f;
+		if (height < mHeight) {
+			mHeight = height;
 		}
-	} else if (height < _A00 && 0.0f < _A00) {
-		_A00 -= 0.5f;
-		if (_A00 < 0.0f) {
-			_A00 = 0.0f;
+	} else if (height < mHeight && 0.0f < mHeight) {
+		mHeight -= 0.5f;
+		if (mHeight < 0.0f) {
+			mHeight = 0.0f;
 		}
 	}
-	if (_A00 <= 2.5f) {
-		_A00 = 2.5f;
+	if (mHeight <= 2.5f) {
+		mHeight = 2.5f;
 	}
-	s32 step = _A00 / 4.0f;
+	s32 step = mHeight / 4.0f;
 	if (_99C != step) {
-		if (!fn_8001E6C8(GAME_SOUND, 0xA8)) {
-			fn_8001E904(GAME_SOUND, 0xA8, 0xFF);
+		if (!fn_8001E6C8(&lbl_8025C400.mSound, 0xA8)) {
+			fn_8001E904(&lbl_8025C400.mSound, 0xA8, 0xFF);
 		}
 		HSD_AudioSFXSetPitchByID(0xA8, 600.0f * (_A34 - 1.0f));
 		_99C = step;
 		_A24 = FALSE;
 	}
-	top->SetTranslateY(9.0f + (_A00 + HSD_JObjGetTranslationY(mJObj)), 0);
+	top->SetTranslateY(9.0f + (mHeight + HSD_JObjGetTranslationY(mJObj)), 0);
 	_A04.x = top->mMoveTranslate.x;
 	_A04.y = top->mMoveTranslate.y;
 	_A04.z = top->mMoveTranslate.z;
-	if (mFlags & 0x0800000000000000ULL) {
+	if (mStatus.mFlags & 0x0800000000000000ULL) {
 		f32 h;
-		if (_A00 < 10.0f) {
+		if (mHeight < 10.0f) {
 			h = 19.0f;
 		} else {
-			h = 5.0f + (9.0f + _A00) - 2.0f;
+			h = 5.0f + (9.0f + mHeight) - 2.0f;
 		}
-		lbl_8065A6D0[0]->mPos2[1] = (s32)h * 100;
-		lbl_8065A6D0[0]->mPos[1]  = (s32)(h / sqrtf(3.0f)) * 100;
-		mPoints                   = lbl_8065A6D0[0];
-		mPointMaskOld             = 0;
-		mPointMask                = 0;
-		fn_8008D220(this);
-		fn_8008C8A4(this);
+		lbl_8065A6D0[0]->_14[1] = (s32)h * 100;
+		lbl_8065A6D0[0]->_04[1] = (s32)(h / sqrtf(3.0f)) * 100;
+		SetFloors(this, lbl_8065A6D0[0]);
 	} else {
-		s32 k               = (_A00 - 12.5f) / 4.0f;
-		mBox[0].mPos[1]     = k * 0xA9 + 0x654;
-		mBox[0].mPos2[1]    = k * 400 + 1000;
-		base->mPoints       = mBox;
-		base->mPointMaskOld = 0;
-		base->mPointMask    = 0;
+		s32 k          = (mHeight - 12.5f) / 4.0f;
+		mBox[0]._04[1] = k * 0xA9 + 0x654;
+		mBox[0]._14[1] = k * 400 + 1000;
+		base->mFloors  = mBox;
+		base->_250[1]  = 0;
+		base->_250[0]  = 0;
 		fn_8008C8A4(base);
-		mPoints       = lbl_8065A6D0[1];
-		mPointMaskOld = 0;
-		mPointMask    = 0;
-		fn_8008D220(this);
-		fn_8008C8A4(this);
-		SetColor(1, 0, 0, 0, 0.5f);
+		SetFloors(this, lbl_8065A6D0[1]);
+		vf12C(1, 0, 0, 0, 0.5f);
 		SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	}
 }
@@ -478,14 +488,14 @@ static inline void PlayLetickerSound(XObjLeticker& obj)
 {
 	s32 anim  = obj.mAnimId;
 	f32 frame = GetAnimFrame(obj.mJObj);
-	obj.mSfx.Play(anim, fn_8001DF00(GAME_SOUND, &obj.mMoveTranslate, 0), frame);
+	obj.mSfx.Update(anim, frame, fn_8001DF00(&lbl_8025C400.mSound, &obj.mMoveTranslate, 0));
 }
 
 /**
  * @note Address: 0x800E5E78
  * @note Size: 0x598
  */
-void XObjLeticker::Update(u32 frames)
+void XObjLeticker::vfA4(u32 frames)
 {
 	if (mAnimId == 1) {
 		if (GetAnimEndFrame(mJObj) <= frames + GetAnimFrame(mJObj)) {
@@ -497,13 +507,13 @@ void XObjLeticker::Update(u32 frames)
 		}
 	}
 	fn_80090ED4(this, frames);
-	mStateTime += frames;
-	if (mState) {
-		(this->*mState)();
+	mFuncTime += frames;
+	if (mFunc) {
+		(this->*mFunc)();
 	}
 	s32 path[3]    = { 0, 0, 0 };
-	HSD_JObj* jobj = FindJoint(mJObj, path, 2);
-	XObj* player   = GAME_PLAYER;
+	HSD_JObj* jobj = FindJointByPath(mJObj, path, 2);
+	XObj* player   = lbl_8025C400.GetPlayer();
 	f32 angle      = atan2(player->mMoveTranslate.x - mMoveTranslate.x, player->mMoveTranslate.z - mMoveTranslate.z);
 	HSD_JObjSetRotationY(jobj, angle - HSD_JObjGetRotationY(mJObj));
 	PlayLetickerSound(*this);
@@ -513,23 +523,23 @@ void XObjLeticker::Update(u32 frames)
  * @note Address: 0x800E6410
  * @note Size: 0x98
  */
-void XObjLeticker::Reset()
+void XObjLeticker::vf98()
 {
 	fn_800928E8(this);
-	mPartCount    = 0;
-	mState        = NULL;
-	_99C          = 0;
-	mStateTime    = 0;
-	_9F8          = 0.0f;
-	_A00          = 0.0f;
-	mParticleOn   = TRUE;
-	_A2D          = FALSE;
-	_A30          = 0;
-	mMode         = 0;
-	_A28          = 0.0f;
-	mBox[0].mKind = -1;
-	mBox[1].mKind = -1;
-	mSfx.mTable   = sSfx;
+	mLinkedCount = 0;
+	mFunc        = NULL;
+	_99C         = 0;
+	mFuncTime    = 0;
+	_9F8         = 0.0f;
+	mHeight      = 0.0f;
+	mPtcl        = TRUE;
+	_A2D         = FALSE;
+	_A30         = 0;
+	mState       = 0;
+	mHeading     = 0.0f;
+	mBox[0].mId  = -1;
+	mBox[1].mId  = -1;
+	mSfx.mEvents = sSfx;
 }
 
 /**
@@ -539,29 +549,29 @@ void XObjLeticker::Reset()
 void CCameraActionLeticker::Update(u32 step)
 {
 	CPad pad(0);
-	u64 buttons     = GAME_FLAGS & 0x80000000;
+	u64 buttons     = lbl_8025C400.mStatus.mFlags & 0x80000000;
 	u32 leftButton  = buttons ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
 	u32 rightButton = buttons ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
 
-	if (mTurnTime == 0) {
+	if (mTurnFrames == 0) {
 		if (pad.mPad->mTrigger & leftButton) {
-			if (CanTurn(mTurnTo - 1.5707964f)) {
+			if (CanTurn(this, mTurnTo - 1.5707964f)) {
 				mTurnTo -= 1.5707964f;
-				mTurnSpeed = -0.08726646f;
-				mTurnTime  = 18;
+				mTurnSpeed  = -0.08726646f;
+				mTurnFrames = 18;
 			}
 		} else if (pad.mPad->mTrigger & rightButton) {
-			if (CanTurn(1.5707964f + mTurnTo)) {
+			if (CanTurn(this, 1.5707964f + mTurnTo)) {
 				mTurnTo += 1.5707964f;
-				mTurnSpeed = 0.08726646f;
-				mTurnTime  = 18;
+				mTurnSpeed  = 0.08726646f;
+				mTurnFrames = 18;
 			}
 		}
 	} else {
-		mTurnTime -= step;
-		if (mTurnTime <= 0) {
-			mAngle    = mTurnTo;
-			mTurnTime = 0;
+		mTurnFrames -= step;
+		if (mTurnFrames <= 0) {
+			mAngle      = mTurnTo;
+			mTurnFrames = 0;
 		} else {
 			mAngle += mTurnSpeed * step;
 		}
@@ -575,12 +585,14 @@ void CCameraActionLeticker::Update(u32 step)
  */
 void CCameraActionLeticker::vf14()
 {
+#if !defined(VERSION_PAL)
 	OSReport("CCameraActionLeticker::Reset\n");
+#endif
 	CCameraActionLadr::vf14();
-	mTurnTo   = 0.0f;
-	mTurnTime = 0;
-	mBounded  = FALSE;
-	GAME_FLAGS |= 0x80;
+	mTurnTo     = 0.0f;
+	mTurnFrames = 0;
+	mBounded    = false;
+	lbl_8025C400.mStatus.mFlags |= 0x80;
 }
 
 /**

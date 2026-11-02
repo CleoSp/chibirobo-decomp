@@ -1,4 +1,3 @@
-#include "game/particle_srt.h"
 #include "game/cjobj.h"
 #include "game/cjobjset.h"
 #include "Version.h"

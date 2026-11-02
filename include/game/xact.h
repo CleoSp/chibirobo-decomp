@@ -83,8 +83,10 @@ STATIC_ASSERT(sizeof(XActJump) == 0x54);
 
 class XActLadder : public XAction {
 public:
-	BOOL _2C;            // _2C, set when b is pressed on it
-	u8 _30[0x44 - 0x30]; // _30
+	BOOL _2C;   // _2C, set when b is pressed on it
+	Vec mPos;   // _30, where he hangs, in front of the ladder
+	f32 mDist;  // _3C, how far he still has to go to get there
+	f32 mAngle; // _40, from mPos to where he started
 };
 STATIC_ASSERT(sizeof(XActLadder) == 0x44);
 
@@ -121,7 +123,9 @@ STATIC_ASSERT(sizeof(XActTumble) == 0x48);
 
 class XActCopter : public XAction {
 public:
-	u8 _2C[0x38 - 0x2C]; // _2C
+	f32 mTime;  // _2C, how long he can stay up
+	f32 mPhase; // _30, of the bob
+	f32 mBob;   // _34, how high the bob lifts him
 };
 STATIC_ASSERT(sizeof(XActCopter) == 0x38);
 

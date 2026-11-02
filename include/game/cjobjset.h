@@ -3,13 +3,14 @@
 
 #include "game/cjobj.h"
 
-// the three CJObj setters that compare against a Vec built on the stack. retail copies a
-// zeroed Vec and fills in x, y and z, a static zero gets that code without a .rodata
-// template. only the files that emit or inline these include this, kept in this order
+// the three CJObj setters that compare against a Vec built on the stack. retail copies it
+// from a zeroed Vec in .bss and then fills in x, y and z. only the files that emit or
+// inline these include this
 
 #pragma push
 #pragma pool_data on
 
+// a Vec from its parts, starting from zero
 static inline Vec MakeJObjVec(const Vec& zero, f32 x, f32 y, f32 z)
 {
 	Vec v = zero;

@@ -2,13 +2,13 @@
 
 static inline void ClearScript(CEvt* evt)
 {
-	evt->_04 = NULL;
-	evt->_18 = 0;
-	evt->_1C = 0;
-	evt->_20 = 0;
-	evt->_28 = 0;
-	evt->_38 = 0;
-	evt->_48 = 0;
+	evt->mData.mScript  = NULL;
+	evt->_18            = 0;
+	evt->_1C            = 0;
+	evt->_20            = 0;
+	evt->mCalls.mCount  = 0;
+	evt->mFrames.mCount = 0;
+	evt->mValues.mCount = 0;
 }
 
 static inline void ClearQueue()
@@ -32,11 +32,11 @@ static inline void ClearResults(CEvt* evt)
  * @note Address: 0x8007EEA4
  * @note Size: 0x194
  */
-extern "C" void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s32 argument0, s32 argument1)
+extern "C" void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s16 argument0, s16 argument1)
 {
 	if (script == NULL)
 		return;
-	if (evt->_04 != NULL && evt->_00 == 0) {
+	if (evt->mData.mScript != NULL && evt->_00 == 0) {
 		s32 cursor = lbl_80369A3C.mRead;
 		for (s32 i = 0; i < 128; ++i) {
 			s32 index = cursor % 128;
@@ -55,10 +55,10 @@ extern "C" void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s32 argument0, s
 	if (evt->_00 == 0)
 		ClearQueue();
 	ClearResults(evt);
-	evt->_04 = script;
-	evt->_08 = evt->_00 != 0 ? evt->_00 : context;
-	evt->_5C = argument0;
-	evt->_5E = argument1;
+	evt->mData.mScript = script;
+	evt->mData._04     = evt->_00 != 0 ? evt->_00 : context;
+	evt->_5C           = argument0;
+	evt->_5E           = argument1;
 }
 
 /**

@@ -1,4 +1,4 @@
-#include "game/memcard.h"
+#include "game/cgame.h"
 #include "game/cthread.h"
 
 /**

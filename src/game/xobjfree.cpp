@@ -43,9 +43,9 @@ static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
  * @note Address: 0x800DD600
  * @note Size: 0x94
  */
-extern "C" void fn_800DD600(XObjFree* object, f32 value)
+extern "C" void fn_800DD600(XObjFree* object, const Vec* pos, f32 value)
 {
-	fn_8008A6C0(object, value);
+	fn_8008A6C0(object, pos, value);
 	if (object->mStatus.mFlags & 0x04000000ULL) {
 		f32 remaining = object->mLife - value;
 		object->mLife = remaining;
@@ -108,12 +108,12 @@ extern "C" void fn_800DD96C(XObjFree* object)
 		f32 effect      = object->mFlash;
 		f32 innerRadius = 400.0f * effect;
 		f32 outerRadius = 400.0f * (1.0f - effect);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 0, 7, 0);
-		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 2, 4, 15);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
+		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 2, 4, 15);
 		u32 color = (u32)(255.0f * effect) | 0xFFFFFF00;
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, innerRadius, innerRadius, 0.0f, 0.0f, 0.0f);
-		fn_80198258((CGs*)lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outerRadius, outerRadius, 0.0f, 0.0f, 0.0f);
-		fn_8019B56C(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(((CGs*)lbl_8025C400.mGs)->mCurRenderMode, 1, 3, 0);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, innerRadius, innerRadius, 0.0f, 0.0f, 0.0f);
+		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outerRadius, outerRadius, 0.0f, 0.0f, 0.0f);
+		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
 	}
 }

@@ -20,7 +20,7 @@ public:
 
 	virtual ~CFont() { } // _08 (weak)
 };
-typedef char CFont_size_check[sizeof(CFont) == 0x140 ? 1 : -1];
+STATIC_ASSERT(sizeof(CFont) == 0x140);
 
 // shift jis lead byte
 inline bool IsSjisLead(u8 c)

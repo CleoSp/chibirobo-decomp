@@ -20,6 +20,7 @@ public:
 	s32 mRefCount; // _130
 	// _134 vtable
 
+	CObjArchive() { mRefCount = 0; }
 	virtual ~CObjArchive() { } // _08 (weak)
 
 	// inlined:
@@ -202,6 +203,13 @@ public:
 	u32 mColors[2];             // _164, the two colors the x_cobj materials blend in
 	s32 mQueued;                // _16C
 	CXObjQueueEntry mQueue[10]; // _170
+
+	CXObj()
+	{
+		mMoveTranslate.Reset(0.0f, 0.0f, 0.0f);
+		mMoveRotate.Reset(0.0f, 0.0f, 0.0f);
+		mMoveScale.Reset(0.0f, 0.0f, 0.0f);
+	}
 
 	// CJObj overrides, defined in another file
 	virtual void SetTranslateX(f32 x, s32 force);                                                                     // _0C

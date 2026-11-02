@@ -60,7 +60,7 @@ STATIC_ASSERT(sizeof(SavePreviewRecord) == 0xCC);
 
 extern "C" {
 // is the save slot's data intact
-bool fn_80086F24(SavePreviewRecord* save);
+BOOL fn_80086F24(SavePreviewRecord* save);
 }
 
 #endif
