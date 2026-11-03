@@ -155,8 +155,9 @@ XObjCamera::XObjCamera()
 extern "C" CMsgQueue* fn_80134E4C(CMsgQueue* queue, s32 flags)
 {
 	if (queue != NULL) {
+		s16 sflags = (s16)flags;
 		queue->CMsgQueue::~CMsgQueue();
-		if ((s16)flags > 0) {
+		if (sflags > 0) {
 			operator delete(queue);
 		}
 	}

@@ -1634,7 +1634,7 @@ s32 CMotionControlCamera::GetActionType()
  */
 bool CMotionControlCamera::IsAction(s32 type)
 {
-	return IsCurrent(type);
+	return mAction == GetAction(type);
 }
 // fn_80149674
 /*
