@@ -755,40 +755,67 @@ extern "C" void fn_8019B278(CGsRenderMode* mode, BOOL force)
 extern "C" void fn_8019B128(CGsTevStage* stage, u32 id, GsTevOrder order, GsTevOp colorOp, GsTevIn colorIn, GsTevOp alphaOp,
                             GsTevIn alphaIn)
 {
-	stage->next                    = NULL;
-	stage->flags                   = 1;
-	stage->stage                   = id;
-	stage->coord                   = order.mCoord;
-	stage->map                     = order.mMap;
-	stage->color                   = order.mColor;
-	stage->u.tevconf.clr_op        = colorOp.mOp;
-	stage->u.tevconf.clr_a         = colorIn.mA;
-	stage->u.tevconf.clr_b         = colorIn.mB;
-	stage->u.tevconf.clr_c         = colorIn.mC;
-	stage->u.tevconf.clr_d         = colorIn.mD;
-	stage->u.tevconf.clr_scale     = colorOp.mScale;
-	stage->u.tevconf.clr_bias      = colorOp.mBias;
-	stage->u.tevconf.clr_clamp     = colorOp.mClamp;
-	stage->u.tevconf.clr_out_reg   = colorOp.mReg;
-	stage->u.tevconf.alpha_op      = alphaOp.mOp;
-	stage->u.tevconf.alpha_a       = alphaIn.mA;
-	stage->u.tevconf.alpha_b       = alphaIn.mB;
-	stage->u.tevconf.alpha_c       = alphaIn.mC;
-	stage->u.tevconf.alpha_d       = alphaIn.mD;
-	stage->u.tevconf.alpha_scale   = alphaOp.mScale;
-	stage->u.tevconf.alpha_bias    = alphaOp.mBias;
-	stage->u.tevconf.alpha_clamp   = alphaOp.mClamp;
-	stage->u.tevconf.alpha_out_reg = alphaOp.mReg;
-	stage->u.tevconf.mode          = 0;
-	stage->u.tevconf.ras_swap      = 0;
-	stage->u.tevconf.tex_swap      = 0;
-	stage->u.tevconf.kcsel         = 0xC;
-	stage->u.tevconf.kasel         = 0x1C;
-	stage->mNumTexGens             = 0;
-	stage->mTexCoord               = 0;
-	stage->mTexGenFunc             = 1;
-	stage->mTexGenSrc              = 4;
-	stage->mTexMtx                 = 0x3C;
+	u32 coord = order.mCoord;
+	u32 map   = order.mMap;
+	u32 color = order.mColor;
+
+	stage->next  = NULL;
+	stage->flags = 1;
+	stage->stage = id;
+	stage->coord = coord;
+	stage->map   = map;
+	stage->color = color;
+
+	u32 cOp    = colorOp.mOp;
+	u32 cA     = colorIn.mA;
+	u32 cB     = colorIn.mB;
+	u32 cC     = colorIn.mC;
+	u32 cD     = colorIn.mD;
+	u32 cScale = colorOp.mScale;
+	u32 cBias  = colorOp.mBias;
+	u8 cClamp  = colorOp.mClamp;
+	u32 cReg   = colorOp.mReg;
+
+	stage->u.tevconf.clr_op      = cOp;
+	stage->u.tevconf.clr_a       = cA;
+	stage->u.tevconf.clr_b       = cB;
+	stage->u.tevconf.clr_c       = cC;
+	stage->u.tevconf.clr_d       = cD;
+	stage->u.tevconf.clr_scale   = cScale;
+	stage->u.tevconf.clr_bias    = cBias;
+	stage->u.tevconf.clr_clamp   = cClamp;
+	stage->u.tevconf.clr_out_reg = cReg;
+
+	u32 aOp    = alphaOp.mOp;
+	u32 aA     = alphaIn.mA;
+	u32 aB     = alphaIn.mB;
+	u32 aC     = alphaIn.mC;
+	u32 aD     = alphaIn.mD;
+	u32 aScale = alphaOp.mScale;
+	u32 aBias  = alphaOp.mBias;
+	u8 aClamp  = alphaOp.mClamp;
+	u32 aReg   = alphaOp.mReg;
+
+	stage->u.tevconf.alpha_op      = aOp;
+	stage->u.tevconf.alpha_a       = aA;
+	stage->u.tevconf.alpha_b       = aB;
+	stage->u.tevconf.alpha_c       = aC;
+	stage->u.tevconf.alpha_d       = aD;
+	stage->u.tevconf.alpha_scale   = aScale;
+	stage->u.tevconf.alpha_bias    = aBias;
+	stage->u.tevconf.alpha_clamp   = aClamp;
+	stage->u.tevconf.alpha_out_reg = aReg;
+
+	stage->u.tevconf.mode     = 0;
+	stage->u.tevconf.ras_swap = 0;
+	stage->u.tevconf.tex_swap = 0;
+	stage->u.tevconf.kcsel    = 0xC;
+	stage->u.tevconf.kasel    = 0x1C;
+	stage->mNumTexGens        = 0;
+	stage->mTexCoord          = 0;
+	stage->mTexGenFunc        = 1;
+	stage->mTexGenSrc         = 4;
+	stage->mTexMtx            = 0x3C;
 	stage->Invalidate();
 }
 // fn_8019B128

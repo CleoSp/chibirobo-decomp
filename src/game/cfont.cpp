@@ -79,6 +79,7 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
 		Init__5CFontFi(font, FALSE);
 #endif
 	}
+
 	if (UseGlyphCache()) {
 		u16 code = (u8)str[0];
 		if (IsLeadByte(code)) {
@@ -115,11 +116,10 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
 		x = 0;
 #if !defined(VERSION_JP)
 	} else if (lbl_8065B868) {
-		image              = lbl_802386E0;
-		FontCharInfo& info = lbl_80237AD0[(u8)str[0]];
-		x                  = info.x;
-		y                  = info.y;
-		advance            = info.width;
+		image   = lbl_802386E0;
+		x       = lbl_80237AD0[(u8)str[0]].x;
+		y       = lbl_80237AD0[(u8)str[0]].y;
+		advance = lbl_80237AD0[(u8)str[0]].width;
 #endif
 	} else {
 		OSGetFontTexture(str, &image, &x, &y, &advance);
