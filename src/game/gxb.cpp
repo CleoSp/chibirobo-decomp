@@ -106,35 +106,7 @@ static inline void RegisterName(XSound* sound, const char* name)
 // NONMATCHING: the requests are reached through an object at _2D0
 extern "C" void fn_8001F8D8(XSound* sound)
 {
-	SfxLoadRequest* requests = sound->mLoadRequests;
-	for (u32 i = 0; i < 16; i += 8) {
-		requests[i].mName       = NULL;
-		requests[i].mResult     = -1;
-		requests[i].mLoaded     = 0;
-		requests[i + 1].mName   = NULL;
-		requests[i + 1].mResult = -1;
-		requests[i + 1].mLoaded = 0;
-		requests[i + 2].mName   = NULL;
-		requests[i + 2].mResult = -1;
-		requests[i + 2].mLoaded = 0;
-		requests[i + 3].mName   = NULL;
-		requests[i + 3].mResult = -1;
-		requests[i + 3].mLoaded = 0;
-		requests[i + 4].mName   = NULL;
-		requests[i + 4].mResult = -1;
-		requests[i + 4].mLoaded = 0;
-		requests[i + 5].mName   = NULL;
-		requests[i + 5].mResult = -1;
-		requests[i + 5].mLoaded = 0;
-		requests[i + 6].mName   = NULL;
-		requests[i + 6].mResult = -1;
-		requests[i + 6].mLoaded = 0;
-		requests[i + 7].mName   = NULL;
-		requests[i + 7].mResult = -1;
-		requests[i + 7].mLoaded = 0;
-	}
-	sound->mLoadRequestCount = 0;
-	HSD_SynthSFXBankClear(sound->mStageBank);
+	ClearStageBank(sound);
 }
 
 /**
