@@ -79,7 +79,6 @@ extern "C" CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width)
 		Init__5CFontFi(font, FALSE);
 #endif
 	}
-
 	if (UseGlyphCache()) {
 		u16 code = (u8)str[0];
 		if (IsLeadByte(code)) {

@@ -33,7 +33,7 @@ extern "C" void fn_800DA4D0(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY
 				HSD_MtxSRT(local, &scale, &rotation, &node->mPos, NULL);
 				PSMTXConcat(selectedView, local, combined);
 				s32 alpha = (s32)(300.0 / pow(2.0, (f64)i));
-				u32 color = (cord->mNodes.mColor & 0xFFFFFF00) | (u32)alpha;
+				u32 color = (cord->mNodes.mColor & 0xFFFFFF00) | alpha;
 				fn_801970B0(&lbl_8025C400.mGs, combined, color, 8, 8);
 			}
 		}
