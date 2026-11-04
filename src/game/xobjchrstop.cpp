@@ -25,9 +25,9 @@ extern "C" void fn_800BADAC(XObjChr* chr)
 	chr->_988.mSpeed.x  = 0.0f;
 	chr->_988.mSpeed.y  = 0.0f;
 	chr->_988.mSpeed.z  = 0.0f;
-	f32 z               = chr->mMoveRotate.mTarget.z;
-	f32 y               = chr->mMoveRotate.mTarget.y;
 	f32 x               = chr->mMoveRotate.mTarget.x;
+	f32 y               = chr->mMoveRotate.mTarget.y;
+	f32 z               = chr->mMoveRotate.mTarget.z;
 	chr->mMoveRotate.x  = x;
 	chr->mMoveRotate.y  = y;
 	chr->mMoveRotate.z  = z;
