@@ -24,25 +24,16 @@ extern "C" void fn_8010660C(XObj* object)
 	spider->_9C4                 = 1.0f;
 	spider->_9C8                 = 1.0f;
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->mHitPos;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value       = { 0.0f, 0.0f, 0.0f };
+		spider->mHitPos = value;
 	}
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->mBasePos;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value        = { 0.0f, 0.0f, 0.0f };
+		spider->mBasePos = value;
 	}
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->_9F0;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value    = { 0.0f, 0.0f, 0.0f };
+		spider->_9F0 = value;
 	}
 	spider->mHitStrength = 0.0f;
 	spider->_9EC         = 23;
@@ -54,20 +45,14 @@ extern "C" void fn_8010660C(XObj* object)
 	spider->mStatus.mFlags |= 8ULL;
 	spider->mRadius = 28.0f;
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->mAreaPos;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value        = { 0.0f, 0.0f, 0.0f };
+		spider->mAreaPos = value;
 	}
 	spider->mAreaWidth = 0.0f;
 	spider->mAreaDepth = 0.0f;
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->_A10;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value    = { 0.0f, 0.0f, 0.0f };
+		spider->_A10 = value;
 	}
 	spider->_A1C = 0.0f;
 	spider->vf12C(1, 0, 0, 0, 0.0f);
@@ -76,11 +61,8 @@ extern "C" void fn_8010660C(XObj* object)
 	spider->_A50 = 0;
 	spider->_A54 = 0.0f;
 	{
-		Vec value   = { 0.0f, 0.0f, 0.0f };
-		Vec& target = spider->_A58;
-		target.x    = value.x;
-		target.y    = value.y;
-		target.z    = value.z;
+		Vec value    = { 0.0f, 0.0f, 0.0f };
+		spider->_A58 = value;
 	}
 #if defined(VERSION_PAL)
 	spider->_A64 = 3 * lbl_80660D4C; // 3 seconds
