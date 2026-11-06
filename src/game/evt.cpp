@@ -15,7 +15,7 @@ extern "C" {
 #include <stdlib.h>
 #include "game/ut.h"
 #include <stdio.h>
-#include "game/evt.h"
+#include "game/evtqueue.h"
 #include "game/msg.h"
 #include "game/gmath.h"
 #include "game/globals.h"
@@ -33,21 +33,6 @@ extern "C" {
 #include "game/cmovie.h"
 
 class CJObj;
-
-// a ring of 128 parked script positions, WAIT fills free slots and ABORT
-// resumes the one at the read index instead of ending the script
-struct UnkEvtQueue {
-	s32 _00;        // _00, read index
-	u8* _04[0x80];  // _04, script pointers, null is a free slot
-	u8 _204[0x4];   // _204
-	u32 _208[0x80]; // _208
-	s16 _408[0x80]; // _408
-	s16 _508[0x80]; // _508
-	u8 _608[0xC];   // _608
-};
-STATIC_ASSERT(sizeof(UnkEvtQueue) == 0x614);
-
-extern "C" UnkEvtQueue lbl_80369A3C;
 
 extern "C" void CEvt_EvalSet(CEvt* evt);
 extern "C" s32 CEvt_Evaluate(CEvt* evt);
@@ -146,8 +131,8 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
     extsh    r30, r3
     cmpwi    r30, 0x2710
     blt      .L_8006FF7C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -156,12 +141,12 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
     lha      r0, 0x4(r3)
     cmpw     r0, r30
     bne      .L_8006FF58
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -198,9 +183,9 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
 .L_8006FF7C:
     extsh.   r0, r30
     blt      .L_8006FFA0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r30, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r31, -0x67a0(r3)
@@ -273,7 +258,7 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
     addi     r3, r3, lbl_80208134@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -379,7 +364,7 @@ extern "C" void OSPanic(const char* file, int line, const char* msg, ...);
     blr
 */
 
-#define EVT_PLAYER (*lbl_8025C400.GetPlayer())
+#define EVT_PLAYER (*gGame.GetPlayer())
 
 extern "C" s32 GetStageNum(void);
 
@@ -397,7 +382,7 @@ static inline void CEvt_End(CEvt* evt)
 	}
 	Inventory* inventory = &EVT_PLAYER.mParams.mInventory;
 	inventory->mCompact  = TRUE;
-	fn_800DC62C(inventory);
+	CompactInventory(inventory);
 	evt->mData.mScript = 0;
 }
 
@@ -413,7 +398,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 	if (stage != 10000 && stage != 20000 && stage >= 100) {
 		stage += GetStageNum() - 99;
 	}
-	fn_8000B394(&lbl_8025C400, stage, arg);
+	ChangeGameStage(&gGame, stage, arg);
 	CEvt_End(evt);
 	return 1;
 }
@@ -513,9 +498,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_80070454:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x3e90(r3)
     fcmpu    cr0, f1, f0
@@ -547,9 +532,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_800704D0:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x46dc(r3)
     fcmpu    cr0, f1, f0
@@ -581,9 +566,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_8007054C:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f1, lbl_8065CF74@sda21(r0)
     lfs      f0, 0x3ef8(r3)
     mr       r0, r4
@@ -596,9 +581,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_8007057C:
     clrlwi.  r0, r0, 24
     beq      .L_80070624
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x3f5c(r3)
     fcmpu    cr0, f1, f0
@@ -610,9 +595,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_800705B0:
     clrlwi.  r0, r0, 24
     beq      .L_80070624
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x40c0(r3)
     fcmpu    cr0, f1, f0
@@ -624,9 +609,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_800705E4:
     clrlwi.  r0, r0, 24
     beq      .L_80070624
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x4124(r3)
     fcmpu    cr0, f1, f0
@@ -656,9 +641,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_8007065C:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     lfs      f0, 0x4188(r3)
     fcmpu    cr0, f1, f0
@@ -696,8 +681,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r25, r3
     cmpwi    r25, 0x2710
     blt      .L_8007079C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -706,12 +691,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r25
     bne      .L_80070778
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -748,9 +733,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_8007079C:
     extsh.   r0, r25
     blt      .L_800707C0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r25, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -791,7 +776,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r25
     addi     r3, r29, 0x1b8
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -842,19 +827,19 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     cmplwi   r25, 0x0
     beq      .L_80070928
     mr       r3, r25
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_80070900
     b        .L_8007092C
 .L_80070900:
     mr       r3, r25
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80070914
     b        .L_8007092C
 .L_80070914:
     mr       r3, r25
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80070928
     b        .L_8007092C
@@ -871,21 +856,21 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     cmplwi   r25, 0x0
     beq      .L_80070998
     mr       r3, r25
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_80070968
     mr       r25, r3
     b        .L_8007099C
 .L_80070968:
     mr       r3, r25
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80070980
     mr       r25, r3
     b        .L_8007099C
 .L_80070980:
     mr       r3, r25
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80070998
     mr       r25, r3
@@ -950,7 +935,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r25
     addi     r3, r29, 0x1e4
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1009,8 +994,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_80070BD8
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -1019,12 +1004,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_80070BB4
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -1061,9 +1046,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_80070BD8:
     extsh.   r0, r4
     blt      .L_80070BFC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -1094,7 +1079,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x20c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1161,7 +1146,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x238
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1220,8 +1205,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_80070EB4
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -1230,12 +1215,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_80070E90
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -1272,9 +1257,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_80070EB4:
     extsh.   r0, r4
     blt      .L_80070ED8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -1305,7 +1290,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x25c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1389,7 +1374,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x288
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1448,8 +1433,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_800711D0
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -1458,12 +1443,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_800711AC
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -1500,9 +1485,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_800711D0:
     extsh.   r0, r4
     blt      .L_800711F4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -1533,7 +1518,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x2b0
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1600,7 +1585,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x2dc
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1656,8 +1641,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_800713E8:
     mr       r3, r31
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
-    addi     r5, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r5, r4, gGame@l
     mr       r4, r3
     addis    r3, r5, 0xe
     addi     r3, r3, 0x7e24
@@ -1681,8 +1666,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_800714FC
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -1691,12 +1676,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_800714D8
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -1733,9 +1718,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_800714FC:
     extsh.   r0, r4
     blt      .L_80071520
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -1766,7 +1751,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x304
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1862,7 +1847,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x330
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -1920,11 +1905,11 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x1
     bne      .L_800717C8
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     subi     r3, r3, 0x70c8
-    bl       fn_800665FC
+    bl       InfoScrn_IsBatteryGaugeFull
     clrlwi   r0, r30, 24
     cmplwi   r0, 0x2e
     bne      .L_800717C0
@@ -1940,20 +1925,20 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r4, r3
     addi     r3, r29, 0x358
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225060@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225060@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x1032
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
     bl       OSPanic
     b        .L_80071E80
 .L_800717FC:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r29, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r4, 0x9
     addis    r26, r3, 0xe
     addi     r26, r26, 0x5d38
@@ -1968,8 +1953,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     bl       fn_80149674
     cmpwi    r3, 0x0
     beq      .L_80071884
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r3, 0x7df0(r3)
     lwz      r0, 0x68(r3)
@@ -1995,8 +1980,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     bl       fn_80149674
     cmpwi    r3, 0x0
     beq      .L_800718F8
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r3, 0x7df8(r3)
     lwz      r0, 0x44(r3)
@@ -2028,8 +2013,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     bl       fn_80149674
     cmpwi    r3, 0x0
     beq      .L_80071958
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x696c(r3)
     cmplwi   r3, 0x0
@@ -2044,7 +2029,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     xor      r0, r0, r5
     or.      r0, r4, r0
     beq      .L_80071958
-    bl       fn_80092B80
+    bl       HasCameraAnimation
     cntlzw   r0, r3
     extrwi   r29, r0, 8, 19
 .L_80071958:
@@ -2065,8 +2050,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_80071A44
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -2075,12 +2060,12 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_80071A20
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -2117,9 +2102,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_80071A44:
     extsh.   r0, r4
     blt      .L_80071A68
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -2150,7 +2135,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x378
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -2230,7 +2215,7 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     mr       r5, r4
     addi     r3, r29, 0x3a4
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -2284,9 +2269,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_80071C8C:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f0, 0x4298(r3)
     fcmpu    cr0, f1, f0
     mfcr     r3
@@ -2307,9 +2292,9 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_80071E80
 .L_80071CE0:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     addis    r3, r3, 0x1
     lfs      f0, -0x6984(r3)
@@ -2365,8 +2350,8 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_80071DA4:
     mr       r3, r31
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x10
     lwz      r0, -0xc5c(r4)
     cntlzw   r0, r0
@@ -2401,11 +2386,11 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     bne      .L_80071E54
     addi     r3, r29, 0x3cc
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225060@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225060@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x10c1
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -2414,11 +2399,11 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
 .L_80071E54:
     addi     r3, r29, 0x3e8
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225060@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225060@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x10c3
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -2433,13 +2418,6 @@ extern "C" s32 CEvt__cmd_WARP(CEvt* evt)
     addi     r1, r1, 0x60
     blr
 */
-
-// the ten script timers, a countdown in frames and the value each one hands back
-struct EvtTimerTable {
-	s32 _00[10]; // _00, frames left, 0 is a free slot
-	s32 _28[10]; // _28
-};
-extern "C" EvtTimerTable lbl_8036A050;
 
 #if defined(VERSION_PAL)
 // the refresh rate, 50 or 60
@@ -2461,9 +2439,9 @@ extern "C" s32 CEvt__cmd_TIMER(CEvt* evt)
 		frames = 1;
 	}
 	for (s32 i = 0; i < 10; i++) {
-		if (lbl_8036A050._00[i] == 0) {
-			lbl_8036A050._00[i] = frames;
-			lbl_8036A050._28[i] = value;
+		if (gEventTimers.mFrames[i] == 0) {
+			gEventTimers.mFrames[i] = frames;
+			gEventTimers.mValue[i]  = value;
 			break;
 		}
 	}
@@ -2471,16 +2449,10 @@ extern "C" s32 CEvt__cmd_TIMER(CEvt* evt)
 }
 
 extern "C" s32 HSD_AudioPStreamStartChParam(const char* path, u8 vol, s32 channel);
-extern "C" BOOL fn_801EA308(s32 a, s32 b);
+extern "C" BOOL AXDriverSetAllStreamParams(s32 a, s32 b);
 
-// fn_80072214 is the stream beat callback, it latches the beat here for WAIT
-struct EvtBeatLatch {
-	s32 _00; // _00
-	s32 _04; // _04
-};
-
-extern "C" EvtBeatLatch lbl_8065B244;
-extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch);
+// LatchEventBeat is the stream beat callback, it latches the beat here for WAIT
+extern "C" void LatchEventBeat(s32 id, s32 beat, EvtBeatLatch* latch);
 
 /**
  * @note Address: 0x80071F38
@@ -2494,27 +2466,27 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 	switch (type) {
 	case 0:
 		if (sfx == -2) {
-			fn_8001E630(&lbl_8025C400.mSound, -1);
+			KeyOffGameSoundTrack(&gGame.mSound, -1);
 		} else {
-			fn_8001E660(&lbl_8025C400.mSound, sfx);
+			StopGameSfx(&gGame.mSound, sfx);
 		}
 		break;
 	case 1:
-		fn_8001E904(&lbl_8025C400.mSound, sfx, 0xFF);
+		fn_8001E904(&gGame.mSound, sfx, 0xFF);
 		lbl_8065B244._00 = 0;
-		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
+		AXDriverSetAllStreamParams((s32)LatchEventBeat, (s32)&lbl_8065B244);
 		break;
 	case 0xF5:
 		// here the value is a stream path, not an id
 		HSD_AudioPStreamStartChParam((const char*)sfx, 0xFF, 0x1F);
 		lbl_8065B244._00 = 0;
-		fn_801EA308((s32)fn_80072214, (s32)&lbl_8065B244);
+		AXDriverSetAllStreamParams((s32)LatchEventBeat, (s32)&lbl_8065B244);
 		break;
 	case 2:
-		fn_8001E1A4(&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
+		FadeOutGameSfx(&gGame.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 3:
-		fn_8001E2CC(&lbl_8025C400.mSound, sfx, CEvt_Evaluate(evt) * 2);
+		FadeInGameSfx(&gGame.mSound, sfx, CEvt_Evaluate(evt) * 2);
 		break;
 	case 4: {
 		XSound* sound;
@@ -2522,35 +2494,35 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 		u8 vol;
 		frames = CEvt_Evaluate(evt) * 2;
 		vol    = CEvt_Evaluate(evt);
-		sound  = &lbl_8025C400.mSound;
+		sound  = &gGame.mSound;
 		if (!fn_8001E6C8(sound, sfx)) {
 			fn_8001E904(sound, sfx, vol);
 		} else {
-			fn_8001E468(sound, sfx, vol, frames);
+			SetGameSfxVolume(sound, sfx, vol, frames);
 		}
 		break;
 	}
 	case 5:
 		if (sfx == -2) {
-			fn_8001E590(&lbl_8025C400.mSound, -1);
+			PauseGameSoundTrack(&gGame.mSound, -1);
 		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
-			fn_8001E5C0(&lbl_8025C400.mSound, sfx, 0);
+			fn_8001E5C0(&gGame.mSound, sfx, 0);
 		} else {
-			fn_801E94E4(sfx);
+			AXDriverPauseSfx(sfx);
 		}
 		break;
 	case 6:
 		if (sfx == -2) {
-			fn_8001E4D4(&lbl_8025C400.mSound, -1);
+			ResumeGameSoundTrack(&gGame.mSound, -1);
 		} else {
-			fn_8001E504(&lbl_8025C400.mSound, sfx);
+			ResumeGameSfx(&gGame.mSound, sfx);
 		}
 		break;
 	default:
 #if defined(VERSION_PAL)
-		OSPanic(__FILE__, 3820, "%s%s", fn_801911B4("sfx(%d,%d) - unresolved!\n", sfx, type), __FUNCTION__);
+		OSPanic(__FILE__, 3820, "%s%s", FormatToStaticBuffer("sfx(%d,%d) - unresolved!\n", sfx, type), __FUNCTION__);
 #else
-		OSPanic(__FILE__, 3809, "%s%s", fn_801911B4("sfx(%d,%d) - unresolved!\n", sfx, type), __FUNCTION__);
+		OSPanic(__FILE__, 3809, "%s%s", FormatToStaticBuffer("sfx(%d,%d) - unresolved!\n", sfx, type), __FUNCTION__);
 #endif
 		break;
 	}
@@ -2598,35 +2570,35 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
 .L_80071FC0:
     cmpwi    r31, -0x2
     bne      .L_80071FE4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E630
+    bl       KeyOffGameSoundTrack
     b        .L_800721F0
 .L_80071FE4:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E660
+    bl       StopGameSfx
     b        .L_800721F0
 .L_80072000:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
     bl       fn_8001E904
     li       r0, 0x0
-    lis      r3, fn_80072214@ha
+    lis      r3, LatchEventBeat@ha
     stw      r0, lbl_8065B244@sda21(r0)
-    addi     r3, r3, fn_80072214@l
+    addi     r3, r3, LatchEventBeat@l
     li       r4, lbl_8065B244@sda21
-    bl       fn_801EA308
+    bl       AXDriverSetAllStreamParams
     b        .L_800721F0
 .L_80072038:
     mr       r3, r31
@@ -2634,33 +2606,33 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
     li       r5, 0x1f
     bl       HSD_AudioPStreamStartChParam
     li       r0, 0x0
-    lis      r3, fn_80072214@ha
+    lis      r3, LatchEventBeat@ha
     stw      r0, lbl_8065B244@sda21(r0)
-    addi     r3, r3, fn_80072214@l
+    addi     r3, r3, LatchEventBeat@l
     li       r4, lbl_8065B244@sda21
-    bl       fn_801EA308
+    bl       AXDriverSetAllStreamParams
     b        .L_800721F0
 .L_80072064:
     mr       r3, r28
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     clrlslwi r5, r3, 17, 1
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0xe
     mr       r4, r31
     addi     r3, r3, 0x7e24
-    bl       fn_8001E1A4
+    bl       FadeOutGameSfx
     b        .L_800721F0
 .L_8007208C:
     mr       r3, r28
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     clrlslwi r5, r3, 17, 1
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0xe
     mr       r4, r31
     addi     r3, r3, 0x7e24
-    bl       fn_8001E2CC
+    bl       FadeInGameSfx
     b        .L_800721F0
 .L_800720B4:
     mr       r3, r28
@@ -2668,9 +2640,9 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
     clrlslwi r29, r3, 17, 1
     mr       r3, r28
     bl       CEvt_Evaluate
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     mr       r4, r31
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     clrlwi   r28, r3, 24
     addis    r30, r5, 0xe
     addi     r30, r30, 0x7e24
@@ -2688,26 +2660,26 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
     mr       r4, r31
     mr       r5, r28
     mr       r6, r29
-    bl       fn_8001E468
+    bl       SetGameSfxVolume
     b        .L_800721F0
 .L_8007211C:
     cmpwi    r31, -0x2
     bne      .L_80072140
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E590
+    bl       PauseGameSoundTrack
     b        .L_800721F0
 .L_80072140:
     clrrwi   r3, r31, 16
     addis    r0, r3, 0x1
     cmplwi   r0, 0x0
     bne      .L_80072170
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
@@ -2715,36 +2687,36 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
     b        .L_800721F0
 .L_80072170:
     mr       r3, r31
-    bl       fn_801E94E4
+    bl       AXDriverPauseSfx
     b        .L_800721F0
 .L_8007217C:
     cmpwi    r31, -0x2
     bne      .L_800721A0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E4D4
+    bl       ResumeGameSoundTrack
     b        .L_800721F0
 .L_800721A0:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E504
+    bl       ResumeGameSfx
     b        .L_800721F0
 .L_800721BC:
     lis      r3, lbl_802083A8@ha
     mr       r4, r31
     addi     r3, r3, lbl_802083A8@l
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225054@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225054@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xee1
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -2765,7 +2737,7 @@ extern "C" s32 CEvt__cmd_SFX(CEvt* evt)
  * @note Address: 0x80072214
  * @note Size: 0x10
  */
-extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
+extern "C" void LatchEventBeat(s32 id, s32 beat, EvtBeatLatch* latch)
 {
 	latch->_00 = 1;
 	latch->_04 = beat;
@@ -2774,10 +2746,10 @@ extern "C" void fn_80072214(s32 id, s32 beat, EvtBeatLatch* latch)
 extern "C" {
 void fn_800664C4(void* hud, u8 enabled, s32 mode);
 void fn_8006613C(void* hud, u8 enabled, s32 mode);
-void fn_80066BFC(void* hud);
-void fn_80066BF0(void* hud);
-void fn_80066B9C(void* hud, s32 value);
-s32 fn_80066A84(void* hud);
+void InfoScrn_ShowTimer(void* hud);
+void InfoScrn_HideTimer(void* hud);
+void InfoScrn_SetTimerHundredths(void* hud, s32 value);
+s32 InfoScrn_GetTimerHundredths(void* hud);
 }
 
 struct EvtHudCommand {
@@ -2803,7 +2775,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1    = CEvt_Evaluate(evt);
 		u8 a1    = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023EE0(&lbl_8025C400.mFade, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		StartScreenFade(&gGame.mFade, r0, g0, b0, a0, r1, g1, b1, a1, time);
 		break;
 	}
 	case EVT_ATOM_MONO: {
@@ -2816,7 +2788,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1    = CEvt_Evaluate(evt);
 		u8 a1    = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023EE0(&lbl_8025C400.mColor0.mColor, r0, g0, b0, a0, r1, g1, b1, a1, time);
+		StartScreenFade(&gGame.mColor0.mColor, r0, g0, b0, a0, r1, g1, b1, a1, time);
 		break;
 	}
 	case EVT_ATOM_WIPE: {
@@ -2839,30 +2811,32 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
 		switch (type) {
 		case 0:
-			fn_80023438(&lbl_8025C400.mWipeCircle, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			StartScreenWipeColorTransition(&gGame.mWipeCircle, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			break;
 		case 1:
-			fn_80023438(&lbl_8025C400.mWipeTile0, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+			StartScreenWipeColorTransition(&gGame.mWipeTile0, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			break;
 		default:
 			if (type >= 2000) {
 				if (open) {
-					fn_80023438(&lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 57.0f, 57.0f, 0.0f, 0.0f, time, a1, !open);
+					StartScreenWipeColorTransition(&gGame.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 57.0f, 57.0f, 0.0f, 0.0f, time, a1,
+					                               !open);
 				} else {
-					fn_80023438(&lbl_8025C400.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 0.0f, 0.0f, 57.0f, 57.0f, time, a1, !open);
+					StartScreenWipeColorTransition(&gGame.mWipeCustom, r0, g0, b0, a0, r1, g1, b1, x, y, 0.0f, 0.0f, 57.0f, 57.0f, time, a1,
+					                               !open);
 				}
 			} else if (type >= 1000) {
-				TPLPalette* palette        = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture           = &(&lbl_8025C400.mTpl)->mTex;
-				lbl_8025C400.mWipeTex.mTex = texture->Init(&palette->descriptorArray[type - 1000], 0);
-				fn_80023438(&lbl_8025C400.mWipeTex, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
+				TPLPalette* palette = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+				CTexObj* texture    = &(&gGame.mTpl)->mTex;
+				gGame.mWipeTex.mTex = texture->Init(&palette->descriptorArray[type - 1000], 0);
+				StartScreenWipeColorTransition(&gGame.mWipeTex, r0, g0, b0, a0, r1, g1, b1, x, y, w0, h0, w1, h1, time, a1, !open);
 			} else {
 #if defined(VERSION_PAL)
 				const s32 line = 3542;
 #else
 				const s32 line = 3531;
 #endif
-				OSPanic("evt.cpp", line, "%s%s", fn_801911B4("scrn(@WIPE, %d,...) - unresolved!\n", type), "_cmd_SCRN");
+				OSPanic("evt.cpp", line, "%s%s", FormatToStaticBuffer("scrn(@WIPE, %d,...) - unresolved!\n", type), "_cmd_SCRN");
 			}
 			break;
 		}
@@ -2881,8 +2855,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		u8 b1       = CEvt_Evaluate(evt);
 		u8 a1       = CEvt_Evaluate(evt);
 		f32 time    = CEvt_Evaluate(evt) / 100.0f;
-		fn_80023438(&lbl_8025C400.mWipeTile1, r0, g0, b0, a0, r1, g1, b1, 320.0f, 200.0f, 640.0f, height0, 640.0f, height1, time, a1,
-		            !open);
+		StartScreenWipeColorTransition(&gGame.mWipeTile1, r0, g0, b0, a0, r1, g1, b1, 320.0f, 200.0f, 640.0f, height0, 640.0f, height1,
+		                               time, a1, !open);
 		break;
 	}
 	case EVT_ATOM_HUD:
@@ -2890,19 +2864,19 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		case EVT_HUD_BATTERY: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 0, 2 }, { 1, 2 }, { 0, 3 }, { 1, 3 } };
-			fn_800664C4(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			fn_800664C4(&gGame.mInfoScrn, commands[index].enabled, commands[index].mode);
 			break;
 		}
 		case EVT_HUD_CLOCK: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[8] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 3 }, { 0, 4 }, { 1, 4 } };
-			fn_80066250(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode, 0);
+			fn_80066250(&gGame.mInfoScrn, commands[index].enabled, commands[index].mode, 0);
 			break;
 		}
 		case EVT_HUD_SCORE: {
 			s32 index                 = CEvt_Evaluate(evt);
 			EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
-			fn_80066190(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+			fn_80066190(&gGame.mInfoScrn, commands[index].enabled, commands[index].mode);
 			break;
 		}
 		case 3:
@@ -2915,20 +2889,20 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 			s32 index = CEvt_Evaluate(evt);
 			if (index >= 0) {
 				EvtHudCommand commands[4] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
-				fn_8006613C(&lbl_8025C400.mInfoScrn, commands[index].enabled, commands[index].mode);
+				fn_8006613C(&gGame.mInfoScrn, commands[index].enabled, commands[index].mode);
 			} else {
 				switch (index) {
 				case -1:
-					fn_80066BFC(&lbl_8025C400.mInfoScrn);
+					InfoScrn_ShowTimer(&gGame.mInfoScrn);
 					break;
 				case -2:
-					fn_80066BF0(&lbl_8025C400.mInfoScrn);
+					InfoScrn_HideTimer(&gGame.mInfoScrn);
 					break;
 				case -3:
-					fn_80066B9C(&lbl_8025C400.mInfoScrn, CEvt_Evaluate(evt));
+					InfoScrn_SetTimerHundredths(&gGame.mInfoScrn, CEvt_Evaluate(evt));
 					break;
 				case -4:
-					evt->_10 = fn_80066A84(&lbl_8025C400.mInfoScrn);
+					evt->_10 = InfoScrn_GetTimerHundredths(&gGame.mInfoScrn);
 					break;
 				}
 			}
@@ -2952,14 +2926,14 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 			step = (end - start) / (FRAMES_PER_SEC * time);
 		}
 		if (start >= 0.0f)
-			lbl_8025C400.mBlur.mAlpha = start;
+			gGame.mBlur.mAlpha = start;
 		if (end >= 0.0f)
-			lbl_8025C400.mBlur.mTarget = end;
+			gGame.mBlur.mTarget = end;
 		if (step < 0.0f)
 			step = -step;
-		lbl_8025C400.mBlur.mSpeed   = step;
-		lbl_8025C400.mBlur.mOffsetX = near;
-		lbl_8025C400.mBlur.mOffsetY = far;
+		gGame.mBlur.mSpeed   = step;
+		gGame.mBlur.mOffsetX = near;
+		gGame.mBlur.mOffsetY = far;
 		break;
 	}
 	case EVT_ATOM_SHAKE: {
@@ -2970,7 +2944,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 		f32 y1   = CEvt_Evaluate(evt) / 100.0f;
 		f32 z1   = CEvt_Evaluate(evt) / 100.0f;
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		fn_800242A8(&lbl_8025C400.mQuake, x0, y0, z0, x1, y1, z1, time);
+		StartScreenShake(&gGame.mQuake, x0, y0, z0, x1, y1, z1, time);
 		break;
 	}
 	default:
@@ -2979,7 +2953,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 #else
 		const s32 line = 3726;
 #endif
-		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("scrn(%d,...) - unresolved!\n", mode), "_cmd_SCRN");
+		OSPanic("evt.cpp", line, "%s%s", FormatToStaticBuffer("scrn(%d,...) - unresolved!\n", mode), "_cmd_SCRN");
 		break;
 	}
 	return 0;
@@ -3046,8 +3020,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xd4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xd0(r1)
     mr       r4, r14
@@ -3063,7 +3037,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r10, r20
     addi     r3, r3, 0x3e70
     fdivs    f1, f1, f0
-    bl       fn_80023EE0
+    bl       StartScreenFade
     b        .L_800730D4
 .L_80072360:
     mr       r3, r31
@@ -3095,8 +3069,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xd4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xd0(r1)
     mr       r4, r14
@@ -3112,7 +3086,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r10, r20
     addi     r3, r3, 0x46bc
     fdivs    f1, f1, f0
-    bl       fn_80023EE0
+    bl       StartScreenFade
     b        .L_800730D4
 .L_80072420:
     mr       r3, r31
@@ -3191,11 +3165,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     stw      r0, 0xd0(r1)
     xoris    r11, r14, 0x8000
     cntlzw   r5, r25
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lfd      f0, 0xd0(r1)
     extrwi   r25, r5, 8, 19
     stw      r3, 0xdc(r1)
-    addi     r14, r4, lbl_8025C400@l
+    addi     r14, r4, gGame@l
     fsubs    f1, f0, f6
     mr       r4, r22
     stw      r0, 0xd8(r1)
@@ -3227,7 +3201,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lfd      f0, 0xf8(r1)
     stw      r25, 0xc(r1)
     fsubs    f6, f0, f6
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_800725E4:
     xoris    r4, r26, 0x8000
@@ -3239,11 +3213,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     stw      r0, 0xf8(r1)
     xoris    r11, r14, 0x8000
     cntlzw   r5, r25
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lfd      f0, 0xf8(r1)
     extrwi   r25, r5, 8, 19
     stw      r3, 0xf4(r1)
-    addi     r14, r4, lbl_8025C400@l
+    addi     r14, r4, gGame@l
     fsubs    f1, f0, f6
     mr       r4, r22
     stw      r0, 0xf0(r1)
@@ -3275,7 +3249,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lfd      f0, 0xd0(r1)
     stw      r25, 0xc(r1)
     fsubs    f6, f0, f6
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_800726A0:
     cmpwi    r23, 0x7d0
@@ -3287,9 +3261,9 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r0, r27, 0x8000
     stw      r4, 0xfc(r1)
     lfs      f3, lbl_8065CFB0@sda21(r0)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     stw      r3, 0xf8(r1)
-    addi     r11, r4, lbl_8025C400@l
+    addi     r11, r4, gGame@l
     lfs      f5, lbl_8065CF74@sda21(r0)
     cntlzw   r5, r25
     stw      r0, 0xf4(r1)
@@ -3313,7 +3287,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r9, r17
     mr       r10, r16
     addi     r3, r11, 0x406c
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_80072734:
     lis      r3, 0x4330
@@ -3321,9 +3295,9 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r0, r27, 0x8000
     stw      r4, 0xfc(r1)
     lfs      f3, lbl_8065CF74@sda21(r0)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     stw      r3, 0xf8(r1)
-    addi     r11, r4, lbl_8025C400@l
+    addi     r11, r4, gGame@l
     lfs      f5, lbl_8065CFB0@sda21(r0)
     cntlzw   r5, r25
     stw      r0, 0xf4(r1)
@@ -3347,14 +3321,14 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r9, r17
     mr       r10, r16
     addi     r3, r11, 0x406c
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_800727B8:
     cmpwi    r23, 0x3e8
     blt      .L_80072950
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     subi     r0, r23, 0x3e8
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     lwz      r4, 0x3d4c(r3)
     slwi     r0, r0, 3
@@ -3362,9 +3336,9 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lwz      r4, 0x8(r4)
     add      r4, r4, r0
     bl       Init__7CTexObjFP13TPLDescriptorUl
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r6, 0x0(r3)
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lwz      r7, 0x4(r3)
     li       r0, 0x18
     addi     r5, r3, 0x38
@@ -3417,11 +3391,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lfd      f0, 0xf8(r1)
     cntlzw   r6, r25
     stw      r5, 0xf4(r1)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     fsubs    f1, f0, f6
     extrwi   r24, r6, 8, 19
     stw      r0, 0xf0(r1)
-    addi     r14, r4, lbl_8025C400@l
+    addi     r14, r4, gGame@l
     fmr      f7, f30
     mr       r4, r22
     lfd      f0, 0xf0(r1)
@@ -3451,17 +3425,17 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lfd      f0, 0xd0(r1)
     stw      r24, 0xc(r1)
     fsubs    f6, f0, f6
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_80072950:
     mr       r4, r23
     addi     r3, r24, 0x424
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225048@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225048@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xdcb
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -3515,11 +3489,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     stw      r10, 0xf8(r1)
     cntlzw   r5, r24
     lfd      f6, lbl_8065CF88@sda21(r0)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lfd      f1, 0xf8(r1)
     extrwi   r12, r5, 8, 19
     lfs      f0, lbl_8065CF80@sda21(r0)
-    addi     r11, r4, lbl_8025C400@l
+    addi     r11, r4, gGame@l
     fsubs    f2, f1, f6
     stw      r3, 0xf4(r1)
     fmr      f5, f3
@@ -3543,7 +3517,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     addi     r3, r11, 0x4134
     stw      r12, 0xc(r1)
     fsubs    f6, f0, f6
-    bl       fn_80023438
+    bl       StartScreenWipeColorTransition
     b        .L_800730D4
 .L_80072AB0:
     mr       r3, r31
@@ -3564,11 +3538,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r3, r31
     bl       CEvt_Evaluate
     lwz      r21, 0xd4(r24)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r20, 0xd8(r24)
     slwi     r22, r3, 3
     lwz      r19, 0xdc(r24)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     lwz      r18, 0xe0(r24)
     addi     r4, r1, 0x90
     lwz      r17, 0xe4(r24)
@@ -3610,11 +3584,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r3, r31
     bl       CEvt_Evaluate
     lwz      r22, 0x114(r24)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r21, 0x118(r24)
     slwi     r23, r3, 3
     lwz      r20, 0x11c(r24)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     lwz      r19, 0x120(r24)
     addi     r4, r1, 0x50
     lwz      r18, 0x124(r24)
@@ -3657,11 +3631,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r3, r31
     bl       CEvt_Evaluate
     lwz      r12, 0x154(r24)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r11, 0x158(r24)
     slwi     r14, r3, 3
     lwz      r10, 0x15c(r24)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     lwz      r9, 0x160(r24)
     addi     r4, r1, 0x30
     lwz      r8, 0x164(r24)
@@ -3699,11 +3673,11 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     cmpwi    r3, 0x0
     blt      .L_80072D64
     lwz      r12, 0x174(r24)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r11, 0x178(r24)
     slwi     r14, r3, 3
     lwz      r10, 0x17c(r24)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     lwz      r9, 0x180(r24)
     addi     r4, r1, 0x10
     lwz      r8, 0x184(r24)
@@ -3736,35 +3710,35 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 .L_80072D80:
     cmpwi    r3, 0x0
     bge      .L_800730D4
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     subi     r3, r3, 0x70c8
-    bl       fn_80066BFC
+    bl       InfoScrn_ShowTimer
     b        .L_800730D4
 .L_80072DA0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     subi     r3, r3, 0x70c8
-    bl       fn_80066BF0
+    bl       InfoScrn_HideTimer
     b        .L_800730D4
 .L_80072DB8:
     mr       r3, r31
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
-    addi     r5, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r5, r4, gGame@l
     mr       r4, r3
     addis    r3, r5, 0x1
     subi     r3, r3, 0x70c8
-    bl       fn_80066B9C
+    bl       InfoScrn_SetTimerHundredths
     b        .L_800730D4
 .L_80072DDC:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     subi     r3, r3, 0x70c8
-    bl       fn_80066A84
+    bl       InfoScrn_GetTimerHundredths
     stw      r3, 0x10(r31)
     b        .L_800730D4
 .L_80072DF8:
@@ -3819,16 +3793,16 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     fcmpo    cr0, f3, f0
     cror     eq, gt, eq
     bne      .L_80072EC8
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     stfs     f3, 0x4290(r3)
 .L_80072EC8:
     lfs      f0, lbl_8065CF74@sda21(r0)
     fcmpo    cr0, f2, f0
     cror     eq, gt, eq
     bne      .L_80072EE4
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     stfs     f2, 0x4294(r3)
 .L_80072EE4:
     lfs      f0, lbl_8065CF74@sda21(r0)
@@ -3843,10 +3817,10 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r4, r15, 0x8000
     xoris    r0, r14, 0x8000
     stw      r4, 0xfc(r1)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r3, 0xf8(r1)
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lfd      f0, 0xf8(r1)
     stw      r0, 0xf4(r1)
     fsubs    f1, f0, f2
@@ -3929,8 +3903,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0x104(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f5, lbl_8065CF88@sda21(r0)
     stw      r0, 0x100(r1)
     addis    r3, r3, 0x1
@@ -3945,16 +3919,16 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     fmr      f5, f27
     fdivs    f7, f6, f0
     fmr      f6, f26
-    bl       fn_800242A8
+    bl       StartScreenShake
     b        .L_800730D4
 .L_800730A8:
     addi     r3, r24, 0x448
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225048@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225048@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xe8e
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -4011,8 +3985,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     extsh    r29, r3
     cmpwi    r29, 0x2710
     blt      .L_80073878
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -4021,12 +3995,12 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r29
     bne      .L_80073854
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -4063,9 +4037,9 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 .L_80073878:
     extsh.   r0, r29
     blt      .L_8007389C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -4101,7 +4075,7 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     mr       r6, r29
     addi     r3, r31, 0x4d4
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -4162,19 +4136,19 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     cmplwi   r29, 0x0
     beq      .L_80073A18
     mr       r3, r29
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_800739F0
     b        .L_80073A1C
 .L_800739F0:
     mr       r3, r29
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80073A04
     b        .L_80073A1C
 .L_80073A04:
     mr       r3, r29
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_80073A18
     b        .L_80073A1C
@@ -4211,14 +4185,14 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 .L_80073A88:
     mr       r3, r30
     mr       r4, r28
-    bl       fn_80132144
+    bl       QueueObjectAnimationRead
     b        .L_80073C14
 .L_80073A98:
     mr       r4, r29
     mr       r5, r29
     addi     r3, r31, 0x504
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -4271,8 +4245,8 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_80073BC4
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -4281,12 +4255,12 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_80073BB8
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -4302,21 +4276,21 @@ extern "C" s32 CEvt__cmd_SCRN(CEvt* evt)
 .L_80073BC4:
     mr       r3, r28
     bl       CEvt_Evaluate
-    lis      r4, lbl_8025C400@ha
-    addi     r5, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r5, r4, gGame@l
     mr       r4, r3
     addis    r3, r5, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E044
+    bl       RegisterGameSoundName
     b        .L_80073C14
 .L_80073BE8:
     addi     r3, r31, 0x52c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_8022503C@ha
     mr       r6, r3
     addi     r7, r4, lbl_8022503C@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xd28
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -4354,35 +4328,22 @@ extern "C" s32 CEvt__cmd_PRINTF(CEvt* evt)
 }
 
 // maps object ids from 10000 up to an index in the game's object table
-struct EvtObjIdEntry {
-	s16 mId;    // _00
-	s16 mIndex; // _02
-};
-struct EvtObjIdTable {
-	s32 mCount;                // _00
-	EvtObjIdEntry mEntry[275]; // _04
-};
-extern "C" EvtObjIdTable lbl_802247B0;
-
 #if defined(VERSION_JP)
-#define PLAYER_CARRY    0xA34
 #define PLAYER_HELD_OBJ 0xA54
 #define PLAYER_BE8      0xBD8
 #else
-#define PLAYER_CARRY    0xA44 // carry state, held object at its _20
 #define PLAYER_HELD_OBJ 0xA64
 #define PLAYER_BE8      0xBE8
 #endif
 
 // POS calls these after moving an object
-extern "C" void fn_800CECFC(u8* carry, s32 arg);
-extern "C" void fn_800C591C(u8* p);
+extern "C" void CancelPlayerPushAction(u8* p);
 
 static inline XObj* CEvt_FindObj(s16 id)
 {
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			XObj* obj = lbl_8025C400.mXObjs.mObjects[lbl_802247B0.mEntry[i].mIndex];
+	for (s32 i = 0; i < gEventObjectIds.mCount; i++) {
+		if (gEventObjectIds.mEntry[i].mId == id) {
+			XObj* obj = gGame.mXObjs.mObjects[gEventObjectIds.mEntry[i].mIndex];
 			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 				return obj;
 			}
@@ -4396,12 +4357,12 @@ static inline XObj* CEvt_FindObj(s16 id)
  * @note Address: 0x8006FCAC
  * @note Size: 0xE0
  */
-extern "C" void fn_8006FCAC(CEvt*, s16 id, s16 index)
+extern "C" void RegisterEventObjectId(CEvt*, s16 id, s16 index)
 {
 	if (CEvt_FindObj(id) == NULL) {
-		lbl_802247B0.mEntry[lbl_802247B0.mCount].mId    = id;
-		lbl_802247B0.mEntry[lbl_802247B0.mCount].mIndex = index;
-		++lbl_802247B0.mCount;
+		gEventObjectIds.mEntry[gEventObjectIds.mCount].mId    = id;
+		gEventObjectIds.mEntry[gEventObjectIds.mCount].mIndex = index;
+		++gEventObjectIds.mCount;
 	}
 }
 
@@ -4417,7 +4378,7 @@ static inline XObj* CEvt_GetObj(CEvt* evt, s16 id)
 		return obj;
 	}
 	if (id >= 0) {
-		return lbl_8025C400.mXObjs.mObjects[id];
+		return gGame.mXObjs.mObjects[id];
 	}
 	if (id == -1) {
 		return (XObj*)evt->mData._04;
@@ -4427,9 +4388,9 @@ static inline XObj* CEvt_GetObj(CEvt* evt, s16 id)
 
 static inline s16 CEvt_FindObjIndex(s16 id)
 {
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			return lbl_802247B0.mEntry[i].mIndex;
+	for (s32 i = 0; i < gEventObjectIds.mCount; i++) {
+		if (gEventObjectIds.mEntry[i].mId == id) {
+			return gEventObjectIds.mEntry[i].mIndex;
 		}
 	}
 	return -1;
@@ -4437,13 +4398,13 @@ static inline s16 CEvt_FindObjIndex(s16 id)
 
 static inline void CEvt_ForgetObjId(s16 id)
 {
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			for (s32 j = i; j < lbl_802247B0.mCount; j++) {
-				lbl_802247B0.mEntry[j].mId    = lbl_802247B0.mEntry[j + 1].mId;
-				lbl_802247B0.mEntry[j].mIndex = lbl_802247B0.mEntry[j + 1].mIndex;
+	for (s32 i = 0; i < gEventObjectIds.mCount; i++) {
+		if (gEventObjectIds.mEntry[i].mId == id) {
+			for (s32 j = i; j < gEventObjectIds.mCount; j++) {
+				gEventObjectIds.mEntry[j].mId    = gEventObjectIds.mEntry[j + 1].mId;
+				gEventObjectIds.mEntry[j].mIndex = gEventObjectIds.mEntry[j + 1].mIndex;
 			}
-			lbl_802247B0.mCount--;
+			gEventObjectIds.mCount--;
 		}
 	}
 }
@@ -4475,7 +4436,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 		f32 angle    = CEvt_Evaluate(evt);
 		Vec rotation = { 0.0f, 0.0f, 0.0f };
 		rotation.y   = DEG2RAD * angle;
-		(&lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+		(&gGame.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
 	} else if (type == EVT_ATOM_OBJ) {
 		s16 id      = CEvt_Evaluate(evt);
 		XObj* obj   = CEvt_GetObj(evt, id);
@@ -4490,9 +4451,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 			translate    = obj->mMoveTranslate + translate;
 			Vec rotation = { 0.0f, 0.0f, 0.0f };
 			rotation.y   = DEG2RAD * angle;
-			(&lbl_8025C400.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
+			(&gGame.mParticle)->CreateSRT(code, 1, translate, scale, rotation, TRUE);
 		} else {
-			CEvt_Warn(fn_801911B4("ptcl(..., @OBJ, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("ptcl(..., @OBJ, %d, ...) obj(%d) killed!", id, id));
 		}
 	} else if (type == EVT_ATOM_LEAD) {
 		s16 id    = CEvt_Evaluate(evt);
@@ -4506,22 +4467,22 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 		}
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("ptcl(%d, @LEAD, %d, ...) ... obj(%d) is collision!\n", code, id, id));
+				CEvt_Warn(FormatToStaticBuffer("ptcl(%d, @LEAD, %d, ...) ... obj(%d) is collision!\n", code, id, id));
 			}
-			(&lbl_8025C400.mParticle)->Create(code, 0, GetJointByPath(obj->mJObj, path, depth), TRUE);
+			(&gGame.mParticle)->Create(code, 0, GetJointByPath(obj->mJObj, path, depth), TRUE);
 		} else {
-			CEvt_Warn(fn_801911B4("ptcl(..., @LEAD, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("ptcl(..., @LEAD, %d, ...) obj(%d) killed!", id, id));
 		}
 		for (s32 i = 0; i < depth; i++) { }
 	} else if (type == EVT_ATOM_KILL) {
-		(&lbl_8025C400.mParticle)->Kill((s32)code);
+		(&gGame.mParticle)->Kill((s32)code);
 	} else {
 #if defined(VERSION_PAL)
 		const s32 line = 3315;
 #else
 		const s32 line = 3304;
 #endif
-		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("ptcl(...) - invalid type - %d!\n", type), "_cmd_PTCL");
+		OSPanic("evt.cpp", line, "%s%s", FormatToStaticBuffer("ptcl(...) - invalid type - %d!\n", type), "_cmd_PTCL");
 	}
 	return 0;
 }
@@ -4620,9 +4581,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xcc(r1)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r5, 0xc0(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stw      r0, 0xc8(r1)
     addis    r3, r3, 0x1
     lfd      f2, lbl_8065CF88@sda21(r0)
@@ -4653,8 +4614,8 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     extsh    r29, r3
     cmpwi    r29, 0x2710
     blt      .L_80073EE0
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -4663,12 +4624,12 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r29
     bne      .L_80073EBC
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -4705,9 +4666,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 .L_80073EE0:
     extsh.   r0, r29
     blt      .L_80073F04
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -4828,9 +4789,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     lwz      r0, 0xcc(r31)
     addi     r11, r4, __vt__4CVec@l
     fmuls    f0, f0, f31
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0xc(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f3, 0x14(r1)
     addis    r3, r3, 0x1
     lfs      f2, 0x18(r1)
@@ -4858,7 +4819,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     mr       r5, r29
     addi     r3, r31, 0x54c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -4913,8 +4874,8 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     extsh    r27, r3
     cmpwi    r27, 0x2710
     blt      .L_800742A8
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -4923,12 +4884,12 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r27
     bne      .L_80074284
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -4965,9 +4926,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 .L_800742A8:
     extsh.   r0, r27
     blt      .L_800742CC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r27, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -5020,7 +4981,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     mr       r6, r27
     addi     r3, r31, 0x578
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -5108,9 +5069,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     cmpw     r3, r26
     blt      .L_8007442C
 .L_80074488:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r28
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     addis    r3, r3, 0x1
     li       r7, 0x1
@@ -5122,7 +5083,7 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
     mr       r5, r27
     addi     r3, r31, 0x5ac
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -5194,9 +5155,9 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 .L_800745A4:
     cmpwi    r4, 0xd2
     bne      .L_800745C8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r28
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     subi     r3, r3, 0x6eec
     bl       Kill__9CParticleFl
@@ -5204,11 +5165,11 @@ extern "C" s32 CEvt__cmd_PTCL(CEvt* evt)
 .L_800745C8:
     addi     r3, r31, 0x5d8
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225030@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225030@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xce8
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -5238,21 +5199,21 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
 	if (cmd == EVT_CMD_SCALE) {
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			obj->SetScale(x, y, z, 0);
-			fn_8008C8A4(obj);
+			UpdateObjectFloorHeights(obj);
 			fn_8008D220(obj);
 		} else {
-			CEvt_Warn(fn_801911B4("scale(%d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("scale(%d, ...) obj(%d) killed!", id, id));
 		}
 	} else {
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("mscale(%d, %d,%d,%d) ... obj(%d) is collision!", id, (s32)(100.0f * x), (s32)(100.0f * y),
-				                      (s32)(100.0f * z), id));
+				CEvt_Warn(FormatToStaticBuffer("mscale(%d, %d,%d,%d) ... obj(%d) is collision!", id, (s32)(100.0f * x), (s32)(100.0f * y),
+				                               (s32)(100.0f * z), id));
 			}
 			if (time == 0.0f) {
 				obj->SetScale(x, y, z, 0);
-				fn_8008C8A4(obj);
+				UpdateObjectFloorHeights(obj);
 				fn_8008D220(obj);
 			} else {
 #if defined(VERSION_PAL)
@@ -5267,7 +5228,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
 				obj->mMoveScale.mSpeed.Set(step);
 			}
 		} else {
-			CEvt_Warn(fn_801911B4("mscale(%d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("mscale(%d, ...) obj(%d) killed!", id, id));
 		}
 	}
 	return 0;
@@ -5293,8 +5254,8 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     extsh    r29, r3
     cmpwi    r29, 0x2710
     blt      .L_8007321C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -5303,12 +5264,12 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     lha      r0, 0x4(r3)
     cmpw     r0, r29
     bne      .L_800731F8
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -5345,9 +5306,9 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
 .L_8007321C:
     extsh.   r0, r29
     blt      .L_80073240
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -5418,7 +5379,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     mtctr    r12
     bctrl
     mr       r3, r30
-    bl       fn_8008C8A4
+    bl       UpdateObjectFloorHeights
     mr       r3, r30
     bl       fn_8008D220
     b        .L_80073730
@@ -5427,7 +5388,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     mr       r5, r29
     addi     r3, r31, 0x464
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -5517,7 +5478,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     lwz      r6, 0x64(r1)
     lwz      r7, 0x5c(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -5577,7 +5538,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     mtctr    r12
     bctrl
     mr       r3, r30
-    bl       fn_8008C8A4
+    bl       UpdateObjectFloorHeights
     mr       r3, r30
     bl       fn_8008D220
     b        .L_80073730
@@ -5654,7 +5615,7 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
     mr       r5, r29
     addi     r3, r31, 0x4b4
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -5719,9 +5680,9 @@ extern "C" s32 CEvt__cmd_SCALE(CEvt* evt, u8 cmd)
 
 static inline XObj* CEvt_FindObjUnchecked(s16 id)
 {
-	for (s32 i = 0; i < lbl_802247B0.mCount; i++) {
-		if (lbl_802247B0.mEntry[i].mId == id) {
-			XObj* obj = lbl_8025C400.mXObjs.mObjects[lbl_802247B0.mEntry[i].mIndex];
+	for (s32 i = 0; i < gEventObjectIds.mCount; i++) {
+		if (gEventObjectIds.mEntry[i].mId == id) {
+			XObj* obj = gGame.mXObjs.mObjects[gEventObjectIds.mEntry[i].mIndex];
 			if (obj != NULL) {
 				return obj;
 			}
@@ -5731,7 +5692,7 @@ static inline XObj* CEvt_FindObjUnchecked(s16 id)
 	return NULL;
 }
 
-extern "C" BOOL fn_80132144(XObj* obj, XOBJS* list);
+extern "C" BOOL QueueObjectAnimationRead(XObj* obj, XOBJS* list);
 
 /**
  * @note Address: 0x80073768
@@ -5747,7 +5708,7 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 		XOBJS* list = (XOBJS*)CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("read(@ANIM, %d, %s) ... obj(%d) is collision!", id, (const char*)list, id));
+				CEvt_Warn(FormatToStaticBuffer("read(@ANIM, %d, %s) ... obj(%d) is collision!", id, (const char*)list, id));
 			}
 			if (obj->mStatus.mFlags & 0x0008000000000000) {
 				HSD_AObj* anim = GetAObj(obj->mJObj);
@@ -5755,9 +5716,9 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 					obj->SetAnim(obj->mAnimId % 1000, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 				}
 			}
-			fn_80132144((XObj*)obj, list);
+			QueueObjectAnimationRead((XObj*)obj, list);
 		} else {
-			CEvt_Warn(fn_801911B4("read(@ANIM, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("read(@ANIM, %d, ...) obj(%d) killed!", id, id));
 		}
 		break;
 	}
@@ -5767,7 +5728,7 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 			CEvt_FindObjUnchecked(id);
 		}
 		const char* name = (const char*)CEvt_Evaluate(evt);
-		fn_8001E044(&lbl_8025C400.mSound, name);
+		RegisterGameSoundName(&gGame.mSound, name);
 		break;
 	}
 	default:
@@ -5776,7 +5737,7 @@ extern "C" s32 CEvt__cmd_READ(CEvt* evt)
 #else
 		const s32 line = 3368;
 #endif
-		OSPanic("evt.cpp", line, "%s%s", fn_801911B4("read(...) - invalid type - %d!\n", type), "_cmd_READ");
+		OSPanic("evt.cpp", line, "%s%s", FormatToStaticBuffer("read(...) - invalid type - %d!\n", type), "_cmd_READ");
 		break;
 	}
 	return 0;
@@ -5848,7 +5809,7 @@ extern "C" s32 CEvt__cmd_WIN(CEvt* evt)
 				pos->offset.z       = z;
 			}
 		} else {
-			CEvt_Warn(fn_801911B4("win(@OBJ, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("win(@OBJ, %d, ...) obj(%d) killed!", id, id));
 		}
 		break;
 	}
@@ -5893,21 +5854,21 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 		obj->_264.x = obj->mMoveTranslate.x;
 		obj->_264.y = obj->mMoveTranslate.y;
 		obj->_264.z = obj->mMoveTranslate.z;
-		lbl_8025C400.mMotionControlCamera.UpdateTarget(obj);
+		gGame.mMotionControlCamera.UpdateTarget(obj);
 		u8* carry;
-		u8* player = (u8*)lbl_8025C400.GetPlayer();
+		u8* player = (u8*)gGame.GetPlayer();
 		if (obj == (XObj*)player) {
-			fn_800B5E1C((XObjChr*)player);
+			ResetPlayerHeadOffset((XObjChr*)player);
 			fn_8009FCC4((XObjChr*)player);
-			carry = player + PLAYER_CARRY;
+			carry = (u8*)&((XObjChr*)player)->mLift;
 			if (*(XObj**)(carry + 0x20) != NULL) {
-				fn_800CECFC(carry, 1);
-				(*(XObj**)(carry + 0x20))->vfA4(1);
+				UpdateHeldObject((XActLift*)carry, 1);
+				(*(XObj**)(carry + 0x20))->UpdateObject(1);
 			}
-			fn_800C591C(player + PLAYER_BE8);
+			CancelPlayerPushAction(player + PLAYER_BE8);
 		}
 	} else {
-		CEvt_Warn(fn_801911B4("pos(%d, ...) obj(%d) killed!", id, id));
+		CEvt_Warn(FormatToStaticBuffer("pos(%d, ...) obj(%d) killed!", id, id));
 	}
 	return 0;
 }
@@ -5929,8 +5890,8 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     extsh    r30, r3
     cmpwi    r30, 0x2710
     blt      .L_80074738
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -5939,12 +5900,12 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r30
     bne      .L_80074714
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -5981,9 +5942,9 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
 .L_80074738:
     extsh.   r0, r30
     blt      .L_8007475C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r30, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r31, -0x67a0(r3)
@@ -6059,8 +6020,8 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     stw      r0, 0x228(r31)
 .L_80074864:
     lfs      f0, 0xc8(r31)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     mr       r4, r31
     stfs     f0, 0x264(r31)
     addis    r3, r3, 0xe
@@ -6070,14 +6031,14 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     lfs      f0, 0xd0(r31)
     stfs     f0, 0x26c(r31)
     bl       fn_80148D6C
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r30, -0x6944(r3)
     cmplw    r31, r30
     bne      .L_800749AC
     mr       r3, r30
-    bl       fn_800B5E1C
+    bl       ResetPlayerHeadOffset
     mr       r3, r30
     bl       fn_8009FCC4
     addi     r29, r30, 0xa44
@@ -6095,7 +6056,7 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     bctrl
 .L_800748F0:
     addi     r3, r30, 0xbe8
-    bl       fn_800C591C
+    bl       CancelPlayerPushAction
     b        .L_800749AC
 .L_800748FC:
     lis      r3, lbl_80208598@ha
@@ -6103,7 +6064,7 @@ extern "C" s32 CEvt__cmd_POS(CEvt* evt)
     addi     r3, r3, lbl_80208598@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -6199,7 +6160,7 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 				evt->_58                  = 0;
 				EVT_OWNER_445C0(evt->_54) = 1;
 				if (evt->mData.mScript[4] == 0) {
-					evt->mData.mScript = fn_8006E580(evt->mData.mScript);
+					evt->mData.mScript = ResolveEventScriptOffset(evt->mData.mScript);
 					return 0;
 				}
 			}
@@ -6210,13 +6171,13 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 			EVT_OWNER_445C0(evt->_54) = 0;
 			evt->mData.mScript--;
 			if (cmd == EVT_CMD_SELECT) {
-				fn_8001E904(&lbl_8025C400.mSound, 0x86, 0xFF);
+				fn_8001E904(&gGame.mSound, 0x86, 0xFF);
 			}
 			return 1;
 		}
 		if (EVT_OWNER_445F8(owner) > 0) {
 			evt->_58           = 1;
-			evt->mData.mScript = fn_8006E580(evt->mData.mScript);
+			evt->mData.mScript = ResolveEventScriptOffset(evt->mData.mScript);
 			return 0;
 		}
 		if (*(u32*)(owner + 0x804) != 0) {
@@ -6227,15 +6188,15 @@ extern "C" s32 CEvt__cmd_MSG(CEvt* evt, u8 cmd)
 			evt->_10 = EVT_OWNER_445D4(owner);
 		}
 		EVT_OWNER_445C0(evt->_54) = 1;
-		evt->mData.mScript        = fn_8006E580(evt->mData.mScript);
+		evt->mData.mScript        = ResolveEventScriptOffset(evt->mData.mScript);
 		return 0;
 	}
-	evt->mData.mScript = fn_8006E580(evt->mData.mScript);
+	evt->mData.mScript = ResolveEventScriptOffset(evt->mData.mScript);
 	return 0;
 }
 
-extern "C" void fn_8000ABB8(u8* game, const char* path, BOOL loop, s32 arg);
-extern "C" void fn_8000AB90(u8* game);
+extern "C" void StartGameMovie(u8* game, const char* path, BOOL loop, s32 arg);
+extern "C" void StopGameMovie(u8* game);
 
 /**
  * @note Address: 0x80074BC4
@@ -6261,13 +6222,13 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
 		// x and y are the center, the rect wants the corner
 		x -= w / 2;
 		y -= h / 2;
-		fn_8000ABB8((u8*)&lbl_8025C400, path, FALSE, arg);
-		lbl_8025C400.mMovieRect[0] = x;
-		lbl_8025C400.mMovieRect[1] = y;
-		lbl_8025C400.mMovieRect[2] = w;
-		lbl_8025C400.mMovieRect[3] = h;
+		StartGameMovie((u8*)&gGame, path, FALSE, arg);
+		gGame.mMovieRect[0] = x;
+		gGame.mMovieRect[1] = y;
+		gGame.mMovieRect[2] = w;
+		gGame.mMovieRect[3] = h;
 	} else {
-		fn_8000AB90((u8*)&lbl_8025C400);
+		StopGameMovie((u8*)&gGame);
 	}
 	return 0;
 }
@@ -6299,26 +6260,26 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
     srwi     r4, r30, 31
     srwi     r0, r31, 31
     add      r4, r4, r30
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     srawi    r8, r4, 1
     add      r0, r0, r31
     srawi    r7, r0, 1
     mr       r4, r27
-    addi     r0, r5, lbl_8025C400@l
+    addi     r0, r5, gGame@l
     mr       r6, r3
     subf     r27, r8, r28
     subf     r28, r7, r29
     mr       r3, r0
     li       r5, 0x0
-    bl       fn_8000ABB8
+    bl       StartGameMovie
     lis      r6, 0x4330
     xoris    r0, r27, 0x8000
     stw      r0, 0xc(r1)
     xoris    r4, r28, 0x8000
     xoris    r3, r30, 0x8000
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     stw      r6, 0x8(r1)
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lfd      f3, lbl_8065CF88@sda21(r0)
     xoris    r0, r31, 0x8000
     lfd      f0, 0x8(r1)
@@ -6342,9 +6303,9 @@ extern "C" s32 CEvt__cmd_MOVIE(CEvt* evt)
     stfs     f0, -0xb94(r5)
     b        .L_80074CDC
 .L_80074CD0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
-    bl       fn_8000AB90
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
+    bl       StopGameMovie
 .L_80074CDC:
     lmw      r26, 0x28(r1)
     li       r3, 0x0
@@ -6376,12 +6337,12 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 	s16 dir   = CEvt_Evaluate(evt);
 	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 		if (obj->mJObj == NULL) {
-			CEvt_Warn(fn_801911B4("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(x * 100.0f), (s32)(y * 100.0f),
-			                      (s32)(z * 100.0f), (s32)(time * 100.0f), anim, dir, id));
+			CEvt_Warn(FormatToStaticBuffer("moveto(%d, %d,%d,%d, %d, %d, %d) ... obj(%d) is collision!", id, (s32)(x * 100.0f),
+			                               (s32)(y * 100.0f), (s32)(z * 100.0f), (s32)(time * 100.0f), anim, dir, id));
 		}
-		u8* player = (u8*)lbl_8025C400.GetPlayer();
+		u8* player = (u8*)gGame.GetPlayer();
 		if (obj == (XObj*)player) {
-			fn_800C591C(player + PLAYER_BE8);
+			CancelPlayerPushAction(player + PLAYER_BE8);
 		}
 		f32 distance;
 		{
@@ -6395,7 +6356,7 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 			if (time == 0.0f) {
 				obj->SetMoveDir(CVec(x, y, z), distance);
 			} else if (time > 0.0f) {
-				obj->SetMoveDir(CVec(x, y, z), distance / (FRAMES_PER_SEC * time));
+				obj->SetMoveDir(CVec(x, y, z), distance / (time * FRAMES_PER_SEC));
 			} else {
 				obj->SetMoveDir(CVec(x, y, z), -time);
 			}
@@ -6427,7 +6388,7 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 			}
 		}
 	} else if (obj == NULL || !(obj->mStatus.mFlags & 1)) {
-		CEvt_Warn(fn_801911B4("moveto(%d, ...) obj(%d) killed!", id, id));
+		CEvt_Warn(FormatToStaticBuffer("moveto(%d, ...) obj(%d) killed!", id, id));
 	}
 	return 0;
 }
@@ -6449,8 +6410,8 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
     extsh    r30, r3
     cmpwi    r30, 0x2710
     blt      .L_80074DE8
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -6459,12 +6420,12 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r30
     bne      .L_80074DC4
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -6501,9 +6462,9 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 .L_80074DE8:
     extsh.   r0, r30
     blt      .L_80074E0C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r30, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r31, -0x67a0(r3)
@@ -6612,7 +6573,7 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
     lwz      r7, 0x6c(r1)
     lwz      r8, 0x64(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -6659,14 +6620,14 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
 .L_80075038:
     bdnz     .L_80075038
 .L_8007503C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     cmplw    r31, r3
     bne      .L_8007505C
     addi     r3, r3, 0xbe8
-    bl       fn_800C591C
+    bl       CancelPlayerPushAction
 .L_8007505C:
     lis      r3, __vt__4CVec@ha
     stfs     f31, 0x50(r1)
@@ -6881,7 +6842,7 @@ extern "C" s32 CEvt__cmd_MOVETO(CEvt* evt)
     addi     r3, r3, lbl_80208600@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -6959,11 +6920,12 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 	if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 		if (obj->mJObj == NULL) {
 			// retail's format says %d but passes a float
-			CEvt_Warn(fn_801911B4("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(time * 100.0f), anim, dir, id));
+			CEvt_Warn(FormatToStaticBuffer("move(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, distance, (s32)(time * 100.0f), anim,
+			                               dir, id));
 		}
-		u8* player = (u8*)lbl_8025C400.GetPlayer();
+		u8* player = (u8*)gGame.GetPlayer();
 		if (obj == (XObj*)player) {
-			fn_800C591C(player + PLAYER_BE8);
+			CancelPlayerPushAction(player + PLAYER_BE8);
 		}
 		Vec target = obj->mMoveTranslate;
 		// -1 and -2 keep the way it faces
@@ -6973,7 +6935,7 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 		if (time == 0.0f) {
 			obj->SetMoveDir(target, distance);
 		} else if (time > 0.0f) {
-			obj->SetMoveDir(target, distance / (FRAMES_PER_SEC * time));
+			obj->SetMoveDir(target, distance / (time * FRAMES_PER_SEC));
 		} else {
 			obj->SetMoveDir(target, -time);
 		}
@@ -6994,7 +6956,7 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 			obj->UpdateAnim(1);
 		}
 	} else if (obj == NULL || !(obj->mStatus.mFlags & 1)) {
-		CEvt_Warn(fn_801911B4("move(%d, ...) obj(%d) killed!", id, id));
+		CEvt_Warn(FormatToStaticBuffer("move(%d, ...) obj(%d) killed!", id, id));
 	}
 	return 0;
 }
@@ -7014,8 +6976,8 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
     extsh    r30, r3
     cmpwi    r30, 0x2710
     blt      .L_80075540
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -7024,12 +6986,12 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r30
     bne      .L_8007551C
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -7066,9 +7028,9 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 .L_80075540:
     extsh.   r0, r30
     blt      .L_80075564
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r30, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r31, -0x67a0(r3)
@@ -7144,7 +7106,7 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
     stfd     f0, 0x20(r1)
     lwz      r5, 0x24(r1)
     crset    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -7191,14 +7153,14 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
 .L_8007570C:
     bdnz     .L_8007570C
 .L_80075710:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     cmplw    r31, r3
     bne      .L_80075730
     addi     r3, r3, 0xbe8
-    bl       fn_800C591C
+    bl       CancelPlayerPushAction
 .L_80075730:
     addi     r0, r28, 0x2
     lwz      r5, 0xc8(r31)
@@ -7372,7 +7334,7 @@ extern "C" s32 CEvt__cmd_MOVE(CEvt* evt)
     addi     r3, r3, lbl_8020867C@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -7458,7 +7420,7 @@ struct UnkEvtMenu {
 #define PLAYER_MENU_13368 0x13368
 #endif
 
-extern "C" void fn_800B53A0(u8* player, s32 arg);
+extern "C" void ClosePlayerEquipmentMenu(u8* player, s32 arg);
 
 /**
  * @note Address: 0x80075A80
@@ -7471,7 +7433,7 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 	u8* cmd = evt->mData.mScript - 1;
 	s32 id  = CEvt_Evaluate(evt);
 	if (evt->_20 != 0) {
-		if (lbl_8025C400.mMenu.mActive != 0) {
+		if (gGame.mMenu.mActive != 0) {
 			evt->mData.mScript = cmd;
 			ret                = 1;
 		} else {
@@ -7480,32 +7442,32 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 	} else if (id == 1000) {
 		s32 arg = CEvt_Evaluate(evt);
 		if (arg >= 0) {
-			fn_800B54A4(&EVT_PLAYER, arg);
+			SelectPlayerEquipmentRing(&EVT_PLAYER, arg);
 		} else {
-			u8* player = (u8*)lbl_8025C400.GetPlayer();
+			u8* player = (u8*)gGame.GetPlayer();
 			bool busy  = false;
 			if (*(s32*)(player + PLAYER_MENU_12E44) != 0 || *(s32*)(player + PLAYER_MENU_130DC) != 0) {
 				busy = true;
 			}
 			if (busy) {
-				fn_800B53A0(player, -1);
+				ClosePlayerEquipmentMenu(player, -1);
 			}
 		}
 	} else if (id == 1001) {
-		s32 a                                                      = CEvt_Evaluate(evt);
-		s32 b                                                      = CEvt_Evaluate(evt);
-		*(s32*)((u8*)lbl_8025C400.GetPlayer() + PLAYER_MENU_130D0) = a;
-		*(s32*)((u8*)lbl_8025C400.GetPlayer() + PLAYER_MENU_13368) = b;
+		s32 a                                               = CEvt_Evaluate(evt);
+		s32 b                                               = CEvt_Evaluate(evt);
+		*(s32*)((u8*)gGame.GetPlayer() + PLAYER_MENU_130D0) = a;
+		*(s32*)((u8*)gGame.GetPlayer() + PLAYER_MENU_13368) = b;
 	} else {
-		UnkEvtMenu* menu = (UnkEvtMenu*)lbl_8025C400.mMenu.mMenus[id];
+		UnkEvtMenu* menu = (UnkEvtMenu*)gGame.mMenu.mMenus[id];
 #if defined(VERSION_JP)
 		// no null check in japan
 		menu->vf1C();
-		lbl_8025C400.mMenu.mActive = 1;
+		gGame.mMenu.mActive = 1;
 #else
 		if (menu != 0) {
 			menu->vf1C();
-			lbl_8025C400.mMenu.mActive = 1;
+			gGame.mMenu.mActive = 1;
 		}
 #endif
 		evt->_20           = 1;
@@ -7524,7 +7486,7 @@ extern "C" s32 CEvt__cmd_MENU(CEvt* evt)
 extern "C" s32 CEvt__cmd_LIGHT(CEvt* evt)
 {
 	s32 index     = CEvt_Evaluate(evt);
-	CLight* light = lbl_8025C400.mLightList;
+	CLight* light = gGame.mLightList;
 	for (s32 i = 0; i < index; i++) {
 		light = (CLight*)light->next;
 		if (light == NULL) {
@@ -7560,9 +7522,9 @@ extern "C" s32 CEvt__cmd_LIGHT(CEvt* evt)
 	}
 	default:
 #if defined(VERSION_PAL)
-		OSPanic(__FILE__, 2846, "%s%s", fn_801911B4("light(%d, %d,...) - unresolved!\n", index, type), __FUNCTION__);
+		OSPanic(__FILE__, 2846, "%s%s", FormatToStaticBuffer("light(%d, %d,...) - unresolved!\n", index, type), __FUNCTION__);
 #else
-		OSPanic(__FILE__, 2842, "%s%s", fn_801911B4("light(%d, %d,...) - unresolved!\n", index, type), __FUNCTION__);
+		OSPanic(__FILE__, 2842, "%s%s", FormatToStaticBuffer("light(%d, %d,...) - unresolved!\n", index, type), __FUNCTION__);
 #endif
 		break;
 	}
@@ -7578,10 +7540,10 @@ extern "C" s32 CEvt__cmd_KILL(CEvt* evt)
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)gGame.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, can't kill that
-			CEvt_Warn(fn_801911B4("kill(%d) ... obj(%d) lifted!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("kill(%d) ... obj(%d) lifted!", id, id));
 		} else {
 			obj->Release();
 			CEvt_ForgetObjId(id);
@@ -7595,7 +7557,7 @@ extern "C" s32 CEvt__cmd_KILL(CEvt* evt)
 			index = id;
 		}
 		CEvt_ForgetObjId(id);
-		UnkStageObj* entry = fn_8006F4A0(index);
+		UnkStageObj* entry = GetStagePlacementByIndex(index);
 		CoordInfo info(entry);
 		entry->_34 |= 0x80000000ULL;
 	}
@@ -7612,17 +7574,17 @@ extern "C" s32 CEvt__cmd_DISP(CEvt* evt)
 	XObj* obj = CEvt_GetObj(evt, id);
 	u8 on     = CEvt_Evaluate(evt);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)gGame.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL && obj == held && (obj->mStatus.mFlags & 0x0000400000000000)) {
 			// chibi is carrying it, leave it be
-			CEvt_Warn(fn_801911B4("disp(%d, %d) ... obj(%d) lifted!", id, on, id));
+			CEvt_Warn(FormatToStaticBuffer("disp(%d, %d) ... obj(%d) lifted!", id, on, id));
 		} else if (on) {
 			obj->mStatus.mFlags |= 0x10000;
 		} else {
 			obj->mStatus.mFlags &= ~0x10000;
 		}
 	} else {
-		CEvt_Warn(fn_801911B4("disp(%d, %d) ... obj(%d) killed!", id, on, id));
+		CEvt_Warn(FormatToStaticBuffer("disp(%d, %d) ... obj(%d) killed!", id, on, id));
 	}
 	return 0;
 }
@@ -7636,22 +7598,22 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 	s16 id    = CEvt_Evaluate(evt);
 	XObj* obj = CEvt_GetObj(evt, id);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-		u8* player = (u8*)lbl_8025C400.GetPlayer();
+		u8* player = (u8*)gGame.GetPlayer();
 		if ((u8*)obj == player)
-			fn_800C591C(player + PLAYER_BE8);
+			CancelPlayerPushAction(player + PLAYER_BE8);
 	}
 	if (command == EVT_CMD_DIR) {
 		s16 direction = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			obj->SetRotationY(DEG2RAD * direction, 0);
-			lbl_8025C400.mMotionControlCamera.UpdateTarget(obj);
-			u8* player = (u8*)lbl_8025C400.GetPlayer();
+			gGame.mMotionControlCamera.UpdateTarget(obj);
+			u8* player = (u8*)gGame.GetPlayer();
 			if ((u8*)obj == player) {
-				fn_800B5E1C((XObjChr*)player);
-				u8* carry = player + PLAYER_CARRY;
-				if (*(XObj**)(carry + 0x20) != NULL) {
-					fn_800CECFC(carry, 1);
-					(*(XObj**)(carry + 0x20))->vfA4(1);
+				ResetPlayerHeadOffset((XObjChr*)player);
+				XActLift* carry = &((XObjChr*)player)->mLift;
+				if (carry->mTarget != NULL) {
+					UpdateHeldObject(carry, 1);
+					carry->mTarget->UpdateObject(1);
 				}
 			}
 		}
@@ -7668,7 +7630,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 				direction = RAD2DEG * (f32)atan2(x - obj->mMoveTranslate.x, z - obj->mMoveTranslate.z);
 			} else {
-				CEvt_Warn(fn_801911B4("mdir(%d, @POS, ...): obj(%d) killed!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("mdir(%d, @POS, ...): obj(%d) killed!", id, id));
 			}
 			break;
 		}
@@ -7681,20 +7643,20 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 					    = RAD2DEG
 					    * (f32)atan2(target->mMoveTranslate.x - obj->mMoveTranslate.x, target->mMoveTranslate.z - obj->mMoveTranslate.z);
 				} else {
-					CEvt_Warn(fn_801911B4("mdir(%d, @OBJ, %d, ...): obj(%d) killed!", id, targetId, targetId));
+					CEvt_Warn(FormatToStaticBuffer("mdir(%d, @OBJ, %d, ...): obj(%d) killed!", id, targetId, targetId));
 					direction = RAD2DEG * obj->mMoveRotate.y;
 				}
 			} else {
-				CEvt_Warn(fn_801911B4("mdir(%d, @OBJ, ...): obj(%d) killed!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("mdir(%d, @OBJ, ...): obj(%d) killed!", id, id));
 			}
 			break;
 		}
 		case EVT_ATOM_CAM:
 			if (obj != NULL && (obj->mStatus.mFlags & 1)) {
-				CCamera* camera = &lbl_8025C400.mMotionControlCamera.mCamera;
+				CCamera* camera = &gGame.mMotionControlCamera.mCamera;
 				direction       = RAD2DEG * (f32)atan2(camera->mEye.x - obj->mMoveTranslate.x, camera->mEye.z - obj->mMoveTranslate.z);
 			} else {
-				CEvt_Warn(fn_801911B4("mdir(%d, @CAM, ...): obj(%d) killed!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("mdir(%d, @CAM, ...): obj(%d) killed!", id, id));
 			}
 			break;
 		default:
@@ -7703,15 +7665,15 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 #else
 			const s32 line = 2667;
 #endif
-			OSPanic("evt.cpp", line, "%s%s", fn_801911B4("mdir(obj, %d,...) - unresolved!\n", mode), "_cmd_DIR");
+			OSPanic("evt.cpp", line, "%s%s", FormatToStaticBuffer("mdir(obj, %d,...) - unresolved!\n", mode), "_cmd_DIR");
 			break;
 		}
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
 		s32 anim = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("mdir(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, mode, (s16)direction, (s32)(100.0f * time),
-				                      anim, id));
+				CEvt_Warn(FormatToStaticBuffer("mdir(%d, %d, %d, %d, %d) ... obj(%d) is collision!", id, mode, (s16)direction,
+				                               (s32)(100.0f * time), anim, id));
 			}
 			f32 yaw        = DEG2RAD * (s16)direction;
 			f32 difference = obj->mMoveRotate.y - yaw;
@@ -7766,8 +7728,8 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     extsh    r28, r3
     cmpwi    r28, 0x2710
     blt      .L_800766EC
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -7776,12 +7738,12 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     lha      r0, 0x4(r3)
     cmpw     r0, r28
     bne      .L_800766C8
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -7818,9 +7780,9 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 .L_800766EC:
     extsh.   r0, r28
     blt      .L_80076710
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r28, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -7845,14 +7807,14 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     xor      r0, r0, r4
     or.      r0, r3, r0
     beq      .L_80076774
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     cmplw    r30, r3
     bne      .L_80076774
     addi     r3, r3, 0xbe8
-    bl       fn_800C591C
+    bl       CancelPlayerPushAction
 .L_80076774:
     clrlwi   r0, r26, 24
     cmplwi   r0, 0x1b
@@ -7887,20 +7849,20 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     fmuls    f1, f2, f0
     mtctr    r12
     bctrl
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r30
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_80148D6C
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r25, -0x6944(r3)
     cmplw    r30, r25
     bne      .L_800771EC
     mr       r3, r25
-    bl       fn_800B5E1C
+    bl       ResetPlayerHeadOffset
     addi     r25, r25, 0xa44
     lwz      r0, 0x20(r25)
     cmplwi   r0, 0x0
@@ -7990,7 +7952,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     mr       r5, r28
     addi     r3, r31, 0x788
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8043,8 +8005,8 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     extsh    r5, r3
     cmpwi    r5, 0x2710
     blt      .L_80076AE4
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -8053,12 +8015,12 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     lha      r0, 0x4(r3)
     cmpw     r0, r5
     bne      .L_80076AC0
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -8095,9 +8057,9 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
 .L_80076AE4:
     extsh.   r0, r5
     blt      .L_80076B08
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r5, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r3, -0x67a0(r3)
@@ -8151,7 +8113,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     mr       r6, r5
     addi     r3, r31, 0x7b0
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8210,7 +8172,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     mr       r5, r28
     addi     r3, r31, 0x7dc
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8270,9 +8232,9 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     xor      r0, r0, r4
     or.      r0, r3, r0
     beq      .L_80076D98
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, 0xc8(r30)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f0, 0xd0(r30)
     addis    r3, r3, 0xe
     lfs      f3, 0x5dcc(r3)
@@ -8292,7 +8254,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     mr       r5, r28
     addi     r3, r31, 0x804
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8343,11 +8305,11 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     mr       r4, r29
     addi     r3, r31, 0x82c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80225018@ha
     mr       r6, r3
     addi     r7, r4, lbl_80225018@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0xa6b
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -8400,7 +8362,7 @@ extern "C" s32 CEvt__cmd_DIR(CEvt* evt, u8 command)
     stfd     f0, 0x10(r1)
     lwz      r7, 0x14(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8619,8 +8581,8 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 	u8 b      = CEvt_Evaluate(evt);
 	f32 time  = CEvt_Evaluate(evt) / 100.0f;
 	if (obj == (XObj*)-2) {
-		for (s32 i = 0; i < lbl_8025C400.mXObjs.mObjectCount; i++) {
-			XObj* current = lbl_8025C400.mXObjs.mObjects[i];
+		for (s32 i = 0; i < gGame.mXObjs.mObjectCount; i++) {
+			XObj* current = gGame.mXObjs.mObjects[i];
 			if ((current->mStatus.mFlags & 1) && current->mJObj != NULL) {
 				if (mode == EVT_ATOM_MODULATE) {
 					current->vf12C(0, r, g, b, time);
@@ -8632,10 +8594,11 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 	} else if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		if (obj->mJObj == NULL) {
 			if (mode == EVT_ATOM_MODULATE) {
-				CEvt_Warn(
-				    fn_801911B4("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b, (s32)(100.0f * time), id));
+				CEvt_Warn(FormatToStaticBuffer("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b,
+				                               (s32)(100.0f * time), id));
 			} else {
-				CEvt_Warn(fn_801911B4("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b, (s32)(100.0f * time), id));
+				CEvt_Warn(FormatToStaticBuffer("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) is collision!", id, r, g, b,
+				                               (s32)(100.0f * time), id));
 			}
 		}
 		if (mode == EVT_ATOM_MODULATE) {
@@ -8645,9 +8608,10 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 		}
 	} else {
 		if (mode == EVT_ATOM_MODULATE) {
-			CEvt_Warn(fn_801911B4("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
+			CEvt_Warn(
+			    FormatToStaticBuffer("color(%d, @MODULATE, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
 		} else {
-			CEvt_Warn(fn_801911B4("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
+			CEvt_Warn(FormatToStaticBuffer("color(%d, @BLEND, %d,%d,%d, %d) ... obj(%d) killed!", id, r, g, b, (s32)(100.0f * time), id));
 		}
 	}
 	return 0;
@@ -8666,8 +8630,8 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     extsh    r29, r3
     cmpwi    r29, 0x2710
     blt      .L_800772F0
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -8676,12 +8640,12 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r29
     bne      .L_800772CC
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -8718,9 +8682,9 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
 .L_800772F0:
     extsh.   r0, r29
     blt      .L_80077314
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r30, -0x67a0(r3)
@@ -8759,9 +8723,9 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     fsubs    f1, f1, f2
     fdivs    f31, f1, f0
     bne      .L_80077454
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r29, 0x0
-    addi     r30, r3, lbl_8025C400@l
+    addi     r30, r3, gGame@l
     addis    r31, r30, 0x1
     b        .L_80077444
 .L_800773A4:
@@ -8841,7 +8805,7 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     stfd     f0, 0x8(r1)
     lwz      r8, 0xc(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8900,7 +8864,7 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     stfd     f0, 0x8(r1)
     lwz      r8, 0xc(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -8989,7 +8953,7 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     stfd     f0, 0x8(r1)
     lwz      r8, 0xc(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -9049,7 +9013,7 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     stfd     f0, 0x8(r1)
     lwz      r8, 0xc(r1)
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -9106,14 +9070,16 @@ extern "C" s32 CEvt__cmd_COLOR(CEvt* evt)
     blr
 */
 
-extern "C" void fn_80092C88(XObj* obj, s32 anim, f32 frame);
+extern "C" void SetStageCameraAnimation(XObj* obj, s32 anim, f32 frame);
 
-#define EVT_CAMERA_ACTION(type) (((CInterfaceCameraAction**)&lbl_8025C400.mCameraActions.mTable)[type])
+#define EVT_CAMERA_ACTION(type) (((CInterfaceCameraAction**)&gGame.mCameraActions.mTable)[type])
 
 /**
  * @note Address: 0x80077858
  * @note Size: 0xEFC
  */
+#pragma push
+#pragma opt_common_subs off
 extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 {
 	CCameraActionEvt* action   = (CCameraActionEvt*)EVT_CAMERA_ACTION(CAMACTION_EVT);
@@ -9126,8 +9092,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 direction = CEvt_Evaluate(evt);
 		s32 mode      = CEvt_Evaluate(evt);
 		f32 time      = CEvt_Evaluate(evt) / 100.0f;
-		if (fn_8006F3BC() != NULL && area->vf78(id) != 0) {
-			CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+		if (GetStageCameraInfoRecords() != NULL && area->vf78(id) != 0) {
+			CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 			camera->ChangeAction(CAMACTION_AREA);
 			fn_80138B2C((CCameraActionArea*)area, id, direction, mode, 0, time);
 			if (mode == 3) {
@@ -9142,7 +9108,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 z    = CEvt_Evaluate(evt) / 100.0f;
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+		gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38 = 11;
 		Vec eye     = { 0.0f, 0.0f, 0.0f };
 		eye.x       = x;
@@ -9162,7 +9128,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 time      = CEvt_Evaluate(evt) / 100.0f;
 		u32 type      = command == 240 ? 2 : 1;
 		BOOL relative = (u16)(command - 251) <= 1 ? true : false;
-		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+		gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		switch (axis) {
 		case 2: {
 			Vec angle  = { 0.0f, 0.0f, 0.0f };
@@ -9194,7 +9160,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 z    = CEvt_Evaluate(evt) / 100.0f;
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+		gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38  = 11;
 		Vec interest = { 0.0f, 0.0f, 0.0f };
 		interest.x   = x;
@@ -9211,12 +9177,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		XObj* obj = CEvt_GetObj(evt, (s16)id);
 		if (obj != NULL) {
 			Vec target = obj->GetCameraTarget();
-			lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+			gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 			action->_38  = 11;
 			Vec interest = target;
 			action->SetInterest_Interp(mode, interest, time);
 		} else {
-			CEvt_Warn(fn_801911B4("cam(@OBJ, %d, ...): obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("cam(@OBJ, %d, ...): obj(%d) killed!", id, id));
 		}
 		break;
 	}
@@ -9224,11 +9190,11 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 id    = CEvt_Evaluate(evt);
 		XObj* obj = CEvt_GetObj(evt, (s16)id);
 		if (obj != NULL) {
-			lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+			gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 			action->_38 = 11;
 			action->SetInterest_Interp(3, obj, 0.0f);
 		} else {
-			CEvt_Warn(fn_801911B4("cam(@LEAD, %d): obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("cam(@LEAD, %d): obj(%d) killed!", id, id));
 		}
 		break;
 	}
@@ -9241,7 +9207,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		f32 fov  = CEvt_Evaluate(evt);
 		s32 mode = CEvt_Evaluate(evt);
 		f32 time = CEvt_Evaluate(evt) / 100.0f;
-		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
+		gGame.mMotionControlCamera.ChangeAction(CAMACTION_EVT);
 		action->_38 = action->Get_38() | 8;
 		action->SetFov_Interp(mode, fov, time);
 		break;
@@ -9250,17 +9216,17 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 anim = CEvt_Evaluate(evt);
 		CEvt_Evaluate(evt);
 		CEvt_Evaluate(evt);
-		lbl_8025C400.mMotionControlCamera.ChangeAction(CAMACTION_ANIM);
-		XObj* obj = (XObj*)lbl_8025C400.mXObjs.mPools[0].mObjects;
+		gGame.mMotionControlCamera.ChangeAction(CAMACTION_ANIM);
+		XObj* obj = (XObj*)gGame.mXObjs.mPools[0].mObjects;
 		if (obj != NULL && (obj->mStatus.mFlags & 1) != 0) {
-			fn_80092C88(obj, anim, 0.0f);
+			SetStageCameraAnimation(obj, anim, 0.0f);
 		}
 		break;
 	}
 	case EVT_ATOM_RESET: {
 		s32 mode                     = CEvt_Evaluate(evt);
 		f32 time                     = CEvt_Evaluate(evt) / 100.0f;
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_EVT)) {
 			reset->mMode = mode;
 			reset->mTime = time;
@@ -9270,7 +9236,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		break;
 	}
 	case 230: { // finish the active scripted camera
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_AREA)) {
 			fn_80138EBC((CCameraActionArea*)EVT_CAMERA_ACTION(CAMACTION_AREA));
 		} else if (camera->IsAction(CAMACTION_EVT)) {
@@ -9282,11 +9248,11 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		break;
 	}
 	case 236: { // save camera
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		camera->EndEye();
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
-			camera->CreateMemento(&lbl_8036AA3C[slot]);
+			camera->CreateMemento(&gEventCameraMementos[slot]);
 		} else {
 			evt->mCameraMemento = camera->CreateMemento(NULL);
 		}
@@ -9295,9 +9261,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 	case 237: { // restore camera
 		s32 slot = CEvt_Evaluate(evt);
 		if (slot >= 0) {
-			lbl_8025C400.mMotionControlCamera.SetMemento(&lbl_8036AA3C[slot]);
+			gGame.mMotionControlCamera.SetMemento(&gEventCameraMementos[slot]);
 		} else if (evt->mCameraMemento != NULL) {
-			lbl_8025C400.mMotionControlCamera.SetMemento(evt->mCameraMemento);
+			gGame.mMotionControlCamera.SetMemento(evt->mCameraMemento);
 			evt->mCameraMemento = NULL;
 		}
 		break;
@@ -9306,23 +9272,23 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		s32 mode = CEvt_Evaluate(evt);
 		if (mode <= 0) {
 			s32 sign = mode >> 31;
-			fn_8014872C(&lbl_8025C400.mMotionControlCamera, (mode ^ sign) - sign);
+			fn_8014872C(&gGame.mMotionControlCamera, (mode ^ sign) - sign);
 		}
 		break;
 	}
 	case 232: // first-person controls
 		switch (CEvt_Evaluate(evt)) {
 		case -1:
-			lbl_8025C400.mStatus.mFlags &= ~0x80ULL;
+			gGame.mStatus.mFlags &= ~0x80ULL;
 			break;
 		case -2:
-			lbl_8025C400.mStatus.mFlags |= 0x80ULL;
+			gGame.mStatus.mFlags |= 0x80ULL;
 			break;
 		case 0:
-			lbl_8025C400.mMotionControlCamera.EndEye();
+			gGame.mMotionControlCamera.EndEye();
 			break;
 		case 1:
-			lbl_8025C400.mMotionControlCamera.StartEye();
+			gGame.mMotionControlCamera.StartEye();
 			break;
 		case 2: {
 			f32 degrees                                                        = CEvt_Evaluate(evt);
@@ -9343,14 +9309,15 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 		break;
 	default:
 #if defined(VERSION_PAL)
-		OSPanic("evt.cpp", 2515, "%s%s", fn_801911B4("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
+		OSPanic("evt.cpp", 2515, "%s%s", FormatToStaticBuffer("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
 #else
-		OSPanic("evt.cpp", 2511, "%s%s", fn_801911B4("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
+		OSPanic("evt.cpp", 2511, "%s%s", FormatToStaticBuffer("cam(%d,...) - unresolved!\n", command), "_cmd_CAMERA");
 #endif
 		break;
 	}
 	return 0;
 }
+#pragma pop
 
 // CEvt__cmd_CAMERA
 /*
@@ -9366,9 +9333,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stfd     f28, 0xf0(r1)
     psq_st   f28, 0xf8(r1), 0, qr0
     stmw     r25, 0xd4(r1)
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r5, lbl_80207FA0@ha
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     mr       r30, r3
     addis    r25, r4, 0xe
     addi     r28, r5, lbl_80207FA0@l
@@ -9411,7 +9378,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lfd      f1, 0xa8(r1)
     fsubs    f1, f1, f2
     fdivs    f31, f1, f0
-    bl       fn_8006F3BC
+    bl       GetStageCameraInfoRecords
     cmplwi   r3, 0x0
     beq      .L_8007871C
     mr       r3, r29
@@ -9422,9 +9389,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bctrl
     cmpwi    r3, 0x0
     beq      .L_8007871C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r25, r3, 0xe
     addi     r25, r25, 0x5d38
     mr       r3, r25
@@ -9484,8 +9451,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xc0(r1)
     addis    r3, r3, 0xe
@@ -9563,10 +9530,10 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     li       r5, 0x0
 .L_80077B88:
     clrlwi   r5, r5, 24
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     neg      r0, r5
     li       r4, 0x3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     or       r0, r0, r5
     addis    r3, r3, 0xe
     srwi     r25, r0, 31
@@ -9695,8 +9662,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xac(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xa8(r1)
     addis    r3, r3, 0xe
@@ -9753,8 +9720,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     fsubs    f1, f1, f2
     fdivs    f28, f1, f0
     blt      .L_80077F1C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -9763,12 +9730,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_80077EF8
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -9805,9 +9772,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80077F1C:
     extsh.   r0, r26
     blt      .L_80077F40
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r4, -0x67a0(r3)
@@ -9825,9 +9792,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mtctr    r12
     bctrl
     lwz      r4, 0x14(r1)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r5, 0x18(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r0, 0x1c(r1)
     addis    r3, r3, 0xe
     stw      r4, 0x98(r1)
@@ -9855,7 +9822,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r5, r26
     addi     r3, r28, 0x96c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -9908,8 +9875,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     extsh    r29, r3
     cmpwi    r29, 0x2710
     blt      .L_80078144
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -9918,12 +9885,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r29
     bne      .L_80078120
-    lis      r4, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r4, lbl_802247B0@l
+    lis      r4, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r4, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r4, r4, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r4)
     addis    r4, r5, 0x1
     slwi     r0, r0, 2
@@ -9960,9 +9927,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078144:
     extsh.   r0, r3
     blt      .L_80078168
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r29, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r4, r4, r0
     lwz      r29, -0x67a0(r4)
@@ -9974,9 +9941,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078174:
     cmplwi   r29, 0x0
     beq      .L_800781B4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_8014946C
@@ -9993,7 +9960,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r5, r3
     addi     r3, r28, 0x990
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -10067,8 +10034,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xbc(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xb8(r1)
     addis    r3, r3, 0xe
@@ -10101,14 +10068,14 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       CEvt_Evaluate
     mr       r3, r30
     bl       CEvt_Evaluate
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x6
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_8014946C
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x696c(r3)
     cmplwi   r3, 0x0
@@ -10125,7 +10092,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     beq      .L_8007871C
     lfs      f1, lbl_8065CF74@sda21(r0)
     mr       r4, r25
-    bl       fn_80092C88
+    bl       SetStageCameraAnimation
     b        .L_8007871C
 .L_800783B4:
     mr       r3, r30
@@ -10136,8 +10103,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0xc0(r1)
     addis    r25, r3, 0xe
@@ -10160,9 +10127,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       fn_8014946C
     b        .L_8007871C
 .L_80078430:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r26, r3, 0xe
     addi     r26, r26, 0x5d38
     mr       r3, r26
@@ -10189,8 +10156,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       fn_8014946C
     b        .L_8007871C
 .L_8007849C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r25, r3, 0xe
     addi     r25, r25, 0x5d38
     mr       r3, r25
@@ -10199,9 +10166,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x0
     blt      .L_800784E0
-    lis      r4, lbl_8036AA3C@ha
+    lis      r4, gEventCameraMementos@ha
     slwi     r5, r3, 6
-    addi     r0, r4, lbl_8036AA3C@l
+    addi     r0, r4, gEventCameraMementos@l
     mr       r3, r25
     add      r4, r0, r5
     bl       fn_80148B00
@@ -10217,12 +10184,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x0
     blt      .L_8007852C
-    lis      r5, lbl_8025C400@ha
-    lis      r4, lbl_8036AA3C@ha
-    addi     r6, r5, lbl_8025C400@l
+    lis      r5, gGame@ha
+    lis      r4, gEventCameraMementos@ha
+    addi     r6, r5, gGame@l
     slwi     r5, r3, 6
     addis    r3, r6, 0xe
-    addi     r0, r4, lbl_8036AA3C@l
+    addi     r0, r4, gEventCameraMementos@l
     add      r4, r0, r5
     addi     r3, r3, 0x5d38
     bl       fn_801487CC
@@ -10231,8 +10198,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r4, 0x60(r30)
     cmplwi   r4, 0x0
     beq      .L_8007871C
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_801487CC
@@ -10244,9 +10211,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       CEvt_Evaluate
     mr.      r0, r3
     bgt      .L_8007871C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     srawi    r4, r0, 31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     xor      r0, r4, r0
     subf     r4, r4, r0
@@ -10266,9 +10233,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mtctr    r0
     bctr
 .L_800785B8:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, -0x81
-    addi     r6, r4, lbl_8025C400@l
+    addi     r6, r4, gGame@l
     li       r0, -0x1
     lwz      r4, 0x1b10(r6)
     lwz      r5, 0x1b14(r6)
@@ -10278,22 +10245,22 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r3, 0x1b14(r6)
     b        .L_8007871C
 .L_800785E4:
-    lis      r3, lbl_8025C400@ha
-    addi     r4, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r4, r3, gGame@l
     lwz      r0, 0x1b14(r4)
     ori      r0, r0, 0x80
     stw      r0, 0x1b14(r4)
     b        .L_8007871C
 .L_800785FC:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_80148B78
     b        .L_8007871C
 .L_80078614:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_80148C6C
@@ -10304,8 +10271,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f1, lbl_8065CF88@sda21(r0)
     stw      r0, 0xc0(r1)
     addis    r3, r3, 0xe
@@ -10322,8 +10289,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f1, lbl_8065CF88@sda21(r0)
     stw      r0, 0xc0(r1)
     addis    r3, r3, 0xe
@@ -10340,8 +10307,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r3, r3, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc4(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f1, lbl_8065CF88@sda21(r0)
     stw      r0, 0xc0(r1)
     addis    r3, r3, 0xe
@@ -10353,11 +10320,11 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800786F0:
     addi     r3, r28, 0x9b0
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_8022500C@ha
     mr       r6, r3
     addi     r7, r4, lbl_8022500C@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x9cf
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -10408,8 +10375,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     extsh    r4, r3
     cmpwi    r4, 0x2710
     blt      .L_80078860
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -10418,12 +10385,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r4
     bne      .L_8007883C
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -10460,9 +10427,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078860:
     extsh.   r0, r4
     blt      .L_80078884
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r4, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r26, -0x67a0(r3)
@@ -10598,8 +10565,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lfd      f0, 0xb8(r1)
     fsubs    f1, f0, f1
     blt      .L_80078B08
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -10608,12 +10575,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r6
     bne      .L_80078AE4
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -10650,9 +10617,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078B08:
     extsh.   r0, r6
     blt      .L_80078B2C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r6, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r6, -0x67a0(r3)
@@ -10679,8 +10646,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bne      .L_80078C70
     cmpwi    r3, 0x2710
     blt      .L_80078C28
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -10689,12 +10656,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r3
     bne      .L_80078C04
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -10731,9 +10698,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078C28:
     extsh.   r0, r3
     blt      .L_80078C4C
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r3, 2
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r3, -0x67a0(r3)
@@ -10752,9 +10719,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078C70:
     cmpwi    r3, 0x2710
     blt      .L_80078D2C
-    lis      r4, lbl_802247B0@ha
+    lis      r4, gEventObjectIds@ha
     li       r6, 0x0
-    addi     r5, r4, lbl_802247B0@l
+    addi     r5, r4, gEventObjectIds@l
     lwz      r4, 0x0(r5)
     mtctr    r4
     cmpwi    r4, 0x0
@@ -10763,12 +10730,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r4, 0x4(r5)
     cmpw     r4, r3
     bne      .L_80078D08
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r3, gEventObjectIds@l
     slwi     r3, r6, 2
     add      r3, r4, r3
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     lha      r3, 0x6(r3)
     addis    r4, r4, 0x1
     slwi     r3, r3, 2
@@ -10805,9 +10772,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80078D2C:
     extsh.   r4, r3
     blt      .L_80078D50
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r3, r3, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r3, r4, r3
     lwz      r3, -0x67a0(r3)
@@ -10828,9 +10795,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x1c(r31)
     cmpwi    r0, 0x0
     beq      .L_80078E14
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x800
-    addi     r6, r4, lbl_8025C400@l
+    addi     r6, r4, gGame@l
     lwz      r5, 0x1b14(r6)
     li       r4, 0x0
     lwz      r0, 0x1b10(r6)
@@ -10843,14 +10810,14 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     addi     r3, r1, 0x18
     li       r4, 0x0
     bl       __ct__4CPadFUc
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r4, r1, 0x18
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     addi     r3, r3, 0x3390
-    bl       fn_80096E38
+    bl       HandleOXMenuInput
     lis      r3, __vt__4CPad@ha
     stw      r28, 0x4(r31)
     addi     r0, r3, __vt__4CPad@l
@@ -10866,8 +10833,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r0, 0x10(r31)
     b        .L_8007A474
 .L_80078E14:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r4, r3, 0x1
@@ -10895,7 +10862,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     li       r4, 0x3
 .L_80078E74:
     lwz      r5, 0x40(r1)
-    bl       fn_800B51FC
+    bl       OpenPlayerYesNoMenu
     li       r0, 0x1
     stw      r0, 0x1c(r31)
 .L_80078E84:
@@ -10909,7 +10876,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x44(r1)
     lis      r6, 0x4330
     lwz      r4, 0x48(r1)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lwz      r3, 0x4c(r1)
     xoris    r7, r0, 0x8000
     lwz      r0, 0x50(r1)
@@ -10919,7 +10886,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r0, r0, 0x8000
     lfd      f4, lbl_8065CF88@sda21(r0)
     stw      r6, 0xb8(r1)
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lfd      f0, 0xb8(r1)
     stw      r4, 0xb4(r1)
     fsubs    f3, f0, f4
@@ -10945,7 +10912,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r5, 0x44(r1)
     lis      r8, 0x4330
     lwz      r4, 0x48(r1)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x4c(r1)
     xoris    r5, r5, 0x8000
     xoris    r4, r4, 0x8000
@@ -10953,7 +10920,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     xoris    r5, r0, 0x8000
     lwz      r0, 0x50(r1)
     stw      r8, 0xb8(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfd      f7, lbl_8065CF88@sda21(r0)
     xoris    r7, r0, 0x8000
     lfd      f0, 0xb8(r1)
@@ -11006,10 +10973,10 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     fsubs    f4, f0, f7
     stfs     f6, 0x24(r1)
     stfs     f5, 0x28(r1)
-    bl       fn_800136B4
-    lis      r3, lbl_8025C400@ha
+    bl       ConfigureSubwindowCamera
+    lis      r3, gGame@ha
     li       r4, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     stw      r4, 0x43d0(r3)
     stw      r0, 0x43d4(r3)
@@ -11020,18 +10987,18 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     cmpwi    r0, 0xe6
     bne      .L_8007A474
 .L_80079058:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stw      r0, 0x43d0(r3)
     b        .L_8007A474
 .L_8007906C:
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_800790A8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x68cc(r5)
@@ -11044,9 +11011,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800790A8:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, -0x1
     lwz      r4, -0x68cc(r4)
@@ -11092,9 +11059,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_80079198
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x68cc(r5)
@@ -11107,9 +11074,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80079198:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, 0x0
     lwz      r4, -0x68cc(r4)
@@ -11152,9 +11119,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_800791C0
     b        .L_8007A474
 .L_8007924C:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x40(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x1
     addis    r3, r3, 0x1
     extsh    r0, r0
@@ -11174,9 +11141,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_800792D0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x68e0(r5)
@@ -11189,9 +11156,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800792D0:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, -0x1
     lwz      r4, -0x68e0(r4)
@@ -11237,9 +11204,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_800793C0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x68e0(r5)
@@ -11252,9 +11219,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800793C0:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, 0x0
     lwz      r4, -0x68e0(r4)
@@ -11297,9 +11264,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_800793E8
     b        .L_8007A474
 .L_80079474:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x40(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x1
     addis    r3, r3, 0x1
     extsh    r0, r0
@@ -11319,9 +11286,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_800794F8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x67dc(r5)
@@ -11334,9 +11301,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800794F8:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, -0x1
     lwz      r4, -0x67dc(r4)
@@ -11382,9 +11349,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x40(r1)
     extsh.   r6, r0
     ble      .L_800795E8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     rlwinm   r4, r6, 29, 3, 29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     clrlwi   r0, r6, 27
     addis    r5, r3, 0x1
     lwz      r5, -0x67dc(r5)
@@ -11397,9 +11364,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800795E8:
     cmpwi    r6, -0x2
     bne      .L_8007A474
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x4
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r4, r4, 0x1
     li       r3, 0x0
     lwz      r4, -0x67dc(r4)
@@ -11442,9 +11409,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_80079610
     b        .L_8007A474
 .L_8007969C:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x40(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x1
     addis    r3, r3, 0x1
     extsh    r0, r0
@@ -11472,8 +11439,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r26, r4
     mr       r27, r3
     blt      .L_800797C0
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -11482,12 +11449,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r23
     bne      .L_8007979C
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -11524,9 +11491,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_800797C0:
     extsh.   r0, r23
     blt      .L_800797E4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r23, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r25, -0x67a0(r3)
@@ -11596,8 +11563,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     or.      r0, r3, r0
     beq      .L_8007A474
     lwz      r5, 0x240(r25)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     cmplwi   r5, 0x0
     lwz      r3, -0x6944(r3)
@@ -11672,7 +11639,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     beq      .L_800799D4
     b        .L_8007A474
 .L_800799D4:
-    bl       fn_800B9758
+    bl       LoadPlayerAttachmentAnimation
     cmpwi    r3, 0x0
     bne      .L_8007A474
     stw      r28, 0x4(r31)
@@ -11684,7 +11651,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r6, r23
     addi     r3, r29, 0x9cc
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -11743,8 +11710,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r27, r4
     mr       r28, r3
     blt      .L_80079B7C
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -11753,12 +11720,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r26
     bne      .L_80079B58
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -11795,9 +11762,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80079B7C:
     extsh.   r0, r26
     blt      .L_80079BA0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r26, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r25, -0x67a0(r3)
@@ -11845,8 +11812,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     or.      r0, r3, r0
     beq      .L_8007A474
     lwz      r5, 0x240(r25)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     cmplwi   r5, 0x0
     lwz      r3, -0x6944(r3)
@@ -11903,7 +11870,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r6, r26
     addi     r3, r29, 0xa04
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -11960,8 +11927,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bl       __shl2i
     cmpwi    r25, 0x2710
     blt      .L_80079E78
-    lis      r5, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r5)
+    lis      r5, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r5)
     li       r7, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -11970,12 +11937,12 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lha      r0, 0x4(r5)
     cmpw     r0, r25
     bne      .L_80079E54
-    lis      r5, lbl_802247B0@ha
-    lis      r6, lbl_8025C400@ha
-    addi     r5, r5, lbl_802247B0@l
+    lis      r5, gEventObjectIds@ha
+    lis      r6, gGame@ha
+    addi     r5, r5, gEventObjectIds@l
     slwi     r0, r7, 2
     add      r5, r5, r0
-    addi     r6, r6, lbl_8025C400@l
+    addi     r6, r6, gGame@l
     lha      r0, 0x6(r5)
     addis    r5, r6, 0x1
     slwi     r0, r0, 2
@@ -12012,9 +11979,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 .L_80079E78:
     extsh.   r0, r25
     blt      .L_80079E9C
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     slwi     r0, r25, 2
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     addis    r5, r5, 0x1
     add      r5, r5, r0
     lwz      r8, -0x67a0(r5)
@@ -12048,7 +12015,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     mr       r6, r25
     addi     r3, r29, 0xa3c
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -12100,21 +12067,21 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     lwz      r0, 0x44(r1)
     extsh    r3, r3
     clrlwi   r4, r0, 16
-    bl       fn_8006E3FC
+    bl       SetItemFlags
     b        .L_8007A474
 .L_80079FB4:
     lwz      r3, 0x40(r1)
     lwz      r0, 0x44(r1)
     extsh    r3, r3
     clrlwi   r4, r0, 16
-    bl       fn_8006E3AC
+    bl       ClearItemFlags
     b        .L_8007A474
 .L_80079FCC:
     lwz      r3, 0x40(r1)
     lwz      r0, 0x44(r1)
     extsh    r3, r3
     clrlwi   r4, r0, 16
-    bl       fn_8006E44C
+    bl       GetItemFlagsMasked
     clrlwi   r0, r3, 16
     stw      r0, 0x10(r31)
     b        .L_8007A474
@@ -12123,8 +12090,8 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     li       r3, 0x0
     li       r4, 0x1
     bl       __shl2i
-    lis      r5, lbl_8025C400@ha
-    addi     r6, r5, lbl_8025C400@l
+    lis      r5, gGame@ha
+    addi     r6, r5, gGame@l
     lwz      r0, 0x1b10(r6)
     lwz      r5, 0x1b14(r6)
     or       r0, r0, r3
@@ -12137,9 +12104,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     li       r3, 0x0
     li       r4, 0x1
     bl       __shl2i
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     nor      r6, r4, r4
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     nor      r5, r3, r3
     lwz      r0, 0x1b10(r4)
     lwz      r3, 0x1b14(r4)
@@ -12153,9 +12120,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     li       r3, 0x0
     li       r4, 0x1
     bl       __shl2i
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     li       r5, 0x0
-    addi     r6, r6, lbl_8025C400@l
+    addi     r6, r6, gGame@l
     lwz      r0, 0x1b10(r6)
     lwz      r6, 0x1b14(r6)
     and      r0, r0, r3
@@ -12169,18 +12136,18 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r5, 0x10(r31)
     b        .L_8007A474
 .L_8007A0A4:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0x1
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     lwz      r4, 0x1b10(r5)
     addi     r0, r3, -0x8000
     or       r0, r4, r0
     stw      r0, 0x1b10(r5)
     b        .L_8007A474
 .L_8007A0C4:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0xffff
-    addi     r7, r4, lbl_8025C400@l
+    addi     r7, r4, gGame@l
     li       r4, -0x1
     lwz      r6, 0x1b14(r7)
     addi     r0, r3, 0x7fff
@@ -12191,17 +12158,17 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r0, 0x1b10(r7)
     b        .L_8007A474
 .L_8007A0F4:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r0, 0x1
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     lwz      r3, 0x1b10(r5)
     or       r0, r3, r0
     stw      r0, 0x1b10(r5)
     b        .L_8007A474
 .L_8007A110:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0xffff
-    addi     r7, r4, lbl_8025C400@l
+    addi     r7, r4, gGame@l
     li       r4, -0x1
     lwz      r6, 0x1b14(r7)
     subi     r0, r3, 0x1
@@ -12212,16 +12179,16 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r0, 0x1b10(r7)
     b        .L_8007A474
 .L_8007A140:
-    lis      r3, lbl_8025C400@ha
-    addi     r4, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r4, r3, gGame@l
     lwz      r0, 0x1b10(r4)
     ori      r0, r0, 0x20
     stw      r0, 0x1b10(r4)
     b        .L_8007A474
 .L_8007A158:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, -0x1
-    addi     r6, r4, lbl_8025C400@l
+    addi     r6, r4, gGame@l
     li       r0, -0x21
     lwz      r4, 0x1b10(r6)
     lwz      r5, 0x1b14(r6)
@@ -12231,9 +12198,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     stw      r3, 0x1b14(r6)
     b        .L_8007A474
 .L_8007A184:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r8, r3, lbl_8025C400@l
+    addi     r8, r3, gGame@l
     li       r0, -0x21
     addis    r3, r8, 0x1
     lwz      r5, 0x1b10(r8)
@@ -12275,9 +12242,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_8007A1D0
     b        .L_8007A474
 .L_8007A228:
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     lwz      r0, 0x40(r1)
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraAreaState@l
     lis      r3, __vt__11CamAreaInfo@ha
     lwz      r5, 0x20(r4)
     extsh    r6, r0
@@ -12305,9 +12272,9 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     bdnz     .L_8007A254
     b        .L_8007A474
 .L_8007A290:
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     lwz      r0, 0x40(r1)
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraAreaState@l
     lis      r3, __vt__11CamAreaInfo@ha
     lwz      r5, 0x20(r4)
     extsh    r6, r0
@@ -12353,7 +12320,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     subi     r4, r24, 0x1
     addi     r5, r1, 0x44
     addi     r3, r3, 0x7
-    bl       fn_8006F338
+    bl       CallStageModule
     stw      r3, 0x10(r31)
     b        .L_8007A474
 .L_8007A344:
@@ -12361,19 +12328,19 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
     addi     r6, r29, 0xa74
     addi     r7, r3, lbl_80225000@l
     li       r4, 0x86d
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
     bl       OSPanic
     b        .L_8007A474
 .L_8007A368:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x40(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r5, 0x44(r1)
     addis    r3, r3, 0x1
     lwz      r3, -0x7a7c(r3)
-    bl       fn_80061308
+    bl       AddMainMenuExtraRow
     b        .L_8007A474
 .L_8007A388:
     cmplwi   r26, 0x0
@@ -12463,7 +12430,7 @@ extern "C" s32 CEvt__cmd_CAMERA(CEvt* evt)
 static inline XObj* CEvt_Born(s32 index)
 {
 	CoordInfo info(GetSpawnData(index));
-	return (XObj*)fn_80132698(&lbl_8025C400.mXObjs, &info, 1, FALSE);
+	return (XObj*)SpawnObjectFromPlacement(&gGame.mXObjs, &info, 1, FALSE);
 }
 
 /**
@@ -12486,24 +12453,24 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 	if (obj == NULL) {
 		obj = CEvt_Born(type + 0x16);
 		if (obj != NULL) {
-			lbl_8025C400.mStatus.mFlags |= 0x1000; // BORN raises it after a spawn
+			gGame.mStatus.mFlags |= 0x1000; // BORN raises it after a spawn
 		}
 	}
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		obj->SetPos(x, y, z, 0);
 		obj->SetRotationY(DEG2RAD * rot, 0);
 		obj->SetScale(sx, sy, sz, 0);
-		fn_8008C8A4(obj);
+		UpdateObjectFloorHeights(obj);
 		fn_8008D220(obj);
 		*(s32*)((u8*)obj + XOBJ_80C) = arg;
-		s16 index                    = fn_8013265C(&lbl_8025C400.mXObjs, (CXObj*)obj);
+		s16 index                    = FindStageObjectIndex(&gGame.mXObjs, (CXObj*)obj);
 		if (CEvt_FindObj(id) == NULL) {
-			lbl_802247B0.mEntry[lbl_802247B0.mCount].mId    = id;
-			lbl_802247B0.mEntry[lbl_802247B0.mCount].mIndex = index;
-			lbl_802247B0.mCount++;
+			gEventObjectIds.mEntry[gEventObjectIds.mCount].mId    = id;
+			gEventObjectIds.mEntry[gEventObjectIds.mCount].mIndex = index;
+			gEventObjectIds.mCount++;
 		}
 	} else {
-		OSPanic(__FILE__, 1705, "%s%s", fn_801911B4("No more space for born(%d,...)-command!\n", id), __FUNCTION__);
+		OSPanic(__FILE__, 1705, "%s%s", FormatToStaticBuffer("No more space for born(%d,...)-command!\n", id), __FUNCTION__);
 	}
 	return 0;
 }
@@ -12603,9 +12570,9 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     fsubs    f1, f1, f2
     fdivs    f26, f1, f0
     bl       CEvt_Evaluate
-    lis      r4, lbl_802247B0@ha
+    lis      r4, gEventObjectIds@ha
     mr       r31, r3
-    addi     r30, r4, lbl_802247B0@l
+    addi     r30, r4, gEventObjectIds@l
     li       r5, 0x0
     lwz      r0, 0x0(r30)
     mr       r3, r30
@@ -12616,12 +12583,12 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r29
     bne      .L_8007A698
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -12656,25 +12623,25 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     addi     r3, r28, 0x16
     bl       GetSpawnData
     lis      r5, __vt__9CoordInfo@ha
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     addi     r0, r5, __vt__9CoordInfo@l
     stw      r3, 0x8(r1)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addi     r4, r1, 0x8
     addis    r3, r3, 0x1
     stw      r0, 0xc(r1)
     li       r5, 0x1
     li       r6, 0x0
     subi     r3, r3, 0x696c
-    bl       fn_80132698
+    bl       SpawnObjectFromPlacement
     lis      r4, __vt__9CoordInfo@ha
     cmplwi   r3, 0x0
     addi     r0, r4, __vt__9CoordInfo@l
     mr       r26, r3
     stw      r0, 0xc(r1)
     beq      .L_8007A718
-    lis      r3, lbl_8025C400@ha
-    addi     r4, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r4, r3, gGame@l
     lwz      r0, 0x1b14(r4)
     ori      r0, r0, 0x1000
     stw      r0, 0x1b14(r4)
@@ -12725,19 +12692,19 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     mtctr    r12
     bctrl
     mr       r3, r26
-    bl       fn_8008C8A4
+    bl       UpdateObjectFloorHeights
     mr       r3, r26
     bl       fn_8008D220
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r31, 0x80c(r26)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     mr       r4, r26
     addis    r3, r3, 0x1
     subi     r3, r3, 0x696c
-    bl       fn_8013265C
-    lis      r4, lbl_802247B0@ha
+    bl       FindStageObjectIndex
+    lis      r4, gEventObjectIds@ha
     extsh    r0, r3
-    lwz      r8, lbl_802247B0@l(r4)
+    lwz      r8, gEventObjectIds@l(r4)
     li       r6, 0x0
     mtctr    r8
     cmpwi    r8, 0x0
@@ -12746,12 +12713,12 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     lha      r3, 0x4(r30)
     cmpw     r3, r29
     bne      .L_8007A888
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r3, gEventObjectIds@l
     slwi     r3, r6, 2
     add      r3, r4, r3
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     lha      r3, 0x6(r3)
     addis    r4, r4, 0x1
     slwi     r3, r3, 2
@@ -12782,9 +12749,9 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 .L_8007A898:
     cmplwi   r7, 0x0
     bne      .L_8007A908
-    lis      r4, lbl_802247B0@ha
+    lis      r4, gEventObjectIds@ha
     slwi     r3, r8, 2
-    addi     r4, r4, lbl_802247B0@l
+    addi     r4, r4, gEventObjectIds@l
     add      r3, r4, r3
     sth      r29, 0x4(r3)
     lwz      r3, 0x0(r4)
@@ -12800,11 +12767,11 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
     mr       r4, r29
     addi     r3, r3, lbl_80208A30@l
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_80224FF4@ha
     mr       r6, r3
     addi     r7, r4, lbl_80224FF4@l
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x6a9
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -12832,15 +12799,14 @@ extern "C" s32 CEvt__cmd_BORN(CEvt* evt)
 
 static inline void EvtQueue_Push(u8* script, u32 owner, s16 tag1, s16 tag2)
 {
-	UnkEvtQueue* queue = &lbl_80369A3C;
-	s32 cursor         = queue->_00;
+	s32 cursor = gEventScriptQueue.mRead;
 	for (s32 i = 0; i < 128; i++, cursor++) {
 		s32 index = cursor % 128;
-		if (queue->_04[index] == NULL) {
-			queue->_04[index]  = script;
-			queue->_208[index] = owner;
-			queue->_408[index] = tag1;
-			queue->_508[index] = tag2;
+		if (gEventScriptQueue.mScript[index] == NULL) {
+			gEventScriptQueue.mScript[index]  = script;
+			gEventScriptQueue.mContext[index] = owner;
+			gEventScriptQueue.mArg0[index]    = tag1;
+			gEventScriptQueue.mArg1[index]    = tag2;
 			break;
 		}
 	}
@@ -12863,9 +12829,9 @@ static inline void CEvt_Attach(CEvt* evt, u8* script, u32 owner, s16 tag1 = -1, 
 	evt->mFrames.mCount = 0;
 	evt->mValues.mCount = 0;
 	if (evt->_00 == 0) {
-		lbl_80369A3C._00 = 0;
-		for (s32 i = 0; i < 128; i++) {
-			lbl_80369A3C._04[i] = NULL;
+		gEventScriptQueue.mRead = 0;
+		for (u32 i = 0; i < 128; i++) {
+			gEventScriptQueue.mScript[i] = NULL;
 		}
 	}
 	evt->_10           = 0;
@@ -12874,9 +12840,12 @@ static inline void CEvt_Attach(CEvt* evt, u8* script, u32 owner, s16 tag1 = -1, 
 	evt->_5C           = -1;
 	evt->_5E           = -1;
 	evt->mData.mScript = script;
-	evt->mData._04     = evt->_00 != 0 ? evt->_00 : owner;
-	evt->_5C           = tag1;
-	evt->_5E           = tag2;
+	if (evt->_00 != 0)
+		evt->mData._04 = evt->_00;
+	else
+		evt->mData._04 = owner;
+	evt->_5C = tag1;
+	evt->_5E = tag2;
 }
 
 /**
@@ -12892,7 +12861,7 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			CEvt_Attach(&obj->mEvt, script, evt->_00);
 		} else {
-			CEvt_Warn(fn_801911B4("attach(%d, ...): obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("attach(%d, ...): obj(%d) killed!", id, id));
 		}
 	} else if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		obj->mEvt.mData.mScript = NULL;
@@ -12902,9 +12871,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
 		}
 		Inventory* inventory = &EVT_PLAYER.mParams.mInventory;
 		inventory->mCompact  = TRUE;
-		fn_800DC62C(inventory);
+		CompactInventory(inventory);
 	} else {
-		CEvt_Warn(fn_801911B4("detach(%d, ...): obj(%d) killed!", id, id));
+		CEvt_Warn(FormatToStaticBuffer("detach(%d, ...): obj(%d) killed!", id, id));
 	}
 	return 0;
 }
@@ -12922,8 +12891,8 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     extsh    r30, r3
     cmpwi    r30, 0x2710
     blt      .L_8007AA34
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -12932,12 +12901,12 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     lha      r0, 0x4(r3)
     cmpw     r0, r30
     bne      .L_8007AA10
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -12974,9 +12943,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
 .L_8007AA34:
     extsh.   r0, r30
     blt      .L_8007AA58
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r30, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r31, -0x67a0(r3)
@@ -13015,9 +12984,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     lwz      r0, 0x7a4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007AB48
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, gEventScriptQueue@ha
     li       r0, 0x80
-    addi     r5, r4, lbl_80369A3C@l
+    addi     r5, r4, gEventScriptQueue@l
     lwz      r8, 0x0(r5)
     mtctr    r0
 .L_8007AAE8:
@@ -13031,9 +13000,9 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     lwz      r0, 0x4(r4)
     cmplwi   r0, 0x0
     bne      .L_8007AB3C
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, gEventScriptQueue@ha
     slwi     r7, r7, 1
-    addi     r5, r4, lbl_80369A3C@l
+    addi     r5, r4, gEventScriptQueue@l
     li       r0, -0x1
     add      r4, r5, r9
     stw      r3, 0x4(r4)
@@ -13059,8 +13028,8 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     cmplwi   r0, 0x0
     bne      .L_8007AC08
     li       r0, 0x4
-    lis      r4, lbl_80369A3C@ha
-    stwu     r5, lbl_80369A3C@l(r4)
+    lis      r4, gEventScriptQueue@ha
+    stwu     r5, gEventScriptQueue@l(r4)
     mtctr    r0
 .L_8007AB84:
     stw      r5, 0x4(r4)
@@ -13123,7 +13092,7 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     addi     r3, r3, lbl_80208A5C@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -13195,15 +13164,15 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     addis    r3, r3, 0x4
     stw      r5, 0x45c0(r3)
 .L_8007AD60:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     stw      r0, -0x6578(r3)
     subi     r3, r3, 0x6978
-    bl       fn_800DC62C
+    bl       CompactInventory
     b        .L_8007AE38
 .L_8007AD88:
     lis      r3, lbl_80208A80@ha
@@ -13211,7 +13180,7 @@ extern "C" s32 CEvt__cmd_ATTACH(CEvt* evt, u8 command)
     addi     r3, r3, lbl_80208A80@l
     mr       r5, r30
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -13300,7 +13269,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 		s16 rate  = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) is collision!", id, anim, frame, rate, id));
+				CEvt_Warn(FormatToStaticBuffer("anim2(%d, %d,%d,%d) ... obj(%d) is collision!", id, anim, frame, rate, id));
 			} else if (count == 0) {
 				obj->mAnmQueue.Clear();
 				if (anim & 0xFFFF0000) {
@@ -13321,7 +13290,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 				CEvt_QueueAnim(obj, anim, frame, rate);
 			}
 		} else {
-			CEvt_Warn(fn_801911B4("anim2(%d, %d,%d,%d) ... obj(%d) killed!", id, anim, frame, rate, id));
+			CEvt_Warn(FormatToStaticBuffer("anim2(%d, %d,%d,%d) ... obj(%d) killed!", id, anim, frame, rate, id));
 		}
 	}
 	return 0;
@@ -13337,9 +13306,9 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
     extsh    r0, r3
     cmpwi    r0, 0x2710
     blt      .L_8007AF38
-    lis      r3, lbl_802247B0@ha
+    lis      r3, gEventObjectIds@ha
     li       r6, 0x0
-    addi     r4, r3, lbl_802247B0@l
+    addi     r4, r3, gEventObjectIds@l
     lwz      r3, 0x0(r4)
     mtctr    r3
     cmpwi    r3, 0x0
@@ -13348,12 +13317,12 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
     lha      r3, 0x4(r4)
     cmpw     r3, r0
     bne      .L_8007AF14
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r3, gEventObjectIds@l
     slwi     r3, r6, 2
     add      r3, r4, r3
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     lha      r3, 0x6(r3)
     addis    r4, r4, 0x1
     slwi     r3, r3, 2
@@ -13390,9 +13359,9 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
 .L_8007AF38:
     extsh.   r3, r0
     blt      .L_8007AF5C
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r3, r0, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r3, r4, r3
     lwz      r29, -0x67a0(r3)
@@ -13442,7 +13411,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
     mr       r7, r24
     mr       r8, r28
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -13702,7 +13671,7 @@ extern "C" s32 CEvt__cmd_ANIM2(CEvt* evt, u8 command)
     mr       r7, r24
     mr       r8, r28
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -13777,7 +13746,7 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
 		}
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL) {
-				CEvt_Warn(fn_801911B4("anim(%d, %d) ... obj(%d) is collision!", id, anim, id));
+				CEvt_Warn(FormatToStaticBuffer("anim(%d, %d) ... obj(%d) is collision!", id, anim, id));
 			} else if (count == 0) {
 				obj->mAnmQueue.Clear();
 				if (anim & 0xFFFF0000) {
@@ -13806,7 +13775,7 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
 				}
 			}
 		} else {
-			CEvt_Warn(fn_801911B4("anim(%d, %d) ... obj(%d) killed!", id, anim, id));
+			CEvt_Warn(FormatToStaticBuffer("anim(%d, %d) ... obj(%d) killed!", id, anim, id));
 		}
 	}
 	return 0;
@@ -13822,9 +13791,9 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
     extsh    r0, r3
     cmpwi    r0, 0x2710
     blt      .L_8007B568
-    lis      r3, lbl_802247B0@ha
+    lis      r3, gEventObjectIds@ha
     li       r6, 0x0
-    addi     r4, r3, lbl_802247B0@l
+    addi     r4, r3, gEventObjectIds@l
     lwz      r3, 0x0(r4)
     mtctr    r3
     cmpwi    r3, 0x0
@@ -13833,12 +13802,12 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
     lha      r3, 0x4(r4)
     cmpw     r3, r0
     bne      .L_8007B544
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r3, gEventObjectIds@l
     slwi     r3, r6, 2
     add      r3, r4, r3
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     lha      r3, 0x6(r3)
     addis    r4, r4, 0x1
     slwi     r3, r3, 2
@@ -13875,9 +13844,9 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
 .L_8007B568:
     extsh.   r3, r0
     blt      .L_8007B58C
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r3, r0, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r3, r4, r3
     lwz      r29, -0x67a0(r3)
@@ -13918,7 +13887,7 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
     addi     r3, r3, lbl_80208AFC@l
     mr       r6, r28
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -14171,7 +14140,7 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
     addi     r3, r3, lbl_80208B24@l
     mr       r6, r28
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     bl       strlen
     addi     r4, r3, 0xd
     li       r3, 0x0
@@ -14238,14 +14207,14 @@ extern "C" s32 CEvt__cmd_ANIM(CEvt* evt, u8 command)
 extern "C" s32 CEvt__cmd_ABORT(CEvt* evt)
 {
 	if (evt->_00 == 0) {
-		UnkEvtQueue* queue = &lbl_80369A3C;
-		s32 idx            = queue->_00;
-		u8* script         = queue->_04[idx];
-		u32 val08          = queue->_208[idx];
-		s16 val5C          = queue->_408[idx];
-		s16 val5E          = queue->_508[idx];
-		queue->_04[idx]    = 0;
-		queue->_00         = (queue->_00 + 1) % 0x80;
+		CEvtQueueEx* queue  = &gEventScriptQueue;
+		s32 idx             = queue->mRead;
+		u8* script          = queue->mScript[idx];
+		u32 val08           = queue->mContext[idx];
+		s16 val5C           = queue->mArg0[idx];
+		s16 val5E           = queue->mArg1[idx];
+		queue->mScript[idx] = 0;
+		queue->mRead        = (queue->mRead + 1) % 0x80;
 		if (script != 0) {
 			evt->mData.mScript = script;
 			evt->mData._04     = val08;
@@ -14270,14 +14239,14 @@ extern "C" s32 CEvt__cmd_RETURN(CEvt* evt)
 	}
 	// nothing to return to, end the script like ABORT
 	if (evt->_00 == 0) {
-		UnkEvtQueue* queue = &lbl_80369A3C;
-		s32 idx            = queue->_00;
-		u8* script         = queue->_04[idx];
-		u32 val08          = queue->_208[idx];
-		s16 val5C          = queue->_408[idx];
-		s16 val5E          = queue->_508[idx];
-		queue->_04[idx]    = 0;
-		queue->_00         = (queue->_00 + 1) % 0x80;
+		CEvtQueueEx* queue  = &gEventScriptQueue;
+		s32 idx             = queue->mRead;
+		u8* script          = queue->mScript[idx];
+		u32 val08           = queue->mContext[idx];
+		s16 val5C           = queue->mArg0[idx];
+		s16 val5E           = queue->mArg1[idx];
+		queue->mScript[idx] = 0;
+		queue->mRead        = (queue->mRead + 1) % 0x80;
 		if (script != 0) {
 			evt->mData.mScript = script;
 			evt->mData._04     = val08;
@@ -14301,7 +14270,7 @@ extern "C" s32 CEvt__cmd_LIB(CEvt* evt)
 	u8* p                                  = evt->mData.mScript;
 	s16 idx                                = p[0] + (p[1] << 8);
 	evt->mData.mScript                     = p + 2;
-	evt->mData.mScript                     = fn_8006E6D4(idx);
+	evt->mData.mScript                     = GetGlobalScriptByIndex(idx);
 	return 0;
 }
 
@@ -14312,7 +14281,7 @@ extern "C" s32 CEvt__cmd_LIB(CEvt* evt)
 extern "C" s32 CEvt__cmd_RUN(CEvt* evt)
 {
 	evt->mCalls.mBuf[evt->mCalls.mCount++] = (s32)(evt->mData.mScript + 4);
-	evt->mData.mScript                     = fn_8006E580(evt->mData.mScript);
+	evt->mData.mScript                     = ResolveEventScriptOffset(evt->mData.mScript);
 	return 0;
 }
 
@@ -14322,7 +14291,7 @@ extern "C" s32 CEvt__cmd_RUN(CEvt* evt)
  */
 extern "C" s32 CEvt__cmd_GOTO(CEvt* evt)
 {
-	evt->mData.mScript = fn_8006E580(evt->mData.mScript);
+	evt->mData.mScript = ResolveEventScriptOffset(evt->mData.mScript);
 	return 0;
 }
 
@@ -14456,7 +14425,7 @@ static inline bool EvalCmp(CEvt* evt)
 		break;
 	}
 	default:
-		OSPanic(__FILE__, 1330, "%s%s", fn_801911B4("Unknown EvalCmp op - %d\n", op), __FUNCTION__);
+		OSPanic(__FILE__, 1330, "%s%s", FormatToStaticBuffer("Unknown EvalCmp op - %d\n", op), __FUNCTION__);
 		break;
 	}
 
@@ -14473,7 +14442,7 @@ extern "C" s32 CEvt_EvalCmp(CEvt* evt)
 	if (EvalCmp(evt)) {
 		evt->mData.mScript += 4;
 	} else {
-		evt->mData.mScript = fn_8006E580(evt->mData.mScript);
+		evt->mData.mScript = ResolveEventScriptOffset(evt->mData.mScript);
 	}
 	return 0;
 }
@@ -14584,9 +14553,9 @@ extern "C" s32 CEvt_EvalCmp(CEvt* evt)
     lis      r3, lbl_80208B48@ha
     addi     r3, r3, lbl_80208B48@l
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x532
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3D4@sda21
@@ -14601,7 +14570,7 @@ extern "C" s32 CEvt_EvalCmp(CEvt* evt)
     b        .L_8007C00C
 .L_8007C000:
     lwz      r3, 0x4(r29)
-    bl       fn_8006E580
+    bl       ResolveEventScriptOffset
     stw      r3, 0x4(r29)
 .L_8007C00C:
     lwz      r0, 0x24(r1)
@@ -14625,17 +14594,8 @@ extern "C" s32 CEvt__cmd_SET(CEvt* evt)
 	return 0;
 }
 
-extern "C" void fn_8009C2C8(void* attachments, s32 index, s32 value);
-#define EVT_PAD (&lbl_8025C400.mPad.mPad[0])
-
-static inline void EvtSetBattery(Params* stats, f32 value)
-{
-	stats->mBattery = value > 0.0f ? value : 0.0f;
-	if (stats->mBattery < 0.0f)
-		stats->mBattery = 0.0f;
-	if (stats->mBattery > stats->mMaxBattery)
-		stats->mBattery = stats->mMaxBattery;
-}
+extern "C" void SetAttachmentCountById(void* attachments, s32 index, s32 value);
+#define EVT_PAD (&gGame.mPad.mPad[0])
 
 /**
  * @note Address: 0x8007C054
@@ -14703,20 +14663,20 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 4096) {
 				if (value != 0) {
-					lbl_8036781C[(u32)index >> 5] |= 1U << (index & 31);
+					gEventFlagWords[(u32)index >> 5] |= 1U << (index & 31);
 				} else {
-					lbl_8036781C[(u32)index >> 5] &= ~(1U << (index & 31));
+					gEventFlagWords[(u32)index >> 5] &= ~(1U << (index & 31));
 				}
 			} else if (index != -1 && index != -2 && index != -3) {
-				OSPanic("evt.cpp", 1107, "%s%s", fn_801911B4("Invalid EvalSet flag[%d] - 0~%d\n", index, 4096), "EvalSet");
+				OSPanic("evt.cpp", 1107, "%s%s", FormatToStaticBuffer("Invalid EvalSet flag[%d] - 0~%d\n", index, 4096), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_VAR:
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 2048) {
-				lbl_80367A2C[index] = value;
+				gEventVariables[index] = value;
 			} else {
-				OSPanic("evt.cpp", 1116, "%s%s", fn_801911B4("Invalid EvalSet var[%d] - 0~%d\n", index, 2048), "EvalSet");
+				OSPanic("evt.cpp", 1116, "%s%s", FormatToStaticBuffer("Invalid EvalSet var[%d] - 0~%d\n", index, 2048), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_RESULT1:
@@ -14728,7 +14688,7 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 		case EVT_EXPR_PAD:
 			index = CEvt_Evaluate(evt);
 			if (index == 7) {
-				if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
+				if (gGame.mStatus.mFlags & 0x800000000ULL) {
 					if (value == 1) {
 						if (EVT_PAD->mConnected)
 							HSD_PadRumbleOn(EVT_PAD->mPort);
@@ -14743,13 +14703,13 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 					}
 				}
 			} else {
-				OSPanic("evt.cpp", 1144, "%s%s", fn_801911B4("Invalid EvalSet pad[%d] - %d\n", index, 7), "EvalSet");
+				OSPanic("evt.cpp", 1144, "%s%s", FormatToStaticBuffer("Invalid EvalSet pad[%d] - %d\n", index, 7), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_BATTERY:
 			index = CEvt_Evaluate(evt);
 			if (index == 0) {
-				EvtSetBattery(&EVT_PLAYER.mParams, value / 100.0f);
+				EVT_PLAYER.mParams.SetBattery(value / 100.0f);
 			} else if (index == 1) {
 				Params* stats      = &EVT_PLAYER.mParams;
 				f32 amount         = value / 100.0f;
@@ -14758,49 +14718,49 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 					stats->mMaxBattery = 0.0f;
 				if (stats->mMaxBattery > 999.9f)
 					stats->mMaxBattery = 999.9f;
-				EvtSetBattery(stats, stats->mBattery);
+				stats->SetBattery(stats->mBattery);
 			} else {
-				OSPanic("evt.cpp", 1157, "%s%s", fn_801911B4("Invalid EvalSet battery[%d] - 0~1\n", index), "EvalSet");
+				OSPanic("evt.cpp", 1157, "%s%s", FormatToStaticBuffer("Invalid EvalSet battery[%d] - 0~1\n", index), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_MONEY:
-			fn_800DD044(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mMoney);
+			AdjustPlayerMoney(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mMoney);
 			break;
 		case EVT_EXPR_SCRAP:
-			fn_800DCFCC(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mScrap);
+			AddPlayerScrap(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mScrap);
 			break;
 		case EVT_EXPR_ITEM:
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 159) {
-				fn_800DC9B0(&EVT_PLAYER.mParams.mInventory, index, value, 0);
+				SetOrAddInventoryItemCount(&EVT_PLAYER.mParams.mInventory, index, value, 0);
 			} else {
-				OSPanic("evt.cpp", 1176, "%s%s", fn_801911B4("Invalid EvalSet item[%d] - 0~%d\n", index, 159), "EvalSet");
+				OSPanic("evt.cpp", 1176, "%s%s", FormatToStaticBuffer("Invalid EvalSet item[%d] - 0~%d\n", index, 159), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_ATC:
 			index = CEvt_Evaluate(evt);
 			if (index >= 0 && index < 9) {
-				fn_8009C2C8(&EVT_PLAYER.mAttachments, index, value);
+				SetAttachmentCountById(&EVT_PLAYER.mAttachments, index, value);
 			} else {
-				OSPanic("evt.cpp", 1185, "%s%s", fn_801911B4("Invalid EvalSet atc[%d] - 0~%d\n", index, 9), "EvalSet");
+				OSPanic("evt.cpp", 1185, "%s%s", FormatToStaticBuffer("Invalid EvalSet atc[%d] - 0~%d\n", index, 9), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_CURRENT_SUIT: {
 			XObjChr& player = EVT_PLAYER;
-			if (player.mSuitChanged == FALSE) {
-				player.mSuitRequest = value;
-				player.mSuitChanged = TRUE;
+			if (player.mSuits.mChangeStep == FALSE) {
+				player.mSuits.mRequested  = value;
+				player.mSuits.mChangeStep = TRUE;
 			}
 			break;
 		}
 		case EVT_EXPR_EXP:
-			fn_800DD198(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mExperience);
+			AdjustPlayerExperience(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mExperience);
 			break;
 		case EVT_EXPR_LEVEL:
-			fn_800DD0F8(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mLevel);
+			AdjustPlayerLevel(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mLevel);
 			break;
 		case EVT_EXPR_RANK:
-			fn_800DD0BC(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mRank);
+			AddPlayerRank(&EVT_PLAYER.mParams, value - EVT_PLAYER.mParams.mRank);
 			break;
 		case EVT_EXPR_CURRENT_ATC: {
 			XObjChr& player = EVT_PLAYER;
@@ -14813,16 +14773,16 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 		case EVT_EXPR_TIME:
 			index = CEvt_Evaluate(evt);
 			if (index == 0) {
-				lbl_8025C400.mTimeState.mMode    = value;
-				lbl_8025C400.mTimeState.mTime    = 0.0f;
-				lbl_8025C400.mTimeState.mRunning = 0;
+				gGame.mTimeState.mMode    = value;
+				gGame.mTimeState.mTime    = 0.0f;
+				gGame.mTimeState.mRunning = 0;
 			} else if (index == 1) {
-				lbl_8025C400.mTimeState.mRunning = 0;
-				lbl_8025C400.mTimeState.mTime    = value / 100.0f;
+				gGame.mTimeState.mRunning = 0;
+				gGame.mTimeState.mTime    = value / 100.0f;
 			} else if (index == 2) {
-				lbl_8025C400.mTimeState.mDuration = value / 100.0f;
+				gGame.mTimeState.mDuration = value / 100.0f;
 			} else {
-				OSPanic("evt.cpp", 1234, "%s%s", fn_801911B4("Invalid EvalSet time[%d] - 0~2\n", index), "EvalSet");
+				OSPanic("evt.cpp", 1234, "%s%s", FormatToStaticBuffer("Invalid EvalSet time[%d] - 0~2\n", index), "EvalSet");
 			}
 			break;
 		case EVT_EXPR_HOLD:
@@ -14838,7 +14798,7 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 		case EVT_EXPR_COS:
 			break;
 		default:
-			OSPanic("evt.cpp", 1245, "%s%s", fn_801911B4("Unknown EvalSet op - %d\n", op), "EvalSet");
+			OSPanic("evt.cpp", 1245, "%s%s", FormatToStaticBuffer("Unknown EvalSet op - %d\n", op), "EvalSet");
 			break;
 		}
 	}
@@ -14958,9 +14918,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 .L_8007C1E0:
     addi     r3, r30, 0xba8
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x532
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3D4@sda21
@@ -15111,9 +15071,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bge      .L_8007C448
     cmpwi    r31, 0x0
     beq      .L_8007C420
-    lis      r4, lbl_8036781C@ha
+    lis      r4, gEventFlagWords@ha
     rlwinm   r6, r3, 29, 3, 29
-    addi     r5, r4, lbl_8036781C@l
+    addi     r5, r4, gEventFlagWords@l
     clrlwi   r0, r3, 27
     li       r3, 0x1
     lwzx     r4, r5, r6
@@ -15122,9 +15082,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     stwx     r0, r5, r6
     b        .L_8007CA98
 .L_8007C420:
-    lis      r4, lbl_8036781C@ha
+    lis      r4, gEventFlagWords@ha
     rlwinm   r6, r3, 29, 3, 29
-    addi     r5, r4, lbl_8036781C@l
+    addi     r5, r4, gEventFlagWords@l
     clrlwi   r0, r3, 27
     li       r3, 0x1
     lwzx     r4, r5, r6
@@ -15142,9 +15102,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     addi     r3, r30, 0xbc4
     li       r5, 0x1000
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x453
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15158,9 +15118,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     blt      .L_8007C4BC
     cmpwi    r3, 0x800
     bge      .L_8007C4BC
-    lis      r4, lbl_80367A2C@ha
+    lis      r4, gEventVariables@ha
     slwi     r0, r3, 2
-    addi     r3, r4, lbl_80367A2C@l
+    addi     r3, r4, gEventVariables@l
     stwx     r31, r3, r0
     b        .L_8007CA98
 .L_8007C4BC:
@@ -15168,9 +15128,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     addi     r3, r30, 0xbe8
     li       r5, 0x800
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x45c
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15188,9 +15148,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x7
     bne      .L_8007C5BC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r28, r3, lbl_8025C400@l
+    addi     r28, r3, gGame@l
     li       r0, 0x8
     lwz      r3, 0x1b10(r28)
     lwz      r5, 0x1b14(r28)
@@ -15239,9 +15199,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     addi     r3, r30, 0xc08
     li       r5, 0x7
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x478
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15256,8 +15216,8 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     xoris    r3, r31, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0x8(r1)
     addis    r3, r3, 0x1
@@ -15293,8 +15253,8 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     xoris    r3, r31, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0x8(r1)
     addis    r3, r3, 0x1
@@ -15349,9 +15309,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     mr       r4, r3
     addi     r3, r30, 0xc28
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x485
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15359,26 +15319,26 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bl       OSPanic
     b        .L_8007CA98
 .L_8007C774:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r0, -0x69a0(r3)
     subi     r3, r3, 0x69b4
     subf     r4, r0, r31
-    bl       fn_800DD044
+    bl       AdjustPlayerMoney
     b        .L_8007CA98
 .L_8007C79C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r0, -0x699c(r3)
     subi     r3, r3, 0x69b4
     subf     r4, r0, r31
-    bl       fn_800DCFCC
+    bl       AddPlayerScrap
     b        .L_8007CA98
 .L_8007C7C4:
     mr       r3, r28
@@ -15387,25 +15347,25 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     blt      .L_8007C808
     cmpwi    r3, 0x9f
     bge      .L_8007C808
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     extsh    r4, r3
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     extsh    r5, r31
     addis    r3, r3, 0x1
     li       r6, 0x0
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     subi     r3, r3, 0x6978
-    bl       fn_800DC9B0
+    bl       SetOrAddInventoryItemCount
     b        .L_8007CA98
 .L_8007C808:
     mr       r4, r3
     addi     r3, r30, 0xc4c
     li       r5, 0x9f
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x498
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15419,24 +15379,24 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     blt      .L_8007C87C
     cmpwi    r3, 0x9
     bge      .L_8007C87C
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     mr       r4, r3
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     mr       r5, r31
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     addi     r3, r3, 0x2dfc
-    bl       fn_8009C2C8
+    bl       SetAttachmentCountById
     b        .L_8007CA98
 .L_8007C87C:
     mr       r4, r3
     addi     r3, r30, 0xc70
     li       r5, 0x9
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x4a1
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15444,8 +15404,8 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bl       OSPanic
     b        .L_8007CA98
 .L_8007C8B0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -15457,40 +15417,40 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     stw      r0, -0x281c(r3)
     b        .L_8007CA98
 .L_8007C8E0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwzu     r0, -0x69b4(r3)
     subf     r4, r0, r31
-    bl       fn_800DD198
+    bl       AdjustPlayerExperience
     b        .L_8007CA98
 .L_8007C904:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r0, -0x69b0(r3)
     subi     r3, r3, 0x69b4
     subf     r4, r0, r31
-    bl       fn_800DD0F8
+    bl       AdjustPlayerLevel
     b        .L_8007CA98
 .L_8007C92C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r0, -0x69ac(r3)
     subi     r3, r3, 0x69b4
     subf     r4, r0, r31
-    bl       fn_800DD0BC
+    bl       AddPlayerRank
     b        .L_8007CA98
 .L_8007C954:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -15506,9 +15466,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     bl       CEvt_Evaluate
     cmpwi    r3, 0x0
     bne      .L_8007C9B8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f0, lbl_8065CF74@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, 0x0
     addis    r3, r3, 0xe
     stw      r31, 0x5d28(r3)
@@ -15521,8 +15481,8 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     xoris    r3, r31, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0x8(r1)
     addis    r3, r3, 0xe
@@ -15540,8 +15500,8 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     xoris    r3, r31, 0x8000
     lis      r0, 0x4330
     stw      r3, 0xc(r1)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfd      f2, lbl_8065CF88@sda21(r0)
     stw      r0, 0x8(r1)
     addis    r3, r3, 0xe
@@ -15555,9 +15515,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
     mr       r4, r3
     addi     r3, r30, 0xc90
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x4d2
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15567,9 +15527,9 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 .L_8007CA70:
     addi     r3, r30, 0xcb0
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x4dd
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3CC@sda21
@@ -15584,13 +15544,15 @@ extern "C" void CEvt_EvalSet(CEvt* evt)
 */
 
 extern "C" {
-u8 fn_801CD980(u8 port);
+u8 GetPadRumbleStatus(u8 port);
 }
 
 static inline s32 EvtRead16(const u8* p)
 {
 	return p[0] + (p[1] << 8);
 }
+
+static char sEvaluateName[] = "Evaluate";
 
 /**
  * @note Address: 0x8007CAAC
@@ -15662,11 +15624,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_ADDRESS_OF: {
 		s32 offset = ReadResourceOffset(evt->mData.mScript);
 		evt->mData.mScript += 4;
-		s32 library = fn_8006E66C(evt->mData.mScript);
+		s32 library = IsGlobalEventScript(evt->mData.mScript);
 		if (library != 0)
-			result = (s32)(fn_8006E724(library) + offset);
+			result = (s32)(GetGlobalScriptTable(library) + offset);
 		else
-			result = (s32)(fn_8006F490() + offset);
+			result = (s32)(GetStageDataBuffer() + offset);
 		break;
 	}
 	case EVT_EXPR_STACK: {
@@ -15684,22 +15646,22 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_FLAG:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 4096) {
-			result = (lbl_8036781C[(u32)result >> 5] & (1U << (result & 31))) ? 1 : 0;
+			result = (gEventFlagWords[(u32)result >> 5] & (1U << (result & 31))) ? 1 : 0;
 		} else if (result == -1)
 			result = 0;
 		else if (result == -2)
-			result = (lbl_8025C400.mStatus.mFlags & 0x2000) ? 1 : 0;
+			result = (gGame.mStatus.mFlags & 0x2000) ? 1 : 0;
 		else if (result == -3)
-			result = (lbl_8025C400.mStatus.mFlags & 0x8000000000000ULL) ? 1 : 0;
+			result = (gGame.mStatus.mFlags & 0x8000000000000ULL) ? 1 : 0;
 		else
-			OSPanic("evt.cpp", 686, "%s%s", fn_801911B4("Invalid Evaluate flg[%d] - 0~%d\n", result, 4096), "Evaluate");
+			OSPanic("evt.cpp", 686, "%s%s", FormatToStaticBuffer("Invalid Evaluate flg[%d] - 0~%d\n", result, 4096), sEvaluateName);
 		break;
 	case EVT_EXPR_VAR:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 2048)
-			result = lbl_80367A2C[result];
+			result = gEventVariables[result];
 		else
-			OSPanic("evt.cpp", 694, "%s%s", fn_801911B4("Invalid Evaluate var[%d] - 0~%d\n", result, 2048), "Evaluate");
+			OSPanic("evt.cpp", 694, "%s%s", FormatToStaticBuffer("Invalid Evaluate var[%d] - 0~%d\n", result, 2048), sEvaluateName);
 		break;
 	case EVT_EXPR_RESULT1:
 		result = evt->_10;
@@ -15732,22 +15694,24 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 			result = 100.0f * sqrtf(x * x + y * y);
 			break;
 		}
-		case 6:
-			result = RAD2DEG
-			       * WrapAngle(-(f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY) + lbl_8025C400.mMotionControlCamera.mCamera.mAngle.y
-			                   - ((XObj*)((u8*)lbl_8025C400.GetPlayer()))->mMoveRotate.y);
+		case 6: {
+			f32 stickAngle = (f32)atan2(pad.mPad->mStickX, pad.mPad->mStickY);
+			f32 cameraYaw  = gGame.mMotionControlCamera.mCamera.mAngle.y;
+			f32 playerYaw  = gGame.GetPlayer()->mMoveRotate.y;
+			result         = RAD2DEG * WrapAngle(-stickAngle + cameraYaw - playerYaw);
 			break;
+		}
 		case 7:
-			if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL) {
+			if (gGame.mStatus.mFlags & 0x800000000ULL) {
 				u8 status = 0;
 				if (pad.mPad->mConnected)
-					status = fn_801CD980(pad.mPad->mPort);
+					status = GetPadRumbleStatus(pad.mPad->mPort);
 				result = status == 2;
 			} else
 				result = 0;
 			break;
 		default:
-			OSPanic("evt.cpp", 737, "%s%s", fn_801911B4("Invalid Evaluate pad[%d] - 0~7\n", result), "Evaluate");
+			OSPanic("evt.cpp", 737, "%s%s", FormatToStaticBuffer("Invalid Evaluate pad[%d] - 0~7\n", result), sEvaluateName);
 			break;
 		}
 		break;
@@ -15759,7 +15723,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		else if (result == 1)
 			result = 100.0f * EVT_PLAYER.mParams.mMaxBattery;
 		else
-			OSPanic("evt.cpp", 750, "%s%s", fn_801911B4("Invalid Evaluate battery[%d] - 0~1\n", result), "Evaluate");
+			OSPanic("evt.cpp", 750, "%s%s", FormatToStaticBuffer("Invalid Evaluate battery[%d] - 0~1\n", result), sEvaluateName);
 		break;
 	case EVT_EXPR_MONEY:
 		result = EVT_PLAYER.mParams.mMoney;
@@ -15770,22 +15734,22 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_ITEM:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 159) {
-			s32 index = fn_800DCD30(EVT_PLAYER.mParams.mInventory.mItems, result);
+			s32 index = FindOwnedInventoryItemIndex(EVT_PLAYER.mParams.mInventory.mItems, result);
 			result    = index >= 0 ? EVT_PLAYER.mParams.mInventory.mItems[index].mCount : 0;
 		} else
-			OSPanic("evt.cpp", 769, "%s%s", fn_801911B4("Invalid Evaluate item[%d] - 0~%d\n", result, 159), "Evaluate");
+			OSPanic("evt.cpp", 769, "%s%s", FormatToStaticBuffer("Invalid Evaluate item[%d] - 0~%d\n", result, 159), sEvaluateName);
 		break;
 	case EVT_EXPR_ATC:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result < 9) {
-			result = fn_8009C1BC(&EVT_PLAYER.mAttachments, result);
+			result = GetAttachmentCountById(&EVT_PLAYER.mAttachments, result);
 			if (result < 0)
 				result = 0;
 		} else
-			OSPanic("evt.cpp", 778, "%s%s", fn_801911B4("Invalid Evaluate atc[%d] - 0~%d\n", result, 9), "Evaluate");
+			OSPanic("evt.cpp", 778, "%s%s", FormatToStaticBuffer("Invalid Evaluate atc[%d] - 0~%d\n", result, 9), sEvaluateName);
 		break;
 	case EVT_EXPR_CURRENT_SUIT:
-		result = EVT_PLAYER.mSuit;
+		result = EVT_PLAYER.mSuits.mCurrent;
 		break;
 	case EVT_EXPR_EXP:
 		result = EVT_PLAYER.mParams.mExperience;
@@ -15797,7 +15761,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		result = EVT_PLAYER.mParams.mRank;
 		break;
 	case EVT_EXPR_HOLD: {
-		XObj* held = *(XObj**)((u8*)lbl_8025C400.GetPlayer() + PLAYER_HELD_OBJ);
+		XObj* held = *(XObj**)((u8*)gGame.GetPlayer() + PLAYER_HELD_OBJ);
 		if (held != NULL) {
 			if ((s16)held->GetPool() == 24)
 				result = 1000;
@@ -15821,12 +15785,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 	case EVT_EXPR_MAP:
 		result = CEvt_Evaluate(evt);
 		if (result >= 0 && result <= 1) {
-			s32 stage = (&lbl_8025C400.mStage)[result];
+			s32 stage = result == 0 ? gGame.mStage : gGame.mPrevStage;
 			result    = stage;
 			if (stage > GetStageNum())
 				result = stage - GetStageNum() + 99;
 		} else
-			OSPanic("evt.cpp", 827, "%s%s", fn_801911B4("Invalid Evaluate map[%d] - 0~1\n", result), "Evaluate");
+			OSPanic("evt.cpp", 827, "%s%s", FormatToStaticBuffer("Invalid Evaluate map[%d] - 0~1\n", result), sEvaluateName);
 		break;
 	case EVT_EXPR_ACTOR_NAME:
 		result = CEvt_Evaluate(evt);
@@ -15835,21 +15799,21 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		result = (s32)fn_8006E1D0(result);
 		break;
 	case EVT_EXPR_ITEM_NAME:
-		result = (s32)fn_8006E510(CEvt_Evaluate(evt));
+		result = (s32)GetItemName(CEvt_Evaluate(evt));
 		break;
 	case EVT_EXPR_STICKER_NAME:
-		result = (s32)fn_8006DDB8(CEvt_Evaluate(evt));
+		result = (s32)GetStatusIconName(CEvt_Evaluate(evt));
 		break;
 	case EVT_EXPR_TIME:
 		result = CEvt_Evaluate(evt);
 		if (result == 0)
-			result = lbl_8025C400.mTimeState.mMode;
+			result = gGame.mTimeState.mMode;
 		else if (result == 1)
-			result = 100.0f * lbl_8025C400.mTimeState.mTime;
+			result = 100.0f * gGame.mTimeState.mTime;
 		else if (result == 2)
-			result = 100.0f * lbl_8025C400.mTimeState.mDuration;
+			result = 100.0f * gGame.mTimeState.mDuration;
 		else
-			OSPanic("evt.cpp", 854, "%s%s", fn_801911B4("Invalid Evaluate time[%d] - 0~2\n", result), "Evaluate");
+			OSPanic("evt.cpp", 854, "%s%s", FormatToStaticBuffer("Invalid Evaluate time[%d] - 0~2\n", result), sEvaluateName);
 		break;
 	case EVT_EXPR_OBJ:
 		result = CEvt_Evaluate(evt);
@@ -15918,23 +15882,23 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 					path[i] = (s16)EvtRead16(data);
 				switch (result) {
 				case EVT_ATOM_BONEX:
-					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).x;
+					result = 100.0f * GetEventJointWorldPosition((CJObj*)obj, depth, path).x;
 					break;
 				case EVT_ATOM_BONEY:
-					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).y;
+					result = 100.0f * GetEventJointWorldPosition((CJObj*)obj, depth, path).y;
 					break;
 				case EVT_ATOM_BONEZ:
-					result = 100.0f * fn_8007E7C8((CJObj*)obj, depth, path).z;
+					result = 100.0f * GetEventJointWorldPosition((CJObj*)obj, depth, path).z;
 					break;
 				case 249: {
-					pos = fn_8007E7C8((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
+					pos = GetEventJointWorldPosition((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
 					f32 x;
 					obj->vf10C(&pos, &x, NULL, NULL, 0);
 					result = 100.0f * x;
 					break;
 				}
 				case 250: {
-					pos = fn_8007E7C8((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
+					pos = GetEventJointWorldPosition((CJObj*)obj, depth, path) - (Vec)obj->mMoveTranslate;
 					f32 y;
 					obj->vf10C(&pos, NULL, &y, NULL, 0);
 					result = 100.0f * y;
@@ -15967,7 +15931,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 			break;
 		}
 		default:
-			OSPanic("evt.cpp", 977, "%s%s", fn_801911B4("Invalid Evaluate obj(...,%d)\n", result), "Evaluate");
+			OSPanic("evt.cpp", 977, "%s%s", FormatToStaticBuffer("Invalid Evaluate obj(...,%d)\n", result), sEvaluateName);
 			break;
 		}
 		break;
@@ -16013,7 +15977,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 		break;
 	}
 	default:
-		OSPanic("evt.cpp", 1023, "%s%s", fn_801911B4("Unknown Evaluate op - %d\n", op), "Evaluate");
+		OSPanic("evt.cpp", 1023, "%s%s", FormatToStaticBuffer("Unknown Evaluate op - %d\n", op), sEvaluateName);
 		break;
 	}
 	return result;
@@ -16268,14 +16232,14 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     add      r28, r0, r6
     lwz      r3, 0x4(r30)
     add      r28, r4, r28
-    bl       fn_8006E66C
+    bl       IsGlobalEventScript
     cmpwi    r3, 0x0
     beq      .L_8007CE34
-    bl       fn_8006E724
+    bl       GetGlobalScriptTable
     add      r31, r3, r28
     b        .L_8007E7A4
 .L_8007CE34:
-    bl       fn_8006F490
+    bl       GetStageDataBuffer
     add      r31, r3, r28
     b        .L_8007E7A4
 .L_8007CE40:
@@ -16314,9 +16278,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007CEF8
     cmpwi    r31, 0x1000
     bge      .L_8007CEF8
-    lis      r3, lbl_8036781C@ha
+    lis      r3, gEventFlagWords@ha
     rlwinm   r0, r31, 29, 3, 29
-    addi     r3, r3, lbl_8036781C@l
+    addi     r3, r3, gEventFlagWords@l
     clrlwi   r4, r31, 27
     li       r5, 0x1
     lwzx     r0, r3, r0
@@ -16337,9 +16301,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007CF08:
     cmpwi    r31, -0x2
     bne      .L_8007CF50
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x2000
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     lwz      r0, 0x1b10(r5)
     li       r4, 0x0
     lwz      r5, 0x1b14(r5)
@@ -16357,9 +16321,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007CF50:
     cmpwi    r31, -0x3
     bne      .L_8007CF98
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     lis      r0, 0x8
     lwz      r3, 0x1b10(r5)
     lwz      r5, 0x1b14(r5)
@@ -16379,11 +16343,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     addi     r3, r29, 0xccc
     li       r5, 0x1000
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x2ae
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -16395,9 +16359,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007CFF8
     cmpwi    r31, 0x800
     bge      .L_8007CFF8
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEventVariables@ha
     slwi     r0, r31, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEventVariables@l
     lwzx     r31, r3, r0
     b        .L_8007E7A4
 .L_8007CFF8:
@@ -16405,11 +16369,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     addi     r3, r29, 0xcf0
     li       r5, 0x800
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x2b6
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -16572,8 +16536,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lfs      f2, 0x38(r3)
     bl       atan2
     frsp     f2, f1
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lfs      f1, lbl_8065CFF4@sda21(r0)
     addis    r4, r3, 0xe
     lfs      f0, lbl_8065CF74@sda21(r0)
@@ -16605,9 +16569,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lwz      r31, 0x124(r1)
     b        .L_8007D34C
 .L_8007D2B8:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x0
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     li       r0, 0x8
     lwz      r4, 0x1b10(r5)
     lwz      r5, 0x1b14(r5)
@@ -16622,7 +16586,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     cmpwi    r0, 0x0
     beq      .L_8007D300
     lbz      r3, 0x0(r4)
-    bl       fn_801CD980
+    bl       GetPadRumbleStatus
 .L_8007D300:
     clrlwi   r0, r3, 24
     subfic   r0, r0, 0x2
@@ -16636,11 +16600,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r31
     addi     r3, r29, 0xd14
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x2e1
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -16654,9 +16618,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     bl       CEvt_Evaluate
     mr.      r31, r3
     bne      .L_8007D398
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF80@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -16669,9 +16633,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007D398:
     cmpwi    r31, 0x1
     bne      .L_8007D3D0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF80@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -16685,27 +16649,27 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r31
     addi     r3, r29, 0xd34
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x2ee
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
     bl       OSPanic
     b        .L_8007E7A4
 .L_8007D404:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r31, -0x69a0(r3)
     b        .L_8007E7A4
 .L_8007D420:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -16717,14 +16681,14 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007D498
     cmpwi    r31, 0x9f
     bge      .L_8007D498
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     extsh    r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r28, r3, 0x1
     lwz      r3, -0x6944(r28)
     addis    r3, r3, 0x1
     subi     r3, r3, 0x6978
-    bl       fn_800DCD30
+    bl       FindOwnedInventoryItemIndex
     cmpwi    r3, 0x0
     blt      .L_8007D490
     lwz      r4, -0x6944(r28)
@@ -16741,11 +16705,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     addi     r3, r29, 0xd58
     li       r5, 0x9f
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x301
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -16757,14 +16721,14 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007D514
     cmpwi    r31, 0x9
     bge      .L_8007D514
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     addi     r3, r3, 0x2dfc
-    bl       fn_8009C1BC
+    bl       GetAttachmentCountById
     mr.      r31, r3
     bge      .L_8007E7A4
     li       r31, 0x0
@@ -16774,51 +16738,51 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     addi     r3, r29, 0xd7c
     li       r5, 0x9
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x30a
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
     bl       OSPanic
     b        .L_8007E7A4
 .L_8007D54C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r31, -0x2818(r3)
     b        .L_8007E7A4
 .L_8007D568:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r31, -0x69b4(r3)
     b        .L_8007E7A4
 .L_8007D584:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r31, -0x69b0(r3)
     b        .L_8007E7A4
 .L_8007D5A0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
     lwz      r31, -0x69ac(r3)
     b        .L_8007E7A4
 .L_8007D5BC:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r3, 0xa64(r3)
@@ -16882,8 +16846,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r31, 0x5e(r30)
     b        .L_8007E7A4
 .L_8007D684:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -16901,9 +16865,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     blt      .L_8007D6FC
     cmpwi    r31, 0x1
     bgt      .L_8007D6FC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r31, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     add      r3, r3, r0
     lwz      r28, 0x3444(r3)
     mr       r31, r28
@@ -16918,11 +16882,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r31
     addi     r3, r29, 0xda0
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x33b
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -16941,29 +16905,29 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     b        .L_8007E7A4
 .L_8007D754:
     bl       CEvt_Evaluate
-    bl       fn_8006E510
+    bl       GetItemName
     mr       r31, r3
     b        .L_8007E7A4
 .L_8007D764:
     bl       CEvt_Evaluate
-    bl       fn_8006DDB8
+    bl       GetStatusIconName
     mr       r31, r3
     b        .L_8007E7A4
 .L_8007D774:
     bl       CEvt_Evaluate
     mr.      r31, r3
     bne      .L_8007D794
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r31, 0x5d28(r3)
     b        .L_8007E7A4
 .L_8007D794:
     cmpwi    r31, 0x1
     bne      .L_8007D7C4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF80@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lfs      f0, 0x5d2c(r3)
     fmuls    f0, f1, f0
@@ -16974,9 +16938,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007D7C4:
     cmpwi    r31, 0x2
     bne      .L_8007D7F4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_8065CF80@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lfs      f0, 0x5d30(r3)
     fmuls    f0, f1, f0
@@ -16988,11 +16952,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r31
     addi     r3, r29, 0xdc0
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x356
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -17037,8 +17001,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r3, r3
     cmpwi    r3, 0x2710
     blt      .L_8007D95C
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17047,12 +17011,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r3
     bne      .L_8007D938
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -17089,9 +17053,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007D95C:
     extsh.   r0, r3
     blt      .L_8007D980
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r3, 2
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r3, -0x67a0(r3)
@@ -17260,8 +17224,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r29, r0
     cmpwi    r29, 0x2710
     blt      .L_8007DC70
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17270,12 +17234,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r29
     bne      .L_8007DC4C
-    lis      r4, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r4, lbl_802247B0@l
+    lis      r4, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r4, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r4, r4, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r4)
     addis    r4, r5, 0x1
     slwi     r0, r0, 2
@@ -17312,9 +17276,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007DC70:
     extsh.   r0, r29
     blt      .L_8007DC94
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r29, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r4, r4, r0
     lwz      r29, -0x67a0(r4)
@@ -17444,7 +17408,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r29
     addi     r3, r1, 0x9c
     addi     r6, r1, 0xd0
-    bl       fn_8007E7C8
+    bl       GetEventJointWorldPosition
     lfs      f1, lbl_8065CF80@sda21(r0)
     lis      r3, __vt__4CVec@ha
     lfs      f0, 0x9c(r1)
@@ -17459,7 +17423,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r29
     addi     r3, r1, 0x8c
     addi     r6, r1, 0xd0
-    bl       fn_8007E7C8
+    bl       GetEventJointWorldPosition
     lfs      f1, lbl_8065CF80@sda21(r0)
     lis      r3, __vt__4CVec@ha
     lfs      f0, 0x90(r1)
@@ -17474,7 +17438,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r29
     addi     r3, r1, 0x7c
     addi     r6, r1, 0xd0
-    bl       fn_8007E7C8
+    bl       GetEventJointWorldPosition
     lfs      f1, lbl_8065CF80@sda21(r0)
     lis      r3, __vt__4CVec@ha
     lfs      f0, 0x84(r1)
@@ -17489,7 +17453,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r29
     addi     r3, r1, 0x6c
     addi     r6, r1, 0xd0
-    bl       fn_8007E7C8
+    bl       GetEventJointWorldPosition
     lwz      r6, 0xc8(r29)
     addi     r3, r1, 0x50
     lwz      r0, 0xcc(r29)
@@ -17531,7 +17495,7 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r29
     addi     r3, r1, 0x40
     addi     r6, r1, 0xd0
-    bl       fn_8007E7C8
+    bl       GetEventJointWorldPosition
     lwz      r6, 0xc8(r29)
     addi     r3, r1, 0x24
     lwz      r0, 0xcc(r29)
@@ -17582,8 +17546,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r29, r0
     cmpwi    r29, 0x2710
     blt      .L_8007E128
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17592,12 +17556,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r29
     bne      .L_8007E104
-    lis      r4, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r4, lbl_802247B0@l
+    lis      r4, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r4, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r4, r4, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r4)
     addis    r4, r5, 0x1
     slwi     r0, r0, 2
@@ -17634,9 +17598,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007E128:
     extsh.   r0, r29
     blt      .L_8007E14C
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r29, 2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     add      r4, r4, r0
     lwz      r29, -0x67a0(r4)
@@ -17653,8 +17617,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r3, r0
     cmpwi    r3, 0x2710
     blt      .L_8007E224
-    lis      r4, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r4)
+    lis      r4, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r4)
     li       r5, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17663,12 +17627,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r4)
     cmpw     r0, r3
     bne      .L_8007E200
-    lis      r3, lbl_802247B0@ha
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r4, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r5, 2
     add      r3, r3, r0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r4, 0x1
     slwi     r0, r0, 2
@@ -17705,9 +17669,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007E224:
     extsh.   r0, r3
     blt      .L_8007E248
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     slwi     r0, r3, 2
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r3, -0x67a0(r3)
@@ -17784,8 +17748,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r4, r0
     cmpwi    r4, 0x2710
     blt      .L_8007E3F8
-    lis      r5, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r5)
+    lis      r5, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r5)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17794,12 +17758,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r5)
     cmpw     r0, r4
     bne      .L_8007E3D4
-    lis      r4, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r4, r4, lbl_802247B0@l
+    lis      r4, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r4, r4, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r4, r4, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r4)
     addis    r4, r5, 0x1
     slwi     r0, r0, 2
@@ -17836,9 +17800,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007E3F8:
     extsh.   r0, r4
     blt      .L_8007E41C
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     slwi     r0, r4, 2
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     addis    r4, r4, 0x1
     add      r4, r4, r0
     lwz      r4, -0x67a0(r4)
@@ -17855,8 +17819,8 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     extsh    r5, r0
     cmpwi    r5, 0x2710
     blt      .L_8007E4F4
-    lis      r3, lbl_802247B0@ha
-    lwzu     r0, lbl_802247B0@l(r3)
+    lis      r3, gEventObjectIds@ha
+    lwzu     r0, gEventObjectIds@l(r3)
     li       r6, 0x0
     mtctr    r0
     cmpwi    r0, 0x0
@@ -17865,12 +17829,12 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     lha      r0, 0x4(r3)
     cmpw     r0, r5
     bne      .L_8007E4D0
-    lis      r3, lbl_802247B0@ha
-    lis      r5, lbl_8025C400@ha
-    addi     r3, r3, lbl_802247B0@l
+    lis      r3, gEventObjectIds@ha
+    lis      r5, gGame@ha
+    addi     r3, r3, gEventObjectIds@l
     slwi     r0, r6, 2
     add      r3, r3, r0
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lha      r0, 0x6(r3)
     addis    r3, r5, 0x1
     slwi     r0, r0, 2
@@ -17907,9 +17871,9 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
 .L_8007E4F4:
     extsh.   r0, r5
     blt      .L_8007E518
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     slwi     r0, r5, 2
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     add      r3, r3, r0
     lwz      r5, -0x67a0(r3)
@@ -17957,11 +17921,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r31
     addi     r3, r29, 0xde4
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x3d1
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -18084,11 +18048,11 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
     mr       r4, r28
     addi     r3, r29, 0xe04
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80224FE8@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sEvaluateName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80224FE8@l
-    li       r3, lbl_8065CFA0@sda21
+    addi     r7, r4, sEvaluateName@l
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x3ff
     li       r5, lbl_8065CFA8@sda21
     crclr    cr1eq
@@ -18110,21 +18074,25 @@ extern "C" s32 CEvt_Evaluate(CEvt* evt)
  * @note Address: 0x8007E7C8
  * @note Size: 0x2C
  */
-extern "C" CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path)
+extern "C" CVec GetEventJointWorldPosition(CJObj* obj, s32 depth, s32* path)
 {
-	return fn_8007E7F4(obj, depth, path);
+	return CJObj_GetJointWorldPositionByPath(obj, depth, path);
 }
 
-extern "C" CVec fn_8007E8A0(CJObj* obj, HSD_JObj* jobj);
+extern "C" CVec GetEventJObjWorldPosition(CJObj* obj, HSD_JObj* jobj);
 
 /**
  * @note Address: 0x8007E7F4
  * @note Size: 0xAC
  */
-extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path)
+extern "C" CVec CJObj_GetJointWorldPositionByPath(CJObj* obj, s32 depth, s32* path)
 {
 	// CJObj::mJObj, game/cjobj.h would pull 0x24 bytes of .rodata into this file
-	return fn_8007E8A0(obj, GetJointByPath(*(HSD_JObj**)obj, path, depth));
+#if defined(VERSION_JP)
+	return GetJointPosition(FindJointByPath(*(HSD_JObj**)obj, path, depth));
+#else
+	return GetEventJObjWorldPosition(obj, GetJointByPath(*(HSD_JObj**)obj, path, depth));
+#endif
 }
 
 /*
@@ -18176,7 +18144,7 @@ extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path)
 .L_8007E880:
     mr       r3, r31
     mr       r5, r7
-    bl       fn_8007E8A0
+    bl       GetEventJObjWorldPosition
     lwz      r0, 0x14(r1)
     lwz      r31, 0xc(r1)
     mtlr     r0
@@ -18184,23 +18152,13 @@ extern "C" CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path)
     blr
 */
 
-// obj is unused. the asserts are jobj.h lines 1148 and 605
-// todo: copied inline, clean up
-// has to return a Vec by value to get the extra word copy before the CVec is built
-inline Vec GetJObjWorldPos(HSD_JObj* jobj)
-{
-	Vec pos;
-	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &pos);
-	return pos;
-}
-
 /**
  * @note Address: 0x8007E8A0
  * @note Size: 0xD8
  */
-extern "C" CVec fn_8007E8A0(CJObj* obj, HSD_JObj* jobj)
+extern "C" CVec GetEventJObjWorldPosition(CJObj* obj, HSD_JObj* jobj)
 {
-	return GetJObjWorldPos(jobj);
+	return GetJointPosition(jobj);
 }
 
 /**
@@ -18211,8 +18169,8 @@ extern "C" void fn_8007E978(void)
 {
 }
 
-extern "C" s32 fn_800665FC(void* hud);
-extern "C" s32 fn_80092B80(XObj* obj);
+extern "C" s32 InfoScrn_IsBatteryGaugeFull(void* hud);
+extern "C" s32 HasCameraAnimation(XObj* obj);
 
 static inline void EvtWaitFor(CEvt* evt, u8 command, u8* start, s32 ready, s32& yield)
 {
@@ -18252,12 +18210,12 @@ struct EvtAreaWaitState {
 STATIC_ASSERT(sizeof(EvtAreaWaitState) == 0x280);
 
 extern "C" {
-void fn_800136B4(void* effect, Vec* pos, f32 pitch, f32 yaw, f32 arg1, f32 arg2);
-void fn_80061308(void* object, s32 arg1, s32 arg2);
+void ConfigureSubwindowCamera(void* effect, Vec* pos, f32 pitch, f32 yaw, f32 arg1, f32 arg2);
+void AddMainMenuExtraRow(void* object, s32 arg1, s32 arg2);
 }
 
 // todo: pools 4, 5 and 17 keep flag bits right after XObj, no idea what class
-#define EVT_CALL_BITS(pool) (*(u32**)(lbl_8025C400.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj)))
+#define EVT_CALL_BITS(pool) (*(u32**)(gGame.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj)))
 
 /**
  * @note Address: 0x80078754
@@ -18314,9 +18272,9 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 	case -14:
 	case -15:
 		if (evt->_1C != 0) {
-			if (lbl_8025C400.mStatus.mFlags & 0x800) {
+			if (gGame.mStatus.mFlags & 0x800) {
 				CPad pad(0);
-				fn_80096E38(&lbl_8025C400.GetPlayer()->mOXMenu, &pad);
+				HandleOXMenuInput(&gGame.GetPlayer()->mOXMenu, &pad);
 				evt->mData.mScript = start;
 				yield              = 1;
 			} else {
@@ -18334,7 +18292,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 					mode = 0;
 				else if ((s32)target == -15)
 					mode = 3;
-				fn_800B51FC(&EVT_PLAYER, mode, args[0]);
+				OpenPlayerYesNoMenu(&EVT_PLAYER, mode, args[0]);
 				evt->_1C = 1;
 			}
 			evt->mData.mScript = start;
@@ -18343,20 +18301,20 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		break;
 	case -16:
 		if (args[0] == 231) {
-			lbl_8025C400.mSubwin._134 = args[1];
-			lbl_8025C400.mSubwin._138 = args[2];
-			lbl_8025C400.mSubwin._13C = args[3];
-			lbl_8025C400.mSubwin._140 = args[4];
+			gGame.mSubwin._134 = args[1];
+			gGame.mSubwin._138 = args[2];
+			gGame.mSubwin._13C = args[3];
+			gGame.mSubwin._140 = args[4];
 		} else if (args[0] == 225) {
 			Vec pos = { 0.0f, 0.0f, 0.0f };
 			pos.x   = args[1] / 100.0f;
 			pos.y   = args[2] / 100.0f;
 			pos.z   = args[3] / 100.0f;
-			fn_800136B4(&lbl_8025C400.mSubwin, &pos, DEG2RAD * args[4], DEG2RAD * args[5], args[6], args[7]);
-			lbl_8025C400.mSubwin.mEnabled      = 1;
-			lbl_8025C400.mSubwin.mFlags.mFlags = 0;
+			ConfigureSubwindowCamera(&gGame.mSubwin, &pos, DEG2RAD * args[4], DEG2RAD * args[5], args[6], args[7]);
+			gGame.mSubwin.mEnabled      = 1;
+			gGame.mSubwin.mFlags.mFlags = 0;
 		} else if (args[0] == 209 || args[0] == 230) {
-			lbl_8025C400.mSubwin.mEnabled = 0;
+			gGame.mSubwin.mEnabled = 0;
 		}
 		break;
 	case -17: {
@@ -18366,7 +18324,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] |= 1U << (id & 31);
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(5);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = -1;
 		}
 		break;
@@ -18378,7 +18336,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] &= ~(1U << (id & 31));
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(5);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = 0;
 		}
 		break;
@@ -18395,7 +18353,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] |= 1U << (id & 31);
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(4);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = -1;
 		}
 		break;
@@ -18407,7 +18365,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] &= ~(1U << (id & 31));
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(4);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = 0;
 		}
 		break;
@@ -18424,7 +18382,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] |= 1U << (id & 31);
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(17);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = -1;
 		}
 		break;
@@ -18436,7 +18394,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			bits[(u32)id >> 5] &= ~(1U << (id & 31));
 		} else if (id == -2) {
 			u32* bits = EVT_CALL_BITS(17);
-			for (s32 i = 0; i < 128; i++)
+			for (int i = 0; i < 128; i++)
 				bits[i] = 0;
 		}
 		break;
@@ -18463,7 +18421,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 				obj->vfD8(flags);
 			}
 			if (mask & ((u64)0x4000 << 32)) {
-				XObjChr* player = lbl_8025C400.GetPlayer();
+				XObjChr* player = gGame.GetPlayer();
 				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
 					s16 item = obj->GetObjFlags();
 					switch (item) {
@@ -18485,7 +18443,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 					case 21:
 					case 22:
 					case 56:
-						if (!fn_800B9758(player)) {
+						if (!LoadPlayerAttachmentAnimation(player)) {
 							evt->mData.mScript = start;
 							yield              = 1;
 						}
@@ -18494,7 +18452,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 				}
 			}
 		} else
-			CEvt_Warn(fn_801911B4("call(SYSCALL_SET_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+			CEvt_Warn(FormatToStaticBuffer("call(SYSCALL_SET_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
 		break;
 	}
 	case -27: {
@@ -18507,7 +18465,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 			if (mask & 0x20000)
 				obj->vfDC(0, 0);
 			if (mask & ((u64)0x4000 << 32)) {
-				XObjChr* player = lbl_8025C400.GetPlayer();
+				XObjChr* player = gGame.GetPlayer();
 				if ((s16)obj->GetPool() == 8 && obj == player->mLift.mTarget) {
 					s16 item = obj->GetObjFlags();
 					switch (item) {
@@ -18523,7 +18481,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 				}
 			}
 		} else
-			CEvt_Warn(fn_801911B4("call(SYSCALL_CLR_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+			CEvt_Warn(FormatToStaticBuffer("call(SYSCALL_CLR_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
 		break;
 	}
 	case -28: {
@@ -18534,59 +18492,59 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		if (obj != NULL)
 			evt->_10 = (obj->mStatus.mFlags & mask) ? 1 : 0;
 		else
-			CEvt_Warn(fn_801911B4("call(SYSCALL_CHK_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
+			CEvt_Warn(FormatToStaticBuffer("call(SYSCALL_CHK_OBJSTAT, %d, 1<<%d): obj(%d) killed!", id, bit, id));
 		break;
 	}
 	case -29:
-		fn_8006E3FC((s16)args[0], (u16)args[1]);
+		SetItemFlags((s16)args[0], (u16)args[1]);
 		break;
 	case -30:
-		fn_8006E3AC((s16)args[0], (u16)args[1]);
+		ClearItemFlags((s16)args[0], (u16)args[1]);
 		break;
 	case -31:
-		evt->_10 = (u16)fn_8006E44C((s16)args[0], (u16)args[1]);
+		evt->_10 = (u16)GetItemFlagsMasked((s16)args[0], (u16)args[1]);
 		break;
 	case -41:
-		lbl_8025C400.mStatus.mFlags |= (u64)1 << args[0];
+		gGame.mStatus.mFlags |= (u64)1 << args[0];
 		break;
 	case -42:
-		lbl_8025C400.mStatus.mFlags &= ~((u64)1 << args[0]);
+		gGame.mStatus.mFlags &= ~((u64)1 << args[0]);
 		break;
 	case -43:
-		evt->_10 = (lbl_8025C400.mStatus.mFlags & ((u64)1 << args[0])) ? 1 : 0;
+		evt->_10 = (gGame.mStatus.mFlags & ((u64)1 << args[0])) ? 1 : 0;
 		break;
 	case -32:
-		lbl_8025C400.mStatus.mFlags |= (u64)0x8000 << 32;
+		gGame.mStatus.mFlags |= (u64)0x8000 << 32;
 		break;
 	case -33:
-		lbl_8025C400.mStatus.mFlags &= ~((u64)0x8000 << 32);
+		gGame.mStatus.mFlags &= ~((u64)0x8000 << 32);
 		break;
 	case -37:
-		lbl_8025C400.mStatus.mFlags |= (u64)0x10000 << 32;
+		gGame.mStatus.mFlags |= (u64)0x10000 << 32;
 		break;
 	case -38:
-		lbl_8025C400.mStatus.mFlags &= ~((u64)0x10000 << 32);
+		gGame.mStatus.mFlags &= ~((u64)0x10000 << 32);
 		break;
 	case -34:
-		lbl_8025C400.mStatus.mFlags |= (u64)0x20 << 32;
+		gGame.mStatus.mFlags |= (u64)0x20 << 32;
 		break;
 	case -35:
-		lbl_8025C400.mStatus.mFlags &= ~((u64)0x20 << 32);
+		gGame.mStatus.mFlags &= ~((u64)0x20 << 32);
 		break;
 	case -36:
-		lbl_8025C400.mStatus.mFlags &= ~((u64)0x20 << 32);
-		for (s32 i = 0; i < lbl_8025C400.mXObjs.mObjectCount; i++) {
-			XObj* obj = lbl_8025C400.mXObjs.mObjects[i];
+		gGame.mStatus.mFlags &= ~((u64)0x20 << 32);
+		for (s32 i = 0; i < gGame.mXObjs.mObjectCount; i++) {
+			XObj* obj = gGame.mXObjs.mObjects[i];
 			if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x20000000)) {
-				lbl_8025C400.mStatus.mFlags |= (u64)0x20 << 32;
+				gGame.mStatus.mFlags |= (u64)0x20 << 32;
 				break;
 			}
 		}
 		break;
 	case -44: {
 		s16 id                 = args[0];
-		s32 areaCount          = lbl_805A054C._20;
-		CamAreaRecord* records = lbl_805A054C._1C;
+		s32 areaCount          = gCameraAreaState._20;
+		CamAreaRecord* records = gCameraAreaState._1C;
 		for (s32 i = 0; i < areaCount; i++) {
 			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
 			if (id == record->_2C)
@@ -18596,8 +18554,8 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 	}
 	case -45: {
 		s16 id                 = args[0];
-		s32 areaCount          = lbl_805A054C._20;
-		CamAreaRecord* records = lbl_805A054C._1C;
+		s32 areaCount          = gCameraAreaState._20;
+		CamAreaRecord* records = gCameraAreaState._1C;
 		for (s32 i = 0; i < areaCount; i++) {
 			CamAreaRecord* record = CamAreaInfo(&records[i]).GetRecord();
 			if (id == record->_2C)
@@ -18619,7 +18577,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 		break;
 	case -100:
 		if (count > 0)
-			evt->_10 = fn_8006F338(args[0] + 7, count - 1, &args[1]);
+			evt->_10 = CallStageModule(args[0] + 7, count - 1, &args[1]);
 #if defined(VERSION_PAL)
 		else
 			OSPanic("evt.cpp", 2161, "%s%s", "SYSCALL_STGFUNC, noargs\n", "_cmd_CALL");
@@ -18629,7 +18587,7 @@ extern "C" s32 CEvt__cmd_CALL(CEvt* evt)
 #endif
 		break;
 	case -200:
-		fn_80061308(lbl_8025C400.mMenu.mMenus[0], args[0], args[1]);
+		AddMainMenuExtraRow(gGame.mMenu.mMenus[0], args[0], args[1]);
 		break;
 	default:
 		if (target != NULL && (target->mStatus.mFlags & 1)) {
@@ -18680,20 +18638,19 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		break;
 	}
 	case EVT_ATOM_FADE:
-		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400.mFade.mSpeed) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero4(gGame.mFade.mSpeed) != 0, yield);
 		break;
 	case EVT_ATOM_MONO:
-		EvtWaitFor(evt, command, start, EvtZero4(lbl_8025C400.mColor0.mColor.mSpeed) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero4(gGame.mColor0.mColor.mSpeed) != 0, yield);
 		break;
 	case EVT_ATOM_WIPE:
 		EvtWaitFor(evt, command, start,
-		           (EvtZero2(lbl_8025C400.mWipeCircle) && EvtZero2(lbl_8025C400.mWipeTex) && EvtZero2(lbl_8025C400.mWipeCustom)
-		            && EvtZero2(lbl_8025C400.mWipeTile0))
+		           (EvtZero2(gGame.mWipeCircle) && EvtZero2(gGame.mWipeTex) && EvtZero2(gGame.mWipeCustom) && EvtZero2(gGame.mWipeTile0))
 		               != 0,
 		           yield);
 		break;
 	case EVT_ATOM_LETTERBOX:
-		EvtWaitFor(evt, command, start, EvtZero2(lbl_8025C400.mWipeTile1) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero2(gGame.mWipeTile1) != 0, yield);
 		break;
 	case 203:
 		if (command != EVT_CMD_WAIT)
@@ -18705,7 +18662,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		f32 frame = CEvt_Evaluate(evt);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@ANIM, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@ANIM, %d) ... obj(%d) is collision!", id, id));
 			HSD_AObj* anim = GetAObj(obj->mJObj);
 			if (anim != NULL) {
 				if (frame >= 0.0f) {
@@ -18717,7 +18674,7 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 			} else if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@ANIM, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@ANIM, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
@@ -18728,10 +18685,10 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		XObj* obj = CEvt_GetObj(evt, id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@DIR, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@DIR, %d) ... obj(%d) is collision!", id, id));
 			EvtWaitFor(evt, command, start, obj->mMoveRotate.y == obj->mMoveRotate.mTarget.y, yield);
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@DIR, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@DIR, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
@@ -18742,11 +18699,11 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		XObj* obj = CEvt_GetObj(evt, id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@MOVE, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@MOVE, %d) ... obj(%d) is collision!", id, id));
 			const Vec& target = *(Vec*)((u8*)&obj->mMoveTranslate + sizeof(CVec));
 			EvtWaitFor(evt, command, start, !(obj->mMoveTranslate != target), yield);
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@MOVE, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@MOVE, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
@@ -18757,27 +18714,27 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		XObj* obj = CEvt_GetObj(evt, id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@SCALE, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@SCALE, %d) ... obj(%d) is collision!", id, id));
 			EvtWaitFor(evt, command, start, obj->mMoveScale.y == obj->mMoveScale.mTarget.y, yield);
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@SCALE, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@SCALE, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
 		break;
 	}
 	case EVT_ATOM_SFX:
-		EvtWaitFor(evt, command, start, !fn_8001E6C8(&lbl_8025C400.mSound, CEvt_Evaluate(evt)), yield);
+		EvtWaitFor(evt, command, start, !fn_8001E6C8(&gGame.mSound, CEvt_Evaluate(evt)), yield);
 		break;
 	case EVT_ATOM_COLOR: {
 		s16 id    = CEvt_Evaluate(evt);
 		XObj* obj = CEvt_GetObj(evt, id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@COLOR, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@COLOR, %d) ... obj(%d) is collision!", id, id));
 			EvtWaitFor(evt, command, start, EvtZero3(&obj->mColorStep[0].mSpeed.x) && EvtZero3(&obj->mColorStep[1].mSpeed.x), yield);
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@COLOR, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@COLOR, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
@@ -18786,19 +18743,19 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 	case EVT_ATOM_REAL: {
 		s32 index = CEvt_Evaluate(evt);
 		if (index == 1)
-			EvtWaitFor(evt, command, start, fn_800665FC(&lbl_8025C400.mInfoScrn), yield);
+			EvtWaitFor(evt, command, start, InfoScrn_IsBatteryGaugeFull(&gGame.mInfoScrn), yield);
 		else {
 #if defined(VERSION_PAL)
-			OSPanic("evt.cpp", 4157, "%s%s", fn_801911B4("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4157, "%s%s", FormatToStaticBuffer("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
 #else
-			OSPanic("evt.cpp", 4146, "%s%s", fn_801911B4("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4146, "%s%s", FormatToStaticBuffer("wait(@REAL, %d) - unresolved!\n", index), "_cmd_WAIT");
 #endif
 		}
 		break;
 	}
 	case EVT_ATOM_CAM: {
 		s32 ready                    = 1;
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		if (camera->IsAction(CAMACTION_RESET))
 			ready = 0;
 		if (camera->IsAction(CAMACTION_AREA)) {
@@ -18811,9 +18768,9 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
                       || action->mFovInterp != NULL || action->mAngleInterp != NULL);
 		}
 		if (camera->IsAction(CAMACTION_ANIM)) {
-			XObj* obj = (XObj*)lbl_8025C400.mXObjs.mPools[0].mObjects;
+			XObj* obj = (XObj*)gGame.mXObjs.mPools[0].mObjects;
 			if (obj != NULL && (obj->mStatus.mFlags & 1))
-				ready = !fn_80092B80(obj);
+				ready = !HasCameraAnimation(obj);
 		}
 		EvtWaitFor(evt, command, start, ready, yield);
 		break;
@@ -18823,21 +18780,21 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 		XObj* obj = CEvt_GetObj(evt, id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mJObj == NULL)
-				CEvt_Warn(fn_801911B4("wait(@READ, %d) ... obj(%d) is collision!", id, id));
+				CEvt_Warn(FormatToStaticBuffer("wait(@READ, %d) ... obj(%d) is collision!", id, id));
 			EvtWaitFor(evt, command, start, !(obj->mStatus.mFlags & 0x40000000000000ULL) && !(obj->mStatus.mFlags & 0x80000000000000ULL),
 			           yield);
 		} else {
-			CEvt_Warn(fn_801911B4("wait(@READ, %d, ...) obj(%d) killed!", id, id));
+			CEvt_Warn(FormatToStaticBuffer("wait(@READ, %d, ...) obj(%d) killed!", id, id));
 			if (command == EVT_CMD_CHECK)
 				evt->_10 = 1;
 		}
 		break;
 	}
 	case EVT_ATOM_ZBLUR:
-		EvtWaitFor(evt, command, start, !(0.0f != lbl_8025C400.mBlur.mSpeed), yield);
+		EvtWaitFor(evt, command, start, !(0.0f != gGame.mBlur.mSpeed), yield);
 		break;
 	case EVT_ATOM_SHAKE:
-		EvtWaitFor(evt, command, start, EvtZero3(&lbl_8025C400.mQuake.mShake[2].x) != 0, yield);
+		EvtWaitFor(evt, command, start, EvtZero3(&gGame.mQuake.mShake[2].x) != 0, yield);
 		break;
 	case EVT_ATOM_CUE: {
 		s32 beat = lbl_8065B244._00;
@@ -18855,9 +18812,9 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 	}
 	case EVT_ATOM_MOVIE: {
 		s32 frame = CEvt_Evaluate(evt);
-		s32 ready = lbl_8025C400.mMovie.mMovie.mState == 0;
+		s32 ready = gGame.mMovie.mMovie.mState == 0;
 		if (!ready && frame >= 0)
-			ready = lbl_8025C400.mMovie.mMovie.mFrame >= frame;
+			ready = gGame.mMovie.mMovie.mFrame >= frame;
 		if (command == EVT_CMD_WAIT && ready == 0) {
 			evt->mData.mScript = start;
 			yield              = 1;
@@ -18868,30 +18825,21 @@ extern "C" s32 CEvt__cmd_WAIT(CEvt* evt, u8 command, s32 step)
 	default:
 		if (command == EVT_CMD_WAIT) {
 #if defined(VERSION_PAL)
-			OSPanic("evt.cpp", 4300, "%s%s", fn_801911B4("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4300, "%s%s", FormatToStaticBuffer("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
 #else
-			OSPanic("evt.cpp", 4289, "%s%s", fn_801911B4("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4289, "%s%s", FormatToStaticBuffer("wait(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
 #endif
 		} else {
 #if defined(VERSION_PAL)
-			OSPanic("evt.cpp", 4302, "%s%s", fn_801911B4("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4302, "%s%s", FormatToStaticBuffer("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
 #else
-			OSPanic("evt.cpp", 4291, "%s%s", fn_801911B4("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
+			OSPanic("evt.cpp", 4291, "%s%s", FormatToStaticBuffer("check(%d,...) - unresolved!\n", mode), "_cmd_WAIT");
 #endif
 		}
 		break;
 	}
 	return yield;
 }
-
-struct EvtCmdEntry {
-	u8 command;                                 // _00
-	u8 _01[3];                                  // _01
-	const char* name;                           // _04
-	s32 (CEvt::*handler)(u8 command, s32 step); // _08
-};
-STATIC_ASSERT(sizeof(EvtCmdEntry) == 0x14);
-extern "C" EvtCmdEntry evtCmdTable[];
 
 /**
  * @note Address: 0x8007E97C
@@ -18910,39 +18858,39 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
 					goto next;
 				}
 			}
-			OSPanic("evt.cpp", 558, "%s%s", fn_801911B4("Unknown event cmd - %d\n", command), "Update");
+			OSPanic("evt.cpp", 558, "%s%s", FormatToStaticBuffer("Unknown event cmd - %d\n", command), "Update");
 		next:;
 		}
 	}
-	if (evt->_00 == 0 && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
+	if (evt->_00 == 0 && !(gGame.mStatus.mFlags & 0xC00)) {
 		if (evt->mData.mScript == NULL) {
-			for (s32 i = 0; i < 10; i++) {
-				if (lbl_8036A050._00[i] > 0) {
-					if ((lbl_8036A050._00[i] -= step) <= 0) {
-						u8* script = (u8*)lbl_8036A050._28[i];
-						s32 cursor = lbl_80369A3C._00;
+			for (u32 i = 0; i < 10; i++) {
+				if (gEventTimers.mFrames[i] > 0) {
+					if ((gEventTimers.mFrames[i] -= step) <= 0) {
+						u8* script = (u8*)gEventTimers.mValue[i];
+						s32 cursor = gEventScriptQueue.mRead;
 						for (s32 j = 0; j < 128; j++, cursor++) {
 							s32 index = cursor % 128;
-							if (lbl_80369A3C._04[index] == NULL) {
-								lbl_80369A3C._04[index] = script;
+							if (gEventScriptQueue.mScript[index] == NULL) {
+								gEventScriptQueue.mScript[index] = script;
 								break;
 							}
 						}
-						lbl_8036A050._00[i] = 0;
-						lbl_8036A050._28[i] = 0;
+						gEventTimers.mFrames[i] = 0;
+						gEventTimers.mValue[i]  = 0;
 					}
 				}
 			}
 		}
 		if (evt->mData.mScript == NULL) {
-			UnkEvtQueue* queue = &lbl_80369A3C;
-			s32 index          = queue->_00;
-			u8* script         = queue->_04[index];
-			u32 owner          = queue->_208[index];
-			s16 tag1           = queue->_408[index];
-			s16 tag2           = queue->_508[index];
-			queue->_04[index]  = NULL;
-			queue->_00         = (queue->_00 + 1) % 128;
+			CEvtQueueEx* queue    = &gEventScriptQueue;
+			s32 index             = queue->mRead;
+			u8* script            = queue->mScript[index];
+			u32 owner             = queue->mContext[index];
+			s16 tag1              = queue->mArg0[index];
+			s16 tag2              = queue->mArg1[index];
+			queue->mScript[index] = NULL;
+			queue->mRead          = (queue->mRead + 1) % 128;
 			if (script != NULL) {
 				CEvt_Attach(evt, script, owner, tag1, tag2);
 			}
@@ -18999,9 +18947,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     clrlwi   r4, r4, 24
     addi     r3, r3, lbl_80208DC0@l
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
-    li       r3, lbl_8065CFA0@sda21
+    li       r3, sPathEvtCpp@sda21
     li       r4, 0x22e
     li       r5, lbl_8065CFA8@sda21
     li       r7, lbl_8065A3C4@sda21
@@ -19014,9 +18962,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     lwz      r0, 0x0(r31)
     cmplwi   r0, 0x0
     bne      .L_8007EE84
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0xc00
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     li       r5, 0x0
     lwz      r0, 0x1b10(r4)
     lwz      r4, 0x1b14(r4)
@@ -19029,8 +18977,8 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     lwz      r0, 0x4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007EBD4
-    lis      r3, lbl_8036A050@ha
-    addi     r9, r3, lbl_8036A050@l
+    lis      r3, gEventTimers@ha
+    addi     r9, r3, gEventTimers@l
 .L_8007EAAC:
     lwz      r0, 0x0(r9)
     cmpwi    r0, 0x0
@@ -19038,9 +18986,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     subf.    r0, r30, r0
     stw      r0, 0x0(r9)
     bgt      .L_8007EBC4
-    lis      r3, lbl_80369A3C@ha
+    lis      r3, gEventScriptQueue@ha
     li       r0, 0x20
-    addi     r4, r3, lbl_80369A3C@l
+    addi     r4, r3, gEventScriptQueue@l
     lwz      r7, 0x28(r9)
     lwz      r8, 0x0(r4)
     li       r6, 0x0
@@ -19117,9 +19065,9 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     lwz      r0, 0x4(r31)
     cmplwi   r0, 0x0
     bne      .L_8007EE84
-    lis      r4, lbl_80369A3C@ha
+    lis      r4, gEventScriptQueue@ha
     li       r3, 0x0
-    addi     r30, r4, lbl_80369A3C@l
+    addi     r30, r4, gEventScriptQueue@l
     lwz      r0, 0x0(r30)
     addi     r4, r30, 0x4
     addi     r5, r30, 0x208
@@ -19240,8 +19188,8 @@ extern "C" void CEvt_Update(CEvt* evt, s32 step)
     cmplwi   r3, 0x0
     bne      .L_8007EE44
     li       r3, 0x4
-    lis      r4, lbl_80369A3C@ha
-    stwu     r5, lbl_80369A3C@l(r4)
+    lis      r4, gEventScriptQueue@ha
+    stwu     r5, gEventScriptQueue@l(r4)
     mtctr    r3
 .L_8007EDC0:
     stw      r5, 0x4(r4)

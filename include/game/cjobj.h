@@ -38,7 +38,7 @@ public:
 
 	CJObj(HSD_JObj* jobj); // in the dol, 0x80084C78, game/msg.cpp
 
-	virtual ~CJObj() { } // _08
+	virtual ~CJObj(); // _08
 
 	virtual void SetTranslateX(f32 x, s32 force) // _0C
 	{
@@ -213,6 +213,12 @@ public:
 	MtxPtr GetMtx() const { return HSD_JObjGetMtxPtr(mJObj); }
 	Vec GetPos() const { return GetJointPosition(mJObj); }
 };
+
+#ifndef DEFER_OBJECT_DESTRUCTORS
+inline CJObj::~CJObj()
+{
+}
+#endif
 typedef char CJObj_size_check[sizeof(CJObj) == 0x38 ? 1 : -1];
 
 #pragma pop

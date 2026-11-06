@@ -8,7 +8,7 @@
  * @note Size: 0x260
  */
 // picks up again what he was holding before the reset, true once it's back in his hands
-extern "C" BOOL fn_800B78FC(XObjChr* chr)
+extern "C" BOOL RestorePlayerHeldItem(XObjChr* chr)
 {
 	if (chr->mLift.mState != 0) {
 		XObj* target = chr->mLift.mTarget;
@@ -16,24 +16,24 @@ extern "C" BOOL fn_800B78FC(XObjChr* chr)
 			if ((s16)target->GetPool() == 24) {
 				XObjPlug* plug          = &chr->mPlug;
 				chr->mLift.mTarget      = plug;
-				chr->mLift.mTargetFloor = chr->mLift.mTarget->_784;
+				chr->mLift.mTargetFloor = chr->mLift.mTarget->mSelectedFloorIndex;
 				plug->mStatus.mFlags |= 0x0400000000000000ULL;
 				chr->SetAnim(8, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
 				return TRUE;
 			}
 		}
-		fn_800D5034(&chr->mLift);
+		ResetPlayerLiftAction(&chr->mLift);
 	}
 
 	s16 id = chr->mSavedTarget;
 	if (id >= 0) {
-		XObj* loaded        = fn_80132698(&lbl_8025C400.mXObjs, &CoordInfo(fn_8006EDB4(id)), 0, TRUE);
+		XObj* loaded        = SpawnObjectFromPlacement(&gGame.mXObjs, &CoordInfo(GetStageObjectPlacementByIndex(id)), 0, TRUE);
 		chr->mPendingTarget = loaded;
 		chr->mSavedTarget   = -1;
 	}
 	if (chr->mPendingTarget != NULL) {
 		if (!(chr->mPendingTarget->mStatus.mFlags & 0x0040000000000000ULL)) {
-			fn_800D5034(&chr->mLift);
+			ResetPlayerLiftAction(&chr->mLift);
 			chr->mLift.mState = 4;
 			chr->mLift.SetTarget(chr->mPendingTarget);
 			chr->mLift._24 = 4;

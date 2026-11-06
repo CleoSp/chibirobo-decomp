@@ -15,23 +15,22 @@ extern "C" {
 #include "game/cscrn.h"
 }
 
-#define PLAYER lbl_8025C400.GetPlayer()
+#define PLAYER gGame.GetPlayer()
 
 extern "C" {
-void fn_8001D2D0(CCamera* camera);
-void fn_800BADAC(XObj* player);
+void InitMotionControlCameraDefaults(CCamera* camera);
 }
 
 extern "C" {
-f32 fn_80148768(CMotionControlCamera* camera);
+f32 GetAreaCameraFovRatio(CMotionControlCamera* camera);
 }
 
 // the last two map cameras, Update copies the map action here every frame it runs
-CCameraActionMap lbl_805C47DC[2];
+CCameraActionMap gMapCameraActions[2];
 
 inline CInterfaceCameraAction* CMotionControlCamera::GetAction(s32 type)
 {
-	return lbl_8025C400.mCameraActions.mTable[type];
+	return gGame.mCameraActions.mTable[type];
 }
 
 // deferred inlining, so these go last to first
@@ -61,13 +60,13 @@ inline bool PlayerCanLook()
  * @note Address: 0x8014AAC4
  * @note Size: 0x38
  */
-// __arraydtor$308, for lbl_805C47DC
+// __arraydtor$308, for gMapCameraActions
 
 /**
  * @note Address: 0x8014AA6C
  * @note Size: 0x58
  */
-// __sinit_cmotioncontrolcamera_cpp, builds lbl_805C47DC and registers its dtor
+// __sinit_cmotioncontrolcamera_cpp, builds gMapCameraActions and registers its dtor
 
 /**
  * @note Address: 0x8014AA4C
@@ -75,7 +74,7 @@ inline bool PlayerCanLook()
  */
 void CMotionControlCamera::InitCamera()
 {
-	fn_8001D2D0(&mCamera);
+	InitMotionControlCameraDefaults(&mCamera);
 }
 
 /**
@@ -84,7 +83,7 @@ void CMotionControlCamera::InitCamera()
  */
 void CMotionControlCamera::Init()
 {
-	fn_8001D2D0(&mCamera);
+	InitMotionControlCameraDefaults(&mCamera);
 	SetEye(mCamera.mEye);
 	SetInterest(mCamera.mInterest);
 	SetAngle(mCamera.mAngle);
@@ -100,7 +99,7 @@ void CMotionControlCamera::Init()
 	mFollowDivide = 12.0f;
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ClearHideList();
 	((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->SaveCamInfo(NULL);
-	lbl_8025C400.mStatus.mFlags |= 0x1000000000000ULL;
+	gGame.mStatus.mFlags |= 0x1000000000000ULL;
 }
 
 /**
@@ -118,73 +117,73 @@ void CMotionControlCamera::RestoreAction()
  */
 void CMotionControlCamera::Update(u32 step)
 {
-	if (lbl_8025C400.mStatus.mFlags & 0x20) {
+	if (gGame.mStatus.mFlags & 0x20) {
 		return;
 	}
 
 	CPad pad(0);
-	if (lbl_8025C400.mEvt.mData.mScript == NULL && (lbl_8025C400.mStatus.mFlags & 0x1000000000000ULL)) {
+	if (gGame.mEvt.mData.mScript == NULL && (gGame.mStatus.mFlags & 0x1000000000000ULL)) {
 		CCameraActionScroll2* room = (CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2);
-		if (room->GetLimits(lbl_8025C400.mStage) != NULL && !(lbl_8025C400.mStatus.mFlags & 0xC00)) {
+		if (room->GetLimits(gGame.mStage) != NULL && !(gGame.mStatus.mFlags & 0xC00)) {
 			if (mAction == GetAction(CAMACTION_AREA) || mAction == GetAction(CAMACTION_SCROLL) || mAction == GetAction(CAMACTION_MAP)) {
 				if ((pad.mPad->mTrigger & 0x20) && !(pad.mPad->mButton & 0x200)) {
 					PushAction(GetAction(CAMACTION_SCROLL2));
 					((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->HideObjs();
-					lbl_8025C400.mStatus.mFlags |= 2;
+					gGame.mStatus.mFlags |= 2;
 				}
 			} else if (mAction == GetAction(CAMACTION_SCROLL2)) {
 				if ((pad.mPad->mTrigger & 0x20) || (pad.mPad->mTrigger & 0x200)) {
 					PopAction();
 					((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ShowObjs();
-					lbl_8025C400.mStatus.mFlags &= ~2ULL;
-					((XPad*)PLAYER->mPad)->Update(0);
+					gGame.mStatus.mFlags &= ~2ULL;
+					PLAYER->mPad.Update(0);
 				}
 			}
 		}
 	}
 
-	if ((lbl_8025C400.mStatus.mFlags & 0x80000000) && (pad.mPad->mTrigger & 0x40) && (pad.mPad->mButton & 0x200)) {
+	if ((gGame.mStatus.mFlags & 0x80000000) && (pad.mPad->mTrigger & 0x40) && (pad.mPad->mButton & 0x200)) {
 		if (mAction != GetAction(CAMACTION_CHASE)) {
 			ChangeAction(CAMACTION_CHASE);
 		} else {
-			lbl_8025C400.mMotionControlCamera.RestoreAction();
+			gGame.mMotionControlCamera.RestoreAction();
 		}
 	}
 
 	BOOL look = FALSE;
-	if (((pad.mPad->mTrigger & 0x800) || (pad.mPad->mTrigger & 0x200)) && lbl_8025C400.mEvt.mData.mScript == NULL) {
+	if (((pad.mPad->mTrigger & 0x800) || (pad.mPad->mTrigger & 0x200)) && gGame.mEvt.mData.mScript == NULL) {
 		bool free = false;
-		if ((lbl_8025C400.mStatus.mFlags & 1) && !(lbl_8025C400.mStatus.mFlags & 0x22)) {
+		if ((gGame.mStatus.mFlags & 1) && !(gGame.mStatus.mFlags & 0x22)) {
 			bool blocked = false;
-			if ((lbl_8025C400.mDvdStatus != 0 || lbl_8025C400.mPrevDvdStatus != 0) && lbl_8025C400.mDiskOk == 0) {
+			if ((gGame.mDvdStatus != 0 || gGame.mPrevDvdStatus != 0) && gGame.mDiskOk == 0) {
 				blocked = true;
 			}
 			if (!blocked) {
 				free = true;
 			}
 		}
-		if (free && (PLAYER->_980.mFlags & 0x20000000) && !(lbl_8025C400.mStatus.mFlags & 0x80)) {
-			if (!(lbl_8025C400.mStatus.mFlags & 0xC00) && PLAYER->mAttachmentRequest < 0 && PLAYER->mSuitChanged == 0
+		if (free && (PLAYER->_980.mFlags & 0x20000000) && !(gGame.mStatus.mFlags & 0x80)) {
+			if (!(gGame.mStatus.mFlags & 0xC00) && PLAYER->mAttachmentRequest < 0 && PLAYER->mSuits.mChangeStep == 0
 			    && (PLAYER->mLift.mState == 0 || fn_800D4D54(&PLAYER->mLift) == 0)) {
 				if (pad.mPad->mTrigger & 0x200) {
-					if (lbl_8025C400.mStatus.mFlags & 0x100) {
+					if (gGame.mStatus.mFlags & 0x100) {
 						look = TRUE;
 					}
 				} else {
 					look = TRUE;
 				}
 			} else if (pad.mPad->mTrigger & 0x800) {
-				fn_8001E904(&lbl_8025C400.mSound, 0x85, 0xFF);
+				fn_8001E904(&gGame.mSound, 0x85, 0xFF);
 			}
 		}
 	}
 
 	if (look) {
-		if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
+		if (!(gGame.mStatus.mFlags & 0x100)) {
 			if (PlayerCanLook()) {
 				StartEye();
 			} else {
-				fn_8001E904(&lbl_8025C400.mSound, 0x85, 0xFF);
+				fn_8001E904(&gGame.mSound, 0x85, 0xFF);
 			}
 		} else {
 			EndEye();
@@ -198,10 +197,10 @@ void CMotionControlCamera::Update(u32 step)
 		mAction->PreviousUpdate();
 		mAction->Update(step);
 		if (mAction == GetAction(CAMACTION_MAP)) {
-			memmove(&lbl_805C47DC[1], &lbl_805C47DC[0], sizeof(CCameraActionMap));
-			memmove(&lbl_805C47DC[0], mAction, sizeof(CCameraActionMap));
+			memmove(&gMapCameraActions[1], &gMapCameraActions[0], sizeof(CCameraActionMap));
+			memmove(&gMapCameraActions[0], mAction, sizeof(CCameraActionMap));
 			if (fpclassify(mAction->mEye.x) == FP_NAN || fpclassify(mAction->mEye.y) == FP_NAN || fpclassify(mAction->mEye.z) == FP_NAN) {
-				OSPanic(__FILE__, 249, "%s%s", fn_801911B4("CMotionControlCamera ... \n"), __FUNCTION__);
+				OSPanic(__FILE__, 249, "%s%s", FormatToStaticBuffer("CMotionControlCamera ... \n"), __FUNCTION__);
 			}
 		}
 		ReadAction();
@@ -258,11 +257,11 @@ void CMotionControlCamera::Update(u32 step)
 /*
     stwu     r1, -0x40(r1)
     mflr     r0
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     li       r6, 0x20
     stw      r0, 0x44(r1)
     stmw     r27, 0x2c(r1)
-    addi     r31, r5, lbl_8025C400@l
+    addi     r31, r5, gGame@l
     mr       r27, r3
     li       r5, 0x0
     mr       r28, r4
@@ -277,8 +276,8 @@ void CMotionControlCamera::Update(u32 step)
     addi     r3, r1, 0x14
     li       r4, 0x0
     bl       __ct__4CPadFUc
-    lis      r3, lbl_8025C400@ha
-    addi     r6, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r6, r3, gGame@l
     addis    r29, r6, 0x6
     lwz      r0, -0x2f80(r29)
     cmplwi   r0, 0x0
@@ -309,9 +308,9 @@ void CMotionControlCamera::Update(u32 step)
     xor      r0, r0, r4
     or.      r0, r3, r0
     bne      .L_80149FEC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x1d0(r27)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r0, 0x7df0(r3)
     cmplw    r4, r0
@@ -354,9 +353,9 @@ void CMotionControlCamera::Update(u32 step)
     bl       fn_80148F20
     lwz      r3, 0x7dfc(r30)
     bl       ShowObjs__20CCameraActionScroll2Fv
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r6, 0x1b10(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r5, 0x1b14(r31)
     addis    r3, r3, 0x1
     li       r4, -0x3
@@ -391,9 +390,9 @@ void CMotionControlCamera::Update(u32 step)
     lwz      r0, 0x4(r3)
     rlwinm.  r0, r0, 0, 22, 22
     beq      .L_8014A064
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x1d0(r27)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r0, 0x7df4(r3)
     cmplw    r4, r0
@@ -433,9 +432,9 @@ void CMotionControlCamera::Update(u32 step)
     xor      r5, r5, r7
     or.      r4, r5, r4
     bne      .L_8014A114
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     mr       r6, r7
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     lwz      r4, 0x331c(r5)
     cmpwi    r4, 0x0
     bne      .L_8014A0F0
@@ -443,8 +442,8 @@ void CMotionControlCamera::Update(u32 step)
     cmpwi    r4, 0x0
     beq      .L_8014A108
 .L_8014A0F0:
-    lis      r4, lbl_8025C400@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r4, r4, gGame@l
     lwz      r4, 0x3324(r4)
     cmpwi    r4, 0x0
     bne      .L_8014A108
@@ -456,8 +455,8 @@ void CMotionControlCamera::Update(u32 step)
 .L_8014A114:
     clrlwi.  r4, r7, 24
     beq      .L_8014A21C
-    lis      r4, lbl_8025C400@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     lwz      r7, -0x6944(r4)
     lwz      r4, 0x980(r7)
@@ -516,9 +515,9 @@ void CMotionControlCamera::Update(u32 step)
     lwz      r0, 0x14(r3)
     rlwinm.  r0, r0, 0, 20, 20
     beq      .L_8014A21C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x85
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
@@ -536,9 +535,9 @@ void CMotionControlCamera::Update(u32 step)
     xor      r0, r0, r4
     or.      r0, r3, r0
     bne      .L_8014A350
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r0, r4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r5, 0xa48(r3)
@@ -597,9 +596,9 @@ void CMotionControlCamera::Update(u32 step)
     bl       fn_80148C6C
     b        .L_8014A358
 .L_8014A330:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x85
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
@@ -609,8 +608,8 @@ void CMotionControlCamera::Update(u32 step)
     mr       r3, r27
     bl       fn_80148B78
 .L_8014A358:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -642,21 +641,21 @@ void CMotionControlCamera::Update(u32 step)
     lwz      r12, 0x10(r12)
     mtctr    r12
     bctrl
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x1d0(r27)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r0, 0x7e08(r3)
     cmplw    r4, r0
     bne      .L_8014A590
-    lis      r3, lbl_805C47DC@ha
+    lis      r3, gMapCameraActions@ha
     li       r5, 0x11ec
-    addi     r4, r3, lbl_805C47DC@l
+    addi     r4, r3, gMapCameraActions@l
     addi     r3, r4, 0x11ec
     bl       memmove
-    lis      r3, lbl_805C47DC@ha
+    lis      r3, gMapCameraActions@ha
     lwz      r4, 0x1d0(r27)
-    addi     r3, r3, lbl_805C47DC@l
+    addi     r3, r3, gMapCameraActions@l
     li       r5, 0x11ec
     bl       memmove
     lwz      r3, 0x1d0(r27)
@@ -762,10 +761,10 @@ void CMotionControlCamera::Update(u32 step)
     lis      r3, lbl_8020D124@ha
     addi     r3, r3, lbl_8020D124@l
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_8020D108@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sPathCmotioncontrolcameraCpp@ha
     mr       r6, r3
-    addi     r3, r4, lbl_8020D108@l
+    addi     r3, r4, sPathCmotioncontrolcameraCpp@l
     li       r5, lbl_8065ECA4@sda21
     li       r4, 0xf9
     li       r7, lbl_8065AB38@sda21
@@ -777,8 +776,8 @@ void CMotionControlCamera::Update(u32 step)
     lwz      r5, 0x1d0(r27)
     cmplwi   r5, 0x0
     beq      .L_8014A67C
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r0, 0x7e04(r3)
     cmplw    r5, r0
@@ -1580,10 +1579,10 @@ s32 CMotionControlCamera::GetActionType()
 }
 // fn_801496A0
 /*
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r0, 0x2
     lwz      r5, 0x1d0(r3)
-    addi     r6, r4, lbl_8025C400@l
+    addi     r6, r4, gGame@l
     li       r3, 0x0
     mtctr    r0
 .L_801496B8:
@@ -1638,9 +1637,9 @@ bool CMotionControlCamera::IsAction(s32 type)
 }
 // fn_80149674
 /*
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     slwi     r0, r4, 2
-    addi     r4, r5, lbl_8025C400@l
+    addi     r4, r5, gGame@l
     lwz      r5, 0x1d0(r3)
     addis    r3, r4, 0xe
     add      r3, r3, r0
@@ -1723,8 +1722,8 @@ void CMotionControlCamera::PopAction()
     lwz      r5, 0x1d0(r31)
     cmplwi   r5, 0x0
     beq      .L_80149034
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r0, 0x7e04(r3)
     cmplw    r5, r0
@@ -1779,9 +1778,9 @@ void CMotionControlCamera::PopAction()
     bctrl
     stw      r3, 0x1ec(r31)
 .L_80149034:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lwz      r3, 0x1d0(r31)
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0xe
     lwz      r0, 0x7e18(r4)
     subf     r0, r3, r0
@@ -1921,14 +1920,14 @@ void CMotionControlCamera::UpdateTarget(XObj* obj)
  */
 void CMotionControlCamera::StartEye()
 {
-	if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
-		lbl_8025C400.mStatus.mFlags |= 0x100;
+	if (!(gGame.mStatus.mFlags & 0x100)) {
+		gGame.mStatus.mFlags |= 0x100;
 		PushAction(GetAction(CAMACTION_EYE));
-		fn_800BADAC(lbl_8025C400.GetPlayer());
-		fn_800A30EC(lbl_8025C400.GetPlayer(), 1);
-		fn_80023438(&lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f, 400.0f, 0.15f,
-		            0xFF, 0);
-		fn_8001E904(&lbl_8025C400.mSound, 4, 0xFF);
+		StopPlayerMotion(gGame.GetPlayer());
+		SetPlayerEyeCameraJointsHidden(gGame.GetPlayer(), 1);
+		StartScreenWipeColorTransition(&gGame.mRoboeyes, 0xFF, 0xFF, 0xFF, 0, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 550.0f, 500.0f, 430.0f,
+		                               400.0f, 0.15f, 0xFF, 0);
+		fn_8001E904(&gGame.mSound, 4, 0xFF);
 	}
 }
 
@@ -1938,13 +1937,13 @@ void CMotionControlCamera::StartEye()
  */
 void CMotionControlCamera::EndEye()
 {
-	if (lbl_8025C400.mStatus.mFlags & 0x100) {
-		lbl_8025C400.mStatus.mFlags &= ~0x300ULL;
+	if (gGame.mStatus.mFlags & 0x100) {
+		gGame.mStatus.mFlags &= ~0x300ULL;
 		PopAction();
-		fn_800A30EC(lbl_8025C400.GetPlayer(), 0);
-		fn_80023438(&lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f, 500.0f, 0.2f,
-		            0, 1);
-		fn_8001E904(&lbl_8025C400.mSound, 2, 0xFF);
+		SetPlayerEyeCameraJointsHidden(gGame.GetPlayer(), 0);
+		StartScreenWipeColorTransition(&gGame.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 550.0f,
+		                               500.0f, 0.2f, 0, 1);
+		fn_8001E904(&gGame.mSound, 2, 0xFF);
 	}
 }
 
@@ -1954,16 +1953,14 @@ void CMotionControlCamera::EndEye()
  */
 CCameraMemento* CMotionControlCamera::CreateMemento(CCameraMemento* memento)
 {
-	if (memento == NULL) {
-		memento = &mMemento;
-	}
-	memento->SetEye(mCamera.mEye);
-	memento->SetInterest(mCamera.mInterest);
-	memento->SetAngle(mCamera.mAngle);
-	memento->mDistance = mCamera.mDistance;
-	memento->mFov      = mCamera.mFov;
-	memento->mAction   = mAction;
-	return memento;
+	CCameraMemento* m = (memento != NULL) ? memento : &mMemento;
+	m->SetEye(mCamera.mEye);
+	m->SetInterest(mCamera.mInterest);
+	m->SetAngle(mCamera.mAngle);
+	m->mDistance = mCamera.mDistance;
+	m->mFov      = mCamera.mFov;
+	m->mAction   = mAction;
+	return m;
 }
 // fn_80148B00
 /*
@@ -2029,23 +2026,23 @@ BOOL CMotionControlCamera::SetMemento(const CCameraMemento* memento)
  * @note Address: 0x80148768
  * @note Size: 0x64
  */
-extern "C" f32 fn_80148768(CMotionControlCamera* camera)
+extern "C" f32 GetAreaCameraFovRatio(CMotionControlCamera* camera)
 {
 	f32 zoom = ((CCameraActionAreaExM*)CMotionControlCamera::GetAction(CAMACTION_AREA))->vf68();
-	if (0.0f != zoom) {
+	if (zoom) {
 		return camera->mCamera.mFov / zoom;
 	}
 	return 1.0f;
 }
-// fn_80148768
+// GetAreaCameraFovRatio
 /*
     stwu     r1, -0x10(r1)
     mflr     r0
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     stw      r0, 0x14(r1)
     stw      r31, 0xc(r1)
     mr       r31, r3
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0xe
     lwz      r3, 0x7df0(r3)
     lwz      r12, 0x3c(r3)
@@ -2085,7 +2082,7 @@ f32 CMotionControlCamera::GetMapDistance()
 {
 	bool map = IsCurrent(CAMACTION_MAP);
 	if (map) {
-		return fn_8013A558((CCameraActionMap*)GetAction(CAMACTION_MAP)) - 4.0f;
+		return GetMapCameraHorizontalTargetDistance((CCameraActionMap*)GetAction(CAMACTION_MAP)) - 4.0f;
 	}
 	return 1.0f;
 }
@@ -2093,17 +2090,17 @@ f32 CMotionControlCamera::GetMapDistance()
 /*
     stwu     r1, -0x10(r1)
     mflr     r0
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     stw      r0, 0x14(r1)
     lwz      r0, 0x1d0(r3)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0xe
     lwz      r3, 0x7e08(r3)
     subf     r0, r0, r3
     cntlzw   r0, r0
     srwi.    r0, r0, 5
     beq      .L_80148718
-    bl       fn_8013A558
+    bl       GetMapCameraHorizontalTargetDistance
     lfs      f0, lbl_8065EC70@sda21(r0)
     fsubs    f1, f1, f0
     b        .L_8014871C

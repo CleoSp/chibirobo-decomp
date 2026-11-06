@@ -69,7 +69,7 @@ extern "C" void SetAnim__8XObjFreeFliPvPvPvffff(XObjFree* object, s32 id, BOOL f
 			void* shape     = shapeAnim != NULL ? shapeAnim : Shape(&object->mArchive, id);
 			f32 materialFrame;
 			if (object->mMatAnim != NULL) {
-				HSD_AObj* animation = fn_801905D4(object->mJObj);
+				HSD_AObj* animation = FindMaterialOrTextureAnimationInJointTree(object->mJObj);
 				materialFrame       = animation != NULL ? HSD_AObjGetCurrentFrame(animation) : 0.0f;
 			} else {
 				materialFrame    = 0.0f;
@@ -108,12 +108,19 @@ extern "C" void vfC8__8XObjFreeFv(XObjFree* object)
 		f32 effect      = object->mFlash;
 		f32 innerRadius = 400.0f * effect;
 		f32 outerRadius = 400.0f * (1.0f - effect);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 2, 4, 15);
-		u32 color = (u32)(255.0f * effect) | 0xFFFFFF00;
-		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, innerRadius, innerRadius, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outerRadius, outerRadius, 0.0f, 0.0f, 0.0f);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
+
+		// Retail adds a signed integer offset to each radius, even for a single ring.
+		for (int offset = 0; offset < 1; ++offset) {
+			DrawGsCircle(&gGame.mGs, 16, (u32)(255.0f * effect) | 0xFFFFFF00, 0xFFFFFF00, x, y, 0.0f, innerRadius + offset,
+			             innerRadius + offset, 0.0f, 0.0f, 0.0f);
+		}
+		for (int offset = 0; offset < 1; ++offset) {
+			DrawGsCircle(&gGame.mGs, 16, (u32)(255.0f * effect) | 0xFFFFFF00, 0xFFFFFF00, x, y, 0.0f, outerRadius + offset,
+			             outerRadius + offset, 0.0f, 0.0f, 0.0f);
+		}
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
 	}
 }

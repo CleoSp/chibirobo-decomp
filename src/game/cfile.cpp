@@ -201,9 +201,9 @@ s32 CFile::ReadAsync(const char* path, u32 offset, u32 size, BOOL fromAram)
     stw      r0, 0x24(r1)
     stmw     r27, 0xc(r1)
     mr       r29, r3
-    lis      r3, lbl_8020EE38@ha
+    lis      r3, sTypeNameCFileArchive@ha
     mr       r28, r5
-    addi     r31, r3, lbl_8020EE38@l
+    addi     r31, r3, sTypeNameCFileArchive@l
     mr       r27, r6
     mr       r30, r7
     addi     r3, r29, 0x3c

@@ -33,8 +33,8 @@ typedef char CThread_size_check[sizeof(CThread) == 0x328 ? 1 : -1];
 
 extern "C" {
 // the memory card jobs run on this one
-extern CThread lbl_8036AC10;
-extern u8 lbl_8036AF38[0x1000];
+extern CThread gMemoryCardThread;
+extern u8 gMemoryCardThreadStack[0x1000];
 }
 
 #endif

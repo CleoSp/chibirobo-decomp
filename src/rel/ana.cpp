@@ -264,7 +264,7 @@ extern "C" void Ana_Draw(Ana* ana)
 		return;
 	}
 	if (ana->mStatus.mFlags & 8) {
-		const CVec& pos = fn_800A0978((RoboView*)lbl_8025C400.GetPlayer());
+		const CVec& pos = fn_800A0978((RoboView*)gGame.GetPlayer());
 		x               = pos.x;
 		y               = pos.y;
 		z               = pos.z;
@@ -601,10 +601,10 @@ extern "C" void InitAnas(void)
 	for (j = 0; j < ANA_NUM; j++) {
 		anas[j].mStatus.mFlags = 0;
 	}
-	num = lbl_8025C400.mXObjs.mObjectCount;
+	num = gGame.mXObjs.mObjectCount;
 
 	for (i = 0; i < num; i++) {
-		AnaObj* obj = (AnaObj*)lbl_8025C400.mXObjs.mObjects[i];
+		AnaObj* obj = (AnaObj*)gGame.mXObjs.mObjects[i];
 		if (obj->mFlags & 1) {
 			if (obj->mIdData->mId == 0x2A9) {
 				tutiAnaObj = obj;
@@ -630,9 +630,9 @@ extern "C" void InitAnas(void)
     lis      r4, anas@ha
     li       r0, 0x0
     addi     r6, r4, anas@l
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x14(r6)
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r5, r4, 0x1
     lis      r3, flowerObjs@ha
     stw      r0, 0x3c(r6)
@@ -747,10 +747,10 @@ bool Ana::IsActive()
  */
 extern "C" s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
 {
-	AnaObj* obj = ((RoboView*)lbl_8025C400.GetPlayer())->mHeld;
+	AnaObj* obj = ((RoboView*)gGame.GetPlayer())->mHeld;
 	if (obj != NULL) {
 		obj->mFlags &= ~0x10000ULL;
-		ReleaseHeld((RoboView*)lbl_8025C400.GetPlayer());
+		ReleaseHeld((RoboView*)gGame.GetPlayer());
 		DropObj(obj);
 	}
 	return 0;
@@ -760,9 +760,9 @@ extern "C" s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
 /*
     stwu     r1, -0x10(r1)
     mflr     r0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x14(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r5, r3, 0x1
     stw      r31, 0xc(r1)
     lwz      r3, -0x6944(r5)
@@ -872,9 +872,9 @@ extern "C" s32 CmdPlantTane(s32 cmd, s32 argc, s32* args)
 		return 0;
 	}
 	ana->SetJObj(2, 0);
-	obj = ((RoboView*)lbl_8025C400.GetPlayer())->mHeld;
+	obj = ((RoboView*)gGame.GetPlayer())->mHeld;
 	if (obj != NULL) {
-		ReleaseHeld((RoboView*)lbl_8025C400.GetPlayer());
+		ReleaseHeld((RoboView*)gGame.GetPlayer());
 		DropObj(obj);
 	}
 	return 1;
@@ -894,7 +894,7 @@ extern "C" s32 CmdFindNearestAna(s32 cmd, s32 argc, s32* args)
 		f32 z = args[2] / 100.0f;
 		best  = GetNearestAna(x, y, z);
 	} else {
-		AnaObj* player = (AnaObj*)lbl_8025C400.mXObjs.mObjects[((RoboView*)lbl_8025C400.GetPlayer())->mPlayerIdx];
+		AnaObj* player = (AnaObj*)gGame.mXObjs.mObjects[((RoboView*)gGame.GetPlayer())->mPlayerIdx];
 		if (player != NULL) {
 			best = GetNearestAna(player->mPos.x, player->mPos.y, player->mPos.z);
 			// retail tests the player's result here and again below

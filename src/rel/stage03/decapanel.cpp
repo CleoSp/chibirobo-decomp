@@ -1,6 +1,6 @@
 #include "game/hsd_jobj.h"
 #include "game/gmath.h"
-#include "Version.h"
+#include "game/video.h"
 
 extern "C" {
 f64 sin(f64 x);
@@ -145,18 +145,18 @@ typedef char CGameS03View_size_check[sizeof(CGameS03View) == 0xE7140 ? 1 : -1];
 typedef char CGameS03View_size_check[sizeof(CGameS03View) == 0xE7E28 ? 1 : -1];
 #endif
 
-extern "C" CGameS03View lbl_8025C400;
+extern "C" CGameS03View gGame;
 
 extern "C" {
-UnkObj* fn_8007F570(UnkObjTable* mgr, s16 id);
+UnkObj* ResolveEventObjectId(UnkObjTable* mgr, s16 id);
 BOOL fn_8001E6C8(void* sound, s32 id);
 void fn_8001E904(void* sound, s32 id, s32 vol);
-void fn_801EA1A4(s32 x);
+void AXDriverSetAllStreamPitches(s32 x);
 void fn_801468FC(void* p);
 void fn_801469A8(void* p, s32 id);
-void fn_8019B56C(void* p, s32, s32, s32, s32);
-void fn_8019AFA0(void* p, s32);
-void fn_80197800(CGameS03View* game, CTexObj* tex, u32 c0, u32 c1, u32 c2, u32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32, f32, f32);
+void SetGsBlendMode(void* p, s32, s32, s32, s32);
+void SetGsTevMode(void* p, s32);
+void DrawGsTexturedQuad(CGameS03View* game, CTexObj* tex, u32 c0, u32 c1, u32 c2, u32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32, f32, f32);
 }
 
 struct DecaPanelKey {
@@ -271,14 +271,15 @@ inline void DecaPanel::ResetInput()
 	mCursorX   = 0;
 	mCursorY   = 3;
 	mLocked    = 0;
-	mCurX = mTargetX = decaPanelKeys[mCursorX + mCursorY * 3].x;
-	mCurY = mTargetY = decaPanelKeys[mCursorX + mCursorY * 3].y;
+	s32 idx    = mCursorX + mCursorY * 3;
+	mCurX = mTargetX = decaPanelKeys[idx].x;
+	mCurY = mTargetY = decaPanelKeys[idx].y;
 }
 
 inline UnkObj* GetObjById(s16 id)
 {
-	if (lbl_8025C400.mObjTable.mList != NULL) {
-		return fn_8007F570(&lbl_8025C400.mObjTable, id);
+	if (gGame.mObjTable.mList != NULL) {
+		return ResolveEventObjectId(&gGame.mObjTable, id);
 	}
 	return NULL;
 }
@@ -390,7 +391,7 @@ extern "C" s32 CmdIsDecaPanelOpen(s32 cmd, s32 argc, s32* args)
 extern "C" s32 CmdCloseDecaPanel(s32 cmd, s32 argc, s32* args)
 {
 	decaPanel.mActive = 0;
-	lbl_8025C400.mFlags &= ~2ULL;
+	gGame.mFlags &= ~2ULL;
 	return 0;
 }
 
@@ -402,18 +403,18 @@ extern "C" s32 CmdOpenDecaPanel(s32 cmd, s32 argc, s32* args)
 {
 	decaPanel.ResetInput();
 	decaPanel.mActive = 1;
-	lbl_8025C400.mFlags |= 2ULL;
+	gGame.mFlags |= 2ULL;
 	return 0;
 }
 
 // CmdOpenDecaPanel
 /*
     li       r7, 0x3
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mulli    r8, r7, 0x24
     lis      r6, decaPanel@ha
     lis      r4, decaPanelKeys@ha
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     addi     r3, r4, decaPanelKeys@l
     lwz      r0, 0x1b14(r5)
     lfsx     f1, r3, r8
@@ -451,6 +452,10 @@ extern "C" s32 CmdOpenDecaPanel(s32 cmd, s32 argc, s32* args)
  * @note Address: stage03 .text 0xF4
  * @note Size: 0xBC8
  */
+// Cursor interpolation is fused. The panel scales and positions use separate roundings.
+#pragma push
+#pragma fp_contract off
+#pragma opt_propagation off
 extern "C" void DecaPanel_Update(DecaPanel* work)
 {
 	if (work->mState != 2) {
@@ -458,39 +463,39 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 	}
 
 	if (work->mActive) {
-		if (work->mFade < 1.0f && (work->mFade += 1.0f / 6.0f) > 1.0f) {
+		if (work->mFade < 1.0f && (work->mFade += (1.0f / (0.2f * FRAME_RATE)) * 2.0f) > 1.0f) {
 			work->mFade = 1.0f;
 		}
-	} else if (work->mFade > 0.0f && (work->mFade -= 1.0f / 6.0f) < 0.0f) {
+	} else if (work->mFade > 0.0f && (work->mFade -= (1.0f / (0.2f * FRAME_RATE)) * 2.0f) < 0.0f) {
 		work->mFade = 0.0f;
 	}
 
 	if (work->mFade >= 1.0f) {
 		u8 cur = decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar;
-		if (lbl_8025C400.mPadHeld & 0x100) {
+		if (gGame.mPadHeld & 0x100) {
 			work->mLocked = 1;
 		} else {
 			work->mLocked = 0;
-			if (lbl_8025C400.mPadRepeat & 1) {
+			if (gGame.mPadRepeat & 1) {
 				do {
 					if (--work->mCursorX < 0) {
 						work->mCursorX = 2;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
-			} else if (lbl_8025C400.mPadRepeat & 2) {
+			} else if (gGame.mPadRepeat & 2) {
 				do {
 					if (++work->mCursorX > 2) {
 						work->mCursorX = 0;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
 			}
-			if (lbl_8025C400.mPadRepeat & 8) {
+			if (gGame.mPadRepeat & 8) {
 				do {
 					if (--work->mCursorY < 0) {
 						work->mCursorY = 3;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
-			} else if (lbl_8025C400.mPadRepeat & 4) {
+			} else if (gGame.mPadRepeat & 4) {
 				do {
 					if (++work->mCursorY > 3) {
 						work->mCursorY = 0;
@@ -499,9 +504,9 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 			}
 		}
 
-		if (lbl_8025C400.mPadTrig & 0x100) {
+		if (gGame.mPadTrig & 0x100) {
 			u8 ch = decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar;
-			fn_8001E904(lbl_8025C400.mSound, decaPanelKeySounds[work->mCursorX + work->mCursorY * 3], 0xFF);
+			fn_8001E904(gGame.mSound, decaPanelKeySounds[work->mCursorX + work->mCursorY * 3], 0xFF);
 			if (ch == 'C') {
 				work->mDigits[0] = ' ';
 				work->mDigits[1] = ' ';
@@ -544,14 +549,14 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 						work->mCode = work->mCode * 10 + work->mDigits[5] - '0';
 					}
 					work->mActive = 0;
-					lbl_8025C400.mFlags &= ~2ULL;
+					gGame.mFlags &= ~2ULL;
 				}
 			}
 		}
-		if (lbl_8025C400.mPadTrig & 0x200) {
+		if (gGame.mPadTrig & 0x200) {
 			work->mCode   = -1;
 			work->mActive = 0;
-			lbl_8025C400.mFlags &= ~2ULL;
+			gGame.mFlags &= ~2ULL;
 		}
 	}
 
@@ -559,61 +564,41 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 		DecaPanelKey* key;
 		CTexObj* tex;
 		f32 keyW, keyH, wideW, wideH;
+		u16 width, height;
 		s32 i;
 
-		fn_8019B56C(lbl_8025C400._290, 1, 4, 5, 15);
-		fn_8019AFA0(lbl_8025C400._294, 0);
+		SetGsBlendMode(gGame._290, 1, 4, 5, 15);
+		SetGsTevMode(gGame._294, 0);
 
 		key            = &decaPanelKeys[work->mCursorX + work->mCursorY * 3];
 		work->mTargetX = key->x;
 		work->mTargetY = key->y;
-		work->mCurX += 0.8f * (work->mTargetX - work->mCurX);
-		work->mCurY += 0.8f * (work->mTargetY - work->mCurY);
+		work->mCurX    = __fmadds(0.8f, work->mTargetX - work->mCurX, work->mCurX);
+		work->mCurY    = __fmadds(0.8f, work->mTargetY - work->mCurY, work->mCurY);
 
 		tex = &work->mTexs[0];
 		{
 			u16 w     = GXGetTexObjWidth(tex);
 			u16 h     = GXGetTexObjHeight(tex);
 			u32 color = FadeColor(work->mFade);
-			fn_80197800(&lbl_8025C400, tex, color, color, color, color, 320.0f, 200.0f, 0.0f, 0.9f * w, 0.9f * h, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f, 200.0f, 0.0f, 0.9f * w, 0.9f * h, 0.0f, 0.0f, 0.0f);
 		}
 
-		keyW  = 0.9f * (GXGetTexObjWidth(&work->mTexs[1]) / 10);
-		keyH  = 0.9f * GXGetTexObjHeight(&work->mTexs[1]);
-		wideW = 0.9f * GXGetTexObjWidth(&work->mTexs[2]);
-		wideH = 0.9f * GXGetTexObjHeight(&work->mTexs[2]);
+		width  = GXGetTexObjWidth(&work->mTexs[1]);
+		keyW   = 0.9f * (width / 10);
+		height = GXGetTexObjHeight(&work->mTexs[1]);
+		keyH   = 0.9f * height;
+		width  = GXGetTexObjWidth(&work->mTexs[2]);
+		wideW  = 0.9f * width;
+		height = GXGetTexObjHeight(&work->mTexs[2]);
+		wideH  = 0.9f * height;
 
 		DecaPanelKeySprite draws[12] = {
-			{ 1, 0.1f, 0.6f, 0, 0.0f, 0.0f }, { 1, 0.1f, 0.7f, 1, 0.0f, 0.0f },  { 1, 0.1f, 0.8f, 2, 0.0f, 0.0f },
-			{ 1, 0.1f, 0.3f, 3, 0.0f, 0.0f }, { 1, 0.1f, 0.4f, 4, 0.0f, 0.0f },  { 1, 0.1f, 0.5f, 5, 0.0f, 0.0f },
-			{ 1, 0.1f, 0.0f, 6, 0.0f, 0.0f }, { 1, 0.1f, 0.1f, 7, 0.0f, 0.0f },  { 1, 0.1f, 0.2f, 8, 0.0f, 0.0f },
-			{ 2, 1.0f, 0.0f, 9, 0.0f, 0.0f }, { 2, 1.0f, 0.0f, 10, 0.0f, 0.0f }, { 1, 0.1f, 0.9f, 11, 0.0f, 0.0f },
+			{ 1, 0.1f, 0.6f, 0, keyW, keyH },   { 1, 0.1f, 0.7f, 1, keyW, keyH },    { 1, 0.1f, 0.8f, 2, keyW, keyH },
+			{ 1, 0.1f, 0.3f, 3, keyW, keyH },   { 1, 0.1f, 0.4f, 4, keyW, keyH },    { 1, 0.1f, 0.5f, 5, keyW, keyH },
+			{ 1, 0.1f, 0.0f, 6, keyW, keyH },   { 1, 0.1f, 0.1f, 7, keyW, keyH },    { 1, 0.1f, 0.2f, 8, keyW, keyH },
+			{ 2, 1.0f, 0.0f, 9, wideW, wideH }, { 2, 1.0f, 0.0f, 10, wideW, wideH }, { 1, 0.1f, 9 * 0.1f, 11, keyW, keyH },
 		};
-		draws[0].mW  = keyW;
-		draws[0].mH  = keyH;
-		draws[1].mW  = keyW;
-		draws[1].mH  = keyH;
-		draws[2].mW  = keyW;
-		draws[2].mH  = keyH;
-		draws[3].mW  = keyW;
-		draws[3].mH  = keyH;
-		draws[4].mW  = keyW;
-		draws[4].mH  = keyH;
-		draws[5].mW  = keyW;
-		draws[5].mH  = keyH;
-		draws[6].mW  = keyW;
-		draws[6].mH  = keyH;
-		draws[7].mW  = keyW;
-		draws[7].mH  = keyH;
-		draws[8].mW  = keyW;
-		draws[8].mH  = keyH;
-		draws[9].mW  = wideW;
-		draws[9].mH  = wideH;
-		draws[10].mW = wideW;
-		draws[10].mH = wideH;
-		draws[11].mW = keyW;
-		draws[11].mH = keyH;
-
 		for (i = 0; i < 12; i++) {
 			if (work->mLocked && key->mChar == decaPanelKeys[i].mChar) {
 				continue;
@@ -626,37 +611,42 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 			DecaPanelKey* pos = &decaPanelKeys[draws[i].mKey];
 			f32 x             = 0.9f * pos->x;
 			u32 color         = FadeColor(work->mFade);
-			fn_80197800(&lbl_8025C400, tex, color, color, color, color, 320.0f + x, 200.0f + 0.9f * pos->y, 0.0f, draws[i].mW, draws[i].mH,
-			            0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f + x, 200.0f + 0.9f * pos->y, 0.0f, draws[i].mW, draws[i].mH,
+			                   0.0f, 0.0f, 0.0f);
 		}
 
 		tex = &work->mTexs[4];
 		PSMTXScale(tex->mMtx[1], 0.1f, 1.0f, 1.0f);
 		tex->_38 = 1;
-		keyW     = 0.9f * (GXGetTexObjWidth(tex) / 10);
-		keyH     = 0.9f * GXGetTexObjHeight(tex);
+		width    = GXGetTexObjWidth(tex);
+		keyW     = 0.9f * (width / 10);
+		height   = GXGetTexObjHeight(tex);
+		keyH     = 0.9f * height;
 		for (i = 0; i < 6; i++) {
 			u8 ch = work->mDigits[i];
 			if (ch != ' ') {
 				PSMTXTrans(tex->mMtx[0], 0.1f * decaPanelDigitCells[ch - '0'], 0.0f, 0.0f);
 				tex->_38  = 1;
 				u32 color = FadeColor(work->mFade);
-				fn_80197800(&lbl_8025C400, tex, color, color, color, color, 320.0f + 0.9f * decaPanelDigitPos[i][0],
-				            200.0f + 0.9f * decaPanelDigitPos[i][1], 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
+				DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f + 0.9f * decaPanelDigitPos[i][0],
+				                   200.0f + 0.9f * decaPanelDigitPos[i][1], 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
 			}
 		}
 
-		tex  = &work->mTexs[3];
-		keyW = 0.9f * GXGetTexObjWidth(tex);
-		keyH = 0.9f * GXGetTexObjHeight(tex);
+		tex    = &work->mTexs[3];
+		width  = GXGetTexObjWidth(tex);
+		keyW   = 0.9f * width;
+		height = GXGetTexObjHeight(tex);
+		keyH   = 0.9f * height;
 		{
 			u32 color = FadeColor(work->mFade);
-			fn_80197800(&lbl_8025C400, tex, color, color, color, color, keyW / 3.0f + (320.0f + 0.9f * work->mCurX),
-			            keyH / 3.0f + (200.0f + 0.9f * work->mCurY), 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, keyW / 3.0f + (320.0f + 0.9f * work->mCurX),
+			                   keyH / 3.0f + (200.0f + 0.9f * work->mCurY), 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
 		}
-		fn_8019AFA0(lbl_8025C400._294, 4);
+		SetGsTevMode(gGame._294, 4);
 	}
 }
+#pragma pop
 
 // DecaPanel_Update
 /*
@@ -711,8 +701,8 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     cror     eq, gt, eq
     bne      .L_00000584
     lbz      r0, 0x709(r31)
-    lis      r3, lbl_8025C400@ha
-    addi     r30, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r30, r3, gGame@l
     lbz      r4, 0x708(r31)
     extsb    r3, r0
     lwz      r0, 0x19b8(r30)
@@ -837,11 +827,11 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     rlwinm.  r0, r0, 0, 23, 23
     beq      .L_00000544
     lbz      r0, 0x709(r31)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lbz      r5, 0x708(r31)
     lis      r4, decaPanelKeySounds@ha
     extsb    r0, r0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     mulli    r0, r0, 0x3
     extsb    r5, r5
     addis    r3, r3, 0xe
@@ -949,9 +939,9 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     stw      r0, 0x704(r31)
 .L_00000514:
     li       r0, 0x0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x1f4(r31)
-    addi     r6, r3, lbl_8025C400@l
+    addi     r6, r3, gGame@l
     li       r3, -0x3
     li       r0, -0x1
     lwz      r4, 0x1b10(r6)
@@ -965,10 +955,10 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     rlwinm.  r0, r0, 0, 22, 22
     beq      .L_00000584
     li       r6, -0x1
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r6, 0x704(r31)
     li       r0, 0x0
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     li       r3, -0x3
     stw      r0, 0x1f4(r31)
     lwz      r0, 0x1b10(r5)
@@ -983,19 +973,19 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     lfs      f0, lbl_6_rodata_128@l(r3)
     fcmpo    cr0, f1, f0
     ble      .L_00000C90
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x4
     lwz      r3, 0x290(r3)
     li       r6, 0x5
     li       r7, 0xf
-    bl       fn_8019B56C
-    lis      r3, lbl_8025C400@ha
+    bl       SetGsBlendMode
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r30, r3, lbl_8025C400@l
+    addi     r30, r3, gGame@l
     lwz      r3, 0x294(r30)
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lbz      r0, 0x709(r31)
     lis      r3, lbl_6_rodata_12C@ha
     lbz      r6, 0x708(r31)
@@ -1058,18 +1048,18 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     fmr      f6, f3
     or       r5, r3, r5
     fsubs    f0, f0, f2
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmuls    f4, f5, f4
     lfs      f1, lbl_6_rodata_134@l(r8)
     lfs      f2, lbl_6_rodata_138@l(r7)
     fmr      f7, f3
     fmr      f8, f3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmuls    f5, f5, f0
     mr       r6, r5
     mr       r7, r5
     mr       r8, r5
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     addi     r3, r31, 0x2fc
     bl       GXGetTexObjWidth
     lis      r4, 0x6666
@@ -1226,8 +1216,8 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     lfs      f1, lbl_6_rodata_134@l(r6)
     or       r5, r3, r0
     fmr      f6, f3
-    lis      r4, lbl_8025C400@ha
-    addi     r3, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r3, r4, gGame@l
     fmr      f7, f3
     fmr      f8, f3
     lfs      f4, 0x10(r28)
@@ -1238,7 +1228,7 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     mr       r6, r5
     mr       r7, r5
     mr       r8, r5
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
 .L_0000098C:
     addi     r25, r25, 0x1
     addi     r28, r28, 0x18
@@ -1343,9 +1333,9 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     li       r0, -0x100
     fmr      f4, f30
     or       r5, r3, r0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f5, f31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     mr       r4, r28
     fmr      f7, f3
@@ -1355,7 +1345,7 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     fadds    f1, f9, f1
     mr       r8, r5
     fadds    f2, f2, f0
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
 .L_00000B58:
     addi     r25, r25, 0x1
     addi     r27, r27, 0x8
@@ -1413,11 +1403,11 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     lfs      f6, 0x0(r8)
     lis      r4, lbl_6_rodata_128@ha
     lfs      f3, lbl_6_rodata_128@l(r4)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmuls    f5, f4, f1
     lfs      f1, 0x0(r6)
     fmuls    f0, f4, f0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f4, f31
     mr       r4, r27
     fadds    f9, f6, f5
@@ -1431,10 +1421,10 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
     fmr      f8, f3
     fadds    f1, f10, f9
     fadds    f2, f2, f0
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r30)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_00000C90:
     psq_l    f31, 0x1a8(r1), 0, qr0
     lfd      f31, 0x1a0(r1)
@@ -1473,9 +1463,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 argc, s32* args)
     lwz      r0, 0x960(r30)
     cmpwi    r0, 0x0
     ble      .L_00000DFC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r29, r30
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r31, 0x0
     addis    r28, r3, 0x6
     subi     r28, r28, 0x2f80
@@ -1489,7 +1479,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 argc, s32* args)
     cmplwi   r0, 0x0
     beq      .L_00000D30
     mr       r3, r28
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_00000D34
 .L_00000D30:
     li       r3, 0x0
@@ -1515,9 +1505,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 argc, s32* args)
     lwz      r0, 0x960(r30)
     cmpwi    r0, 0x0
     ble      .L_00000DFC
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0xffff
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     mr       r28, r30
     addis    r27, r4, 0x6
     subi     r31, r3, 0x1
@@ -1533,7 +1523,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 argc, s32* args)
     cmplwi   r0, 0x0
     beq      .L_00000DC8
     mr       r3, r27
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_00000DCC
 .L_00000DC8:
     li       r3, 0x0
@@ -1596,7 +1586,7 @@ extern "C" s32 CmdClearSavedObjFlags(s32 cmd, s32 argc, s32* args)
  */
 extern "C" s32 CmdClearObjFlagList(s32 cmd, s32 argc, s32* args)
 {
-	fn_801468FC(lbl_8025C400._E7DFC);
+	fn_801468FC(gGame._E7DFC);
 	return 0;
 }
 
@@ -1608,7 +1598,7 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 argc, s32* args)
 {
 	s32 i;
 	for (i = 0; i < argc; i++) {
-		fn_801469A8(lbl_8025C400._E7DFC, args[i]);
+		fn_801469A8(gGame._E7DFC, args[i]);
 	}
 	return 0;
 }
@@ -1650,25 +1640,25 @@ extern "C" void UpdateStage(s32 frames)
 	static s32 sTimer = 0;
 
 	sTimer += frames;
-	if (fn_8001E6C8(lbl_8025C400.mSound, 0xFFFF000E)) {
-		fn_801EA1A4(5.0f * (f32)sin(DEG2RAD * sTimer));
+	if (fn_8001E6C8(gGame.mSound, 0xFFFF000E)) {
+		AXDriverSetAllStreamPitches(5.0f * (f32)sin(DEG2RAD * sTimer));
 	}
-	if (fn_8001E6C8(lbl_8025C400.mSound, 0xFFFF000F)) {
-		fn_801EA1A4(5.0f * (f32)sin(DEG2RAD * sTimer));
+	if (fn_8001E6C8(gGame.mSound, 0xFFFF000F)) {
+		AXDriverSetAllStreamPitches(5.0f * (f32)sin(DEG2RAD * sTimer));
 	}
-	if (lbl_8025C400.mObjTable.mList == NULL && HSD_Randi(5000) < 10) {
+	if (gGame.mObjTable.mList == NULL && HSD_Randi(5000) < 10) {
 		switch (HSD_Randi(4)) {
 		case 0:
-			fn_8001E904(lbl_8025C400.mSound, 0x50004, 0xFF);
+			fn_8001E904(gGame.mSound, 0x50004, 0xFF);
 			break;
 		case 1:
-			fn_8001E904(lbl_8025C400.mSound, 0x50005, 0xFF);
+			fn_8001E904(gGame.mSound, 0x50005, 0xFF);
 			break;
 		case 2:
-			fn_8001E904(lbl_8025C400.mSound, 0x50006, 0xFF);
+			fn_8001E904(gGame.mSound, 0x50006, 0xFF);
 			break;
 		case 3:
-			fn_8001E904(lbl_8025C400.mSound, 0x50007, 0xFF);
+			fn_8001E904(gGame.mSound, 0x50007, 0xFF);
 			break;
 		}
 	}

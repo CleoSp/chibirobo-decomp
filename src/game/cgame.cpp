@@ -17,24 +17,29 @@ extern "C" f32 lbl_8020FC20[4];
  */
 // NONMATCHING: the loop's float registers are assigned in another order
 // draws the stage name: a bubble per letter, then the letter with a shadow on four sides
-extern "C" void fn_8000AD34(CGame* game)
+extern "C" void DrawStageNameBubbles(CGame* game)
 {
 	if (game->mStageName.mActive && !(game->mStatus.mFlags & 2)) {
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-		fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 0);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
-		CTexObj bubble = lbl_8025C400.mTpl.mTex.Init(&((TPLPalette*)lbl_8025C400.mTpl.mBuffer)->descriptorArray[138], 0);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsChannelEnabled(&gGame.mGs, 0, 0);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+		CTexObj bubble = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[138 - StatusTextureOffset], 0);
 		f32 zero       = 0.0f;
 		u32 color      = game->mStageName.mColor & 0xFFFFFF00;
 		for (s32 i = 0; i < game->mStageName.mCount; i++) {
 			f32 scale = game->mStageName.mChars[i].mScale;
-			if (scale <= zero || strncmp(game->mStageName.mChars[i].mText, " ", 1) == 0) {
+			if (scale <= zero) {
 				continue;
 			}
+#if !defined(VERSION_JP)
+			if (strncmp(game->mStageName.mChars[i].mText, " ", 1) == 0) {
+				continue;
+			}
+#endif
 			CFont font;
 			s32 width;
-			CTexObj letter = *fn_8019E8F4(&font, game->mStageName.mChars[i].mText, &width);
+			CTexObj letter = *GetFontGlyphTexture(&font, game->mStageName.mChars[i].mText, &width);
 			f32 bob;
 			f32 tilt;
 			f32 swell;
@@ -50,21 +55,21 @@ extern "C" void fn_8000AD34(CGame* game)
 			u32 alpha = 255.0f * scale;
 			rot       = -(0.017453292f * (10.0f * tilt));
 			y         = 150.0f + bob;
-			fn_80197800(&lbl_8025C400.mGs, &bubble, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, x, y,
-			            0.0f, 22.0f * (2.2f * pop), 22.0f * (2.2f * pop), zero, -zero, rot);
+			DrawGsTexturedQuad(&gGame.mGs, &bubble, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, x, y,
+			                   0.0f, 22.0f * (2.2f * pop), 22.0f * (2.2f * pop), zero, -zero, rot);
 			f32 size   = 22.0f * (1.5f * pop);
 			f32 shrink = width / 24.0f * size;
 			f32 off    = size - shrink;
 			for (s32 j = 0; j < 4; j++) {
-				fn_80197800(&lbl_8025C400.mGs, &letter, alpha, alpha, alpha, alpha, off / 2.0f + (x + lbl_8020FC10[j]),
-				            bob + (150.0f + lbl_8020FC20[j]), 0.0f, size, size, zero, -zero, rot);
+				DrawGsTexturedQuad(&gGame.mGs, &letter, alpha, alpha, alpha, alpha, off / 2.0f + (x + lbl_8020FC10[j]),
+				                   bob + (150.0f + lbl_8020FC20[j]), 0.0f, size, size, zero, -zero, rot);
 			}
-			fn_80197800(&lbl_8025C400.mGs, &letter, color | alpha, color | alpha, color | alpha, color | alpha, off / 2.0f + x, y, 0.0f,
-			            size, size, zero, -zero, rot);
+			DrawGsTexturedQuad(&gGame.mGs, &letter, color | alpha, color | alpha, color | alpha, color | alpha, off / 2.0f + x, y, 0.0f,
+			                   size, size, zero, -zero, rot);
 		}
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-		fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+		SetGsChannelEnabled(&gGame.mGs, 0, 0);
 	}
 }
 
@@ -74,20 +79,20 @@ extern "C" void fn_8000AD34(CGame* game)
  */
 // draws the movie, centred at its own size unless _FF460 says otherwise. with alpha it's drawn
 // three times over
-extern "C" void fn_8000BE38(CGame* game)
+extern "C" void DrawGameMovie(CGame* game)
 {
 	if (game->mMovie.mMovie.mState != 0) {
 		f32 w   = fpclassify(game->mMovieRect[2]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoInfo.xSize : game->mMovieRect[2];
 		f32 h   = fpclassify(game->mMovieRect[3]) == FP_NAN ? (f32)game->mMovie.mMovie.mVideoInfo.ySize : game->mMovieRect[3];
 		f32 x   = fpclassify(game->mMovieRect[0]) == FP_NAN ? (640.0f - w) / 2 : game->mMovieRect[0];
 		f32 y   = fpclassify(game->mMovieRect[1]) == FP_NAN ? (448.0f - h) / 2 : game->mMovieRect[1];
-		CGs* gs = &lbl_8025C400.mGs;
-		fn_8019B648(gs->mCurRenderMode, 1);
-		fn_8019B5D0(gs->mCurRenderMode, 0);
-		fn_8019B464(gs->mCurRenderMode, 1, 7, 0);
+		CGs* gs = &gGame.mGs;
+		SetGsColorUpdate(gs->mCurRenderMode, 1);
+		SetGsAlphaUpdate(gs->mCurRenderMode, 0);
+		SetGsDepthMode(gs->mCurRenderMode, 1, 7, 0);
 		if (game->mMovie.mMovie.mAlpha) {
-			fn_8019B56C(gs->mCurRenderMode, 1, 4, 5, 15);
-			fn_8019B504(gs->mCurRenderMode, 4, 0x20, 0, 3, 255);
+			SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+			SetGsAlphaCompare(gs->mCurRenderMode, 4, 0x20, 0, 3, 255);
 			SetupAll(FALSE);
 			if (game->mMovie.mMovie.BeginDraw() >= 0) {
 				for (s32 i = 0; i < 3; i++) {
@@ -96,12 +101,12 @@ extern "C" void fn_8000BE38(CGame* game)
 				game->mMovie.mMovie.EndDraw();
 			}
 		} else {
-			fn_8019B56C(gs->mCurRenderMode, 0, 4, 5, 15);
-			fn_8019B504(gs->mCurRenderMode, 7, 0, 0, 7, 255);
+			SetGsBlendMode(gs->mCurRenderMode, 0, 4, 5, 15);
+			SetGsAlphaCompare(gs->mCurRenderMode, 7, 0, 0, 7, 255);
 			SetupAll(FALSE);
 			game->mMovie.mMovie.DrawFrame(x, y, w, h);
 		}
-		fn_8019B504(gs->mCurRenderMode, 4, 0, 0, 3, 255);
+		SetGsAlphaCompare(gs->mCurRenderMode, 4, 0, 0, 3, 255);
 		InvalidateAll();
 	}
 }
@@ -125,7 +130,7 @@ void* memset(void* dst, int val, u32 size);
  */
 extern "C" void fn_8000A858(s32 index)
 {
-	lbl_8020FC3C[index].mResult = -3;
+	gMicrophoneChannels[index].mResult = -3;
 }
 
 /**
@@ -134,9 +139,9 @@ extern "C" void fn_8000A858(s32 index)
  */
 // NONMATCHING: the work area isn't read back for the mount
 // mounts the mic in slot B and keeps it mounted
-extern "C" void fn_8000A6D8(void)
+extern "C" void UpdateMicrophoneMount(void)
 {
-	MicChannel* slot = &lbl_8020FC3C[1];
+	MicChannel* slot = &gMicrophoneChannels[1];
 	s32 result;
 	switch (slot->mState) {
 	case 0:
@@ -198,11 +203,6 @@ failed:
 extern "C" s32 lbl_8020FC5C[3];
 extern "C" s32 lbl_8020FC68[3];
 extern "C" s32 lbl_8065B158;
-extern "C" s32 lbl_8065B15C;
-extern "C" s16* lbl_8065B160[2];
-extern "C" u8 lbl_8065B168;
-extern "C" u32 lbl_8065B16C[2];
-extern "C" void (*lbl_8065B174)(void);
 
 /**
  * @note Address: 0x8000A560
@@ -211,10 +211,10 @@ extern "C" void (*lbl_8065B174)(void);
 // NONMATCHING: next and count swap registers
 // pulls the next samples from the mic into the buffer, a faster step when more are waiting,
 // and keeps the loudest ones
-extern "C" void fn_8000A560(s16* buffer)
+extern "C" void FillMicrophoneSampleBuffer(s16* buffer)
 {
 	memset(buffer, 0, 0x280);
-	u32* pos = &lbl_8065B16C[M2SGetActiveChannel()];
+	u32* pos = &gMicSamplePhase[M2SGetActiveChannel()];
 	s32 left = M2SGetSamplesLeft();
 	if (left < 0) {
 		*pos = 0;
@@ -234,8 +234,8 @@ extern "C" void fn_8000A560(s16* buffer)
 		s16* sample = samples;
 		for (s32 i = 0; i < count + 4; i++) {
 			s32 value = *sample;
-			if (value > lbl_8065B15C) {
-				lbl_8065B15C = value;
+			if (value > gMicMeterPeak) {
+				gMicMeterPeak = value;
 			}
 			if (value > 1000 && value > lbl_8065B158) {
 				lbl_8065B158 = value;
@@ -267,7 +267,7 @@ extern "C" s64 lbl_8065B150;
 // whether the stage takes the mic, which ended up true either way
 static inline BOOL IsMicStage()
 {
-	if (CheckStageFlag(lbl_8025C400.mStage, 2)) {
+	if (CheckStageFlag(gGame.mStage, 2)) {
 		return TRUE;
 	}
 	return TRUE;
@@ -279,34 +279,34 @@ static inline BOOL IsMicStage()
  */
 // the mic: opens it in whichever slot has one, records while its button is held and a little
 // after, and hands the loudest sample to every object
-extern "C" void fn_8000A870(u32 frames)
+extern "C" void UpdateStageMicrophone(u32 frames)
 {
-	if (lbl_8025C400.mStatus.mFlags & 1) {
-		fn_8000A6D8();
+	if (gGame.mStatus.mFlags & 1) {
+		UpdateMicrophoneMount();
 		if (IsMicStage()) {
-			if (lbl_80659ECC < 0) {
-				if (lbl_8020FC3C[0].mResult == 0) {
-					lbl_80659ECC = 0;
-				} else if (lbl_8020FC3C[1].mResult == 0) {
-					lbl_80659ECC = 1;
+			if (gActiveMicChannel < 0) {
+				if (gMicrophoneChannels[0].mResult == 0) {
+					gActiveMicChannel = 0;
+				} else if (gMicrophoneChannels[1].mResult == 0) {
+					gActiveMicChannel = 1;
 				}
-				if (lbl_80659ECC >= 0 && lbl_8020FC3C[lbl_80659ECC].mDeviceID == 0) {
-					M2SSetActiveChannel(lbl_80659ECC);
+				if (gActiveMicChannel >= 0 && gMicrophoneChannels[gActiveMicChannel].mDeviceID == 0) {
+					M2SSetActiveChannel(gActiveMicChannel);
 					M2SSetMode(3);
 					M2SSetPrerecordSamples(400);
 					M2SOpen();
-					MICSetGain(lbl_80659ECC, 0);
-					MICStart(lbl_80659ECC);
+					MICSetGain(gActiveMicChannel, 0);
+					MICStart(gActiveMicChannel);
 				}
-			} else if (lbl_8020FC3C[lbl_80659ECC].mResult != 0) {
+			} else if (gMicrophoneChannels[gActiveMicChannel].mResult != 0) {
 				M2SClose();
-				lbl_80659ECC = -1;
+				gActiveMicChannel = -1;
 			}
 		}
 
-		if (lbl_80659ECC >= 0 && lbl_8020FC3C[lbl_80659ECC].mDeviceID == 0) {
+		if (gActiveMicChannel >= 0 && gMicrophoneChannels[gActiveMicChannel].mDeviceID == 0) {
 			u32 button;
-			MICGetButton(lbl_80659ECC, &button);
+			MICGetButton(gActiveMicChannel, &button);
 			if (button & 0x10) {
 				if (!lbl_8065B148 && lbl_8065B150 == 0) {
 					M2SStart();
@@ -323,10 +323,10 @@ extern "C" void fn_8000A870(u32 frames)
 		}
 
 		if (lbl_8065B158 != 0) {
-			if ((lbl_8025C400.mStatus.mFlags & 1) && !(lbl_8025C400.mStatus.mFlags & 2)) {
-				for (s32 i = 0; i < lbl_8025C400.mDrawLists[0].mCount; i++) {
-					if (lbl_8025C400.mDrawLists[0].mObjects[i]->mStatus.mFlags & 1) {
-						lbl_8025C400.mDrawLists[0].mObjects[i]->vf144(-1, lbl_8065B158);
+			if ((gGame.mStatus.mFlags & 1) && !(gGame.mStatus.mFlags & 2)) {
+				for (s32 i = 0; i < gGame.mDrawLists[0].mCount; i++) {
+					if (gGame.mDrawLists[0].mObjects[i]->mStatus.mFlags & 1) {
+						gGame.mDrawLists[0].mObjects[i]->vf144(-1, lbl_8065B158);
 					}
 				}
 			}
@@ -339,12 +339,12 @@ extern "C" void fn_8000A870(u32 frames)
  * @note Address: 0x8000A678
  * @note Size: 0x60
  */
-extern "C" void fn_8000A678(void)
+extern "C" void OnMicAudioDMA(void)
 {
-	lbl_8065B174();
-	fn_8000A560(lbl_8065B160[lbl_8065B168]);
-	DCFlushRange(lbl_8065B160[lbl_8065B168], 0x280);
-	lbl_8065B168 ^= 1;
+	gPreviousAudioDMACallback();
+	FillMicrophoneSampleBuffer(gMicDMABuffers[gMicDMABufferIndex]);
+	DCFlushRange(gMicDMABuffers[gMicDMABufferIndex], 0x280);
+	gMicDMABufferIndex ^= 1;
 }
 
 /**
@@ -356,8 +356,8 @@ extern "C" void vf144__4XObjFll(void)
 }
 
 // the thread the movie plays on and its stack
-extern "C" CThread lbl_80360AE8;
-extern "C" u8 lbl_80360E10[0x1000];
+extern "C" CThread gMovieUpdateThread;
+extern "C" u8 gMovieUpdateThreadStack[0x1000];
 
 /**
  * @note Address: 0x8000AC64
@@ -378,7 +378,7 @@ extern "C" void* UpdateMovie(void* arg)
 			s32 result = movie->Update();
 			if (result < 0) {
 				movie->Stop();
-				OSPanic("game.cpp", 3832, "%s%s", fn_801911B4("error on play movie! - %d\n", result), __FUNCTION__);
+				OSPanic("game.cpp", 3832, "%s%s", FormatToStaticBuffer("error on play movie! - %d\n", result), __FUNCTION__);
 			}
 		}
 	} while (movie->mState != 0);
@@ -389,31 +389,30 @@ extern "C" void* UpdateMovie(void* arg)
  * @note Address: 0x8000ABB8
  * @note Size: 0xAC
  */
-// NONMATCHING: the flags are stored before the alpha bit is taken
 // starts a movie and the thread that plays it, bit 0 of the flags plays it with alpha
-extern "C" void fn_8000ABB8(CGame* game, const char* path, BOOL loop, u32 flags)
+extern "C" void StartGameMovie(CGame* game, const char* path, BOOL loop, u32 flags)
 {
 	game->mMovieFlags = flags;
-	game->mMovie.mMovie.Start(path, loop, flags & 1, TRUE);
+	game->mMovie.mMovie.Start(path, loop, (flags & 1) != 0, TRUE);
 	game->mMovieRect[0] = game->mMovieRect[1] = game->mMovieRect[2] = game->mMovieRect[3] = NAN;
-	lbl_80360AE8.Start(UpdateMovie, game, lbl_80360E10, sizeof(lbl_80360E10));
+	gMovieUpdateThread.Start(UpdateMovie, game, gMovieUpdateThreadStack, sizeof(gMovieUpdateThreadStack));
 }
 
 extern "C" {
-s32 fn_8006E7BC(void);
-s32 fn_80087A40(void* card);
-void fn_80061364(void* menu);
-void fn_800821DC(CMsg* msg);
+s32 GetDefaultStageIndex(void);
+s32 GetSaveFileStage(void* card);
+void ClearMainMenuExtraRows(void* menu);
+void ResetMessageState(CMsg* msg);
 void CMsg_ResetPos(CMsg* msg);
-void fn_8006F544(void);
-void fn_801328C8(XOBJS* objs);
+void UnloadStageDataAndModule(void);
+void ReleaseStageObjectList(XOBJS* objs);
 void psKillAllParticle(void);
-void fn_8001E11C(XSound* sound, BOOL pause);
+void SetMusicPlaybackPaused(XSound* sound, BOOL pause);
 void fn_8001F8D8(XSound* sound);
-void fn_80030CE8(void* title);
-void fn_80031510(void* menu);
-void fn_8006D5A4(void* info);
-u8* fn_8006DFC4(s32 index);
+void ResetTitleScreenState(void* title);
+void ResetMenuGroup(void* menu);
+void ResetGameHudState(void* info);
+u8* GetStageDisplayName(s32 index);
 int rand(void);
 }
 extern "C" GXColor lbl_80659EC0;
@@ -432,7 +431,7 @@ static inline bool IsSJISLead(char c)
 // shuts a wipe off where it is
 static inline void ClearWipe(CScrnWipe* wipe)
 {
-	fn_800236EC(wipe, 0, 0, 0, 0, TRUE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	StartScreenWipe(wipe, 0, 0, 0, 0, TRUE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 /**
@@ -443,18 +442,18 @@ static inline void ClearWipe(CScrnWipe* wipe)
 // changes to another stage: 10000 is the title, 20000 the stage from the card, below 0 the
 // next one. everything that belongs to the old stage is let go of, and the new stage's name
 // is set up to pop in when showName is set
-extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
+extern "C" void ChangeGameStage(CGame* game, s32 stage, BOOL showName)
 {
-	fn_80023EE0(&game->mFade, 0, 0, 0, 255, 0, 0, 0, 255, 0.0f);
+	StartScreenFade(&game->mFade, 0, 0, 0, 255, 0, 0, 0, 255, 0.0f);
 	if (stage == 10000) {
 		s32 first = lbl_8020FBC0.mStage;
 		if (first < 0 || (game->mStatus.mFlags & 0x8000000000000)) {
-			game->SetStage(fn_8006E7BC());
+			game->SetStage(GetDefaultStageIndex());
 		} else {
 			game->SetStage(first);
 		}
 	} else if (stage == 20000) {
-		game->SetStage(fn_80087A40(&game->mMemcard));
+		game->SetStage(GetSaveFileStage(&game->mMemcard));
 		game->mMemcardLoaded = TRUE;
 	} else if (stage >= 0) {
 		game->SetStage(stage);
@@ -468,15 +467,15 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 	if (game->mMovie.mMovie.mState != 0) {
 		game->mMovie.mMovie.Stop();
 	}
-	fn_80061364(game->mMenu.mMenus[0]);
-	fn_8007F040(&game->mEvt, 1, 1);
+	ClearMainMenuExtraRows(game->mMenu.mMenus[0]);
+	ResetEventScriptState(&game->mEvt, 1, 1);
 	for (s32 i = 0; i < 2; i++) {
-		fn_800821DC(&game->mCMsgs[i]);
+		ResetMessageState(&game->mCMsgs[i]);
 		CMsg_ResetPos(&game->mCMsgs[i]);
 		game->mCMsgs[i].SetColor(lbl_80659EC0);
 	}
 	for (s32 i = 0; i < 5; i++) {
-		FbMirrorEx* mirror = &lbl_8035FA24[i];
+		FbMirrorEx* mirror = &gFramebufferMirrors[i];
 		if (mirror->IsUsed()) {
 			if (mirror->mJoint != NULL) {
 				mirror->mJoint   = NULL;
@@ -489,20 +488,20 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 			mirror->mOwner = NULL;
 		}
 	}
-	fn_8006F544();
+	UnloadStageDataAndModule();
 	game->mLightList = game->mLights;
-	fn_801328C8(&game->mXObjs);
-	lbl_80659ECC = -1;
+	ReleaseStageObjectList(&game->mXObjs);
+	gActiveMicChannel = -1;
 	game->mParticle.KillAll();
 	psKillAllParticle();
 	if (game->mStatus.mFlags & 4) {
 		if (game->mStatus.mFlags & 4) {
 			game->mStatus.mFlags &= ~4;
-			fn_8001E11C(&lbl_8025C400.mSound, FALSE);
+			SetMusicPlaybackPaused(&gGame.mSound, FALSE);
 			HSD_PadRumbleActiveAll();
 		}
 	}
-	fn_8001E630(&lbl_8025C400.mSound, -1);
+	KeyOffGameSoundTrack(&gGame.mSound, -1);
 	fn_8001F8D8(&game->mSound);
 	game->mStatus.mFlags &= ~0x20000000002F;
 	game->mStatus.mFlags &= ~0xC00;
@@ -517,29 +516,31 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		game->mStatus.mFlags |= 0x20000000;
 		game->mStatus.mFlags |= 0x1000000000000;
 		game->mStatus.mFlags &= ~0x80;
-		fn_80030CE8(&game->mTitle);
-		fn_80031510(&game->mMenu);
-		fn_8006D5A4(&game->mInfoScrn);
+		ResetTitleScreenState(&game->mTitle);
+		ResetMenuGroup(&game->mMenu);
+		ResetGameHudState(&game->mInfoScrn);
 		game->mSubwin.Reset();
-		fn_80023EE0(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
+		StartScreenFade(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
 		ClearWipe(&game->mWipeCircle);
 		ClearWipe(&game->mWipeTex);
 		ClearWipe(&game->mWipeCustom);
 		ClearWipe(&game->mWipeTile0);
-		fn_80023438(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, TRUE);
-		fn_800242A8(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+		StartScreenWipeColorTransition(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0,
+		                               TRUE);
+		StartScreenShake(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		game->mBlur.mAlpha  = 0.0f;
 		game->mBlur.mTarget = 0.0f;
 		game->_3338         = 19;
 	} else if (stage == 20000) {
 		game->mSubwin.Reset();
-		fn_80023EE0(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
+		StartScreenFade(&game->mFade, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f);
 		ClearWipe(&game->mWipeCircle);
 		ClearWipe(&game->mWipeTex);
 		ClearWipe(&game->mWipeCustom);
 		ClearWipe(&game->mWipeTile0);
-		fn_80023438(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0, TRUE);
-		fn_800242A8(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+		StartScreenWipeColorTransition(&game->mWipeTile1, 0, 0, 0, 0, 0, 0, 0, 320.0f, 224.0f, 640.0f, 448.0f, 640.0f, 448.0f, 0.0f, 0,
+		                               TRUE);
+		StartScreenShake(&game->mQuake, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		game->mBlur.mAlpha  = 0.0f;
 		game->mBlur.mTarget = 0.0f;
 		game->_3338         = 20;
@@ -552,7 +553,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 		game->mStageName.mCount  = 0;
 		s32 cur                  = game->mStage;
 		if (cur < GetStageNum()) {
-			char* name = (char*)fn_8006DFC4(game->mStage);
+			char* name = (char*)GetStageDisplayName(game->mStage);
 			if (name != NULL) {
 				game->mStageName.mColor = 0x80FFFF00;
 				for (s32 i = 0; i < 20 && *name != '\0'; i++, name++) {
@@ -567,7 +568,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
 						name++;
 					}
 #else
-					if (lbl_8025C400.mLanguage == 6 && IsSJISLead(*name)) {
+					if (gGame.mLanguage == 6 && IsSJISLead(*name)) {
 						name++;
 					}
 #endif
@@ -586,7 +587,7 @@ extern "C" void fn_8000B394(CGame* game, s32 stage, BOOL showName)
  * @note Address: 0x8000AB90
  * @note Size: 0x28
  */
-extern "C" void fn_8000AB90(CGame* game)
+extern "C" void StopGameMovie(CGame* game)
 {
 	game->mMovie.mMovie.Stop();
 }

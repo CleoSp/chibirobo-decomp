@@ -15,7 +15,7 @@ extern "C" void fn_800970E4(HSD_JObj* joint, f32** arguments, s32 type)
 		HSD_MObj* material = HSD_DObjGetMObj(draw);
 		if (material != NULL) {
 			HSD_MObjSetDiffuseColor(material, diffuse.r, diffuse.g, diffuse.b);
-			fn_801BA3AC(material, ambient.r, ambient.g, ambient.b);
+			SetMaterialAmbientColor(material, ambient.r, ambient.g, ambient.b);
 			HSD_MObjSetAlpha(material, alpha);
 		}
 	}

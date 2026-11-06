@@ -58,7 +58,7 @@ void CPadEx::Init()
 	HSD_PadLibData.clamp_analogLRMax   = 200;
 	HSD_PadLibData.clamp_analogLRMin   = 10;
 	HSD_PadLibData.scale_analogLR      = 190;
-	fn_801CC0A0(1);
+	SetPadQueueType(1);
 	HSD_VISetUserPostRetraceCallback(PadRetraceCallback);
 	for (int i = 0; i < 4; i++) {
 		mPad[i].Init(i);

@@ -17,12 +17,12 @@ struct Inventory {
 STATIC_ASSERT(sizeof(Inventory) == 0x404);
 
 extern "C" {
-void fn_800DC62C(Inventory* inventory);
+void CompactInventory(Inventory* inventory);
 // takes amount of item id away
-s32 fn_800DC754(Inventory* inventory, s16 id, s32 amount);
+s32 RemoveInventoryItemCount(Inventory* inventory, s16 id, s32 amount);
 // adds or takes amount of item id, gives back the new count
-s32 fn_800DC9B0(Inventory* inventory, s16 id, s16 amount, BOOL add);
-s32 fn_800DCD30(InventoryItem* items, s16 id);
+s32 SetOrAddInventoryItemCount(Inventory* inventory, s16 id, s16 amount, BOOL add);
+s32 FindOwnedInventoryItemIndex(InventoryItem* items, s16 id);
 }
 
 #endif

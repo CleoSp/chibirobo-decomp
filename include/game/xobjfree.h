@@ -18,8 +18,8 @@ public:
 	virtual void Release(); // _54
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
 	                     f32 blendRate);                   // _80
-	virtual void vf98();                                   // _98
-	virtual void vfA4(u32 frames);                         // _A4
+	virtual void ResetObjectState();                       // _98
+	virtual void UpdateObject(u32 frames);                 // _A4
 	virtual void vfC8();                                   // _C8
 	virtual void vf138(const Vec& position, f32 strength); // _138
 };

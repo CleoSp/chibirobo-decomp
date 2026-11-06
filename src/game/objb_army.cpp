@@ -23,7 +23,7 @@ static inline void SetFloors(XObj* obj, XObjFloor* floors)
 	obj->_250[1] = 0;
 	obj->_250[0] = 0;
 	fn_8008D220(obj);
-	fn_8008C8A4(obj);
+	UpdateObjectFloorHeights(obj);
 }
 
 // nothing reads it
@@ -101,7 +101,7 @@ static inline void FireShot(XObjArmyShot* shot, const CVec& pos, const CVec& dir
 		if (sShotSfx < 0 || sShotSfx >= 4) {
 			sShotSfx = 0;
 		}
-		fn_8001E904(&lbl_8025C400.mSound, sShotSfx + 0x110012, 0xFF);
+		fn_8001E904(&gGame.mSound, sShotSfx + 0x110012, 0xFF);
 		sShotSfx++;
 	}
 }
@@ -147,7 +147,7 @@ void XObjArmy::vf148()
 	if (mFlags.mFlags & 0x100) {
 		volume = 0xFF;
 	} else {
-		volume = fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0);
+		volume = GetSoundVolumeAtPosition(&gGame.mSound, &mMoveTranslate, 0);
 	}
 	HSD_JObj* jobj = mJObj;
 	s32 anim       = mAnimId;
@@ -160,7 +160,7 @@ extern "C" {
  * @note Address: 0x800E6B70
  * @note Size: 0x308
  */
-void fn_800E6B70(XObjArmyShot* shot, u32 frames)
+void UpdateArmyShot(XObjArmyShot* shot, u32 frames)
 {
 	if (!shot->mActive) {
 		return;
@@ -177,7 +177,7 @@ void fn_800E6B70(XObjArmyShot* shot, u32 frames)
 			target = sTarget->mMoveTranslate;
 			height = 28.0f;
 		} else {
-			XObjChr* player = lbl_8025C400.GetPlayer();
+			XObjChr* player = gGame.GetPlayer();
 			target          = player->mMoveTranslate;
 			height          = player->GetAttachment() != 6 ? 10.0f : 28.0f;
 		}
@@ -189,9 +189,9 @@ void fn_800E6B70(XObjArmyShot* shot, u32 frames)
 			target.y = shot->mPos.y;
 			if (PSVECDistance(&shot->mPos, &target) < 5.0f) {
 				Vec hit = shot->mPos;
-				fn_8001E904(&lbl_8025C400.mSound, 0x110029, 0xFF);
+				fn_8001E904(&gGame.mSound, 0x110029, 0xFF);
 				sStatus.mFlags |= 1;
-				lbl_8025C400.GetPlayer()->vf138(hit, 10.0f);
+				gGame.GetPlayer()->vf138(hit, 10.0f);
 				shot->mVel.x = -1.0f * shot->mVel.x;
 				shot->mVel.y = -1.0f;
 				shot->mVel.z = -1.0f * shot->mVel.z;
@@ -230,9 +230,9 @@ void XObjArmy::vf138(const Vec& pos, f32 f)
 {
 	if (!(mFlags.mFlags & 1)) {
 		_994 = 0.0f;
-		fn_8001E904(&lbl_8025C400.mSound, 0x83, 0xFF);
+		fn_8001E904(&gGame.mSound, 0x83, 0xFF);
 		if (_994 <= 0.0f) {
-			if (fn_8006EBC8(0x1F) / 100.0f <= f || PSVECDistance(&mMoveTranslate, &lbl_8025C400.GetPlayer()->mMoveTranslate) < 20.0f) {
+			if (fn_8006EBC8(0x1F) / 100.0f <= f || PSVECDistance(&mMoveTranslate, &gGame.GetPlayer()->mMoveTranslate) < 20.0f) {
 				mStep = 0;
 				mFunc = &XObjArmy::StateFall;
 			} else {
@@ -298,7 +298,7 @@ s32 vf124__8XObjArmyFlPl(XObjArmy* obj, s32 argc, s32* args)
 		case 3:
 			if (argc >= 2) {
 				if (args[2] >= 0) {
-					sTarget = lbl_8025C400.GetObject(args[2]);
+					sTarget = gGame.GetObject(args[2]);
 				} else {
 					sTarget = NULL;
 				}
@@ -357,7 +357,7 @@ s32 vf124__8XObjArmyFlPl(XObjArmy* obj, s32 argc, s32* args)
  * @note Size: 0x2C4
  */
 // NONMATCHING: regalloc
-void fn_800E7530(XObjArmy* army)
+void FireNextArmyShot(XObjArmy* army)
 {
 	CVec pos;
 	CVec dir;
@@ -419,7 +419,7 @@ void XObjArmy::StateFall()
 	case 0: {
 		mFlags.mFlags |= 1;
 		sHitCount++;
-		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)lbl_8025C400.mXObjs.mPools[2].mObjects)->mMoveTranslate);
+		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)gGame.mXObjs.mPools[2].mObjects)->mMoveTranslate);
 		pos       = mMoveTranslate;
 		SetAnim(0x13, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		SetRotateY(angle - 3.1415927f, 1.0f);
@@ -447,7 +447,7 @@ void XObjArmy::StateKnock()
 	case 0: {
 		mFlags.mFlags |= 1;
 		sHitCount++;
-		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)lbl_8025C400.mXObjs.mPools[2].mObjects)->mMoveTranslate);
+		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)gGame.mXObjs.mPools[2].mObjects)->mMoveTranslate);
 		pos       = mMoveTranslate;
 		SetAnim(0xA, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		SetRotateY(angle - 3.1415927f, 1.0f);
@@ -486,6 +486,125 @@ void XObjArmy::StateWait()
 	}
 }
 
+extern "C" s32 HSD_Randi(s32 max);
+
+static inline bool SoldierBlocksMarch(XObjArmy* self, CVec& next)
+{
+	for (s32 i = self->_258 + 1; i < 21; ++i) {
+		XObjArmy* other = (XObjArmy*)gGame.mXObjs.mPools[16].Get(i);
+		if (!(other->mStatus.mFlags & 1) || (other->mFlags.mFlags & 1))
+			continue;
+		if (5.f < Abs(self->mMoveTranslate.y - other->mMoveTranslate.y))
+			continue;
+		if (7.5f < PSVECDistance(&next, &other->mMoveTranslate))
+			continue;
+		return true;
+	}
+	return false;
+}
+
+void XObjArmy::StateMarch()
+{
+	XObjChr* player = gGame.GetPlayer();
+	f32 angle       = GetAngleY(player->mMoveTranslate, mMoveTranslate);
+	f32 distance    = PSVECDistance(&mMoveTranslate, &player->mMoveTranslate);
+	f32 height      = player->mMoveTranslate.y - mMoveTranslate.y;
+	CVec target(player->mMoveTranslate.x, mMoveTranslate.y, player->mMoveTranslate.z);
+	CVec next;
+	switch (mStep) {
+	case 0:
+		next.x = sMin.x + (sMax.x - sMin.x) * HSD_Randf();
+		next.y = sMin.y;
+		next.z = sMin.z + (sMax.z - sMin.z) * HSD_Randf();
+		SetAnim(3, FALSE, NULL, NULL, NULL, 0, 1, 0, 10);
+		SetMoveDir(&next, .4f);
+		SetRotateY(GetAngleY(next, mMoveTranslate), .5f);
+		++mStep;
+		break;
+	case 1:
+		if (PSVECDistance(&mMoveTranslate, &mMoveTranslate.mTarget) < .1f) {
+			if (target.x < sMin.x || sMax.x < target.x || target.z < sMin.z || sMax.z < target.z)
+				mStep = 0;
+			else if (HSD_Randi(100) < 75)
+				++mStep;
+			else
+				mStep = 0;
+		} else if (distance < 80 && Abs(height) < 10) {
+			f32 facing = cos(angle - HSD_JObjGetRotationY(mJObj));
+			if ((f32)cos(20.f * DEG2RAD) < facing)
+				mStep = 10;
+			else if (distance < 40)
+				++mStep;
+		}
+		break;
+	case 2:
+		SetAnim(5, FALSE, NULL, NULL, NULL, 0, 1, 0, 10);
+		next = mMoveTranslate;
+		next.x += 50 * (f32)sin(HALF_PI + HSD_JObjGetRotationY(mJObj));
+		next.z += 50 * (f32)cos(HALF_PI + HSD_JObjGetRotationY(mJObj));
+		SetMoveDir(&next, .4f);
+		++mStep;
+		break;
+	case 3:
+		next = mMoveTranslate;
+		next.x += 5 * (f32)sin(HALF_PI + HSD_JObjGetRotationY(mJObj));
+		next.z += 5 * (f32)cos(HALF_PI + HSD_JObjGetRotationY(mJObj));
+		if (SoldierBlocksMarch(this, next))
+			SetMoveDir(&mMoveTranslate, 1);
+		if (GetAnimEndFrame(mJObj) <= GetAnimFrame(mJObj))
+			mStep = 0;
+		break;
+	case 10:
+		SetAnim(4, TRUE, NULL, NULL, NULL, 0, 1, 0, 10);
+		SetRotateY(angle, .5f);
+		SetMoveDir(&target, .5f);
+		++mStep;
+		break;
+	case 11:
+		next = mMoveTranslate;
+		next.x += 5 * (f32)sin(HSD_JObjGetRotationY(mJObj));
+		next.z += 5 * (f32)cos(HSD_JObjGetRotationY(mJObj));
+		if (SoldierBlocksMarch(this, next))
+			SetMoveDir(&mMoveTranslate, 1);
+		if (GetAnimEndFrame(mJObj) <= GetAnimFrame(mJObj)) {
+			if (!(sStatus.mFlags & 2)) {
+				f32 facing = cos(angle - HSD_JObjGetRotationY(mJObj));
+				if ((f32)cos(20.) < facing && HSD_Randi(100) < 30) {
+					SetAnim(7, FALSE, NULL, NULL, NULL, 0, 1, 0, 10);
+					SetMoveDir(&mMoveTranslate, 1);
+					++mStep;
+					break;
+				}
+			}
+			mStep = 0;
+		}
+		break;
+	case 12:
+		if (GetAnimEndFrame(mJObj) <= GetAnimFrame(mJObj)) {
+			SetRotateY(angle, .05f);
+			SetAnim(9, FALSE, NULL, NULL, NULL, 0, 1, 0, 10);
+			++mStep;
+		}
+		break;
+	case 13:
+		SetRotateY(angle, .05f);
+		if (20 <= GetAnimFrame(mJObj)) {
+			FireNextArmyShot(this);
+			++mStep;
+		}
+		break;
+	case 14:
+		if (GetAnimEndFrame(mJObj) <= GetAnimFrame(mJObj) || (GetAObj(mJObj)->flags & 0x04000000)) {
+			if (distance < 40) {
+				f32 facing = cos(angle - HSD_JObjGetRotationY(mJObj));
+				mStep      = (f32)cos(45.) < facing ? 10 : 0;
+			} else
+				mStep = 0;
+		}
+		break;
+	}
+}
+
 /**
  * @note Address: 0x800E980C
  * @note Size: 0x370
@@ -493,15 +612,15 @@ void XObjArmy::StateWait()
 // NONMATCHING: regalloc and stack order
 void XObjArmy::vfC0()
 {
-	CGs* gs = &lbl_8025C400.mGs;
+	CGs* gs = &gGame.mGs;
 	for (u32 i = 0; i < 5; i++) {
 		if (mShots[i].mActive) {
 			if (sLeader == NULL) {
 				gs->_29C = 1;
 				Vec pos  = mShots[i].mPos;
-				fn_8019B56C(gs->mCurRenderMode, 1, 1, 1, 15);
+				SetGsBlendMode(gs->mCurRenderMode, 1, 1, 1, 15);
 				Vec rot = { 0.0f, 0.0f, 0.0f };
-				fn_80198258(&lbl_8025C400.mGs, 16, 0x64FF64C8, 0xFF, pos.x, pos.y, pos.z, 3.0f, 3.0f, rot.x, rot.y, rot.z);
+				DrawGsCircle(&gGame.mGs, 16, 0x64FF64C8, 0xFF, pos.x, pos.y, pos.z, 3.0f, 3.0f, rot.x, rot.y, rot.z);
 				gs->_29C = 0;
 			} else {
 				HSD_JObj* jobj = sLeader->mJObj;
@@ -519,9 +638,9 @@ void XObjArmy::vfC0()
  * @note Address: 0x800E9B7C
  * @note Size: 0x600
  */
-void XObjArmy::vfA4(u32 frames)
+void XObjArmy::UpdateObject(u32 frames)
 {
-	vfA4__4XObjFUl(this, frames);
+	UpdateObject__4XObjFUl(this, frames);
 	if (mFunc) {
 		(this->*mFunc)();
 	}
@@ -572,7 +691,7 @@ void XObjArmy::vfA4(u32 frames)
 	}
 	vf148();
 	for (u32 i = 0; i < 5; i++) {
-		fn_800E6B70(&mShots[i], frames);
+		UpdateArmyShot(&mShots[i], frames);
 	}
 }
 
@@ -580,17 +699,17 @@ void XObjArmy::vfA4(u32 frames)
  * @note Address: 0x800EA17C
  * @note Size: 0x144
  */
-void XObjArmy::vf98()
+void XObjArmy::ResetObjectState()
 {
-	vf98__4XObjFv(this);
+	ResetObjectState__4XObjFv(this);
 	sHitCount      = 0;
 	sTarget        = NULL;
 	sStatus.mFlags = 0;
 	mFunc          = NULL;
 	if (_258 == 0) {
 		sLeader = NULL;
-		for (s32 i = 0; sLeader == NULL && i < lbl_8025C400.mXObjs.mObjectCount; i++) {
-			XObj* obj = lbl_8025C400.GetObject(i);
+		for (s32 i = 0; sLeader == NULL && i < gGame.mXObjs.mObjectCount; i++) {
+			XObj* obj = gGame.GetObject(i);
 			if ((obj->mStatus.mFlags & 1) && obj->mCoord._00->_00 == 0x12A) {
 				sLeader = obj;
 			}

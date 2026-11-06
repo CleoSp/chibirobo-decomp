@@ -9,7 +9,7 @@ extern "C" {
  * @note Address: 0x800D6FE8
  * @note Size: 0x398
  */
-void vfA4__10XObjPopperFUl(XObjPopper* object, u32 frames)
+void UpdateObject__10XObjPopperFUl(XObjPopper* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -47,7 +47,7 @@ void vfA4__10XObjPopperFUl(XObjPopper* object, u32 frames)
 			}
 			break;
 		}
-		vfA4__4XObjFUl(object, frames);
+		UpdateObject__4XObjFUl(object, frames);
 	}
 }
 
@@ -78,7 +78,7 @@ void fn_800D744C(XObjPopper* object)
  * @note Address: 0x800D749C
  * @note Size: 0x14
  */
-BOOL fn_800D749C(XObjPopper* object)
+BOOL IsPopperFireAnimationSelected(XObjPopper* object)
 {
 	return object->mAnimId == 5;
 }
@@ -87,7 +87,7 @@ BOOL fn_800D749C(XObjPopper* object)
  * @note Address: 0x800D74B0
  * @note Size: 0x50
  */
-void fn_800D74B0(XObjPopper* object)
+void PlayPopperFireAnimation(XObjPopper* object)
 {
 	object->SetAnim(5, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
@@ -108,8 +108,8 @@ void fn_800D7500(XObjPopper* object)
 void fn_800D7550(XObjPopper* object)
 {
 	object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-	lbl_8025C400.mSound.StopIfPlaying(0x186);
-	lbl_8025C400.mSound.StopIfPlaying(0x18B);
+	gGame.mSound.StopIfPlaying(0x186);
+	gGame.mSound.StopIfPlaying(0x18B);
 }
 
 /**
@@ -126,7 +126,7 @@ void fn_800D75F8(XObjPopper* object)
  * @note Address: 0x800D7668
  * @note Size: 0x344
  */
-void vfA4__10XObjCopterFUl(XObjCopter* object, u32 frames)
+void UpdateObject__10XObjCopterFUl(XObjCopter* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -157,7 +157,7 @@ void vfA4__10XObjCopterFUl(XObjCopter* object, u32 frames)
 			}
 			break;
 		}
-		vfA4__4XObjFUl(object, frames);
+		UpdateObject__4XObjFUl(object, frames);
 	}
 }
 
@@ -209,7 +209,7 @@ void fn_800D7B18(XObjCopter* object)
 void fn_800D7B68(XObjCopter* object)
 {
 	object->SetAnim(8, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-	lbl_8025C400.mSound.StopIfPlaying(8);
+	gGame.mSound.StopIfPlaying(8);
 }
 
 /**
@@ -236,16 +236,16 @@ void Release__14XObjAttachmentFv(XObjAttachment* object)
  * @note Address: 0x800D7CA0
  * @note Size: 0x20
  */
-void vf98__14XObjAttachmentFv(XObjAttachment* object)
+void ResetObjectState__14XObjAttachmentFv(XObjAttachment* object)
 {
-	vf98__4XObjFv(object);
+	ResetObjectState__4XObjFv(object);
 }
 
 /**
  * @note Address: 0x800D7CC0
  * @note Size: 0x8
  */
-void SetParent__14XObjAttachmentFP9_HSD_JObj(XObjAttachment* object, HSD_JObj* parent)
+void SetParent__14XObjAttachmentFP9_HSD_JObji(XObjAttachment* object, HSD_JObj* parent, BOOL fromPlacement)
 {
 	object->mParent = parent;
 }

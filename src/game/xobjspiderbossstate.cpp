@@ -1,5 +1,9 @@
 #include "game/xobjspiderboss.h"
 
+extern "C" const f32 lbl_8065E0BC;
+extern "C" const f32 lbl_8065E0C0;
+extern "C" const f32 lbl_8065E028;
+
 /**
  * @note Address: 0x80103EC0
  * @note Size: 0x94
@@ -16,11 +20,11 @@ extern "C" void State0__14XObjSpiderBossFUl(XObjSpiderBoss* spider)
 		spider->mTimer     = 0;
 		spider->mPrevState = spider->mState;
 		spider->mState     = 4;
-		spider->mAreaPos.x = -200.0f;
-		spider->mAreaPos.y = 0.0f;
-		spider->mAreaPos.z = -200.0f;
-		spider->mAreaWidth = 400.0f;
-		spider->mAreaDepth = 400.0f;
+		spider->mAreaPos.x = lbl_8065E0BC;
+		spider->mAreaPos.y = lbl_8065E028;
+		spider->mAreaPos.z = lbl_8065E0BC;
+		spider->mAreaWidth = lbl_8065E0C0;
+		spider->mAreaDepth = lbl_8065E0C0;
 	} else {
 		spider->mStep      = 0;
 		spider->mTimer     = 0;

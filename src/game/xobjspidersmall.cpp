@@ -1,5 +1,7 @@
 #include "game/xobjspidersmall.h"
 #include "game/hsd_jobj.h"
+#include "game/spiderplacement.h"
+#include "game/spidercontact.h"
 #include "game/cgame.h"
 #include "game/cgs.h"
 #include "game/cpad.h"
@@ -10,19 +12,20 @@
 #include "game/ut.h"
 #include "game/gmath.h"
 #include "game/animframe.h"
+#include "game/video.h"
 #include <stdlib.h>
 
 extern "C" {
-void fn_800EA554(Vec* position, Vec* target, s32 anim);
-void fn_800EA780(void* unused, u32 frames);
-void fn_800EA99C(void* unused);
+void SpawnSpiderBounceCoin(Vec* position, Vec* target, s32 anim);
+void UpdateSpiderCoinBounces(void* unused, u32 frames);
+void ResetSpiderCoinBounces(void* unused);
 BOOL fn_800D4B60(XActLift* lift);
-void fn_80068C8C(f32* value, f32* target, f32 step);
-s16 fn_80034E4C(s32 id);
-f32 fn_800A0414(XObjChr* chr);
-void fn_800A0014(XObjChr* chr, BOOL react, BOOL stop, f32 time);
+void ApproachHudValue(f32* value, f32* target, f32 step);
+s16 GetPlayerItemCount(s32 id);
+f32 GetPlayerCollisionRadius(XObjChr* chr);
+void ApplyPlayerHitReaction(XObjChr* chr, BOOL react, BOOL stop, f32 time);
 void fn_800F54B4(XObjSpiderSmall* spider);
-void fn_800FCF04(XObjSpiderSmall* spider, u32 frames);
+void HandleSmallSpiderEventCommand(XObjSpiderSmall* spider, u32 frames);
 
 extern XObjFloor* lbl_8065A798[2];
 extern u8 lbl_8065B2C8[4]; // the coins' manager, it has no data of its own
@@ -32,28 +35,32 @@ extern s32 lbl_8065B2D8; // how many spiders hold on to the robot
 extern XObj* lbl_8065B2DC;
 extern u8 lbl_8065B2E0;
 
-u8 lbl_8037E7D0[0x140];
-XObj* lbl_8037E910[12];
-s32 lbl_8037E940[12];
-CStatus lbl_8037E97C[39][16];
+u8 gSmallSpiderPlacementWork[0xD4];
+Vec gSmallSpiderPosition, gSmallSpiderScale, gSmallSpiderRotation;
+#if defined(VERSION_JP)
+u8 gSmallSpiderWorkEnd[0x134 - 0xF8];
+#else
+u8 gSmallSpiderWorkEnd[0x140 - 0xF8];
+#endif
+XObj* gSmallSpiderEffectObjects[12];
+s32 gSmallSpiderEffectSlotOwners[12];
+SmallSpiderStageStatus gSmallSpiderStatusByStage[39];
 }
 
-// the states' updates, by mState
-extern void (XObjSpiderSmall::*lbl_8022B230[])(u32);
+void (XObjSpiderSmall::*gSmallSpiderStateHandlers[10])(u32) = {
+	&XObjSpiderSmall::State0, &XObjSpiderSmall::State1, &XObjSpiderSmall::State2, &XObjSpiderSmall::State3, &XObjSpiderSmall::State4,
+	&XObjSpiderSmall::State5, &XObjSpiderSmall::State6, &XObjSpiderSmall::State7, &XObjSpiderSmall::State8, &XObjSpiderSmall::State9,
+};
 
-// takes battery off the robot, never below empty
-static inline void UseBattery(Params& params, f32 amount)
+static inline void TakeSmallSpiderSlot(XObjSpiderSmall* spider)
 {
-	f32 battery = params.mBattery - amount;
-	if (battery < 0.0f) {
-		battery = 0.0f;
-	}
-	params.mBattery = battery > 0.0f ? battery : 0.0f;
-	if (params.mBattery < 0.0f) {
-		params.mBattery = 0.0f;
-	}
-	if (params.mBattery > params.mMaxBattery) {
-		params.mBattery = params.mMaxBattery;
+	for (int i = 0; i < 12; i++) {
+		if (gSmallSpiderEffectSlotOwners[i] == -1) {
+			spider->mFxObj                  = gSmallSpiderEffectObjects[i];
+			spider->mFxIndex                = i;
+			gSmallSpiderEffectSlotOwners[i] = spider->_258;
+			break;
+		}
 	}
 }
 
@@ -61,8 +68,8 @@ static inline void UseBattery(Params& params, f32 amount)
 static inline bool CanPlaySe()
 {
 	bool play = false;
-	if (lbl_8025C400.IsRunning() && lbl_8025C400.mEvt.mData.mScript == NULL && lbl_8025C400.mMenu.mActive == 0
-	    && !(lbl_8025C400.mStatus.mFlags & 0xC00) && lbl_8025C400.mTimeState.mDuration > 0.0f && lbl_8025C400.mTimeState.mRunning == 0) {
+	if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL && gGame.mMenu.mActive == 0 && !(gGame.mStatus.mFlags & 0xC00)
+	    && gGame.mTimeState.mDuration > 0.0f && gGame.mTimeState.mRunning == 0) {
 		play = true;
 	}
 	return play;
@@ -75,9 +82,9 @@ static inline bool CanPlaySe()
 // NONMATCHING: anim and jobj swap r29 and r30
 void XObjSpiderSmall::vf148()
 {
-	if ((mStatus.mFlags & 1) && (mStatus.mFlags & 0x10000) && !fn_800665E0(&lbl_8025C400.mInfoScrn)) {
+	if ((mStatus.mFlags & 1) && (mStatus.mFlags & 0x10000) && !InfoScrn_IsBatteryGaugeEmpty(&gGame.mInfoScrn)) {
 		s32 anim = mAnimId;
-		mAnimSfx.Update(anim, GetAnimFrame(mJObj), fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0));
+		mAnimSfx.Update(anim, GetAnimFrame(mJObj), GetSoundVolumeAtPosition(&gGame.mSound, &mMoveTranslate, 0));
 	}
 }
 
@@ -85,13 +92,13 @@ void XObjSpiderSmall::vf148()
  * @note Address: 0x800F4C10
  * @note Size: 0x1A8
  */
-extern "C" bool fn_800F4C10(XObjSpiderSmallFx* shot, u8 i, u32 frames)
+extern "C" bool IsSmallSpiderEffectAnimationFinished(XObjSpiderSmallFx* shot, u8 i, u32 frames)
 {
-	if (lbl_8037E910[i] == NULL) {
+	if (gSmallSpiderEffectObjects[i] == NULL) {
 		return TRUE;
 	}
-	f32 end = GetAnimEndFrame(lbl_8037E910[i]->mJObj);
-	if (end - frames <= GetAnimFrame(lbl_8037E910[i]->mJObj)) {
+	f32 end = GetAnimEndFrame(gSmallSpiderEffectObjects[i]->mJObj);
+	if (end - frames <= GetAnimFrame(gSmallSpiderEffectObjects[i]->mJObj)) {
 		return TRUE;
 	}
 	return FALSE;
@@ -101,14 +108,14 @@ extern "C" bool fn_800F4C10(XObjSpiderSmallFx* shot, u8 i, u32 frames)
  * @note Address: 0x800F4DB8
  * @note Size: 0x190
  */
-extern "C" void fn_800F4DB8(XObjSpiderSmallFx* shot, const CVec& pos)
+extern "C" void StartSmallSpiderWebEffect(XObjSpiderSmallFx* shot, const CVec& pos)
 {
 	shot->mStatus.mFlags |= 1;
 	shot->mPos   = pos;
 	shot->mState = 1;
 	if (CanPlaySe()) {
-		fn_8001E904(&lbl_8025C400.mSound, 0x184, 0xFF);
-		fn_8001DF00(&lbl_8025C400.mSound, &shot->mPos, 0);
+		fn_8001E904(&gGame.mSound, 0x184, 0xFF);
+		GetSoundVolumeAtPosition(&gGame.mSound, &shot->mPos, 0);
 	}
 }
 
@@ -117,9 +124,9 @@ extern "C" void fn_800F4DB8(XObjSpiderSmallFx* shot, const CVec& pos)
  * @note Size: 0x4B0
  */
 // plays the web's anims, 1 and 2 shoot it, 10 drops it
-extern "C" void fn_800F4F48(XObjSpiderSmallFx* shot, u8 i, u32 frames, BOOL arg)
+extern "C" void UpdateSmallSpiderWebEffect(XObjSpiderSmallFx* shot, u8 i, u32 frames, BOOL arg)
 {
-	if (lbl_8025C400.mStatus.mFlags & 0x400) {
+	if (gGame.mStatus.mFlags & 0x400) {
 		return;
 	}
 	if (i == 0xFF) {
@@ -127,7 +134,7 @@ extern "C" void fn_800F4F48(XObjSpiderSmallFx* shot, u8 i, u32 frames, BOOL arg)
 		shot->mStatus.mFlags &= ~1;
 		return;
 	}
-	if (lbl_8037E910[i] == NULL) {
+	if (gSmallSpiderEffectObjects[i] == NULL) {
 		shot->mState = 0;
 		shot->mStatus.mFlags &= ~1;
 		return;
@@ -139,33 +146,33 @@ extern "C" void fn_800F4F48(XObjSpiderSmallFx* shot, u8 i, u32 frames, BOOL arg)
 	case 0:
 		break;
 	case 1:
-		lbl_8037E910[i]->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		gSmallSpiderEffectObjects[i]->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		shot->mState++;
 		break;
 	case 2: {
-		f32 end = GetAnimEndFrame(lbl_8037E910[i]->mJObj);
-		if (end - frames <= GetAnimFrame(lbl_8037E910[i]->mJObj)) {
-			lbl_8037E910[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		f32 end = GetAnimEndFrame(gSmallSpiderEffectObjects[i]->mJObj);
+		if (end - frames <= GetAnimFrame(gSmallSpiderEffectObjects[i]->mJObj)) {
+			gSmallSpiderEffectObjects[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			shot->mState = 0;
 			shot->mStatus.mFlags &= ~1;
 		}
 		break;
 	}
 	case 3:
-		lbl_8037E910[i]->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		gSmallSpiderEffectObjects[i]->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		shot->mState++;
 		break;
 	case 4: {
-		f32 end = GetAnimEndFrame(lbl_8037E910[i]->mJObj);
-		if (end - frames <= GetAnimFrame(lbl_8037E910[i]->mJObj)) {
-			lbl_8037E910[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		f32 end = GetAnimEndFrame(gSmallSpiderEffectObjects[i]->mJObj);
+		if (end - frames <= GetAnimFrame(gSmallSpiderEffectObjects[i]->mJObj)) {
+			gSmallSpiderEffectObjects[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			shot->mState = 0;
 			shot->mStatus.mFlags &= ~1;
 		}
 		break;
 	}
 	case 10:
-		lbl_8037E910[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+		gSmallSpiderEffectObjects[i]->SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		shot->mState = 0;
 		shot->mStatus.mFlags &= ~1;
 		break;
@@ -179,7 +186,7 @@ extern "C" void fn_800F4F48(XObjSpiderSmallFx* shot, u8 i, u32 frames, BOOL arg)
 extern "C" void fn_800F53F8(u8 on)
 {
 	for (s32 i = 0; i < 0x60; i++) {
-		XObj* obj = lbl_8025C400.mXObjs.mPools[7].Get(i);
+		XObj* obj = gGame.mXObjs.mPools[7].Get(i);
 		if ((obj->mStatus.mFlags & 1) && obj->GetKind() == 0x104) {
 			if (on) {
 				obj->mStatus.mFlags |= 0x10000;
@@ -195,9 +202,9 @@ extern "C" void fn_800F53F8(u8 on)
  * @note Size: 0xF0
  */
 // how long it holds on, by the suit the robot wears
-extern "C" s32 fn_800F5588()
+extern "C" s32 GetSmallSpiderGripDuration()
 {
-	switch (lbl_8025C400.GetPlayer()->mSuit) {
+	switch (gGame.GetPlayer()->mSuits.mCurrent) {
 	case 1:
 	case 6:
 		return rand() % 10 + 10;
@@ -225,7 +232,7 @@ extern "C" u8 fn_800F5678(XObjSpiderSmall* spider)
  * @note Address: 0x800F5684
  * @note Size: 0xC
  */
-extern "C" u8 fn_800F5684(XObjSpiderSmall* spider)
+extern "C" u8 IsSmallSpiderGrabbingPlayer(XObjSpiderSmall* spider)
 {
 	return (spider->mSpiderStatus.mFlags >> 23) & 1;
 }
@@ -234,7 +241,7 @@ extern "C" u8 fn_800F5684(XObjSpiderSmall* spider)
  * @note Address: 0x800F5690
  * @note Size: 0x130
  */
-extern "C" bool fn_800F5690(XObjSpiderSmall* spider)
+extern "C" bool IsSmallSpiderWithinTargetRadius(XObjSpiderSmall* spider)
 {
 	f32 dx = spider->mTargetPos.x - spider->mMoveTranslate.x;
 	f32 dy = spider->mTargetPos.y - spider->mMoveTranslate.y;
@@ -247,9 +254,9 @@ extern "C" bool fn_800F5690(XObjSpiderSmall* spider)
  * @note Size: 0x174
  */
 // the player stands in the spider's area
-extern "C" bool fn_800F57C0(XObjSpiderSmall* spider)
+extern "C" bool IsPlayerInSmallSpiderArea(XObjSpiderSmall* spider)
 {
-	Vec pos = lbl_8025C400.GetPlayer()->mMoveTranslate;
+	Vec pos = gGame.GetPlayer()->mMoveTranslate;
 	f32 y   = pos.y;
 	f32 z   = pos.z;
 	CVec unused;
@@ -275,20 +282,11 @@ static inline f32 DistanceXZ(const Vec* a, const Vec* b)
 	return sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
-static inline f32 Distance(const Vec* a, const Vec* b)
-{
-	f32 dx = a->x - b->x;
-	f32 dy = a->y - b->y;
-	f32 dz = a->z - b->z;
-	return sqrtf(dx * dx + dy * dy + dz * dz);
-}
-
 /**
  * @note Address: 0x800F841C
  * @note Size: 0x104
  */
-// NONMATCHING: the frame is set up after the loads
-extern "C" f32 fn_800F841C(const Vec* a, const Vec* b)
+extern "C" f32 GetSmallSpiderDistanceXZ(Vec* a, Vec* b)
 {
 	return DistanceXZ(a, b);
 }
@@ -297,10 +295,9 @@ extern "C" f32 fn_800F841C(const Vec* a, const Vec* b)
  * @note Address: 0x800F8520
  * @note Size: 0x114
  */
-// NONMATCHING: the frame is set up after the loads
-extern "C" f32 fn_800F8520(const Vec* a, const Vec* b)
+extern "C" f32 GetSmallSpiderContactDistance(Vec* a, Vec* b)
 {
-	return Distance(a, b);
+	return SpiderContactDistance(a, b);
 }
 
 /**
@@ -327,7 +324,7 @@ static inline void Catch(XObjSpiderSmall* spider)
 	spider->mStep            = 4;
 	spider->mSpiderStatus.mFlags |= 0x800000;
 	lbl_8065B2D8++;
-	lbl_8025C400.GetPlayer()->_A40 = 0.4f;
+	gGame.GetPlayer()->_A40 = 0.4f;
 	spider->SetAnim(5, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
@@ -339,13 +336,13 @@ static inline void Catch(XObjSpiderSmall* spider)
 extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
-	XObjChr* player = lbl_8025C400.GetPlayer();
+	XObjChr* player = gGame.GetPlayer();
 	Vec ppos        = player->mMoveTranslate;
 	Vec prot        = player->mMoveRotate;
 	switch (spider->mStep) {
 	case 0:
 		spider->_98C = 0.0f;
-		if (Distance(&ppos, &spider->mMoveTranslate) < 48.0f) {
+		if (SpiderContactDistance(&ppos, &spider->mMoveTranslate) < 48.0f) {
 			spider->_9FC.x = ppos.x;
 			spider->_9FC.y = ppos.y;
 			spider->_9FC.z = ppos.z;
@@ -361,11 +358,11 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->_9FC.y = ppos.y;
 		spider->_9FC.z = ppos.z;
 		spider->_980   = atan2(spider->_9FC.x - spider->mMoveTranslate.x, spider->_9FC.z - spider->mMoveTranslate.z);
-		f32 dist       = Distance(&spider->_9FC, &spider->mMoveTranslate);
+		f32 dist       = SpiderContactDistance(&spider->_9FC, &spider->mMoveTranslate);
 		if (dist < 20.0f) {
 			spider->_984 = 0.0f;
 			spider->SetAnim(3, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			spider->mTimer = fn_800F5588();
+			spider->mTimer = GetSmallSpiderGripDuration();
 			spider->mStep++;
 		} else if (dist >= 64.0f) {
 			spider->mStep = 100;
@@ -381,7 +378,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 				spider->_9FC.x = ppos.x;
 				spider->_9FC.y = ppos.y;
 				spider->_9FC.z = ppos.z;
-				if (Distance(&spider->_9FC, &spider->mMoveTranslate) >= 20.0f) {
+				if (SpiderContactDistance(&spider->_9FC, &spider->mMoveTranslate) >= 20.0f) {
 					spider->SetAnim(12, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					spider->mSpiderStatus.mFlags |= 8;
 					spider->_9FC.x = spider->mMoveTranslate.x;
@@ -394,7 +391,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 					spider->mSpiderStatus.mFlags &= ~1;
 					spider->mStep = 22;
 				} else {
-					f32 size = fn_800A0414(lbl_8025C400.GetPlayer());
+					f32 size = GetPlayerCollisionRadius(gGame.GetPlayer());
 					spider->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					spider->mSpiderStatus.mFlags |= 8;
 					spider->_A8C   = DEG2RAD * (rand() % 360);
@@ -418,19 +415,19 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 	}
 	case 4: {
 		spider->_AA8             = 0;
-		f32 size                 = fn_800A0414(lbl_8025C400.GetPlayer());
+		f32 size                 = GetPlayerCollisionRadius(gGame.GetPlayer());
 		spider->mMoveTranslate.x = ppos.x + size * (f32)sin(prot.y + spider->_A8C);
 		spider->mMoveTranslate.y = 10.0f + ppos.y + spider->_A9C.y;
 		spider->mMoveTranslate.z = ppos.z + size * (f32)cos(prot.y + spider->_A8C);
 		spider->_980             = atan2(ppos.x - spider->mMoveTranslate.x, ppos.z - spider->mMoveTranslate.z);
-		if (lbl_8025C400.IsRunning() && (pad.mPad->mTrigger & 0xF0000)) {
+		if (gGame.IsRunning() && (pad.mPad->mTrigger & 0xF0000)) {
 			spider->_A98 = spider->_A98 - spider->_A90;
 			spider->_A90 = 8.0f;
 		}
 		if (spider->_A90 > 1.0f) {
 			spider->_A90 -= 1.0f;
 		}
-		if (lbl_8025C400.mEvt.mData.mScript != NULL) {
+		if (gGame.mEvt.mData.mScript != NULL) {
 			spider->_9FC.x = ppos.x + size * (f32)sin(prot.y + spider->_A8C);
 			spider->_9FC.y = ppos.y;
 			spider->_9FC.z = ppos.z + size * (f32)cos(prot.y + spider->_A8C);
@@ -443,7 +440,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			fn_800F54B4(spider);
 			spider->mSpiderStatus.mFlags |= 0x2000;
 			spider->SetState(7);
-		} else if (spider->_A98 <= 0.0f || fn_800D4B60(&lbl_8025C400.GetPlayer()->mLift)) {
+		} else if (spider->_A98 <= 0.0f || fn_800D4B60(&gGame.GetPlayer()->mLift)) {
 			f32 ang;
 			f32 dist       = 20.0f + size + rand() % 3000 / 100.0f;
 			ang            = PI + (f32)atan2(ppos.x - spider->mMoveTranslate.x, ppos.z - spider->mMoveTranslate.z);
@@ -508,11 +505,11 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	}
 	case 10: {
-		f32 dist = Distance(&ppos, &spider->mMoveTranslate);
-		if (dist < 12.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		f32 dist = SpiderContactDistance(&ppos, &spider->mMoveTranslate);
+		if (dist < 12.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			spider->mStatus.mFlags |= 0x4000000000000ULL;
 		}
-		if (dist < 8.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		if (dist < 8.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			Catch(spider);
 		} else {
 			if (DistanceXZ(&spider->_9FC, &spider->mMoveTranslate) < 2.0f) {
@@ -527,11 +524,11 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	}
 	case 11: {
-		f32 dist = Distance(&ppos, &spider->mMoveTranslate);
-		if (dist < 12.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		f32 dist = SpiderContactDistance(&ppos, &spider->mMoveTranslate);
+		if (dist < 12.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			spider->mStatus.mFlags |= 0x4000000000000ULL;
 		}
-		if (dist < 8.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		if (dist < 8.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			Catch(spider);
 		} else {
 			if (spider->_99C >= -2.3f) {
@@ -617,12 +614,12 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			spider->_984   = 0.0f;
 			spider->mTimer = rand() % 30 + 30;
 			spider->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		} else if (lbl_8025C400.mEvt.mData.mScript == NULL) {
+		} else if (gGame.mEvt.mData.mScript == NULL) {
 			spider->mStep = 0;
 		}
 		break;
 	case 33:
-		if (lbl_8025C400.mEvt.mData.mScript == NULL) {
+		if (gGame.mEvt.mData.mScript == NULL) {
 			spider->mStep = 0;
 		}
 		break;
@@ -637,7 +634,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
 			f32 z = spider->mMoveTranslate.z;
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 		}
 		spider->mStep++;
 		break;
@@ -651,7 +648,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 102:
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mTimer = rand() % 30 + 30;
 			spider->mStep++;
 		}
@@ -659,8 +656,8 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 	case 103:
 		if (--spider->mTimer < 0) {
 			spider->_AC0--;
-			if (12.0f + spider->mHome.y < ppos.y || spider->mHome.y - 12.0f > ppos.y || lbl_8025C400.mEvt.mData.mScript != NULL
-			    || spider->_AC0 < 0 || lbl_8025C400.mTimeState.mDuration == 0.0f) {
+			if (12.0f + spider->mHome.y < ppos.y || spider->mHome.y - 12.0f > ppos.y || gGame.mEvt.mData.mScript != NULL || spider->_AC0 < 0
+			    || gGame.mTimeState.mDuration == 0.0f) {
 				spider->mMoveTranslate.x = spider->mHome.x;
 				spider->mMoveTranslate.y = spider->mHome.y;
 				spider->mMoveTranslate.z = spider->mHome.z;
@@ -669,18 +666,18 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 				if (spider->mSpiderStatus.mFlags & 0x40000) {
 					State2__15XObjSpiderSmallFUl(spider);
 					if (spider->mFxIndex != 0xFF) {
-						lbl_8037E940[spider->mFxIndex] = -1;
-						spider->mFxObj                 = NULL;
-						spider->mFxIndex               = 0xFF;
+						gSmallSpiderEffectSlotOwners[spider->mFxIndex] = -1;
+						spider->mFxObj                                 = NULL;
+						spider->mFxIndex                               = 0xFF;
 					}
 					spider->mStep = 1000;
 				} else {
 					spider->SetState(5);
 					spider->mSpiderStatus.mFlags &= ~0x40;
-					lbl_8037E97C[lbl_8025C400.mStage][spider->_AB4].mFlags &= ~0x40;
+					gSmallSpiderStatusByStage[gGame.mStage].mSpiders[spider->_AB4].mFlags &= ~0x40;
 				}
 			} else {
-				f32 size                 = fn_800A0414(lbl_8025C400.GetPlayer());
+				f32 size                 = GetPlayerCollisionRadius(gGame.GetPlayer());
 				spider->_A8C             = DEG2RAD * (rand() % 360);
 				f32 dist                 = 10.0f + size;
 				spider->mMoveTranslate.x = ppos.x + dist * (f32)sin(prot.y + spider->_A8C);
@@ -691,7 +688,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 				z            = spider->mMoveTranslate.z;
 				y            = spider->mMoveTranslate.y;
 				spider->_980 = atan2(ppos.x - x, ppos.z - z);
-				fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+				StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 				spider->mStep++;
 			}
 		}
@@ -706,7 +703,7 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 105:
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mSpiderStatus.mFlags &= ~0x8000;
 			spider->mStep = 0;
 		}
@@ -722,9 +719,9 @@ extern "C" void State8__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
-	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
-	Vec prot = lbl_8025C400.GetPlayer()->mMoveRotate;
-	if (!fn_800F57C0(spider)) {
+	Vec ppos = gGame.GetPlayer()->mMoveTranslate;
+	Vec prot = gGame.GetPlayer()->mMoveRotate;
+	if (!IsPlayerInSmallSpiderArea(spider)) {
 		if (--spider->_ABC < 0) {
 			spider->_ABC = 0;
 		}
@@ -754,7 +751,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		if (spider->mTimer <= 0) {
 			spider->Wander(20);
 			spider->mTimer = rand() % 30 + 10;
-		} else if (Distance(&ppos, &spider->mMoveTranslate) < 64.0f && fn_800F5690(spider)) {
+		} else if (SpiderContactDistance(&ppos, &spider->mMoveTranslate) < 64.0f && IsSmallSpiderWithinTargetRadius(spider)) {
 			spider->_9FC.x = ppos.x;
 			spider->_9FC.y = ppos.y;
 			spider->_9FC.z = ppos.z;
@@ -781,7 +778,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 				spider->_9FC.z = spider->mHome.z;
 			}
 			if (spider->_ABC <= 0) {
-				if ((spider->mSpiderStatus.mFlags & 0x20) && lbl_8025C400.mTimeState.mDuration != 0.0f) {
+				if ((spider->mSpiderStatus.mFlags & 0x20) && gGame.mTimeState.mDuration != 0.0f) {
 					spider->_AC0 = rand() % 4 + 3;
 					spider->SetState(8);
 				} else {
@@ -870,12 +867,12 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			spider->_984   = 0.0f;
 			spider->mTimer = rand() % 30 + 30;
 			spider->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		} else if (lbl_8025C400.mEvt.mData.mScript == NULL) {
+		} else if (gGame.mEvt.mData.mScript == NULL) {
 			spider->mStep = 0;
 		}
 		break;
 	case 33:
-		if (lbl_8025C400.mEvt.mData.mScript == NULL) {
+		if (gGame.mEvt.mData.mScript == NULL) {
 			spider->mStep = 0;
 		}
 		break;
@@ -885,13 +882,13 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->_9FC.y = ppos.y;
 		spider->_9FC.z = ppos.z;
 		spider->_980   = atan2(spider->_9FC.x - spider->mMoveTranslate.x, spider->_9FC.z - spider->mMoveTranslate.z);
-		if (Distance(&spider->_9FC, &spider->mMoveTranslate) < 20.0f) {
+		if (SpiderContactDistance(&spider->_9FC, &spider->mMoveTranslate) < 20.0f) {
 			spider->_984 = 0.0f;
 			spider->SetAnim(3, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			spider->mTimer = fn_800F5588();
+			spider->mTimer = GetSmallSpiderGripDuration();
 			spider->mStep++;
 		}
-		if (!fn_800F5690(spider)) {
+		if (!IsSmallSpiderWithinTargetRadius(spider)) {
 			spider->Wander(20);
 		}
 		if (!spider->InArea(spider->mMoveTranslate)) {
@@ -905,7 +902,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 				spider->_9FC.x = ppos.x;
 				spider->_9FC.y = ppos.y;
 				spider->_9FC.z = ppos.z;
-				if (Distance(&spider->_9FC, &spider->mMoveTranslate) >= 20.0f) {
+				if (SpiderContactDistance(&spider->_9FC, &spider->mMoveTranslate) >= 20.0f) {
 					spider->SetAnim(12, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					spider->mSpiderStatus.mFlags |= 8;
 					spider->_9FC.x = spider->mMoveTranslate.x;
@@ -918,7 +915,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 					spider->mSpiderStatus.mFlags &= ~1;
 					spider->mStep = 22;
 				} else {
-					f32 size = fn_800A0414(lbl_8025C400.GetPlayer());
+					f32 size = GetPlayerCollisionRadius(gGame.GetPlayer());
 					spider->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					spider->mSpiderStatus.mFlags |= 8;
 					spider->_A8C   = DEG2RAD * (rand() % 360);
@@ -942,7 +939,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 	}
 	case 4: {
 		spider->_AA8             = 0;
-		f32 size                 = fn_800A0414(lbl_8025C400.GetPlayer());
+		f32 size                 = GetPlayerCollisionRadius(gGame.GetPlayer());
 		spider->mMoveTranslate.x = ppos.x + size * (f32)sin(prot.y + spider->_A8C);
 		spider->mMoveTranslate.y = 10.0f + ppos.y + spider->_A9C.y;
 		spider->mMoveTranslate.z = ppos.z + size * (f32)cos(prot.y + spider->_A8C);
@@ -954,7 +951,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		if (spider->_A90 > 1.0f) {
 			spider->_A90 -= 1.0f;
 		}
-		if (lbl_8025C400.mEvt.mData.mScript != NULL) {
+		if (gGame.mEvt.mData.mScript != NULL) {
 			spider->_9FC.x = ppos.x + size * (f32)sin(prot.y + spider->_A8C);
 			spider->_9FC.y = ppos.y;
 			spider->_9FC.z = ppos.z + size * (f32)cos(prot.y + spider->_A8C);
@@ -967,7 +964,7 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			fn_800F54B4(spider);
 			spider->mSpiderStatus.mFlags |= 0x2000;
 			spider->SetState(7);
-		} else if (spider->_A98 <= 0.0f || fn_800D4B60(&lbl_8025C400.GetPlayer()->mLift)) {
+		} else if (spider->_A98 <= 0.0f || fn_800D4B60(&gGame.GetPlayer()->mLift)) {
 			f32 dist       = 20.0f + size + rand() % 3000 / 100.0f;
 			f32 ang        = PI + (f32)atan2(ppos.x - spider->mMoveTranslate.x, ppos.z - spider->mMoveTranslate.z);
 			spider->_9FC.x = ppos.x + dist * (f32)sin(ang);
@@ -1036,11 +1033,11 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	}
 	case 10: {
-		f32 dist = Distance(&ppos, &spider->mMoveTranslate);
-		if (dist < 12.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		f32 dist = SpiderContactDistance(&ppos, &spider->mMoveTranslate);
+		if (dist < 12.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			spider->mStatus.mFlags |= 0x4000000000000ULL;
 		}
-		if (dist < 8.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		if (dist < 8.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			Catch(spider);
 		} else {
 			if (!spider->InArea(spider->mMoveTranslate)) {
@@ -1060,11 +1057,11 @@ extern "C" void State3__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	}
 	case 11: {
-		f32 dist = Distance(&ppos, &spider->mMoveTranslate);
-		if (dist < 12.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		f32 dist = SpiderContactDistance(&ppos, &spider->mMoveTranslate);
+		if (dist < 12.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			spider->mStatus.mFlags |= 0x4000000000000ULL;
 		}
-		if (dist < 8.0f + fn_800A0414(lbl_8025C400.GetPlayer()) - 1.5f) {
+		if (dist < 8.0f + GetPlayerCollisionRadius(gGame.GetPlayer()) - 1.5f) {
 			Catch(spider);
 		} else {
 			if (spider->_99C >= -2.3f) {
@@ -1109,14 +1106,14 @@ extern "C" void fn_800F54B4(XObjSpiderSmall* spider)
 	if (spider->mSpiderStatus.Check(0x1000000)) {
 		spider->mSpiderStatus.mFlags &= ~0x1000000;
 		lbl_8065B2D4 = 0;
-		lbl_8025C400.GetPlayer()->vf12C(1, 0, 0, 0, 0.0f);
-		fn_80066190(&lbl_8025C400.mInfoScrn, 0, 1);
+		gGame.GetPlayer()->vf12C(1, 0, 0, 0, 0.0f);
+		fn_80066190(&gGame.mInfoScrn, 0, 1);
 	}
 	if (--lbl_8065B2D8 < 0) {
 		lbl_8065B2D8 = 0;
 	}
 	if (lbl_8065B2D8 == 0) {
-		lbl_8025C400.GetPlayer()->_A40 = 1.0f;
+		gGame.GetPlayer()->_A40 = 1.0f;
 	}
 }
 
@@ -1127,13 +1124,13 @@ extern "C" void fn_800F54B4(XObjSpiderSmall* spider)
 // state 9: falls off the wall, runs a bit and spits a last web
 extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
-	XObjChr* player = lbl_8025C400.GetPlayer();
+	XObjChr* player = gGame.GetPlayer();
 	Vec ppos        = player->mMoveTranslate;
 	Vec prot        = player->mMoveRotate;
 	switch (spider->mStep) {
 	case 0:
 		if ((spider->mSpiderStatus.mFlags & 0x800000) || spider->mMoveTranslate.y > spider->mHome.y) {
-			f32 size       = fn_800A0414(player);
+			f32 size       = GetPlayerCollisionRadius(player);
 			spider->_9FC.x = ppos.x + size * (f32)sin(prot.y + spider->_A8C);
 			spider->_9FC.y = ppos.y;
 			spider->_9FC.z = ppos.z + size * (f32)cos(prot.y + spider->_A8C);
@@ -1187,7 +1184,7 @@ extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->_9FC.y = ppos.y;
 		spider->_9FC.z = ppos.z;
 		spider->_980   = PI + (f32)atan2(spider->_9FC.x - spider->mMoveTranslate.x, spider->_9FC.z - spider->mMoveTranslate.z);
-		Distance(&spider->_9FC, &spider->mMoveTranslate);
+		SpiderContactDistance(&spider->_9FC, &spider->mMoveTranslate);
 		if (--spider->mTimer < 0) {
 			spider->_98C = 0.0f;
 			spider->_984 = 0.0f;
@@ -1198,7 +1195,7 @@ extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
 			f32 z = spider->mMoveTranslate.z;
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 			spider->mStep++;
 		}
 		break;
@@ -1212,13 +1209,13 @@ extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 12:
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mTimer = 0;
 			State2__15XObjSpiderSmallFUl(spider);
 			if (spider->mFxIndex != 0xFF) {
-				lbl_8037E940[spider->mFxIndex] = -1;
-				spider->mFxObj                 = NULL;
-				spider->mFxIndex               = 0xFF;
+				gSmallSpiderEffectSlotOwners[spider->mFxIndex] = -1;
+				spider->mFxObj                                 = NULL;
+				spider->mFxIndex                               = 0xFF;
 			}
 			spider->mStep++;
 		}
@@ -1236,12 +1233,12 @@ extern "C" void State9__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
-	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
-	Vec prot = lbl_8025C400.GetPlayer()->mMoveRotate;
+	Vec ppos = gGame.GetPlayer()->mMoveTranslate;
+	Vec prot = gGame.GetPlayer()->mMoveRotate;
 	switch (spider->mStep) {
 	case 0:
 		spider->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-		if (Distance(&ppos, &spider->mMoveTranslate) >= 30.0f) {
+		if (SpiderContactDistance(&ppos, &spider->mMoveTranslate) >= 30.0f) {
 			spider->_984   = 0.0f;
 			spider->mTimer = 1;
 			spider->mStep++;
@@ -1254,7 +1251,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
 			f32 z = spider->mMoveTranslate.z;
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 			spider->mStep++;
 		}
 		break;
@@ -1268,7 +1265,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 3:
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mTimer = rand() % 30 + 30;
 			spider->mStep++;
 		}
@@ -1276,7 +1273,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 	case 4:
 		if (--spider->mTimer < 0) {
 			f32 x, z, y, dist;
-			f32 size                 = fn_800A0414(lbl_8025C400.GetPlayer());
+			f32 size                 = GetPlayerCollisionRadius(gGame.GetPlayer());
 			spider->_A8C             = DEG2RAD * (rand() % 360);
 			dist                     = 10.0f + size;
 			spider->mMoveTranslate.x = ppos.x + dist * (f32)sin(prot.y + spider->_A8C);
@@ -1286,7 +1283,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			z                        = spider->mMoveTranslate.z;
 			y                        = spider->mMoveTranslate.y;
 			spider->_980             = atan2(ppos.x - x, ppos.z - z);
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 			spider->mStep++;
 		}
 		break;
@@ -1300,7 +1297,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 6:
-		fn_800F4C10(&spider->mFx, spider->mFxIndex, frames);
+		IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames);
 		break;
 	}
 }
@@ -1314,7 +1311,7 @@ extern "C" void State4__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 extern "C" void State5__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames)
 {
 	CJObj obj;
-	Vec ppos = lbl_8025C400.GetPlayer()->mMoveTranslate;
+	Vec ppos = gGame.GetPlayer()->mMoveTranslate;
 	CPad pad(0);
 	switch (spider->mStep) {
 	case 0:
@@ -1323,11 +1320,11 @@ extern "C" void State5__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->_9A0 = 0.0f;
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		DistanceXZ(&ppos, &spider->mMoveTranslate);
-		if (fn_800F57C0(spider) && lbl_8025C400.mEvt.mData.mScript == NULL) {
+		if (IsPlayerInSmallSpiderArea(spider) && gGame.mEvt.mData.mScript == NULL) {
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
 			f32 z = spider->mMoveTranslate.z;
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 			spider->mStep++;
 		}
 		break;
@@ -1341,13 +1338,13 @@ extern "C" void State5__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 		break;
 	case 2:
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			spider->mSpiderStatus.mFlags &= ~0x8000;
 			spider->SetState(3);
 			spider->mSpiderStatus.mFlags |= 0x40;
-			lbl_8037E97C[lbl_8025C400.mStage][spider->_AB4].mFlags |= 0x40;
+			gSmallSpiderStatusByStage[gGame.mStage].mSpiders[spider->_AB4].mFlags |= 0x40;
 			spider->_ABC = 180 / frames;
-			switch (lbl_8025C400.mStage) {
+			switch (gGame.mStage) {
 			case 3:
 			case 7:
 			case 9:
@@ -1384,7 +1381,7 @@ extern "C" void State7__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
 			f32 z = spider->mMoveTranslate.z;
-			fn_800F4DB8(&spider->mFx, CVec(x, y, z));
+			StartSmallSpiderWebEffect(&spider->mFx, CVec(x, y, z));
 		}
 		spider->mStep++;
 		break;
@@ -1399,17 +1396,17 @@ extern "C" void State7__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	case 2:
 		if (spider->mSpiderStatus.mFlags & 0x40000) {
-			if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+			if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 				spider->mStep++;
 				spider->mTimer = 0;
 				State2__15XObjSpiderSmallFUl(spider);
 				if (spider->mFxIndex != 0xFF) {
-					lbl_8037E940[spider->mFxIndex] = -1;
-					spider->mFxObj                 = NULL;
-					spider->mFxIndex               = 0xFF;
+					gSmallSpiderEffectSlotOwners[spider->mFxIndex] = -1;
+					spider->mFxObj                                 = NULL;
+					spider->mFxIndex                               = 0xFF;
 				}
 			}
-		} else if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		} else if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			if (spider->mSpiderStatus.mFlags & 0x2000) {
 				spider->mMoveTranslate.x = spider->mHome.x;
 				spider->mMoveTranslate.y = spider->mHome.y;
@@ -1419,7 +1416,7 @@ extern "C" void State7__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 			spider->SetState(5);
 			spider->mSpiderStatus.mFlags &= ~0x40;
 			spider->mSpiderStatus.mFlags &= ~0x20;
-			lbl_8037E97C[lbl_8025C400.mStage][spider->_AB4].mFlags &= ~0x40;
+			gSmallSpiderStatusByStage[gGame.mStage].mSpiders[spider->_AB4].mFlags &= ~0x40;
 		}
 		break;
 	case 3:
@@ -1493,7 +1490,7 @@ extern "C" void State6__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		break;
 	}
 	}
-	fn_80068C8C(&spider->_9A0, &spider->_9A4, 0.08f * frames);
+	ApproachHudValue(&spider->_9A0, &spider->_9A4, 0.08f * frames);
 	spider->SetScale(spider->_9A0, spider->_9A0, spider->_9A0, 0);
 }
 
@@ -1524,11 +1521,11 @@ extern "C" void State1__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		if (spider->mSpiderStatus.Check(0x800000)) {
 			fn_800F54B4(spider);
 		}
-		fn_8001E904(&lbl_8025C400.mSound, 0x127, 0xFF);
-		if (!(lbl_8025C400.mStatus.mFlags & 0x100)) {
-			fn_800242A8(&lbl_8025C400.mQuake, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.4f);
+		fn_8001E904(&gGame.mSound, 0x127, 0xFF);
+		if (!(gGame.mStatus.mFlags & 0x100)) {
+			StartScreenShake(&gGame.mQuake, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.4f);
 		}
-		lbl_8037E97C[lbl_8025C400.mStage][spider->_AB4].mFlags |= 0x80000;
+		gSmallSpiderStatusByStage[gGame.mStage].mSpiders[spider->_AB4].mFlags |= 0x80000;
 		{
 			f32 x = spider->mMoveTranslate.x;
 			f32 y = spider->mMoveTranslate.y;
@@ -1577,16 +1574,16 @@ extern "C" void State1__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
 		if (spider->_AA8) {
 			kind = 2;
 		}
-		fn_800EA554(&pos, &spider->mHome, kind);
+		SpawnSpiderBounceCoin(&pos, &spider->mHome, kind);
 		break;
 	}
 	case 2:
 		spider->mStatus.mFlags &= ~0x10000ULL;
-		if (fn_800F4C10(&spider->mFx, spider->mFxIndex, frames)) {
+		if (IsSmallSpiderEffectAnimationFinished(&spider->mFx, spider->mFxIndex, frames)) {
 			if (spider->mFxIndex != 0xFF) {
-				lbl_8037E940[spider->mFxIndex] = -1;
-				spider->mFxObj                 = NULL;
-				spider->mFxIndex               = 0xFF;
+				gSmallSpiderEffectSlotOwners[spider->mFxIndex] = -1;
+				spider->mFxObj                                 = NULL;
+				spider->mFxIndex                               = 0xFF;
 			}
 			spider->mStep++;
 		}
@@ -1602,7 +1599,7 @@ extern "C" void State1__15XObjSpiderSmallFUl(XObjSpiderSmall* spider, u32 frames
  */
 // NONMATCHING: the web loop swaps r5 and r6
 // runs the command an event gave it with vf124
-extern "C" void fn_800FCF04(XObjSpiderSmall* spider, u32 frames)
+extern "C" void HandleSmallSpiderEventCommand(XObjSpiderSmall* spider, u32 frames)
 {
 	switch (spider->mEvtArgs[0]) {
 	case 0:
@@ -1615,17 +1612,17 @@ extern "C" void fn_800FCF04(XObjSpiderSmall* spider, u32 frames)
 		break;
 	case 2:
 		if (spider->mSpiderStatus.mFlags & 0x10000) {
-			lbl_8025C400.mEvt._10 = 1;
+			gGame.mEvt._10 = 1;
 		} else {
-			lbl_8025C400.mEvt._10 = 0;
+			gGame.mEvt._10 = 0;
 		}
 		spider->mEvtArgs[0] = 0;
 		break;
 	case 3:
 		if (spider->mSpiderStatus.mFlags & 0x80000) {
-			lbl_8025C400.mEvt._10 = 1;
+			gGame.mEvt._10 = 1;
 		} else {
-			lbl_8025C400.mEvt._10 = 0;
+			gGame.mEvt._10 = 0;
 		}
 		spider->mEvtArgs[0] = 0;
 		break;
@@ -1651,8 +1648,8 @@ extern "C" void fn_800FCF04(XObjSpiderSmall* spider, u32 frames)
 		spider->mEvtArgs[1] = 0;
 		break;
 	case 8:
-		fn_800FFB00(spider);
-		fn_800FF168(spider);
+		ResetSmallSpiderState(spider);
+		ApplySmallSpiderPlacement(spider);
 		spider->mEvtArgs[0] = 0;
 		break;
 	case 9:
@@ -1693,14 +1690,7 @@ extern "C" void fn_800FCF04(XObjSpiderSmall* spider, u32 frames)
 		spider->_9A0 = 0.0f;
 		spider->_9A4 = 0.0f;
 		spider->_984 = 0.0f;
-		for (int i = 0; i < 12; i++) {
-			if (lbl_8037E940[i] == -1) {
-				spider->mFxObj   = lbl_8037E910[i];
-				spider->mFxIndex = i;
-				lbl_8037E940[i]  = spider->_258;
-				break;
-			}
-		}
+		TakeSmallSpiderSlot(spider);
 		spider->mEvtArgs[0] = 0;
 		break;
 	case 21:
@@ -1727,11 +1717,11 @@ extern "C" void fn_800FCF04(XObjSpiderSmall* spider, u32 frames)
  */
 // NONMATCHING: the battery clamp recomputes its address in other places
 // caught in the web: drains the robot's battery and tints the screen red
-extern "C" void fn_800FD5E0(XObjSpiderSmall* spider, u32 frames)
+extern "C" void UpdatePlayerCaughtInSpiderWeb(XObjSpiderSmall* spider, u32 frames)
 {
 	CPad pad(0);
 	if ((spider->mSpiderStatus.mFlags & 2) && !(spider->mSpiderStatus.mFlags & 0x10)) {
-		fn_8001E660(&lbl_8025C400.mSound, 0x12A);
+		StopGameSfx(&gGame.mSound, 0x12A);
 		spider->mSpiderStatus.mFlags &= ~2;
 		spider->SetState(1);
 		if (spider->mHitStrength >= 10.0f) {
@@ -1744,45 +1734,45 @@ extern "C" void fn_800FD5E0(XObjSpiderSmall* spider, u32 frames)
 		}
 	}
 	{
-		XObjChr* player = lbl_8025C400.GetPlayer();
+		XObjChr* player = gGame.GetPlayer();
 		Vec ppos        = player->mMoveTranslate;
 		CVec pos(ppos);
-		f32 dist = Distance(&pos, &spider->mMoveTranslate);
-		if ((spider->mSpiderStatus.mFlags & 0x800000) && lbl_8025C400.mEvt.mData.mScript == NULL
-		    && fn_800A0414(lbl_8025C400.GetPlayer()) < 2.0f) {
+		f32 dist = SpiderContactDistance(&pos, &spider->mMoveTranslate);
+		if ((spider->mSpiderStatus.mFlags & 0x800000) && gGame.mEvt.mData.mScript == NULL
+		    && GetPlayerCollisionRadius(gGame.GetPlayer()) < 2.0f) {
 			if (--spider->_A94 <= 0) {
-				UseBattery(lbl_8025C400.GetPlayer()->mParams, 3.0f);
+				DrainSpiderBattery(gGame.GetPlayer()->mParams, 3.0f);
 				spider->_A94 = 30;
 				if (lbl_8065B2D4 == 0) {
 					spider->mSpiderStatus.mFlags |= 0x1000000;
 					lbl_8065B2D4 = 1;
-					fn_80066190(&lbl_8025C400.mInfoScrn, 1, 1);
+					fn_80066190(&gGame.mInfoScrn, 1, 1);
 				}
 				if (spider->mSpiderStatus.mFlags & 0x1000000) {
-					lbl_8065B2CC[0] = 60;
+					lbl_8065B2CC[0] = FRAMES_PER_SECOND;
 					lbl_8065B2CC[1] = 0;
 				}
 			}
 		}
 		if (spider->mSpiderStatus.mFlags & 0x1000000) {
-			fn_800A0014(player, FALSE, TRUE, 0.0f);
+			ApplyPlayerHitReaction(player, FALSE, TRUE, 0.0f);
 			if (lbl_8065B2CC[0] > 0) {
 				if ((lbl_8065B2CC[0] -= frames) < 0) {
 					lbl_8065B2CC[0] = 0;
 				}
 				lbl_8065B2CC[1]++;
 				if (lbl_8065B2CC[0] > 0) {
-					f32 red = 128.0f * (lbl_8065B2CC[0] / 60.0f);
+					f32 red = 128.0f * (lbl_8065B2CC[0] / FRAME_RATE);
 					player->vf12C(1, red, 0, 0, 0.0f);
-					fn_80023EE0(&lbl_8025C400.mScrnTex.mColor, red, 0, 0, 0, red, 0, 0, 0, 0.0f);
+					StartScreenFade(&gGame.mScrnTex.mColor, red, 0, 0, 0, red, 0, 0, 0, 0.0f);
 				} else {
 					player->vf12C(1, 0, 0, 0, 0.0f);
-					fn_80023EE0(&lbl_8025C400.mScrnTex.mColor, 0, 0, 0, 0, 100, 100, 200, 0, 0.0f);
+					StartScreenFade(&gGame.mScrnTex.mColor, 0, 0, 0, 0, 100, 100, 200, 0, 0.0f);
 				}
 			}
 		}
 	}
-	fn_800FCF04(spider, frames);
+	HandleSmallSpiderEventCommand(spider, frames);
 }
 
 /**
@@ -1820,7 +1810,7 @@ void XObjSpiderSmall::vf138(const Vec& pos, f32 f)
 // NONMATCHING: the empty loop's first test
 extern "C" s32 vf124__15XObjSpiderSmallFlPl(XObjSpiderSmall* spider, s32 n, s32* args)
 {
-	for (s32 i = 0; i < n; i++) { }
+	for (int i = 0; i < n; i++) { }
 	if (n < 1) {
 		return 0;
 	}
@@ -1899,10 +1889,10 @@ void XObjSpiderSmall::vfBC(const Vec* pos, f32 scale)
 		size.x   = mRadius;
 		size.y   = mRadius;
 		size.z   = mRadius;
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
 		u32 edge   = 128.0f * scale;
 		u32 center = 160.0f * scale;
-		fn_80198258(&lbl_8025C400.mGs, 12, center, edge, p.x, p.y, p.z, size.x, size.z, rot.x, rot.y, rot.z);
+		DrawGsCircle(&gGame.mGs, 12, center, edge, p.x, p.y, p.z, size.x, size.z, rot.x, rot.y, rot.z);
 		PrimVertex vtx[26];
 		f32 hx = size.x * 0.5f;
 		f32 hz = size.z * 0.5f;
@@ -1917,7 +1907,7 @@ void XObjSpiderSmall::vfBC(const Vec* pos, f32 scale)
 			vtx[i * 2 + 1].pos.y = p.y;
 			vtx[i * 2 + 1].color = 0;
 		}
-		fn_801988EC(&lbl_8025C400.mGs, GX_TRIANGLESTRIP, lbl_8025C400.mGs.mCamera->mViewMtx, vtx, 26);
+		DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLESTRIP, gGame.mGs.mCamera->mViewMtx, vtx, 26);
 	}
 }
 
@@ -1928,8 +1918,8 @@ void XObjSpiderSmall::vfBC(const Vec* pos, f32 scale)
 void XObjSpiderSmall::vfAC()
 {
 	vfB0(0);
-	if (mFxIndex != 0xFF && (mFx.mStatus.mFlags & 1) && lbl_8037E910[mFxIndex] != NULL) {
-		HSD_JObj* jobj = lbl_8037E910[mFxIndex]->mJObj;
+	if (mFxIndex != 0xFF && (mFx.mStatus.mFlags & 1) && gSmallSpiderEffectObjects[mFxIndex] != NULL) {
+		HSD_JObj* jobj = gSmallSpiderEffectObjects[mFxIndex]->mJObj;
 		HSD_JObjSetTranslateX(jobj, mFx.mPos.x);
 		HSD_JObjSetTranslateY(jobj, mFx.mPos.y);
 		HSD_JObjSetTranslateZ(jobj, mFx.mPos.z);
@@ -1941,15 +1931,15 @@ void XObjSpiderSmall::vfAC()
 // the bgm playing, none while one is queued
 static inline s32 GetBgm()
 {
-	return lbl_8025C400.mSound._2C4 <= 0 ? lbl_8025C400.mSound._2B4 : 0;
+	return gGame.mSound._2C4 <= 0 ? gGame.mSound._2B4 : 0;
 }
 
 // the player stands in a live spider's area
 static inline bool IsPlayerNear()
 {
-	Vec pos = lbl_8025C400.GetPlayer()->mMoveTranslate;
+	Vec pos = gGame.GetPlayer()->mMoveTranslate;
 	for (int i = 0; i < 16; i++) {
-		XObjSpiderSmall* spider = (XObjSpiderSmall*)lbl_8025C400.mXObjs.mPools[18].Get(i);
+		XObjSpiderSmall* spider = (XObjSpiderSmall*)gGame.mXObjs.mPools[18].Get(i);
 		if ((spider->mStatus.mFlags & 1) && !spider->IsDead() && (spider->mStatus.mFlags & 0x10000)
 		    && !(spider->mSpiderStatus.mFlags & 0x2000000)) {
 			if (pos.y < HSD_JObjGetTranslationY(spider->mJObj) - 20.0f || pos.y > 20.0f + HSD_JObjGetTranslationY(spider->mJObj)) {
@@ -1979,7 +1969,7 @@ static inline void SetObjVec(CObjVec& v, const Vec& pos)
  * @note Size: 0xA38
  */
 // NONMATCHING: register allocation
-void XObjSpiderSmall::vfA4(u32 frames)
+void XObjSpiderSmall::UpdateObject(u32 frames)
 {
 	CPad pad(0);
 	bool music = true;
@@ -1989,62 +1979,62 @@ void XObjSpiderSmall::vfA4(u32 frames)
 	if (_258 == 0 && music && !IsStage("stage07")) {
 		switch (_AC4) {
 		case 0:
-			if (IsPlayerNear() && lbl_8025C400.mEvt.mData.mScript == NULL && GetBgm() != -0xFFF4) {
+			if (IsPlayerNear() && gGame.mEvt.mData.mScript == NULL && GetBgm() != -0xFFF4) {
 				_AAC = GetBgm();
-				_AB0 = lbl_8025C400.mSound._2CC;
-				fn_8001E904(&lbl_8025C400.mSound, -0xFFF4, 0xFF);
+				_AB0 = gGame.mSound._2CC;
+				fn_8001E904(&gGame.mSound, -0xFFF4, 0xFF);
 				_AC4++;
 			}
 			break;
 		case 1:
-			if (fn_800665E0(&lbl_8025C400.mInfoScrn)) {
-				if (fn_80034E4C(0x9E) > 0) {
-					if (fn_8001E6C8(&lbl_8025C400.mSound, -0xFFF4)) {
-						fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
+			if (InfoScrn_IsBatteryGaugeEmpty(&gGame.mInfoScrn)) {
+				if (GetPlayerItemCount(0x9E) > 0) {
+					if (fn_8001E6C8(&gGame.mSound, -0xFFF4)) {
+						StopGameSfx(&gGame.mSound, -0xFFF4);
 					}
 					_AC4 = 2;
 				} else {
-					if (fn_8001E6C8(&lbl_8025C400.mSound, -0xFFF4)) {
-						fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
+					if (fn_8001E6C8(&gGame.mSound, -0xFFF4)) {
+						StopGameSfx(&gGame.mSound, -0xFFF4);
 					}
 					_AC4 = 0;
 				}
-			} else if (!IsPlayerNear() || lbl_8025C400.mEvt.mData.mScript != NULL) {
+			} else if (!IsPlayerNear() || gGame.mEvt.mData.mScript != NULL) {
 				if (_AAC != 0) {
-					fn_8001E904(&lbl_8025C400.mSound, _AAC, _AB0);
+					fn_8001E904(&gGame.mSound, _AAC, _AB0);
 					_AC4 = 0;
 				} else if (GetBgm() == -0xFFF4) {
-					fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
+					StopGameSfx(&gGame.mSound, -0xFFF4);
 					_AC4 = 0;
 				}
 			}
 			break;
 		case 2:
-			if (!IsPlayerNear() || lbl_8025C400.mEvt.mData.mScript != NULL) {
+			if (!IsPlayerNear() || gGame.mEvt.mData.mScript != NULL) {
 				if (_AAC != 0) {
-					fn_8001E904(&lbl_8025C400.mSound, _AAC, _AB0);
+					fn_8001E904(&gGame.mSound, _AAC, _AB0);
 					_AC4 = 0;
 				} else if (GetBgm() == -0xFFF4) {
-					fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
+					StopGameSfx(&gGame.mSound, -0xFFF4);
 					_AC4 = 0;
 				}
 			}
 			break;
 		}
 	}
-	if (lbl_8025C400.mStatus.mFlags & 0x400) {
+	if (gGame.mStatus.mFlags & 0x400) {
 		return;
 	}
 	if (_258 == 0) {
-		fn_800EA780(lbl_8065B2C8, frames);
+		UpdateSpiderCoinBounces(lbl_8065B2C8, frames);
 	}
 	if (!(mStatus.mFlags & 0x10000) && mState != 1) {
 		return;
 	}
 	vf148();
-	fn_800FD5E0(this, frames);
+	UpdatePlayerCaughtInSpiderWeb(this, frames);
 	if (!(mSpiderStatus.mFlags & 0x2000000)) {
-		(this->*lbl_8022B230[mState])(frames);
+		(this->*gSmallSpiderStateHandlers[mState])(frames);
 		CVec dir;
 		if (mSpiderStatus.mFlags & 0x100) {
 			dir.x = 0.0f;
@@ -2065,8 +2055,8 @@ void XObjSpiderSmall::vfA4(u32 frames)
 		SetObjVec(mMoveTranslate, mMoveTranslate + dir * frames);
 		SetPos(mMoveTranslate, 0);
 	}
-	vfA4__4XObjFUl(this, frames);
-	fn_800F4F48(&mFx, mFxIndex, frames, FALSE);
+	UpdateObject__4XObjFUl(this, frames);
+	UpdateSmallSpiderWebEffect(&mFx, mFxIndex, frames, FALSE);
 }
 
 /**
@@ -2075,8 +2065,8 @@ void XObjSpiderSmall::vfA4(u32 frames)
  */
 void XObjSpiderSmall::Release()
 {
-	if (fn_8001E6C8(&lbl_8025C400.mSound, -0xFFF4)) {
-		fn_8001E660(&lbl_8025C400.mSound, -0xFFF4);
+	if (fn_8001E6C8(&gGame.mSound, -0xFFF4)) {
+		StopGameSfx(&gGame.mSound, -0xFFF4);
 	}
 	Release__4XObjFv(this);
 }
@@ -2085,17 +2075,17 @@ void XObjSpiderSmall::Release()
 static inline void FindWebs()
 {
 	for (int i = 0; i < 12; i++) {
-		lbl_8037E910[i] = NULL;
-		lbl_8037E940[i] = -1;
+		gSmallSpiderEffectObjects[i]    = NULL;
+		gSmallSpiderEffectSlotOwners[i] = -1;
 	}
 	lbl_8065B2E0 = 0;
 	lbl_8065B2DC = NULL;
 	s32 n        = 0;
-	for (s32 i = 0; lbl_8065B2DC == NULL && i < lbl_8025C400.mXObjs.mObjectCount; i++) {
-		XObj* obj = lbl_8025C400.mXObjs.mObjects[i];
+	for (s32 i = 0; lbl_8065B2DC == NULL && i < gGame.mXObjs.mObjectCount; i++) {
+		XObj* obj = gGame.mXObjs.mObjects[i];
 		if ((obj->mStatus.mFlags & 1) && obj->mCoord._00->_00 == 0x1BC) {
-			lbl_8037E910[n] = obj;
-			lbl_8037E910[n]->SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			gSmallSpiderEffectObjects[n] = obj;
+			gSmallSpiderEffectObjects[n]->SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			n++;
 			if (n >= 12) {
 				break;
@@ -2108,11 +2098,11 @@ static inline void FindWebs()
  * @note Address: 0x800FEC24
  * @note Size: 0x1AC
  */
-void XObjSpiderSmall::vf98()
+void XObjSpiderSmall::ResetObjectState()
 {
-	vf98__4XObjFv(this);
-	mAnimSfx.mEvents = lbl_8022B170;
-	_AAC             = lbl_8025C400.mSound._2C4 <= 0 ? lbl_8025C400.mSound._2B4 : 0;
+	ResetObjectState__4XObjFv(this);
+	mAnimSfx.mEvents = gSmallSpiderAnimSfxEvents;
+	_AAC             = gGame.mSound._2C4 <= 0 ? gGame.mSound._2B4 : 0;
 	if (_258 == 0) {
 		FindWebs();
 	}
@@ -2123,27 +2113,29 @@ void XObjSpiderSmall::vf98()
  * @note Size: 0x398
  */
 // NONMATCHING: the spider pool loop folds 0x9B4 into the index
-BOOL XObjSpiderSmall::vf9C(const CoordInfo& info)
+#pragma push
+#pragma opt_dead_assignments off
+BOOL XObjSpiderSmall::LoadFromPlacement(const CoordInfo& info)
 {
-	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
 		if (_258 == 0) {
 			for (int i = 0; i < 16; i++) {
-				((XObjSpiderSmall*)lbl_8025C400.mXObjs.mPools[18].Get(i))->Hide();
+				((XObjSpiderSmall*)gGame.mXObjs.mPools[18].Get(i))->Hide();
 			}
-			if (mTimeMode != lbl_8025C400.mTimeState.mMode) {
+			if (mTimeMode != gGame.mTimeState.mMode) {
 				for (s32 i = 0; i < 0x27; i++) {
 					for (int j = 0; j < 16; j++) {
-						lbl_8037E97C[i][j].mFlags = 0;
+						gSmallSpiderStatusByStage[i].mSpiders[j].mFlags = 0;
 					}
 				}
 			}
-			mTimeMode = lbl_8025C400.mTimeState.mMode;
+			mTimeMode = gGame.mTimeState.mMode;
 		}
-		mStage = lbl_8025C400.mStage;
-		fn_800FFB00(this);
-		fn_800FF168(this);
+		mStage = gGame.mStage;
+		ResetSmallSpiderState(this);
+		ApplySmallSpiderPlacement(this);
 		_AB4 = _258;
-		if (lbl_8037E97C[mStage][_258].mFlags & 0x80000) {
+		if (gSmallSpiderStatusByStage[mStage].mSpiders[_258].mFlags & 0x80000) {
 			SetState(2);
 		}
 		if (_258 == 0) {
@@ -2153,6 +2145,7 @@ BOOL XObjSpiderSmall::vf9C(const CoordInfo& info)
 	}
 	return FALSE;
 }
+#pragma pop
 
 /**
  * @note Address: 0x800FFDE0
@@ -2161,7 +2154,7 @@ BOOL XObjSpiderSmall::vf9C(const CoordInfo& info)
 void XObjSpiderSmall::vf94()
 {
 	mStage = -1;
-	fn_800FFB00(this);
+	ResetSmallSpiderState(this);
 	SetState(0);
 	mSpiderStatus.mFlags |= 0x4000000;
 	_AAC = -1;
@@ -2169,11 +2162,11 @@ void XObjSpiderSmall::vf94()
 	if (_258 == 0) {
 		for (s32 i = 0; i < 0x27; i++) {
 			for (int j = 0; j < 16; j++) {
-				lbl_8037E97C[i][j].mFlags = 0;
+				gSmallSpiderStatusByStage[i].mSpiders[j].mFlags = 0;
 			}
 		}
 	}
-	mTimeMode = lbl_8025C400.mTimeState.mMode;
+	mTimeMode = gGame.mTimeState.mMode;
 }
 
 /**
@@ -2184,7 +2177,7 @@ void XObjSpiderSmall::vf90(u32 id)
 {
 	vf90__4XObjFUl(this, id);
 	mStage = -1;
-	fn_800FFB00(this);
+	ResetSmallSpiderState(this);
 	SetState(0);
 	mSpiderStatus.mFlags |= 0x4000000;
 	_AAC = -1;
@@ -2192,11 +2185,11 @@ void XObjSpiderSmall::vf90(u32 id)
 	if (_258 == 0) {
 		for (s32 i = 0; i < 0x27; i++) {
 			for (int j = 0; j < 16; j++) {
-				lbl_8037E97C[i][j].mFlags = 0;
+				gSmallSpiderStatusByStage[i].mSpiders[j].mFlags = 0;
 			}
 		}
 	}
-	mTimeMode = lbl_8025C400.mTimeState.mMode;
+	mTimeMode = gGame.mTimeState.mMode;
 }
 
 /**
@@ -2204,7 +2197,7 @@ void XObjSpiderSmall::vf90(u32 id)
  * @note Size: 0x2E0
  */
 // NONMATCHING: its Vec constants sit 0x18 lower in .rodata
-extern "C" void fn_800FFB00(XObjSpiderSmall* spider)
+extern "C" void ResetSmallSpiderState(XObjSpiderSmall* spider)
 {
 	spider->_980                 = 0.0f;
 	spider->_984                 = 0.0f;
@@ -2251,7 +2244,7 @@ extern "C" void fn_800FFB00(XObjSpiderSmall* spider)
 	spider->mFx.mStatus.mFlags = 0;
 	spider->mRadius            = 16.0f;
 	if (spider->_258 == 0) {
-		fn_800EA99C(lbl_8065B2C8);
+		ResetSpiderCoinBounces(lbl_8065B2C8);
 		lbl_8065B2CC[0] = 0;
 		lbl_8065B2CC[1] = 0;
 		lbl_8065B2D4    = 0;
@@ -2278,3 +2271,78 @@ extern "C" void fn_800FFB00(XObjSpiderSmall* spider)
 	spider->_AC4 = 0;
 	spider->_AA8 = 0;
 }
+
+static inline void SetSmallSpiderArea(XObjSpiderSmall* spider, f32 x, f32 y, f32 z, f32 width, f32 depth)
+{
+	spider->mAreaPos.x = x;
+	spider->mAreaPos.y = y;
+	spider->mAreaPos.z = z;
+	spider->mAreaWidth = width;
+	spider->mAreaDepth = depth;
+}
+
+#pragma push
+#pragma inline_max_size(4096)
+static inline void SetSmallSpiderTarget(XObjSpiderSmall* spider)
+{
+	spider->mRadius       = 4.0f / 3.0f;
+	spider->_9EC          = 3;
+	spider->_9E8          = spider->_9EC;
+	spider->mTargetRadius = 96.0f;
+	spider->mTargetPos    = spider->mHome;
+}
+
+/**
+ * @note Address: 0x800FF168
+ * @note Size: 0x998
+ */
+extern "C" void ApplySmallSpiderPlacement(XObjSpiderSmall* spider)
+{
+	spider->vf12C(1, 0, 0, 0, 0.0f);
+	ReadSpiderPlacement(spider, spider->mHome, spider->_980, spider->mRadius, 16.0f, gSmallSpiderPosition, gSmallSpiderRotation,
+	                    gSmallSpiderScale);
+	switch (spider->_25C) {
+	case 0:
+		spider->SetState(3);
+		SetSmallSpiderTarget(spider);
+		if (IsStage("stage07")) {
+			SetSmallSpiderArea(spider, -102.85f, 0.0f, -335.27f, 150.0f, 134.0f);
+		} else if (IsStage("stage01")) {
+			if (spider->mHome.y > 70.0f) {
+				SetSmallSpiderArea(spider, -306.38f, 75.84f, -33.31f, 80.0f, 100.0f);
+			} else {
+				SetSmallSpiderArea(spider, -150.97f, 0.0f, -100.32f, 150.0f, 134.0f);
+			}
+		} else if (IsStage("stage02")) {
+			if (spider->mHome.x > 0.0f) {
+				SetSmallSpiderArea(spider, 25.65f, 0.31f, 2.28f, 166.0f, 197.0f);
+			} else {
+				SetSmallSpiderArea(spider, -184.75f, 0.31f, -219.72f, 138.0f, 171.0f);
+			}
+		} else {
+			SetSmallSpiderArea(spider, 2.97f, 0.0f, 47.15f, 180.0f, 180.0f);
+		}
+		TakeSmallSpiderSlot(spider);
+		break;
+	case 1:
+		spider->SetState(5);
+		SetSmallSpiderTarget(spider);
+		TakeSmallSpiderSlot(spider);
+		break;
+	case 2:
+		spider->SetState(6);
+		SetSmallSpiderTarget(spider);
+		TakeSmallSpiderSlot(spider);
+		break;
+	case 3:
+		spider->SetState(8);
+		SetSmallSpiderTarget(spider);
+		TakeSmallSpiderSlot(spider);
+		break;
+	default:
+		spider->SetState(0);
+		spider->mSpiderStatus.mFlags |= 0x8000;
+		break;
+	}
+}
+#pragma pop

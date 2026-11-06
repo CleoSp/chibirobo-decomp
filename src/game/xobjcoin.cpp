@@ -9,12 +9,12 @@
  * @note Address: 0x800E1E60
  * @note Size: 0xD0
  */
-extern "C" BOOL vf9C__8XObjCoinFRC9CoordInfo(XObjCoin* coin, CoordInfo* info)
+extern "C" BOOL LoadFromPlacement__8XObjCoinFRC9CoordInfo(XObjCoin* coin, CoordInfo* info)
 {
 	coin->_260 = info->_00->_2C;
 	if (coin->IsFlagSet())
 		return TRUE;
-	if (vf9C__4XObjFRC9CoordInfo(coin, info)) {
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(coin, info)) {
 		coin->mStatus.mFlags |= 0x10000000ULL;
 		return TRUE;
 	}
@@ -25,11 +25,12 @@ extern "C" BOOL vf9C__8XObjCoinFRC9CoordInfo(XObjCoin* coin, CoordInfo* info)
  * @note Address: 0x800E1F30
  * @note Size: 0x1C8
  */
-extern "C" void vf98__8XObjCoinFv(XObjCoin* coin)
+extern "C" void ResetObjectState__8XObjCoinFv(XObjCoin* coin)
 {
-	vf98__4XObjFv(coin);
+	ResetObjectState__4XObjFv(coin);
 	s32 sign       = rand() & 1 ? 1 : -1;
-	coin->mSpin    = (DEG2RAD * (rand() % 360)) * sign;
+	f32 angle      = DEG2RAD * (rand() % 360);
+	coin->mSpin    = angle * sign;
 	HSD_AObj* aobj = GetAObj(coin->mJObj);
 	f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 	if (end > 0.0f) {
@@ -49,23 +50,25 @@ extern "C" void vf98__8XObjCoinFv(XObjCoin* coin)
  */
 extern "C" s32 GetFlagIndex__8XObjCoinFv(XObjCoin* coin)
 {
-	s32 id = coin->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(1) + (u32)id);
-	return 0;
+	return coin->GetPlacementFlagIndex(1);
 }
 
 /**
  * @note Address: 0x800E213C
  * @note Size: 0xC0
  */
-extern "C" BOOL vf9C__8XObjItemFRC9CoordInfo(XObjItem* item, CoordInfo* info)
+#pragma push
+#pragma optimization_level 2
+#pragma opt_propagation off
+BOOL XObjItem::LoadFromPlacement(const CoordInfo& info)
 {
-	BOOL result = vf9C__4XObjFRC9CoordInfo(item, info);
+	XObjItem* item = this;
+	BOOL result    = item->XObj::LoadFromPlacement(info);
 	if (result && item->IsFlagSet())
 		item->mStatus.mFlags &= ~0x10000ULL;
 	return result;
 }
+#pragma pop
 
 /**
  * @note Address: 0x800E21FC
@@ -73,8 +76,5 @@ extern "C" BOOL vf9C__8XObjItemFRC9CoordInfo(XObjItem* item, CoordInfo* info)
  */
 extern "C" s32 GetFlagIndex__8XObjItemFv(XObjItem* item)
 {
-	s32 id = item->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(0) + (u32)id);
-	return 0;
+	return item->GetPlacementFlagIndex(0);
 }

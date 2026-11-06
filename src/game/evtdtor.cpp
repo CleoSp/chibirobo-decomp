@@ -3,7 +3,7 @@
 #include "game/evt.h"
 #include "PowerPC_EABI_Support/Runtime/MWCPlusLib.h"
 
-extern "C" CCameraMemento* fn_80016F9C(CCameraMemento* memento, s32 flags);
+extern "C" CCameraMemento* __dt__14CCameraMementoFv(CCameraMemento* memento, s32 flags);
 
 // no <new> here
 inline void* operator new(size_t, void* storage)
@@ -16,9 +16,9 @@ inline void* operator new(size_t, void* storage)
  * @note Address: 0x8007FDDC
  * @note Size: 0x38
  */
-extern "C" void fn_8007FDDC()
+extern "C" void DestroyCCameraMementoArray()
 {
-	__destroy_arr(lbl_8036AA3C, (ConstructorDestructor*)fn_80016F9C, sizeof(CCameraMemento), 4);
+	__destroy_arr(gEventCameraMementos, (ConstructorDestructor*)__dt__14CCameraMementoFv, sizeof(CCameraMemento), 4);
 }
 
 // todo: weak copy

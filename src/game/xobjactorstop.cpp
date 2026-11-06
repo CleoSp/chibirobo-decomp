@@ -1,5 +1,7 @@
 #include "game/xobjactor.h"
 
+extern "C" const f32 lbl_8065E120;
+
 /**
  * @note Address: 0x8010706C
  * @note Size: 0x18
@@ -9,7 +11,7 @@ extern "C" void fn_8010706C(void* object)
 	XObjActor* actor = (XObjActor*)object;
 	actor->_990      = 0;
 	actor->_994      = 0;
-	actor->_984      = 0.0f;
+	actor->_984      = lbl_8065E120;
 }
 
 /**

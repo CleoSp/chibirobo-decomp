@@ -18,6 +18,14 @@ extern "C" {
 #undef HSD_JObjSetupMatrix
 #undef HSD_JObjSetMtxDirty
 
+// HSD_JObjWalkTree passes the flag mask in its callback argument.
+extern "C" {
+void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
+void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
+void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
+void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
+}
+
 #define JOBJ_H_ASSERT(line, cond)            ((cond) ? ((void)0) : __assert("jobj.h", line, #cond))
 #define JOBJ_H_ASSERT_TEXT(line, cond, text) ((cond) ? ((void)0) : __assert("jobj.h", line, text))
 
@@ -82,6 +90,12 @@ inline void HSD_JObjGetRotation(HSD_JObj* jobj, Quaternion* rotate)
 	JOBJ_H_ASSERT(733, jobj);
 	JOBJ_H_ASSERT(734, rotate);
 	*rotate = jobj->rotate;
+}
+
+inline f32 HSD_JObjGetRotationX(HSD_JObj* jobj)
+{
+	JOBJ_H_ASSERT(748, jobj);
+	return jobj->rotate.x;
 }
 
 inline f32 HSD_JObjGetRotationY(HSD_JObj* jobj)

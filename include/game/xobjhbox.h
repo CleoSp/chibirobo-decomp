@@ -23,6 +23,7 @@ public:
 	XObjHBoxPart mPart; // _988
 
 	XObjHBox();
+	virtual void UpdateObject(u32 frames); // _A4
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjHBox) == 0x12F8);

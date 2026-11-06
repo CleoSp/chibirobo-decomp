@@ -8,7 +8,7 @@
 extern "C" {
 BOOL HSD_AudioSFXCheck(s32 id);
 void HSD_AudioSFXKeyOff(s32 id);
-CVec fn_800621E0(XObj* obj);
+CVec GetStagePlacementScale(XObj* obj);
 void HSD_MtxGetScale(Mtx mat, Vec* vec);
 void OSReport(const char* fmt, ...);
 void fn_8010B528(XObjActor3* actor);
@@ -22,7 +22,7 @@ static inline void HideItems(s32 kind)
 		switch (kind) {
 		case 0x40B:
 			for (s32 i = 0; i < 0x120; i++) {
-				XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+				XObj* obj = gGame.mXObjs.mPools[22].Get(i);
 				if (kind == obj->GetKind()) {
 					obj->mStatus.mFlags &= ~0x10000ULL;
 				}
@@ -56,19 +56,23 @@ extern "C" s32 vf124__10XObjActor3FlPl(XObjActor3* actor, s32 argc, s32* argv)
 			u32 i;
 			for (i = 0; actor->mParts[i].mObj != NULL && i < 8; i++) { }
 			if (i < 8) {
+#if !defined(VERSION_PAL)
 				OSReport("id = %d, argv[1]=%d\n", i);
+#endif
 				actor->_B8C.mFlags |= 2;
 				if (argv[1] >= 10000) {
 					actor->mParts[i].mObj = FindObj(argv[1]);
 				} else {
-					actor->mParts[i].mObj = lbl_8025C400.GetObject(argv[1]);
+					actor->mParts[i].mObj = gGame.GetObject(argv[1]);
 				}
+#if !defined(VERSION_PAL)
 				if (actor->mParts[i].mObj == NULL) {
 					OSReport("NULL===============\n");
 				}
+#endif
 				s32 path[8];
 				s32 depth = argv[2];
-				for (s32 j = 0; j < depth; j++) {
+				for (int j = 0; j < depth; j++) {
 					path[j] = argv[3 + j];
 				}
 				actor->mParts[i].mJoint = GetJointByPath(actor->mJObj, path, depth);
@@ -78,9 +82,9 @@ extern "C" s32 vf124__10XObjActor3FlPl(XObjActor3* actor, s32 argc, s32* argv)
 				PSMTXCopy(HSD_JObjGetMtxPtr(actor->mParts[i].mJoint), actor->mParts[i].mMtx);
 				Vec scale;
 				HSD_MtxGetScale(actor->mParts[i].mMtx, &scale);
-				scale.x = fn_800621E0(actor->mParts[i].mObj).x / scale.x;
-				scale.y = fn_800621E0(actor->mParts[i].mObj).y / scale.y;
-				scale.z = fn_800621E0(actor->mParts[i].mObj).z / scale.z;
+				scale.x = GetStagePlacementScale(actor->mParts[i].mObj).x / scale.x;
+				scale.y = GetStagePlacementScale(actor->mParts[i].mObj).y / scale.y;
+				scale.z = GetStagePlacementScale(actor->mParts[i].mObj).z / scale.z;
 				Mtx s;
 				PSMTXScale(s, scale.x, scale.y, scale.z);
 				Mtx m;
@@ -125,7 +129,7 @@ extern "C" s32 vf124__10XObjActor3FlPl(XObjActor3* actor, s32 argc, s32* argv)
 				switch (actor->_B98) {
 				case 0x40B:
 					for (s32 i = 0; i < 0x120; i++) {
-						XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+						XObj* obj = gGame.mXObjs.mPools[22].Get(i);
 						if (actor->_B98 == obj->GetKind()) {
 							actor->mHeld = obj;
 							obj->mStatus.mFlags |= 0x10000ULL;
@@ -178,7 +182,7 @@ extern "C" void SetAnim__10XObjActor3FliPvPvPvffff(XObjActor3* actor, s32 id, BO
 	SetAnim__4XObjFliPvPvPvffff(actor, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	if (actor->GetKind() == 0x31B) {
 		if (actor->mAnimId == 7) {
-			actor->mSe = fn_8001E904(&lbl_8025C400.mSound, 0xB0000, 0xFF);
+			actor->mSe = fn_8001E904(&gGame.mSound, 0xB0000, 0xFF);
 		} else if (HSD_AudioSFXCheck(actor->mSe)) {
 			HSD_AudioSFXKeyOff(actor->mSe);
 		}
@@ -195,7 +199,7 @@ void XObjActor3::vf148()
 	if ((mStatus.mFlags & 1) && (mStatus.mFlags & 0x10000) && _258 == 3) {
 		s32 id    = mAnimId;
 		f32 frame = GetAnimFrame(mJObj);
-		mAnimSfx.Update(id, frame, fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0));
+		mAnimSfx.Update(id, frame, GetSoundVolumeAtPosition(&gGame.mSound, &mMoveTranslate, 0));
 	}
 }
 

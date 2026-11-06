@@ -19,7 +19,7 @@ extern "C" void Initialize__5CGameFiPPc(CGame* game, int argc, char** argv)
 		case '/':
 			char* name = strtok(argv[i] + 1, ":");
 			if (strcmp(name, "stage") == 0) {
-				lbl_8020FBC0.mStage = fn_8006F654(strtok(NULL, " "));
+				lbl_8020FBC0.mStage = FindStageIndexByName(strtok(NULL, " "));
 			} else if (strcmp(name, "slot") == 0) {
 				lbl_8020FBC0.mSlot = *strtok(NULL, " ") - 'A';
 			}

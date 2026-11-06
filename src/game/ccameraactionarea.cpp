@@ -38,7 +38,7 @@ inline void YawDir(CVec& dir, const Vec& angle)
 inline s32 FindFacing(const Vec& dir, s32 arg)
 {
 	CVec look(dir);
-	CamAreaSlot* slot   = &lbl_805A054C._2034[arg];
+	CamAreaSlot* slot   = &gCameraAreaState._2034[arg];
 	f32 best            = -1.0f;
 	s32 bestIndex       = -1;
 	CamAreaEntry* entry = slot->_00;
@@ -57,15 +57,15 @@ inline s32 FindFacing(const Vec& dir, s32 arg)
 	return bestIndex;
 }
 
-extern "C" void fn_80138A9C(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, f32 arg4);
-extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 arg2, s32 arg3, f32 arg4);
+extern "C" void SelectAreaCameraEntry(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, f32 arg4);
+extern "C" void ApplyAreaCameraEntry(CCameraActionArea* area, CamAreaEntry* entry, s32 arg2, s32 arg3, f32 arg4);
 
 // the game object's camera and map action, japan's sit 0xCE8 lower
 /**
  * @note Address: 0x801382E8
  * @note Size: 0x7B4
  */
-extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mode, s32 adjustFov, f32 time)
+extern "C" void ApplyAreaCameraEntry(CCameraActionArea* area, CamAreaEntry* entry, s32 mode, s32 adjustFov, f32 time)
 {
 	switch (mode) {
 	case 0:
@@ -74,36 +74,36 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
 	case 3:
 	case 4:
 		area->SetEye_I(mode, area->mEye, entry->_10, time);
-		lbl_8025C400.GetPlayer()->ResetCameraValue();
+		gGame.GetPlayer()->ResetCameraValue();
 		break;
 	case 5:
 		area->SetEyeInterpolation(mode, area->mEye, entry->_10, time);
-		lbl_8025C400.GetPlayer()->ResetCameraValue();
+		gGame.GetPlayer()->ResetCameraValue();
 		break;
 	}
-	f32 fov = lbl_805A054C._10;
+	f32 fov = gCameraAreaState._10;
 	if (adjustFov) {
-		switch (lbl_805A054C._14) {
+		switch (gCameraAreaState._14) {
 		case 0:
 			area->SetFovInterpolation(mode, area->mFov, 0.8f * fov, time);
-			lbl_8025C400.GetPlayer()->ResetCameraValue();
+			gGame.GetPlayer()->ResetCameraValue();
 			break;
 		default:
 			area->SetFovInterpolation(mode, area->mFov, fov, time);
-			lbl_8025C400.GetPlayer()->ResetCameraValue();
+			gGame.GetPlayer()->ResetCameraValue();
 			break;
 		case 2:
 			area->SetFovInterpolation(mode, area->mFov, 1.5f * fov, time);
-			lbl_8025C400.GetPlayer()->ResetCameraValue();
+			gGame.GetPlayer()->ResetCameraValue();
 			break;
 		case 3:
 			area->SetFovInterpolation(mode, area->mFov, 2.0f * fov, time);
-			lbl_8025C400.GetPlayer()->ResetCameraValue();
+			gGame.GetPlayer()->ResetCameraValue();
 			break;
 		}
 	} else {
 		area->SetFovInterpolation(mode, area->mFov, fov, time);
-		lbl_8025C400.GetPlayer()->ResetCameraValue();
+		gGame.GetPlayer()->ResetCameraValue();
 	}
 }
 /*
@@ -214,8 +214,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_8013847C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -300,8 +300,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_801385C0:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -320,9 +320,9 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     lfs      f0, -0x6554(r3)
     stfs     f0, -0x6558(r3)
 .L_8013860C:
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     cmpwi    r31, 0x0
-    addi     r3, r3, lbl_805A054C@l
+    addi     r3, r3, gCameraAreaState@l
     lfs      f2, 0x10(r3)
     beq      .L_801389AC
     lwz      r0, 0x14(r3)
@@ -376,8 +376,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_801386D4:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -433,8 +433,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_801387A4:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -493,8 +493,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_80138880:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -553,8 +553,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_8013895C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -610,8 +610,8 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
     mtctr    r12
     bctrl
 .L_80138A2C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -645,15 +645,15 @@ extern "C" void fn_801382E8(CCameraActionArea* area, CamAreaEntry* entry, s32 mo
  * @note Address: 0x80138A9C
  * @note Size: 0x90
  */
-extern "C" void fn_80138A9C(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, f32 arg4)
+extern "C" void SelectAreaCameraEntry(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, f32 arg4)
 {
-	CamAreaEntry* entry = &lbl_805A054C._2034[arg1]._00[arg2];
+	CamAreaEntry* entry = &gCameraAreaState._2034[arg1]._00[arg2];
 	area->_54           = entry;
 	area->_58           = entry;
 	area->_4C           = arg2;
 	area->_50           = arg2;
-	fn_80137B58(&lbl_805A054C, arg1);
-	fn_801382E8(area, entry, arg3, 1, arg4);
+	fn_80137B58(&gCameraAreaState, arg1);
+	ApplyAreaCameraEntry(area, entry, arg3, 1, arg4);
 }
 
 /**
@@ -663,17 +663,19 @@ extern "C" void fn_80138A9C(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg
 extern "C" void fn_80138B2C(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, s32 arg4, f32 arg5)
 {
 	area->_5C = arg4;
-	fn_80138A9C(area, arg1, arg2, arg3, arg5);
+	SelectAreaCameraEntry(area, arg1, arg2, arg3, arg5);
 }
 
 /**
  * @note Address: 0x80138B50
  * @note Size: 0x154
  */
-extern "C" void fn_80138B50(CCameraActionArea* area, s32 mode, XObj* target, f32 time)
+extern "C" void SetAreaCameraInterestTarget(CCameraActionArea* area, s32 mode, XObj* target, f32 time)
 {
 	if (target == NULL) {
+#if !defined(VERSION_PAL)
 		OSReport("SetInte_I( unknown data )\n");
+#endif
 		return;
 	}
 	area->_64    = target;
@@ -682,7 +684,7 @@ extern "C" void fn_80138B50(CCameraActionArea* area, s32 mode, XObj* target, f32
 	area->SetInte_I(mode, current, interest, time);
 }
 
-// fn_80138B50
+// SetAreaCameraInterestTarget
 /*
     stwu     r1, -0x70(r1)
     mflr     r0
@@ -779,12 +781,12 @@ extern "C" void fn_80138B50(CCameraActionArea* area, s32 mode, XObj* target, f32
  * @note Address: 0x80138CA4
  * @note Size: 0x1EC
  */
-extern "C" void fn_80138CA4(CCameraActionArea* area, s32 mode, f32 time, s32 arg)
+extern "C" void SelectAreaCameraEntryByViewDirection(CCameraActionArea* area, s32 mode, f32 time, s32 arg)
 {
 	area->_5C = 1;
 	CVec view = area->mInterest - area->mEye;
 	PSVECNormalize(&view, &view);
-	fn_80138A9C(area, arg, FindFacing(view, arg), mode, time);
+	SelectAreaCameraEntry(area, arg, FindFacing(view, arg), mode, time);
 }
 /*
     stwu     r1, -0xd0(r1)
@@ -829,10 +831,10 @@ extern "C" void fn_80138CA4(CCameraActionArea* area, s32 mode, f32 time, s32 arg
     stw      r0, 0x44(r1)
     bl       PSVECNormalize
     mulli    r4, r31, 0x1c
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     lfs      f2, 0x54(r1)
     lis      r5, __vt__4CVec@ha
-    addi     r0, r3, lbl_805A054C@l
+    addi     r0, r3, gCameraAreaState@l
     lfs      f1, 0x58(r1)
     add      r3, r0, r4
     lfs      f0, 0x5c(r1)
@@ -897,7 +899,7 @@ extern "C" void fn_80138CA4(CCameraActionArea* area, s32 mode, f32 time, s32 arg
     mr       r4, r31
     mr       r5, r25
     mr       r6, r30
-    bl       fn_80138A9C
+    bl       SelectAreaCameraEntry
     lis      r3, __vt__4CVec@ha
     addi     r0, r3, __vt__4CVec@l
     stw      r0, 0x60(r1)
@@ -920,9 +922,9 @@ extern "C" void fn_80138CA4(CCameraActionArea* area, s32 mode, f32 time, s32 arg
  * @note Address: 0x80138E90
  * @note Size: 0x2C
  */
-extern "C" void fn_80138E90(CCameraActionArea* area, s32 mode, f32 time)
+extern "C" void SelectCurrentCameraAreaByViewDirection(CCameraActionArea* area, s32 mode, f32 time)
 {
-	fn_80138CA4(area, mode, time, lbl_805A054C._0C);
+	SelectAreaCameraEntryByViewDirection(area, mode, time, gCameraAreaState._0C);
 }
 
 /**
@@ -931,8 +933,8 @@ extern "C" void fn_80138E90(CCameraActionArea* area, s32 mode, f32 time)
  */
 extern "C" void fn_80138EBC(CCameraActionArea* area)
 {
-	area->_5C        = 1;
-	lbl_805A054C._18 = lbl_805A054C._14;
+	area->_5C            = 1;
+	gCameraAreaState._18 = gCameraAreaState._14;
 }
 
 /**
@@ -942,34 +944,34 @@ extern "C" void fn_80138EBC(CCameraActionArea* area)
 extern "C" s32 fn_80138ED8(CCameraActionArea* area)
 {
 	CPad pad(0);
-	s32 slotIndex    = lbl_805A054C._0C;
-	s32 currentArea  = lbl_805A054C._04;
-	s32 previousArea = lbl_805A054C._08;
-	s32 height       = lbl_805A054C._14;
-	if (lbl_8025C400.mStatus.mFlags & 0x20) {
+	s32 slotIndex    = gCameraAreaState._0C;
+	s32 currentArea  = gCameraAreaState._04;
+	s32 previousArea = gCameraAreaState._08;
+	s32 height       = gCameraAreaState._14;
+	if (gGame.mStatus.mFlags & 0x20) {
 		return area->_54->_34;
 	}
 
-	u32 up       = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? 8 : 0x100000;
-	u32 down     = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? 4 : 0x200000;
-	u32 next     = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? 1 : 0x400000;
-	u32 previous = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? 2 : 0x800000;
+	u32 up       = (gGame.mStatus.mFlags & 0x80000000) ? 8 : 0x100000;
+	u32 down     = (gGame.mStatus.mFlags & 0x80000000) ? 4 : 0x200000;
+	u32 next     = (gGame.mStatus.mFlags & 0x80000000) ? 1 : 0x400000;
+	u32 previous = (gGame.mStatus.mFlags & 0x80000000) ? 2 : 0x800000;
 	u32 buttons  = pad.mPad->mTrigger;
 	if (buttons & up) {
 		if (height > 1) {
-			lbl_805A054C._14 = height - 1;
+			gCameraAreaState._14 = height - 1;
 			return area->_54->_34;
 		}
 	} else if (buttons & down) {
 		if (height < 2) {
-			lbl_805A054C._14 = height + 1;
+			gCameraAreaState._14 = height + 1;
 			return area->_54->_34;
 		}
 	} else if (area->_44 == 1 && (buttons & next)) {
 		f32 yaw  = WrapAngle(atan2(area->mEye.x - area->mInterest.x, area->mEye.z - area->mInterest.z));
 		f32 best = TWO_PI;
 		s32 index;
-		CamAreaSlot* slot   = &lbl_805A054C._2034[lbl_805A054C._0C];
+		CamAreaSlot* slot   = &gCameraAreaState._2034[gCameraAreaState._0C];
 		CamAreaEntry* entry = slot->_00;
 		for (s32 i = 0; i < slot->_08; i++, entry++) {
 			f32 facing = WrapAngle(atan2(entry->_10.x - area->mInterest.x, entry->_10.z - area->mInterest.z));
@@ -985,7 +987,7 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
 		f32 yaw  = WrapAngle(atan2(area->mEye.x - area->mInterest.x, area->mEye.z - area->mInterest.z));
 		f32 best = TWO_PI;
 		s32 index;
-		CamAreaSlot* slot   = &lbl_805A054C._2034[lbl_805A054C._0C];
+		CamAreaSlot* slot   = &gCameraAreaState._2034[gCameraAreaState._0C];
 		CamAreaEntry* entry = slot->_00;
 		for (s32 i = 0; i < slot->_08; i++, entry++) {
 			f32 facing = WrapAngle(atan2(entry->_10.x - area->mInterest.x, entry->_10.z - area->mInterest.z));
@@ -1001,12 +1003,12 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
 		area->_4C = index;
 		area->_48 = TRUE;
 	} else if (buttons & next) {
-		if (++area->_4C >= lbl_805A054C._2034[slotIndex]._08) {
+		if (++area->_4C >= gCameraAreaState._2034[slotIndex]._08) {
 			area->_4C = 0;
 		}
 	} else if (buttons & previous) {
 		if (--area->_4C < 0) {
-			area->_4C = lbl_805A054C._2034[slotIndex]._08 - 1;
+			area->_4C = gCameraAreaState._2034[slotIndex]._08 - 1;
 		}
 	} else if (currentArea != previousArea && currentArea != -1) {
 		CVec dir;
@@ -1018,7 +1020,7 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
 			YawDir(dir, area->_54->_20);
 		}
 		CVec look(dir);
-		CamAreaSlot* slot   = &lbl_805A054C._2034[lbl_805A054C._0C];
+		CamAreaSlot* slot   = &gCameraAreaState._2034[gCameraAreaState._0C];
 		f32 best            = -1.0f;
 		CamAreaEntry* entry = slot->_00;
 		for (s32 i = 0; i < slot->_08; i++, entry++) {
@@ -1034,7 +1036,7 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
 			area->_4C = 0;
 		}
 	}
-	area->_54 = &lbl_805A054C._2034[slotIndex]._00[area->_4C];
+	area->_54 = &gCameraAreaState._2034[slotIndex]._00[area->_4C];
 	return area->_54->_34;
 }
 /*
@@ -1054,11 +1056,11 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     addi     r3, r1, 0x8
     li       r4, 0x0
     bl       fn_8019E3C8
-    lis      r3, lbl_8025C400@ha
-    lis      r4, lbl_805A054C@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    lis      r4, gCameraAreaState@ha
+    addi     r3, r3, gGame@l
     li       r0, 0x20
-    addi     r31, r4, lbl_805A054C@l
+    addi     r31, r4, gCameraAreaState@l
     lwz      r9, 0x1b14(r3)
     lwz      r4, 0x1b10(r3)
     li       r7, 0x0
@@ -1178,8 +1180,8 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     cror     eq, gt, eq
     beq      .L_801390B8
     lwz      r4, 0xc(r31)
-    lis      r3, lbl_805A054C@ha
-    addi     r0, r3, lbl_805A054C@l
+    lis      r3, gCameraAreaState@ha
+    addi     r0, r3, gCameraAreaState@l
     lfs      f30, lbl_8065E958@sda21(r0)
     mulli    r3, r4, 0x1c
     lfs      f31, lbl_8065E93C@sda21(r0)
@@ -1270,8 +1272,8 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     cror     eq, gt, eq
     beq      .L_801391E8
     lwz      r4, 0xc(r31)
-    lis      r3, lbl_805A054C@ha
-    addi     r0, r3, lbl_805A054C@l
+    lis      r3, gCameraAreaState@ha
+    addi     r0, r3, gCameraAreaState@l
     lfs      f31, lbl_8065E958@sda21(r0)
     mulli    r3, r4, 0x1c
     lfs      f30, lbl_8065E93C@sda21(r0)
@@ -1340,10 +1342,10 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     and.     r4, r5, r11
     beq      .L_80139310
     lwz      r5, 0x4c(r28)
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     mulli    r4, r29, 0x1c
     addi     r5, r5, 0x1
-    addi     r0, r3, lbl_805A054C@l
+    addi     r0, r3, gCameraAreaState@l
     stw      r5, 0x4c(r28)
     add      r3, r0, r4
     lwz      r0, 0x203c(r3)
@@ -1357,9 +1359,9 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     beq      .L_8013934C
     lwz      r3, 0x4c(r28)
     mulli    r5, r29, 0x1c
-    lis      r4, lbl_805A054C@ha
+    lis      r4, gCameraAreaState@ha
     subic.   r0, r3, 0x1
-    addi     r3, r4, lbl_805A054C@l
+    addi     r3, r4, gCameraAreaState@l
     add      r3, r3, r5
     stw      r0, 0x4c(r28)
     addi     r3, r3, 0x2034
@@ -1438,11 +1440,11 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     stw      r0, 0x68(r1)
 .L_80139454:
     lwz      r0, 0xc(r31)
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     lfs      f2, 0x7c(r1)
     lis      r5, __vt__4CVec@ha
     mulli    r4, r0, 0x1c
-    addi     r0, r3, lbl_805A054C@l
+    addi     r0, r3, gCameraAreaState@l
     lfs      f1, 0x80(r1)
     addi     r30, r5, __vt__4CVec@l
     lfs      f0, 0x84(r1)
@@ -1505,10 +1507,10 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
     stw      r0, 0x88(r1)
 .L_8013954C:
     mulli    r0, r29, 0x1c
-    lis      r5, lbl_805A054C@ha
+    lis      r5, gCameraAreaState@ha
     lwz      r4, 0x4c(r28)
     lis      r3, __vt__4CPad@ha
-    addi     r5, r5, lbl_805A054C@l
+    addi     r5, r5, gCameraAreaState@l
     add      r5, r5, r0
     addi     r0, r3, __vt__4CPad@l
     mulli    r3, r4, 0x38
@@ -1540,9 +1542,9 @@ extern "C" s32 fn_80138ED8(CCameraActionArea* area)
  */
 extern "C" void vf24__17CCameraActionAreaFv(CCameraActionArea* area)
 {
-	fn_80194FD4(&lbl_8025C400, -1, "\\B000000A0AREA(%3d,%3d)(%3d)\n", 324.0f, 298.0f, 0.0f, 12.0f, 12.0f, lbl_805A054C._0C, area->_4C,
-	            lbl_805A054C._04);
-	fn_80194FD4(&lbl_8025C400, -1, "\\B000000A0ACAREA\n", 324.0f, 310.0f, 0.0f, 12.0f, 12.0f);
+	fn_80194FD4(&gGame, -1, "\\B000000A0AREA(%3d,%3d)(%3d)\n", 324.0f, 298.0f, 0.0f, 12.0f, 12.0f, gCameraAreaState._0C, area->_4C,
+	            gCameraAreaState._04);
+	fn_80194FD4(&gGame, -1, "\\B000000A0ACAREA\n", 324.0f, 310.0f, 0.0f, 12.0f, 12.0f);
 }
 
 /**
@@ -1551,7 +1553,7 @@ extern "C" void vf24__17CCameraActionAreaFv(CCameraActionArea* area)
  */
 extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step)
 {
-	area->_60 = (lbl_8025C400.mStatus.mFlags & 0xC00) ? FALSE : TRUE;
+	area->_60 = (gGame.mStatus.mFlags & 0xC00) ? FALSE : TRUE;
 	// retail does this, nothing reads the result
 	if (area->_64 != NULL && area->_64->mJObj != NULL) {
 		CPad pad(0);
@@ -1566,37 +1568,34 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
 	if (area->_5C == 1 && area->_60) {
 		fn_80138ED8(area);
 	}
-	s32 currentArea  = lbl_805A054C._04;
-	s32 previousArea = lbl_805A054C._08;
+	s32 currentArea  = gCameraAreaState._04;
+	s32 previousArea = gCameraAreaState._08;
 	if (area->_54->_34 != area->_58->_34 || area->_48) {
 		if (currentArea != previousArea && currentArea != -1) {
 			area->_40 = 2.0f;
-			fn_801382E8(area, area->_54, 1, 1, area->_40);
+			ApplyAreaCameraEntry(area, area->_54, 1, 1, area->_40);
 		} else if (area->_48) {
 			area->_40 = 15.0f;
-			fn_801382E8(area, area->_54, 5, 1, area->_40);
+			ApplyAreaCameraEntry(area, area->_54, 5, 1, area->_40);
 			area->_48 = FALSE;
 		} else if (currentArea == previousArea) {
 			area->_40 = 15.0f;
-			fn_801382E8(area, area->_54, 5, 1, area->_40);
+			ApplyAreaCameraEntry(area, area->_54, 5, 1, area->_40);
 		}
-		lbl_8025C400.GetPlayer()->ResetCameraValue();
+		gGame.GetPlayer()->ResetCameraValue();
 		area->_50 = area->_4C;
 		area->_58 = area->_54;
 		if (area->_44 != 0) {
 			area->_44 = 0;
 		}
 	}
-	s32 height = lbl_805A054C._14;
-	if (height != lbl_805A054C._18) {
-		f32 fov          = fn_801353E4(&lbl_805A054C, height);
-		area->mFovInterp = area->mFovInterps[4];
-		if (area->mFovInterp != NULL) {
-			area->mFovInterp->Start(area->mFov, fov, 15.0f);
-		}
-		lbl_8025C400.GetPlayer()->ResetCameraValue();
-		lbl_805A054C._14 = height;
-		lbl_805A054C._18 = height;
+	s32 height = gCameraAreaState._14;
+	if (height != gCameraAreaState._18) {
+		f32 fov = fn_801353E4(&gCameraAreaState, height);
+		area->SetFovInterpolation(4, area->mFov, fov, 15.0f);
+		gGame.GetPlayer()->ResetCameraValue();
+		gCameraAreaState._14 = height;
+		gCameraAreaState._18 = height;
 	}
 	if (area->mEyeInterp != NULL) {
 		if (!area->mEyeInterp->Update(step, FRAME_TIME)) {
@@ -1626,10 +1625,10 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
 /*
     stwu     r1, -0xa0(r1)
     mflr     r0
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     li       r6, 0xc00
     stw      r0, 0xa4(r1)
-    addi     r7, r5, lbl_8025C400@l
+    addi     r7, r5, gGame@l
     li       r5, 0x0
     stw      r31, 0x9c(r1)
     stw      r30, 0x98(r1)
@@ -1741,9 +1740,9 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     bl       fn_80138ED8
 .L_801397FC:
     lwz      r4, 0x54(r29)
-    lis      r5, lbl_805A054C@ha
+    lis      r5, gCameraAreaState@ha
     lwz      r3, 0x58(r29)
-    addi     r5, r5, lbl_805A054C@l
+    addi     r5, r5, gCameraAreaState@l
     lwz      r4, 0x34(r4)
     lwz      r0, 0x34(r3)
     lwz      r3, 0x4(r5)
@@ -1765,7 +1764,7 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     stfs     f0, 0x40(r29)
     lwz      r4, 0x54(r29)
     lfs      f1, 0x40(r29)
-    bl       fn_801382E8
+    bl       ApplyAreaCameraEntry
     b        .L_801398C4
 .L_80139864:
     lwz      r0, 0x48(r29)
@@ -1778,7 +1777,7 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     stfs     f0, 0x40(r29)
     lwz      r4, 0x54(r29)
     lfs      f1, 0x40(r29)
-    bl       fn_801382E8
+    bl       ApplyAreaCameraEntry
     li       r0, 0x0
     stw      r0, 0x48(r29)
     b        .L_801398C4
@@ -1792,10 +1791,10 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     stfs     f0, 0x40(r29)
     lwz      r4, 0x54(r29)
     lfs      f1, 0x40(r29)
-    bl       fn_801382E8
+    bl       ApplyAreaCameraEntry
 .L_801398C4:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -1824,8 +1823,8 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     li       r0, 0x0
     stw      r0, 0x44(r29)
 .L_80139934:
-    lis      r3, lbl_805A054C@ha
-    addi     r28, r3, lbl_805A054C@l
+    lis      r3, gCameraAreaState@ha
+    addi     r28, r3, gCameraAreaState@l
     lwz      r31, 0x14(r28)
     lwz      r0, 0x18(r28)
     cmpw     r31, r0
@@ -1855,8 +1854,8 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
     mtctr    r12
     bctrl
 .L_801399A8:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r0, 0xac4(r3)
@@ -1995,17 +1994,17 @@ extern "C" void Update__17CCameraActionAreaFUl(CCameraActionArea* area, u32 step
 extern "C" void PreviousUpdate__17CCameraActionAreaFv(CCameraActionArea* area)
 {
 	if (area->_5C == 1) {
-		fn_80137D00(&lbl_805A054C, 0);
+		fn_80137D00(&gCameraAreaState, 0);
 	}
-	if (lbl_805A054C._04 != lbl_805A054C._08 && lbl_805A054C._04 != -1 && fn_80135D28(&lbl_805A054C) == 7) {
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
+	if (gCameraAreaState._04 != gCameraAreaState._08 && gCameraAreaState._04 != -1 && GetCameraAreaMode(&gCameraAreaState) == 7) {
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		camera->ChangeAction(7);
-		lbl_805A054C._18 = lbl_805A054C._14;
-		fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], lbl_805A054C._14, 15.0f);
-		fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7]);
+		gCameraAreaState._18 = gCameraAreaState._14;
+		SetMapCameraFovStep((CCameraActionMap*)gGame.mCameraActions.mTable[7], gCameraAreaState._14, 15.0f);
+		fn_8013BCE4((CCameraActionMap*)gGame.mCameraActions.mTable[7]);
 		f32 dy = camera->mCamera.mInterest.y - area->_64->GetCameraTarget().y;
 		if (0.0f != dy) {
-			fn_8013A204((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
+			StartMapCameraTargetHeightInterpolation((CCameraActionMap*)gGame.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
 		}
 	}
 }
@@ -2016,14 +2015,14 @@ extern "C" void PreviousUpdate__17CCameraActionAreaFv(CCameraActionArea* area)
  */
 extern "C" void vf14__17CCameraActionAreaFv(CCameraActionArea* area)
 {
-	fn_80137EB8(&lbl_805A054C);
+	fn_80137EB8(&gCameraAreaState);
 	area->_5C           = 1;
 	area->_60           = TRUE;
 	area->_4C           = 0;
-	CamAreaEntry* entry = lbl_805A054C._2034[0]._00;
+	CamAreaEntry* entry = gCameraAreaState._2034[0]._00;
 	area->_54           = entry;
 	area->_58           = entry;
-	area->_64           = (XObj*)lbl_8025C400.GetPlayer();
+	area->_64           = (XObj*)gGame.GetPlayer();
 	area->_44           = 0;
 	area->_48           = FALSE;
 }
@@ -2047,7 +2046,7 @@ extern "C" void SetCamera__17CCameraActionAreaFP7CCamera(CCameraActionArea* area
  */
 extern "C" void Init__17CCameraActionAreaFv(CCameraActionArea* area)
 {
-	fn_8013801C(&lbl_805A054C);
+	InitCameraAreaEntries(&gCameraAreaState);
 	area->mEyeInterps[0] = &area->_CC;
 	area->mEyeInterps[1] = &area->_100;
 	area->mEyeInterps[2] = &area->_15C;
@@ -2098,15 +2097,15 @@ extern "C" XObj* GetTarget__17CCameraActionAreaFv(CCameraActionArea* area)
  */
 extern "C" void vf28__17CCameraActionAreaFv(CCameraActionArea*)
 {
-	DrawDebug3d__19CCameraActionAreaExFv(&lbl_805A054C);
+	DrawDebug3d__19CCameraActionAreaExFv(&gCameraAreaState);
 }
 
 /**
  * @note Address: 0x801382D4
  * @note Size: 0x14
  */
-extern "C" void fn_801382D4(CCameraActionArea*, s32 index)
+extern "C" void SetAreaCameraHeightIndices(CCameraActionArea*, s32 index)
 {
-	lbl_805A054C._14 = index;
-	lbl_805A054C._18 = index;
+	gCameraAreaState._14 = index;
+	gCameraAreaState._18 = index;
 }

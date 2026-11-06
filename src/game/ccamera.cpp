@@ -109,7 +109,7 @@ void CCamera::Init(HSD_CObjDesc* desc)
 	if (HSD_CObjGetFlags(this) & 1) {
 		HSD_CObjGetUpVector(this, &mUp);
 	} else {
-		mRoll = fn_801C0DEC(this);
+		mRoll = GetCameraRoll(this);
 	}
 	CalcAngle();
 	CalcDistance();
@@ -172,7 +172,7 @@ void CCamera::Anim()
 	if (HSD_CObjGetFlags(this) & 1) {
 		HSD_CObjGetUpVector(this, &mUp);
 	} else {
-		mRoll = fn_801C0DEC(this);
+		mRoll = GetCameraRoll(this);
 	}
 	CalcAngle();
 	CalcDistance();
@@ -208,7 +208,7 @@ void CCamera::SetViewport(f32 x, f32 y, GXRenderModeObj* rmode)
  * @note Address: 0x80192A8C
  * @note Size: 0x44
  */
-void CCamera::SetScissor(GXRenderModeObj* rmode)
+void CCamera::SetScissor(GXRenderModeObj* __restrict rmode)
 {
 	u16 height      = rmode->efbHeight;
 	Scissor scissor = { 0, rmode->fbWidth, 0, height };

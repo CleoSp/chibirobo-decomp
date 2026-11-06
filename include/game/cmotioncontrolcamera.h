@@ -253,7 +253,7 @@ public:
 	}
 
 	static CInterfaceCameraAction* GetAction(s32 type);
-	bool IsCurrent(s32 type) const { return GetAction(type) == mAction; }
+	bool IsCurrent(s32 type) const { return mAction == GetAction(type); }
 };
 STATIC_ASSERT(sizeof(CMotionControlCamera) == 0x274);
 

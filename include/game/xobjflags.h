@@ -2,6 +2,7 @@
 #define _GAME_XOBJFLAGS_H
 
 #include "game/xobj.h"
+#include "game/stagedata.h"
 
 // objects that remember being collected in a CEvtFlags, a bit per placement id
 class XObjFlags : public XObj {
@@ -14,11 +15,21 @@ public:
 	virtual void vf94();        // _94 (weak), clears every flag
 	virtual s32 GetFlagIndex(); // _148, the bit in mFlags, 0 and below have none
 
-	BOOL IsFlagSet()
+	s32 GetPlacementFlagIndex(s32 group) const
+	{
+		s32 id = _260;
+		if (id > 0) {
+			u32 base = GetStageCollectionFlagBase(group);
+			return (s32)(base + (u32)id);
+		}
+		return 0;
+	}
+
+	u32 IsFlagSet()
 	{
 		if (GetFlagIndex() > 0) {
 			u32 index = GetFlagIndex();
-			return mFlags->mFlags[index >> 5] & (1 << (index & 31));
+			return mFlags->mFlags[index >> 5] & (1u << (index & 31));
 		}
 		return FALSE;
 	}
@@ -81,6 +92,8 @@ public:
 	u8 mBouncing;           // _9E8, spiders bounce it out
 
 	XObjCoin();
+	virtual s32 vf100(s32 unused, s32 value);
+	virtual void UpdateObject(u32 frames);
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjCoin) == 0x9E0);
@@ -94,13 +107,15 @@ public:
 	// _00-_988 = XObjFlags
 
 	XObjItem();
+	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C
 };
 
 extern "C" {
+void UpdateFallingCoin(XObjCoin* coin, u32 frames);
 // the flag sets the three kinds keep
-extern CEvtFlags lbl_8037DDBC; // items
-extern CEvtFlags lbl_8037DFCC; // coins
-extern CEvtFlags lbl_8037E1DC; // dust
+extern CEvtFlags gItemEventFlags; // items
+extern CEvtFlags gCoinEventFlags; // coins
+extern CEvtFlags gDustEventFlags; // dust
 }
 
 #endif

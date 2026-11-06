@@ -253,7 +253,7 @@ HSD_Generator* lbl_8065BAA0;
 HSD_Generator* lbl_8065BA9C;
 HSD_SList* lbl_8065BA98;
 
-char lbl_8025B3D8[] = "generator.c";
+char sPathGeneratorC[] = "generator.c";
 char lbl_8025B3E4[] = "psCamera";
 
 void psKillAllGenerator(void);
@@ -261,7 +261,7 @@ f32 generateParticle(HSD_Generator* gen);
 void psApplyGeneratorJObj(HSD_Generator* gen);
 HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind);
 void psSetBillboardCamera(HSD_CObj* cobj);
-HSD_psAppSRT* fn_801E56F8(HSD_Generator* gp, s32 status);
+HSD_psAppSRT* CreateGeneratorAppSRT(HSD_Generator* gp, s32 status);
 s32 psRemoveParticleAppSRT(HSD_Particle* pp);
 s32 psRemoveGeneratorAppSRT(HSD_Generator* gp);
 
@@ -722,7 +722,7 @@ f32 generateParticle(HSD_Generator* gen)
 
 	if (gen->kind & 0x10000) {
 		if (!psCamera) {
-			__assert(lbl_8025B3D8, 0x21A, lbl_8025B3E4);
+			__assert(sPathGeneratorC, 0x21A, lbl_8025B3E4);
 		}
 		look.x = psCamera->eye_position->pos.x - gen->pos.x;
 		look.y = psCamera->eye_position->pos.y - gen->pos.y;
@@ -1241,9 +1241,9 @@ f32 generateParticle(HSD_Generator* gen)
     lwz      r0, psCamera@sda21(r0)
     cmplwi   r0, 0x0
     bne      .L_801E2E88
-    lis      r3, lbl_8025B3D8@ha
+    lis      r3, sPathGeneratorC@ha
     lis      r5, lbl_8025B3E4@ha
-    addi     r3, r3, lbl_8025B3D8@l
+    addi     r3, r3, sPathGeneratorC@l
     li       r4, 0x21a
     addi     r5, r5, lbl_8025B3E4@l
     bl       __assert
@@ -2758,7 +2758,7 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 
 		if (gen->kind & 0x20000) {
 			gen->type |= 0x800;
-			fn_801E56F8(gen, 0);
+			CreateGeneratorAppSRT(gen, 0);
 			if (gen->appsrt != NULL) {
 				gen->appsrt->xA2 = 1;
 				gen->appsrt->gp  = gen;

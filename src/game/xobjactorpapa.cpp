@@ -2,13 +2,16 @@
 #include "game/xchr.h"
 #include "game/cscrn.h"
 #include "game/gmath.h"
+#include "game/heldpropmatrix.h"
+#include <math.h>
 #include <stdlib.h>
 
 extern "C" {
+void Attach__5CJObjFP9_HSD_JObj(CJObj* obj, HSD_JObj* joint);
 void HSD_MtxGetScale(Mtx mtx, Vec* scale);
 void PSMTXRotRad(Mtx mtx, char axis, f32 angle);
 void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
-CVec fn_800621E0(XObj* object); // the object's scale as it is drawn
+CVec GetStagePlacementScale(XObj* object); // the object's scale as it is drawn
 }
 
 // takes the controls away from the player
@@ -16,7 +19,7 @@ static inline void LockPlayer(XObjChr* player)
 {
 	player->_980.mFlags = 0;
 	player->_980.mFlags |= 0x40000000;
-	player->mPadReset = FALSE;
+	player->mPad.mReset = FALSE;
 }
 
 /**
@@ -64,7 +67,7 @@ HSD_JObj* XObjActorPapa::vf168()
 CVec XObjActorPapa::vf16C()
 {
 	s32 path[3] = { 0, 2, 0 };
-	return fn_8007E7C8(this, 3, path);
+	return GetEventJointWorldPosition(this, 3, path);
 }
 
 /**
@@ -108,18 +111,18 @@ s32 XObjActorPapa::vf124(s32 count, s32* command)
 	case 1:
 		switch (command[1]) {
 		case 0:
-			fn_8010771C(this, 0.08726646f);
+			ResetActorLook(this, 0.08726646f);
 			break;
 		case 1:
-			fn_801076B0(this, (s32)&lbl_8025C400.GetPlayer()->mMoveTranslate, 0.08726646f);
+			SetActorLookAtPosition(this, &gGame.GetPlayer()->mMoveTranslate, 0.08726646f);
 			break;
 		case 2:
 			if (FindObj(command[2]) != NULL) {
-				fn_801076FC(this, (s32)&FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
+				SetActorLookTarget(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3:
-			fn_801076DC(this, DEG2RAD * command[2], DEG2RAD * command[3]);
+			SetActorLookAngle(this, DEG2RAD * command[2], DEG2RAD * command[3]);
 			break;
 		}
 		break;
@@ -155,13 +158,13 @@ void XObjActorPapa::StatePickUp(u32 frames)
 {
 	switch (_990) {
 	case 0: {
-		XObjActorTao* tao = ((XObjActorTao*)lbl_8025C400.mXObjs.mPools[14].mObjects);
+		XObjActorTao* tao = ((XObjActorTao*)gGame.mXObjs.mPools[14].mObjects);
 		if ((tao->mStatus.mFlags & 1) && !tao->IsFree()) {
 			return;
 		}
 		bool busy = false;
 		for (s32 i = 0; i < 15; i++) {
-			XObjActorToy* toy = (XObjActorToy*)lbl_8025C400.mXObjs.mPools[10].Get(i);
+			XObjActorToy* toy = (XObjActorToy*)gGame.mXObjs.mPools[10].Get(i);
 			if (toy->GetKind() == 0x159) {
 				if (!(toy->mStatus.mFlags & 1)) {
 					break;
@@ -191,7 +194,7 @@ void XObjActorPapa::StatePickUp(u32 frames)
 			if (_A50->mStatus.mFlags & 0x0040000000000000ULL) {
 				return;
 			}
-			lbl_8025C400.mStatus.mFlags |= 0x1000;
+			gGame.mStatus.mFlags |= 0x1000;
 		}
 		_990++;
 	case 2:
@@ -209,9 +212,9 @@ void XObjActorPapa::StatePickUp(u32 frames)
 			_A50->SetPos(pos.x, pos.y + 2.0f, pos.z, 0);
 			PSMTXCopy(jobj.GetMtx(), _A54);
 			HSD_MtxGetScale(_A54, &scale);
-			scale.x = fn_800621E0(_A50).x / scale.x;
-			scale.y = fn_800621E0(_A50).y / scale.y;
-			scale.z = fn_800621E0(_A50).z / scale.z;
+			scale.x = GetStagePlacementScale(_A50).x / scale.x;
+			scale.y = GetStagePlacementScale(_A50).y / scale.y;
+			scale.z = GetStagePlacementScale(_A50).z / scale.z;
 			Mtx scaleMtx;
 			Mtx rotMtx;
 			Mtx transMtx;
@@ -239,6 +242,152 @@ void XObjActorPapa::StatePickUp(u32 frames)
  */
 void XObjActorPapa::StateNone(u32 frames)
 {
+}
+
+// Carries the selected prop at its hand joint and positions the player when held.
+void XObjActorPapa::vf148(u32 frames)
+{
+	vf148__9XObjActorFUl(this, frames);
+	CJObj joint;
+	XObjChr* player = gGame.GetPlayer();
+	if (_C8C.mFlags & 0x3f) {
+		CVec position;
+		s32 kind = -1;
+		if (_C8C.Check(1)) {
+			kind        = 0x1f4;
+			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		} else if (_C8C.Check(2)) {
+			kind        = 0x360;
+			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		} else if (_C8C.Check(4)) {
+			kind        = 0x1d3;
+			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		} else if (_C8C.Check(8)) {
+			kind        = 0x375;
+			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		} else if (_C8C.Check(16)) {
+			kind        = 0x3fa;
+			s32 path[6] = { 0, 2, 1, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		} else if (_C8C.Check(32)) {
+			kind        = 0x401;
+			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
+			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			position = joint.GetPos();
+		}
+		Mtx mount, translation, rotation, result;
+		switch (kind) {
+		case 0x1f4:
+		case 0x360:
+		case 0x3fa:
+		case 0x401:
+			for (s32 i = 0; i < 288; ++i) {
+				XObj* prop = gGame.mXObjs.mPools[22].Get(i);
+				if (kind == prop->GetKind()) {
+					switch (kind) {
+					case 0x1f4:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', -HALF_PI);
+						OffsetHeldProp(result, translation, 10, -4, 0);
+						SetHeldPropMatrix(prop, result);
+						break;
+					case 0x360:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'x', -HALF_PI);
+						RotateHeldProp(result, result, rotation, 'y', -HALF_PI);
+						OffsetHeldProp(result, translation, -1, -12, 6);
+						SetHeldPropMatrix(prop, result);
+						break;
+					case 0x3fa:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', -HALF_PI);
+						OffsetHeldProp(result, translation, 0, -10, 2);
+						SetHeldPropMatrix(prop, result);
+						break;
+					case 0x401:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', HALF_PI);
+						OffsetHeldProp(result, translation, -4, 4.5f, 0);
+						SetHeldPropMatrix(prop, result);
+						break;
+					default:
+						SetHeldPropMatrix(prop, joint.GetMtx());
+						break;
+					}
+					CopyHeldPropVisibility(this, prop);
+				}
+			}
+			break;
+		case 0x1d3:
+			for (s32 i = 0; i < 15; ++i) {
+				XObj* prop = gGame.mXObjs.mPools[10].Get(i);
+				if (kind == prop->GetKind()) {
+					switch (kind) {
+					case 0x1d3:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', HALF_PI);
+						RotateHeldProp(result, result, rotation, 'y', .19634955f);
+						OffsetHeldProp(result, translation, -1, 3, -4);
+						SetHeldPropMatrix(prop, result);
+						break;
+					default:
+						SetHeldPropMatrix(prop, joint.GetMtx());
+						break;
+					}
+					CopyHeldPropVisibility(this, prop);
+				}
+			}
+			break;
+		case 0x375:
+			for (s32 i = 0; i < 64; ++i) {
+				XObj* prop = gGame.mXObjs.mPools[8].Get(i);
+				if (kind == prop->GetKind()) {
+					switch (kind) {
+					case 0x375:
+						PSMTXCopy(joint.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', HALF_PI);
+						OffsetHeldProp(result, translation, -5.5f, 3.5f, 0);
+						SetHeldPropMatrix(prop, result);
+						break;
+					default:
+						SetHeldPropMatrix(prop, joint.GetMtx());
+						break;
+					}
+					CopyHeldPropVisibility(this, prop);
+				}
+			}
+			break;
+		}
+	}
+	if ((_998.mFlags & 0x100) && (player->_980.mFlags & 0x40000000)) {
+		s32 held[6] = { 0, 2, 2, 0, 0, 0 };
+		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, held, 6));
+		CVec pos = joint.GetPos();
+		pos.y += 4;
+		player->SetPos(pos, 0);
+		s32 face[4] = { 0, 2, 0, 0 };
+		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, face, 4));
+		pos = joint.GetPos();
+		player->SetRotateY(atan2(pos.x - player->mMoveTranslate.x, pos.z - player->mMoveTranslate.z), 0);
+	}
+	if (!_C94) {
+		s32 path[5] = { 0, 2, 0, 0, 1 };
+		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 5));
+		HSD_JObjSetFlags(joint.mJObj, 0x10);
+	} else {
+		s32 path[5] = { 0, 2, 0, 0, 1 };
+		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 5));
+		HSD_JObjClearFlags(joint.mJObj, 0x10);
+	}
 }
 
 /**
@@ -274,19 +423,28 @@ void XObjActorPapa::Drop()
 	}
 	switch (kind) {
 	case 0x1D3:
+		// Retail walks these two pools without changing the matching objects.
+		for (s32 i = 0; i < 15; ++i) {
+			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
+			(void)(kind == obj->GetKind());
+		}
 		break;
 	case 0x1F4:
 	case 0x360:
 	case 0x3FA:
 	case 0x401:
 		for (s32 i = 0; i < 288; i++) {
-			XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+			XObj* obj = gGame.mXObjs.mPools[22].Get(i);
 			if (kind == obj->GetKind()) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}
 		break;
 	case 0x375:
+		for (s32 i = 0; i < 64; ++i) {
+			XObj* obj = gGame.mXObjs.mPools[8].Get(i);
+			(void)(kind == obj->GetKind());
+		}
 		break;
 	}
 }
@@ -300,11 +458,11 @@ void XObjActorPapa::vf158()
 	CJObj jobj;
 	if (_998.Check(0x400)) {
 		_998.mFlags &= ~0x400;
-		_AB0 = 0.0f;
+		mHeadPitch = 0.0f;
 	}
 	if (_998.Check(2)) {
 		_998.mFlags &= ~2;
-		fn_8001E904(&lbl_8025C400.mSound, rand() % 10 + 0xB7, 0xFF);
+		fn_8001E904(&gGame.mSound, rand() % 10 + 0xB7, 0xFF);
 	}
 	switch (mCmd[0]) {
 	case 2:
@@ -315,9 +473,9 @@ void XObjActorPapa::vf158()
 		case 0x3FA:
 		case 0x401:
 			for (s32 i = 0; i < 288; i++) {
-				XObj* obj = lbl_8025C400.mXObjs.mPools[22].Get(i);
+				XObj* obj = gGame.mXObjs.mPools[22].Get(i);
 				if (mCmd[1] == obj->GetKind()) {
-					_A84 = obj;
+					mHeldObjects[0] = obj;
 					obj->mStatus.mFlags |= 0x10000ULL;
 					switch (mCmd[1]) {
 					case 0x1F4:
@@ -338,10 +496,10 @@ void XObjActorPapa::vf158()
 			break;
 		case 0x1D3:
 			for (s32 i = 0; i < 15; i++) {
-				XObj* obj = lbl_8025C400.mXObjs.mPools[10].Get(i);
+				XObj* obj = gGame.mXObjs.mPools[10].Get(i);
 				if (mCmd[1] == obj->GetKind()) {
 					obj->mStatus.mFlags |= 0x10000ULL;
-					_A84 = obj;
+					mHeldObjects[0] = obj;
 					switch (mCmd[1]) {
 					case 0x1D3:
 						_C8C.mFlags |= 4;
@@ -352,10 +510,10 @@ void XObjActorPapa::vf158()
 			break;
 		case 0x375:
 			for (s32 i = 0; i < 64; i++) {
-				XObj* obj = lbl_8025C400.mXObjs.mPools[8].Get(i);
+				XObj* obj = gGame.mXObjs.mPools[8].Get(i);
 				if (mCmd[1] == obj->GetKind()) {
 					obj->mStatus.mFlags |= 0x10000ULL;
-					_A84 = obj;
+					mHeldObjects[0] = obj;
 					switch (mCmd[1]) {
 					case 0x375:
 						_C8C.mFlags |= 8;
@@ -365,10 +523,10 @@ void XObjActorPapa::vf158()
 			}
 			break;
 		default:
-			if (_A84 != NULL) {
-				HSD_JObj* held = _A84->mJObj;
+			if (mHeldObjects[0] != NULL) {
+				HSD_JObj* held = mHeldObjects[0]->mJObj;
 				HSD_JObjClearMtxFlags(held);
-				_A84 = NULL;
+				mHeldObjects[0] = NULL;
 			}
 			break;
 		}
@@ -378,8 +536,8 @@ void XObjActorPapa::vf158()
 		switch (mCmd[1]) {
 		case 1: {
 			_998.mFlags |= 0x100;
-			LockPlayer(lbl_8025C400.GetPlayer());
-			lbl_8025C400.GetPlayer()->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+			LockPlayer(gGame.GetPlayer());
+			gGame.GetPlayer()->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 
 			break;
 		}
@@ -394,19 +552,19 @@ void XObjActorPapa::vf158()
 			target.y = pos.y;
 			target.z = pos.z;
 			target.y = mMoveTranslate.y;
-			lbl_8025C400.GetPlayer()->SetPos(target, 0);
-			XObjChr* player     = lbl_8025C400.GetPlayer();
+			gGame.GetPlayer()->SetPos(target, 0);
+			XObjChr* player     = gGame.GetPlayer();
 			player->_980.mFlags = 0;
 			player->_980.mFlags |= 0x20000000;
 			player->_980.mFlags |= 7;
-			player->mPadReset = TRUE;
+			player->mPad.mReset = TRUE;
 			break;
 		}
 		}
 		mCmd[0] = 0;
 		break;
 	case 4:
-		fn_800242A8(&lbl_8025C400.mQuake, mCmd[1], mCmd[2], mCmd[3], 0.0f, 0.0f, 0.0f, mCmd[4] / 100.0f);
+		StartScreenShake(&gGame.mQuake, mCmd[1], mCmd[2], mCmd[3], 0.0f, 0.0f, 0.0f, mCmd[4] / 100.0f);
 		mCmd[0] = 0;
 		break;
 	case 5: {
@@ -451,12 +609,12 @@ void XObjActorPapa::vf158()
  */
 void XObjActorPapa::vf15C()
 {
-	XObjChr* player = lbl_8025C400.GetPlayer();
+	XObjChr* player = gGame.GetPlayer();
 	if (player->_980.mFlags & 0x40000000) {
 		player->_980.mFlags = 0;
 		player->_980.mFlags |= 0x20000000;
 		player->_980.mFlags |= 7;
-		player->mPadReset = TRUE;
+		player->mPad.mReset = TRUE;
 	}
 	_998.mFlags = 0;
 	_C8C.mFlags = 0;

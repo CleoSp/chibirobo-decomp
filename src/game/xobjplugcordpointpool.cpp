@@ -2,17 +2,17 @@
 #include "PowerPC_EABI_Support/Runtime/MWCPlusLib.h"
 
 extern "C" {
-extern XObjPlugCordPoint lbl_8037C448[128];
+extern XObjPlugCordPoint gPlugCordPoints[128];
 XObjPlugCordPoint* __dt__17XObjPlugCordPointFv(XObjPlugCordPoint* point, s32 flags);
 }
 
 // todo: weak copy
-// the array dtor for fn_800DBA7C's points
+// the array dtor for InitPlugCord's points
 /**
  * @note Address: 0x800DBBCC
  * @note Size: 0x38
  */
-extern "C" void fn_800DBBCC()
+extern "C" void DestroyXObjPlugCordPointArray()
 {
-	__destroy_arr(lbl_8037C448, (ConstructorDestructor*)__dt__17XObjPlugCordPointFv, sizeof(XObjPlugCordPoint), 128);
+	__destroy_arr(gPlugCordPoints, (ConstructorDestructor*)__dt__17XObjPlugCordPointFv, sizeof(XObjPlugCordPoint), 128);
 }

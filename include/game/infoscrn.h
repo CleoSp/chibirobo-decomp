@@ -49,7 +49,8 @@ public:
 	s32 _150;               // _150
 	s32 _154;               // _154
 	u8 _158;                // _158
-	u8 _159[0x164 - 0x159]; // _159
+	u8 _159[0x160 - 0x159]; // _159
+	f32 mItemMaxAlpha;      // _160
 	s32 mItemMax;           // _164, 5, 10 or 15 by the upgrades in chibi robo's items
 	s32 mNextItemMax;       // _168
 	f32 _16C;               // _16C
@@ -73,7 +74,7 @@ public:
 	f32 mScanlineAlpha;     // _1C8
 	f32 _1CC;               // _1CC
 	s32 _1D0;               // _1D0, CGame's _9108, the game state menus put back
-	f32 _1D4;               // _1D4, the battery gauge, 10 a watt
+	f32 mBatteryGauge;      // _1D4, the battery gauge, 10 a watt
 	// _1D8 vtable
 
 	virtual ~InfoScrn() { } // _08 (weak)
@@ -86,7 +87,7 @@ void fn_800660E4(InfoScrn* scrn, s32 exp);
 void fn_80066190(InfoScrn* scrn, u8 show, s32 mode);
 void fn_800661E4(InfoScrn* scrn, XObj* obj, u8 show, s32 mode);
 void fn_80066250(InfoScrn* scrn, u8 show, s32 mode, s32 flag);
-BOOL fn_800665E0(InfoScrn* scrn);
+BOOL InfoScrn_IsBatteryGaugeEmpty(InfoScrn* scrn);
 }
 
 #endif

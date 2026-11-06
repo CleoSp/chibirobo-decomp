@@ -1,8 +1,6 @@
 #include "game/xchr.h"
 #include "game/evt.h"
 
-extern "C" void fn_800B8850(XObjChr* chr);
-
 /**
  * @note Address: 0x800B7B5C
  * @note Size: 0x1F8
@@ -13,8 +11,8 @@ extern "C" void Release__7XObjChrFv(XObjChr* chr)
 	chr->_980.mFlags = 0;
 	chr->_980.mFlags |= 0x20000000;
 	chr->_980.mFlags |= 7;
-	chr->mPadReset = TRUE;
-	HSD_JObj* jobj = chr->mJObj;
+	chr->mPad.mReset = TRUE;
+	HSD_JObj* jobj   = chr->mJObj;
 	if (jobj != NULL) {
 		HSD_JObjClearMtxFlags(jobj);
 	}
@@ -42,8 +40,8 @@ extern "C" void Release__7XObjChrFv(XObjChr* chr)
 	chr->mAnim.Release();
 	chr->mAttachmentAnim.Release();
 	chr->mSuitAnim.Release();
-	fn_800B8850(chr);
+	RemovePlayerSuit(chr);
 	if (chr->mEvt.mData.mScript != NULL) {
-		fn_8007F040(&chr->mEvt, TRUE, FALSE);
+		ResetEventScriptState(&chr->mEvt, TRUE, FALSE);
 	}
 }

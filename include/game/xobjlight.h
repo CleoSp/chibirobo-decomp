@@ -24,6 +24,7 @@ public:
 	CLight* GetLights() { return mLightNum > 0 ? mLights : NULL; }
 
 	XObjLight();
+	virtual void UpdateObject(u32 frames);
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjLight) == 0x2458);

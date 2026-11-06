@@ -438,7 +438,7 @@ public:
 STATIC_ASSERT(sizeof(CCameraActionAreaEx) == 0x3C34);
 // todo: old name, the prototypes below still use it
 typedef CCameraActionAreaEx CamAreaState;
-extern "C" CCameraActionAreaEx lbl_805A054C;
+extern "C" CCameraActionAreaEx gCameraAreaState;
 
 // the area action, CCameraActions holds it at _40
 class CCameraActionArea : public CCameraActionAreaExM {
@@ -792,29 +792,29 @@ class CMotionControlCamera;
 extern "C" {
 // the area camera's state, ccameraactionareaex.cpp
 f32 fn_801353E4(CamAreaState* state, s32 level);
-s32 fn_80135D28(CamAreaState* state);
+s32 GetCameraAreaMode(CamAreaState* state);
 void DrawDebug3d__19CCameraActionAreaExFv(CamAreaState* state);
 void fn_80136A54(CamAreaState* state, s32 mode);
-s32 fn_801371D0(CamAreaState* state, Vec pos, s32* ids);
-s32 fn_801374F4(CamAreaState* state, Vec pos);
-s32 fn_80137810(CamAreaState* state, Vec pos);
+s32 CollectCameraAreasContainingPoint(CamAreaState* state, Vec pos, s32* ids);
+s32 FindFirstCameraAreaContainingPoint(CamAreaState* state, Vec pos);
+s32 FindEnabledCameraAreaContainingPoint(CamAreaState* state, Vec pos);
 void fn_80137B58(CamAreaState* state, s32 index);
 void fn_80137D00(CamAreaState* state, s32 unused);
 void fn_80137EB8(CamAreaState* state);
-void fn_8013801C(CamAreaState* state);
+void InitCameraAreaEntries(CamAreaState* state);
 
 // the area camera, ccameraactionarea.cpp
-void fn_801382D4(CCameraActionArea* area, s32 index);
+void SetAreaCameraHeightIndices(CCameraActionArea* area, s32 index);
 void fn_80138B2C(CCameraActionArea* area, s32 arg1, s32 arg2, s32 arg3, s32 arg4, f32 arg5);
-void fn_80138CA4(CCameraActionArea* area, s32 mode, f32 time, s32 arg);
+void SelectAreaCameraEntryByViewDirection(CCameraActionArea* area, s32 mode, f32 time, s32 arg);
 void fn_80138EBC(CCameraActionArea* area);
 
 // the map camera, ccameraactionmap2.cpp
-void fn_8013A204(CCameraActionMap* map, f32 from, f32 to, f32 time);
-f32 fn_8013A558(CCameraActionMap* map);
+void StartMapCameraTargetHeightInterpolation(CCameraActionMap* map, f32 from, f32 to, f32 time);
+f32 GetMapCameraHorizontalTargetDistance(CCameraActionMap* map);
 void fn_8013BCE4(CCameraActionMap* map);
 void fn_8013BD28(CCameraActionMap* map, Vec& out, s32 mode);
-void fn_8013C510(CCameraActionMap* map, s32 index, f32 time);
+void SetMapCameraFovStep(CCameraActionMap* map, s32 index, f32 time);
 
 void fn_8014872C(CMotionControlCamera* camera, s32 mode);
 }

@@ -42,8 +42,8 @@ public:
 
 	XObjArmy();
 
-	virtual void vf98();                                 // _98
-	virtual void vfA4(u32 frames);                       // _A4
+	virtual void ResetObjectState();                     // _98
+	virtual void UpdateObject(u32 frames);               // _A4
 	virtual void vfC0();                                 // _C0
 	virtual void vf138(const Vec& position, f32 amount); // _138
 	virtual void vf148();                                // _148, plays the anim's sounds

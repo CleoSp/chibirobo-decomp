@@ -1,13 +1,14 @@
 #include "game/cjobj.h"
 #include "game/cjobjset.h"
 #include "Version.h"
+#include "game/video.h"
 extern "C" {
 #include <sysdolphin/aobj.h>
 #include <sysdolphin/mtx.h>
 }
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
 struct ShunObj {
 #if defined(VERSION_GGTJ01_01)
@@ -40,27 +41,35 @@ struct SavedObjFlagList {
 };
 
 extern "C" void fn_800F53F8(s32);
-extern "C" ShunObj* fn_8007F570(ShunObjList* list, s16 id);
-extern "C" void fn_80066B9C(void* obj, s32 arg);
-extern "C" s32 fn_80066A84(void* obj);
-extern "C" void fn_80066BFC(void* obj);
-extern "C" void fn_80066BF0(void* obj);
+extern "C" ShunObj* ResolveEventObjectId(ShunObjList* list, s16 id);
+extern "C" void InfoScrn_SetTimerHundredths(void* obj, s32 arg);
+extern "C" s32 InfoScrn_GetTimerHundredths(void* obj);
+extern "C" void InfoScrn_ShowTimer(void* obj);
+extern "C" void InfoScrn_HideTimer(void* obj);
 extern "C" void fn_8006613C(void* obj, s32, s32);
 extern "C" void SetFafaPartVisibility(s32 arg);
 
 #if defined(VERSION_GGTJ01_01)
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D038))
+#define SHUN_OBJ_LIST() ((ShunObjList*)(gGame + 0x5D038))
 #else
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D080))
+#define SHUN_OBJ_LIST() ((ShunObjList*)(gGame + 0x5D080))
 #endif
-#define SHUN_8F38() ((void*)(lbl_8025C400 + 0x8F38))
-#define SHUN_96BC() (*(RoboView**)(lbl_8025C400 + 0x96BC))
+#if defined(VERSION_JP)
+#define SHUN_INFO_SCREEN() ((void*)(gGame + 0x8EF0))
+#else
+#define SHUN_INFO_SCREEN() ((void*)(gGame + 0x8F38))
+#endif
+#if defined(VERSION_JP)
+#define SHUN_PLAYER() (*(RoboView**)(gGame + 0x9674))
+#else
+#define SHUN_PLAYER() (*(RoboView**)(gGame + 0x96BC))
+#endif
 
 inline ShunObj* ShunFindObj(s16 id)
 {
 	ShunObjList* list = SHUN_OBJ_LIST();
 	if (list->_00 != NULL) {
-		return fn_8007F570(list, id);
+		return ResolveEventObjectId(list, id);
 	}
 	return NULL;
 }
@@ -83,10 +92,16 @@ public:
 	virtual void vf_7C();
 	virtual void vf_80(s32, s32, s32, s32, s32, f32, f32, f32, f32);
 
-	u8 _38[0x980 - 0x38];     // _38
-	u32 _980;                 // _980
-	u8 _984[0x12DF4 - 0x984]; // _984
-	s32 _12DF4;               // _12DF4
+#if defined(VERSION_JP)
+	u8 _38[0x970 - 0x38];
+	u32 _980; // _970 in Japan
+	u8 _984[0x12CF4 - 0x974];
+#else
+	u8 _38[0x980 - 0x38];
+	u32 _980;
+	u8 _984[0x12DF4 - 0x984];
+#endif
+	s32 _12DF4; // _12CF4 in Japan
 };
 
 struct OnOffWork {
@@ -122,7 +137,7 @@ s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args);
 s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args);
 s32 CmdResetOnOff(s32 cmd, s32 count, s32* args);
 s32 CmdPrintArgs(s32 cmd, s32 count, s32* args);
-void fn_3_7F0(void* arg);
+void ShunNoOpSlot5(void* arg);
 void DrawStageHud(void* arg);
 void UpdateStage(void* arg);
 void InitStage(void* arg);
@@ -130,7 +145,7 @@ void InitStage(void* arg);
 typedef void (*RelSlotFunc)(void* arg);
 typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
 
-RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, fn_3_7F0, NULL };
+RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, ShunNoOpSlot5, NULL };
 RelCmdFunc _prolog_cmds[]    = {
     CmdPrintArgs,          CmdResetOnOff,      CmdStartOnOff0,           CmdStartOnOff1,
     CmdStartOnOff2,        CmdCheckOnOffFlag,  CmdSetFafaPartVisibility, CmdShowTimer,
@@ -212,9 +227,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     lwz      r0, 0x800(r30)
     cmpwi    r0, 0x0
     ble      .L_00000180
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r29, r30
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r31, 0x0
     addis    r28, r3, 0x6
     subi     r28, r28, 0x2f80
@@ -228,7 +243,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     cmplwi   r0, 0x0
     beq      .L_000000B4
     mr       r3, r28
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_000000B8
 .L_000000B4:
     li       r3, 0x0
@@ -254,9 +269,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     lwz      r0, 0x800(r30)
     cmpwi    r0, 0x0
     ble      .L_00000180
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0xffff
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     mr       r28, r30
     addis    r27, r4, 0x6
     subi     r31, r3, 0x1
@@ -272,7 +287,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     cmplwi   r0, 0x0
     beq      .L_0000014C
     mr       r3, r27
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_00000150
 .L_0000014C:
     li       r3, 0x0
@@ -370,9 +385,9 @@ extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
 	s32 ret = 0;
 
 	if (args[0] != 0) {
-		fn_80066B9C(SHUN_8F38(), args[1]);
+		InfoScrn_SetTimerHundredths(SHUN_INFO_SCREEN(), args[1]);
 	} else {
-		ret = fn_80066A84(SHUN_8F38());
+		ret = InfoScrn_GetTimerHundredths(SHUN_INFO_SCREEN());
 	}
 	return ret;
 }
@@ -384,9 +399,9 @@ extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
 extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
 {
 	if (args[0] != 0) {
-		fn_80066BFC(SHUN_8F38());
+		InfoScrn_ShowTimer(SHUN_INFO_SCREEN());
 	} else {
-		fn_80066BF0(SHUN_8F38());
+		InfoScrn_HideTimer(SHUN_INFO_SCREEN());
 	}
 	return 0;
 }
@@ -398,9 +413,9 @@ extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
 extern "C" s32 CmdShowTimer(s32 cmd, s32 count, s32* args)
 {
 	if (args[0] != 0) {
-		fn_8006613C(SHUN_8F38(), 1, 1);
+		fn_8006613C(SHUN_INFO_SCREEN(), 1, 1);
 	} else {
-		fn_8006613C(SHUN_8F38(), 0, 1);
+		fn_8006613C(SHUN_INFO_SCREEN(), 0, 1);
 	}
 	return 0;
 }
@@ -433,7 +448,7 @@ extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
@@ -450,7 +465,7 @@ extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
@@ -467,7 +482,7 @@ extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
@@ -484,7 +499,11 @@ extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
 {
-	onOffWork._00        = 0x708;
+#if defined(VERSION_PAL)
+	onOffWork._00 = lbl_80660D4C * 60 / 2;
+#else
+	onOffWork._00 = 0x708;
+#endif
 	onOffWork._08        = 0;
 	onOffWork._78        = 0;
 	onOffWork._7C        = 0;
@@ -509,7 +528,7 @@ extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7F0
  * @note Size: 0x4
  */
-extern "C" void fn_3_7F0(void* arg)
+extern "C" void ShunNoOpSlot5(void* arg)
 {
 }
 

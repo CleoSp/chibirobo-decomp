@@ -11,9 +11,10 @@ extern s32 lbl_80660D4C;
 
 // what the frame based timers count in a second
 #if defined(VERSION_PAL)
-#define FRAME_RATE ((f32)lbl_80660D4C)
+#define FRAMES_PER_SECOND lbl_80660D4C
 #else
-#define FRAME_RATE 60.0f
+#define FRAMES_PER_SECOND 60
 #endif
+#define FRAME_RATE ((f32)FRAMES_PER_SECOND)
 
 #endif

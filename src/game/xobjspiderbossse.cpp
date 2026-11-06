@@ -11,7 +11,7 @@ extern "C" void vf148__14XObjSpiderBossFv(XObjSpiderBoss* spider)
 {
 	if (spider->mStatus.mFlags & 1ULL) {
 		if (spider->mStatus.mFlags & 0x10000ULL) {
-			if (!fn_800665E0(&lbl_8025C400.mInfoScrn)) {
+			if (!InfoScrn_IsBatteryGaugeEmpty(&gGame.mInfoScrn)) {
 				s32 id         = (spider->mSpiderStatus.mFlags & 0x40000000) ? spider->mAltAnimId : spider->mAnimId;
 				HSD_AObj* aobj = GetAObj(spider->mJObj);
 				f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;

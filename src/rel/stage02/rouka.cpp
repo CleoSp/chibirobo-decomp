@@ -11,8 +11,8 @@ void PSMTXMultVec(Mtx m, Vec* src, Vec* dst);
 }
 
 // CGame, accessed by offset
-extern "C" u8 lbl_8025C400[];
-#define GAME_AT(off) (lbl_8025C400 + (off))
+extern "C" u8 gGame[];
+#define GAME_AT(off) (gGame + (off))
 
 // loaded model object, vtable at 0x34
 class XObj {
@@ -162,32 +162,55 @@ void Init(void);
 } // namespace Car
 
 struct RoboView {
-	u8 _00[0x980];    // _00
-	u32 _980;         // _980
-	u8 _984[0x12470]; // _984
-	s32 _12DF4;       // _12DF4
+#if defined(VERSION_JP)
+	u8 _00[0x970];
+#else
+	u8 _00[0x980];
+#endif
+	u32 mFlags;
+#if defined(VERSION_JP)
+	u8 _974[0x12CF4 - 0x974];
+#else
+	u8 _984[0x12DF4 - 0x984];
+#endif
+	BOOL mPadReset;
 };
 
 struct Stage02Main {
-	u8 _00[0x9860];        // _00
+#if defined(VERSION_JP)
+	u8 _00[0x9818]; // _00
+#else
+	u8 _00[0x9860]; // _00
+#endif
 	XObj* mObjects[0x400]; // _9860
 	s32 mObjectCount;      // _A860
 
 	XObj* GetObject(s32 index) const { return mObjects[index]; }
 };
 
-#define MAIN() ((Stage02Main*)lbl_8025C400)
+#define MAIN() ((Stage02Main*)gGame)
 
 struct ObjTable {
 	void* _00; // _00
 };
 
-#define OBJ_TABLE() ((ObjTable*)GAME_AT(0x5D080))
-#define GAME_OBJ()  (*(RoboView**)GAME_AT(0x96BC))
 #if defined(VERSION_JP)
-#define SOUND() GAME_AT(0xE713C)
+#define OBJ_TABLE()   ((ObjTable*)GAME_AT(0x5D038))
+#define INFO_SCREEN() GAME_AT(0x8EF0)
 #else
-#define SOUND() GAME_AT(0xE7E24)
+#define OBJ_TABLE()   ((ObjTable*)GAME_AT(0x5D080))
+#define INFO_SCREEN() GAME_AT(0x8F38)
+#endif
+#if defined(VERSION_JP)
+#define GAME_OBJ()              (*(RoboView**)GAME_AT(0x9674))
+#define MOTION_CAMERA()         ((CMotionControlCamera*)GAME_AT(0xE5050))
+#define DEFAULT_CAMERA_ACTION() (*(CInterfaceCameraAction**)GAME_AT(0xE5224))
+#define SOUND()                 GAME_AT(0xE713C)
+#else
+#define GAME_OBJ()              (*(RoboView**)GAME_AT(0x96BC))
+#define MOTION_CAMERA()         ((CMotionControlCamera*)GAME_AT(0xE5D38))
+#define DEFAULT_CAMERA_ACTION() (*(CInterfaceCameraAction**)GAME_AT(0xE5F0C))
+#define SOUND()                 GAME_AT(0xE7E24)
 #endif
 
 static XObj* takiObj;
@@ -207,7 +230,11 @@ public:
 	BOOL AddHideObj(s32 id);
 };
 
+#if defined(VERSION_JP)
+#define SCROLL2() (*(CCameraActionScroll2**)GAME_AT(0xE7114))
+#else
 #define SCROLL2() (*(CCameraActionScroll2**)GAME_AT(0xE7DFC))
+#endif
 static Car::PlayerCarRoot playerCar;
 static Car::CarRoot racerCar;
 static u8 carsStarted;
@@ -217,20 +244,20 @@ static u8* carParams;
 static u8* carSoundCues;
 
 extern "C" {
-s32 fn_80066A84(void* p);
-void fn_80066B9C(void* p, s32 v);
-void fn_80066BF0(void* p);
-void fn_80066BFC(void* p);
+s32 InfoScrn_GetTimerHundredths(void* p);
+void InfoScrn_SetTimerHundredths(void* p, s32 v);
+void InfoScrn_HideTimer(void* p);
+void InfoScrn_ShowTimer(void* p);
 void fn_8006613C(void* p, s32 a, s32 b);
-void* fn_8007F570(void* table, s16 id);
+void* ResolveEventObjectId(void* table, s16 id);
 void fn_800F53F8(s32 v);
 s32 fn_8001E6C8(void* p, s32 id);
 void fn_8001E904(void* p, s32 id, s32 v);
 void HSD_AudioSFXSetPanByID(s32 id, s32 v);
-s32 fn_8001DF00(void* p, void* q, s32 v);
-void fn_8001E468(void* p, s32 id, s32 v, s32 w);
-void fn_8001E660(void* p, s32 id);
-void fn_8001E1A4(void* p, s32 a, s32 b);
+s32 GetSoundVolumeAtPosition(void* p, void* q, s32 v);
+void SetGameSfxVolume(void* p, s32 id, s32 v, s32 w);
+void StopGameSfx(void* p, s32 id);
+void FadeOutGameSfx(void* p, s32 a, s32 b);
 
 // fighter.cpp
 s32 ShowCenterPanel(s32 a, s32 b);
@@ -307,7 +334,7 @@ f32 Car_CCameraActionCar_GetEaseDivisor(Car::CCameraActionCar* cam);
 
 inline XObj* ObjTable_Find(ObjTable* table, s16 id)
 {
-	return table->_00 != NULL ? (XObj*)fn_8007F570(table, id) : NULL;
+	return table->_00 != NULL ? (XObj*)ResolveEventObjectId(table, id) : NULL;
 }
 
 // little endian ints out of a loaded data file
@@ -336,7 +363,9 @@ inline void JObjInline1199(HSD_JObj* jobj)
 
 inline void Car::CarRoot::Register(XObj* a, XObj* b, XObj* c)
 {
+#if !defined(VERSION_PAL)
 	OSReport("Car::Register\n");
+#endif
 	_04 = a;
 	_08 = b;
 	_0C = c;
@@ -383,16 +412,18 @@ inline void PlayerCarRoot_Start(Car::PlayerCarRoot* car)
 
 inline void RoboView_ResetFlags(RoboView* game)
 {
-	game->_980 = 0;
-	game->_980 |= 0x20000000;
-	game->_980 |= 7;
-	game->_12DF4 = 1;
+	game->mFlags = 0;
+	game->mFlags |= 0x20000000;
+	game->mFlags |= 7;
+	game->mPadReset = 1;
 }
 
 // body of Car::Init, inlined into Terminate
 inline void Car_Init(void)
 {
+#if !defined(VERSION_PAL)
 	OSReport("Car::Init\n");
+#endif
 	playerCar._08       = NULL;
 	playerCar._04       = NULL;
 	playerCar._80       = 0.0f;
@@ -443,7 +474,7 @@ RelCmdFunc _prolog_cmds[] = {
  */
 extern "C" s32 CmdGetTimer(s32 cmd, s32 argc, s32* argv)
 {
-	return fn_80066A84(GAME_AT(0x8F38));
+	return InfoScrn_GetTimerHundredths(INFO_SCREEN());
 }
 
 /**
@@ -452,7 +483,7 @@ extern "C" s32 CmdGetTimer(s32 cmd, s32 argc, s32* argv)
  */
 extern "C" s32 CmdSetTimer(s32 cmd, s32 argc, s32* argv)
 {
-	fn_80066B9C(GAME_AT(0x8F38), argv[0]);
+	InfoScrn_SetTimerHundredths(INFO_SCREEN(), argv[0]);
 	return 0;
 }
 
@@ -463,9 +494,9 @@ extern "C" s32 CmdSetTimer(s32 cmd, s32 argc, s32* argv)
 extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 argc, s32* argv)
 {
 	if (argv[0] != 0) {
-		fn_80066BFC(GAME_AT(0x8F38));
+		InfoScrn_ShowTimer(INFO_SCREEN());
 	} else {
-		fn_80066BF0(GAME_AT(0x8F38));
+		InfoScrn_HideTimer(INFO_SCREEN());
 	}
 	return 0;
 }
@@ -477,9 +508,9 @@ extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 argc, s32* argv)
 extern "C" s32 CmdShowTimer(s32 cmd, s32 argc, s32* argv)
 {
 	if (argv[0] != 0) {
-		fn_8006613C(GAME_AT(0x8F38), 1, 1);
+		fn_8006613C(INFO_SCREEN(), 1, 1);
 	} else {
-		fn_8006613C(GAME_AT(0x8F38), 0, 1);
+		fn_8006613C(INFO_SCREEN(), 0, 1);
 	}
 	return 0;
 }
@@ -698,10 +729,10 @@ extern "C" s32 CmdRegisterFighterLink(s32 cmd, s32 argc, s32* argv)
 /*
     stwu     r1, -0x30(r1)
     mflr     r0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x34(r1)
     li       r0, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stmw     r27, 0x1c(r1)
     addis    r30, r3, 0x6
     addi     r29, r1, 0x8
@@ -721,7 +752,7 @@ extern "C" s32 CmdRegisterFighterLink(s32 cmd, s32 argc, s32* argv)
     extsh    r4, r3
     beq      .L_00006834
     mr       r3, r30
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_00006838
 .L_00006834:
     li       r3, 0x0
@@ -835,10 +866,10 @@ extern "C" s32 CmdAddMato(s32 cmd, s32 argc, s32* argv)
 /*
     stwu     r1, -0x20(r1)
     mflr     r0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x24(r1)
     stw      r31, 0x1c(r1)
-    addi     r31, r3, lbl_8025C400@l
+    addi     r31, r3, gGame@l
     stw      r30, 0x18(r1)
     mr       r30, r5
     stw      r29, 0x14(r1)
@@ -876,14 +907,22 @@ extern "C" s32 CmdAddMato(s32 cmd, s32 argc, s32* argv)
 extern "C" s32 CmdStartFighter(s32 cmd, s32 argc, s32* argv)
 {
 	XObj* objs[3];
-	s32 i;
+	int i;
 	u32 j;
 
+#if !defined(VERSION_PAL)
 	OSReport("args = ");
+#endif
+	// PAL removes the reports but retains the loop.
 	for (i = 0; i < argc; i++) {
+#if !defined(VERSION_PAL)
 		OSReport("%d ", argv[i]);
+#endif
 	}
+
+#if !defined(VERSION_PAL)
 	OSReport("\n");
+#endif
 	for (j = 0; j < 3 && (s32)j - 1 < argc; j++) {
 		objs[j] = ObjTable_Find(OBJ_TABLE(), argv[j]);
 	}
@@ -948,12 +987,12 @@ extern "C" void UpdateStage(void* arg)
 				fn_8001E904(sound, 0x2001A, 0xFF);
 				HSD_AudioSFXSetPanByID(0x2001A, 0xFE);
 			}
-			fn_8001E468(sound, 0x20019, fn_8001DF00(sound, takiObj->_C8, 1), 0);
-			fn_8001E468(sound, 0x2001A, fn_8001DF00(sound, takiObj->_C8, 1), 0);
+			SetGameSfxVolume(sound, 0x20019, GetSoundVolumeAtPosition(sound, takiObj->_C8, 1), 0);
+			SetGameSfxVolume(sound, 0x2001A, GetSoundVolumeAtPosition(sound, takiObj->_C8, 1), 0);
 		} else {
 			void* sound = SOUND();
-			fn_8001E660(sound, 0x20019);
-			fn_8001E660(sound, 0x2001A);
+			StopGameSfx(sound, 0x20019);
+			StopGameSfx(sound, 0x2001A);
 		}
 	}
 }
@@ -987,9 +1026,9 @@ extern "C" void InitStage(void* arg)
     stw      r0, 0x14(r1)
     bl       ClearFighterObjects
     bl       Init__3CarFv
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, takiObj@ha
-    addi     r8, r3, lbl_8025C400@l
+    addi     r8, r3, gGame@l
     li       r0, 0x0
     addi     r6, r4, takiObj@l
     li       r10, 0x0
@@ -1039,7 +1078,7 @@ extern "C" void InitStage(void* arg)
 extern "C" void RestoreDefaultCamera(void)
 {
 	JObjInline1199(((XObj*)GAME_OBJ())->jobj);
-	((CMotionControlCamera*)GAME_AT(0xE5D38))->ChangeAction(*(CInterfaceCameraAction**)GAME_AT(0xE5F0C));
+	MOTION_CAMERA()->ChangeAction(DEFAULT_CAMERA_ACTION());
 }
 
 /**
@@ -1048,7 +1087,9 @@ extern "C" void RestoreDefaultCamera(void)
  */
 extern "C" void Terminate(void)
 {
+#if !defined(VERSION_PAL)
 	OSReport("Terminate\n");
+#endif
 	JObjInline1199(playerCar._04->jobj);
 	if (playerCar._0C != NULL) {
 		JObjInline1199(playerCar._0C->jobj);
@@ -1063,7 +1104,7 @@ extern "C" void Terminate(void)
 	racerCar._7C = 0;
 	RoboView_ResetFlags(GAME_OBJ());
 	JObjInline1199(((XObj*)GAME_OBJ())->jobj);
-	((CMotionControlCamera*)GAME_AT(0xE5D38))->ChangeAction(*(CInterfaceCameraAction**)GAME_AT(0xE5F0C));
+	MOTION_CAMERA()->ChangeAction(DEFAULT_CAMERA_ACTION());
 	Car_Init();
 }
 
@@ -1244,9 +1285,9 @@ extern "C" void Terminate(void)
     mr       r3, r29
     bl       HSD_JObjSetMtxDirtySub
 .L_000071A4:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, racerCar@ha
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     addi     r4, r4, racerCar@l
     li       r0, 0x1
@@ -1300,8 +1341,8 @@ extern "C" void Terminate(void)
     mr       r3, r29
     bl       HSD_JObjSetMtxDirtySub
 .L_00007274:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r4, 0x5f0c(r3)
     addi     r3, r3, 0x5d38
@@ -1715,10 +1756,10 @@ extern "C" void StartCarCamera(void)
 	RoboView* game = GAME_OBJ();
 	Vec v;
 
-	game->_980 = 0;
-	game->_980 |= 0x40000000;
-	game->_12DF4 = 0;
-	((CMotionControlCamera*)GAME_AT(0xE5D38))->ChangeAction(&carCamera);
+	game->mFlags = 0;
+	game->mFlags |= 0x40000000;
+	game->mPadReset = 0;
+	MOTION_CAMERA()->ChangeAction(&carCamera);
 	v.x = 0.0f;
 	v.y = 30.0f;
 	v.z = -120.0f;
@@ -1774,7 +1815,7 @@ extern "C" void Car_PlayerCarRoot_Update(Car::PlayerCarRoot* car, u32 arg)
 		car->vf0C();
 		car->_80 = car->_10;
 		sound    = SOUND();
-		fn_8001E660(sound, 0x2000D);
+		StopGameSfx(sound, 0x2000D);
 		if (car->_80 < ReadS32LE(carParams + 8)) {
 			fn_8001E904(sound, 0x2000E, 0xFF);
 		} else {
@@ -1788,9 +1829,9 @@ extern "C" void Car_PlayerCarRoot_Update(Car::PlayerCarRoot* car, u32 arg)
 		if (car->_14 < frame && frame <= car->_10) {
 			fn_8001E904(sound, id, 0xFF);
 			if (id == 0x2001F) {
-				fn_8001E1A4(sound, -0x10000, 20);
+				FadeOutGameSfx(sound, -0x10000, 20);
 			} else if (id == 0x2000F) {
-				fn_8001E660(sound, 0x2001F);
+				StopGameSfx(sound, 0x2001F);
 			}
 		}
 	}

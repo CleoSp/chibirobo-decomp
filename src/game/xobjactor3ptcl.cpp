@@ -15,6 +15,6 @@ extern "C" void vfCC__10XObjActor3Fv(XObjActor3* actor)
 extern "C" void vfC0__10XObjActor3Fv(XObjActor3* actor)
 {
 	if (actor->GetKind() == 0x31B) {
-		fn_80024CA0(&actor->mDust.mPtcl);
+		DrawParticlePool(&actor->mDust.mPtcl);
 	}
 }

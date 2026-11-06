@@ -5,7 +5,7 @@ extern "C" {
 #include <dolphin/os.h>
 void OSReport(const char* msg, ...);
 HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind);
-HSD_psAppSRT* fn_801E56F8(HSD_Generator* gen, s32 status);
+HSD_psAppSRT* CreateGeneratorAppSRT(HSD_Generator* gen, s32 status);
 void _psDispParticlesSub(s32 bankMask, s32 kind);
 void psInterpretParticles(u32 flags);
 void psExecGenerator(u32 mask);
@@ -128,7 +128,7 @@ HSD_Generator* CParticle::CreateSRT(u32 code, s32 status, const Vec& translate, 
 			mGenerators[i].mId  = id;
 			mGenerators[i].mGen = psCreateGeneratorID(linkNo, bank, id);
 			if (mGenerators[i].mGen != NULL) {
-				HSD_psAppSRT* srt = fn_801E56F8(mGenerators[i].mGen, status);
+				HSD_psAppSRT* srt = CreateGeneratorAppSRT(mGenerators[i].mGen, status);
 				if (srt != NULL) {
 					srt->scale     = scale;
 					srt->translate = translate;

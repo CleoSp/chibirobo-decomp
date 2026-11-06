@@ -172,12 +172,12 @@ static inline void AddToHamDish(HamDish* group, HamObj* slot)
 	}
 }
 
-#define STAGE01_PLAYER   ((Stage01Actor*)lbl_8025C400.GetPlayer())
-#define STAGE01_ACTORS   ((Stage01Actor**)lbl_8025C400.mXObjs.mObjects)
-#define STAGE01_EVT_DATA (&lbl_8025C400.mEvt.mData)
-#define STAGE01_PARTICLE (&lbl_8025C400.mParticle)
-#define STAGE01_OBJ_8F38 (&lbl_8025C400.mInfoScrn)
-#define STAGE01_SOUND    (&lbl_8025C400.mSound)
+#define STAGE01_PLAYER   ((Stage01Actor*)gGame.GetPlayer())
+#define STAGE01_ACTORS   ((Stage01Actor**)gGame.mXObjs.mObjects)
+#define STAGE01_EVT_DATA (&gGame.mEvt.mData)
+#define STAGE01_PARTICLE (&gGame.mParticle)
+#define STAGE01_OBJ_8F38 (&gGame.mInfoScrn)
+#define STAGE01_SOUND    (&gGame.mSound)
 
 extern "C" {
 void fn_80068B48(void* obj);
@@ -217,12 +217,12 @@ s32 CmdRegisterHamObjs(s32 cmd, s32 count, s32* args);
 s32 CmdRegisterHamDishes(s32 cmd, s32 count, s32* args);
 s32 CmdGetHamObjKind(s32 cmd, s32 count, s32* args);
 s32 CmdInitHamburg(s32 cmd, s32 count, s32* args);
-s32 fn_4_5E0(s32 cmd, s32 count, s32* args);
-s32 fn_4_5E8(s32 cmd, s32 count, s32* args);
-s32 fn_4_5F0(s32 cmd, s32 count, s32* args);
-s32 fn_4_5F8(s32 cmd, s32 count, s32* args);
-s32 fn_4_600(s32 cmd, s32 count, s32* args);
-s32 fn_4_608(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot5(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot4(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot3(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot2(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot1(s32 cmd, s32 count, s32* args);
+s32 CmdHamburgNoOpSlot0(s32 cmd, s32 count, s32* args);
 void DrawStage(u32 arg);
 void DrawStageHud(u32 arg);
 void UpdateStage(u32 arg);
@@ -266,12 +266,12 @@ typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage, NULL, DrawStageHud, NULL, NULL };
 RelCmdFunc _prolog_cmds[]    = {
-    fn_4_608,
-    fn_4_600,
-    fn_4_5F8,
-    fn_4_5F0,
-    fn_4_5E8,
-    fn_4_5E0,
+    CmdHamburgNoOpSlot0,
+    CmdHamburgNoOpSlot1,
+    CmdHamburgNoOpSlot2,
+    CmdHamburgNoOpSlot3,
+    CmdHamburgNoOpSlot4,
+    CmdHamburgNoOpSlot5,
     CmdInitHamburg,
     CmdGetHamObjKind,
     CmdRegisterHamDishes,
@@ -457,7 +457,7 @@ extern "C" s32 CmdPlaySoundAtActor(s32 cmd, s32 count, s32* args)
 	Stage01Actor* actor = STAGE01_ACTORS[args[1]];
 	Vec pos             = actor->_C8;
 	s32 id              = args[0];
-	fn_8001E904(STAGE01_SOUND, id, fn_8001DF00(STAGE01_SOUND, &pos, 0));
+	fn_8001E904(STAGE01_SOUND, id, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 0));
 	return 0;
 }
 
@@ -704,7 +704,7 @@ extern "C" s32 CmdInitHamburg(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x5E0
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_5E0(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot5(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -713,7 +713,7 @@ extern "C" s32 fn_4_5E0(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x5E8
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_5E8(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot4(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -722,7 +722,7 @@ extern "C" s32 fn_4_5E8(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x5F0
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_5F0(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot3(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -731,7 +731,7 @@ extern "C" s32 fn_4_5F0(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x5F8
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_5F8(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot2(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -740,7 +740,7 @@ extern "C" s32 fn_4_5F8(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x600
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_600(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot1(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -749,7 +749,7 @@ extern "C" s32 fn_4_600(s32 cmd, s32 count, s32* args)
  * @note Address: stage01 .text 0x608
  * @note Size: 0x8
  */
-extern "C" s32 fn_4_608(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdHamburgNoOpSlot0(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -786,26 +786,26 @@ extern "C" void UpdateStage(u32 arg)
 	pos.y = 75.87f;
 	pos.z = -165.98f;
 	if (fn_8001E6C8(STAGE01_SOUND, 0x40016)) {
-		fn_8001E468(STAGE01_SOUND, 0x40016, fn_8001DF00(STAGE01_SOUND, &pos, 3), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x40016, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 3), 0);
 	}
 	if (fn_8001E6C8(STAGE01_SOUND, 0x40017)) {
-		fn_8001E468(STAGE01_SOUND, 0x40017, fn_8001DF00(STAGE01_SOUND, &pos, 3), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x40017, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 3), 0);
 	}
 	if (fn_8001E6C8(STAGE01_SOUND, 0x40018)) {
-		fn_8001E468(STAGE01_SOUND, 0x40018, fn_8001DF00(STAGE01_SOUND, &pos, 3), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x40018, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 3), 0);
 	}
 	if (fn_8001E6C8(STAGE01_SOUND, 0x40019)) {
-		fn_8001E468(STAGE01_SOUND, 0x40019, fn_8001DF00(STAGE01_SOUND, &pos, 3), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x40019, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 3), 0);
 	}
 
 	pos.x = -281.1f;
 	pos.y = 76.14f;
 	pos.z = 110.23f;
 	if (fn_8001E6C8(STAGE01_SOUND, 0x4000E)) {
-		fn_8001E468(STAGE01_SOUND, 0x4000E, fn_8001DF00(STAGE01_SOUND, &pos, 2), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x4000E, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 2), 0);
 	}
 	if (fn_8001E6C8(STAGE01_SOUND, 0x40010)) {
-		fn_8001E468(STAGE01_SOUND, 0x40010, fn_8001DF00(STAGE01_SOUND, &pos, 2), 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x40010, GetSoundVolumeAtPosition(STAGE01_SOUND, &pos, 2), 0);
 	}
 }
 
@@ -830,7 +830,7 @@ extern "C" s32 CheckYakiResult(void)
 	Stage01Actor* player;
 	HamObj* slot;
 
-	if (lbl_8025C400.mEvt.mData.mScript != NULL) {
+	if (gGame.mEvt.mData.mScript != NULL) {
 		return 0;
 	}
 
@@ -870,8 +870,8 @@ extern "C" s32 CheckYakiResult(void)
 
 // CheckYakiResult
 /*
-    lis      r3, lbl_8025C400@ha
-    addi     r4, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r4, r3, gGame@l
     addis    r3, r4, 0x6
     lwz      r0, -0x2f80(r3)
     cmplwi   r0, 0x0
@@ -1061,8 +1061,8 @@ extern "C" void AddTempActor(s32 id)
 	for (i = 0; i < 4; i++) {
 		if (tempActors[i] == NULL) {
 			Stage01Actor* actor;
-			if (lbl_8025C400.mEvt.mData.mScript != NULL) {
-				actor = (Stage01Actor*)fn_8007F570(STAGE01_EVT_DATA, id);
+			if (gGame.mEvt.mData.mScript != NULL) {
+				actor = (Stage01Actor*)ResolveEventObjectId(STAGE01_EVT_DATA, id);
 			} else {
 				actor = NULL;
 			}
@@ -1192,12 +1192,12 @@ extern "C" s32 PutHeldHamObjOnDish(s32 id)
 /*
     stwu     r1, -0x10(r1)
     mflr     r0
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     stw      r0, 0x14(r1)
     stw      r31, 0xc(r1)
     stw      r30, 0x8(r1)
     mr       r30, r3
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0x1
     lwz      r31, -0x6944(r3)
     addi     r3, r31, 0xa44
@@ -1346,10 +1346,10 @@ extern "C" bool HamObj_CheckSlideHit(HamObj* slot)
     lis      r3, lbl_4_rodata_68@ha
     lwz      r7, 0x4(r25)
     addi     r5, r3, lbl_4_rodata_68@l
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, hamObjs@ha
     lwz      r6, 0xc8(r7)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r0, 0xcc(r7)
     li       r28, 0x0
     lfs      f31, 0x0(r5)
@@ -1642,11 +1642,11 @@ extern "C" void UpdateHamPickupFlags(void)
     psq_st   f31, 0x48(r1), 0, qr0
     stmw     r23, 0x1c(r1)
     lis      r4, hamObjs@ha
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r24, r4, hamObjs@l
     lis      r5, putDownActive@ha
     li       r0, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stb      r0, putDownActive@l(r5)
     mr       r26, r24
     addis    r25, r3, 0x1
@@ -1902,9 +1902,9 @@ extern "C" HamObj* FindFacingHamburg(void)
     lis      r4, hamObjs@ha
     addi     r5, r3, lbl_4_rodata_90@l
     li       r29, 0x0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f29, 0x0(r5)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addi     r31, r4, hamObjs@l
     li       r28, 0x0
     addis    r30, r3, 0x1
@@ -2082,8 +2082,8 @@ extern "C" HamObj* FindHamObj(s32 id)
 /*
     cmpwi    r3, 0x0
     bge      .L_00001AA0
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r4, 0xa64(r3)
@@ -2196,8 +2196,8 @@ extern "C" HamObj* RegisterHamObj(s32 id)
 /*
     cmpwi    r3, 0x0
     bge      .L_00001B78
-    lis      r4, lbl_8025C400@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r4, r4, gGame@l
     addis    r4, r4, 0x1
     lwz      r4, -0x6944(r4)
     lwz      r5, 0xa64(r4)
@@ -2268,9 +2268,9 @@ extern "C" HamObj* RegisterHamObj(s32 id)
     lwz      r0, 0x4(r4)
     cmplwi   r0, 0x0
     bne      .L_00001CF4
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r6, hamObjs@ha
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     slwi     r0, r3, 2
     addis    r5, r4, 0x1
     addi     r6, r6, hamObjs@l
@@ -2371,8 +2371,8 @@ extern "C" void ExitHamburg(void)
 	gasPlate = NULL;
 
 	psKillAllParticle();
-	fn_8001E660(STAGE01_SOUND, 0x4001C);
-	fn_8001E660(STAGE01_SOUND, 0x4001D);
+	StopGameSfx(STAGE01_SOUND, 0x4001C);
+	StopGameSfx(STAGE01_SOUND, 0x4001D);
 	fn_80068B48(STAGE01_OBJ_8F38);
 }
 
@@ -2380,6 +2380,8 @@ extern "C" void ExitHamburg(void)
  * @note Address: stage01 .text 0x1E10
  * @note Size: 0x1B4
  */
+#pragma push
+#pragma opt_lifetimes off
 extern "C" void InitHamburg(void)
 {
 	s32 i;
@@ -2392,12 +2394,13 @@ extern "C" void InitHamburg(void)
 		hamObjs[i]._3C    = 0;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(hamDishes); i++) {
-		hamDishes[i]._04 = -1;
-		hamDishes[i]._00 = NULL;
+	HamDish* slot = hamDishes;
+	for (i = 0; i < ARRAY_SIZE(hamDishes); i++, ++slot) {
+		slot->_04 = -1;
+		slot->_00 = NULL;
 	}
 
-	CGame* game = &lbl_8025C400;
+	CGame* game = &gGame;
 	count       = game->mXObjs.mObjectCount;
 	gasPlate    = NULL;
 	for (i = 0; gasPlate == NULL && i < count; i++) {
@@ -2417,6 +2420,7 @@ extern "C" void InitHamburg(void)
 	putDownActive          = 0;
 	fn_80068B70(STAGE01_OBJ_8F38);
 }
+#pragma pop
 
 // InitHamburg
 /*
@@ -2457,9 +2461,9 @@ extern "C" void InitHamburg(void)
     stw      r0, 0xdc(r7)
     addi     r7, r7, 0xf0
     bdnz     .L_00001E50
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, hamDishes@ha
-    addi     r8, r3, lbl_8025C400@l
+    addi     r8, r3, gGame@l
     li       r10, 0x0
     addi     r4, r4, hamDishes@l
     lis      r3, gasPlate@ha
@@ -2519,10 +2523,10 @@ extern "C" void InitHamburg(void)
     li       r0, 0x0
     lis      r6, tempActors@ha
     stwu     r0, tempActors@l(r6)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r5, yakiResultFlags@ha
     lis      r4, putDownActive@ha
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stw      r0, 0x4(r6)
     addis    r3, r3, 0x1
     stw      r0, 0x8(r6)
@@ -2567,18 +2571,18 @@ extern "C" void UpdateHamObjs(u32 arg)
 
 	switch (yakiLoopLevel) {
 	case 1:
-		fn_8001E660(STAGE01_SOUND, 0x4001D);
+		StopGameSfx(STAGE01_SOUND, 0x4001D);
 		fn_8001E904(STAGE01_SOUND, 0x4001C, 0xFF);
-		fn_8001E468(STAGE01_SOUND, 0x4001C, 0xFF, 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x4001C, 0xFF, 0);
 		break;
 	case 2:
-		fn_8001E660(STAGE01_SOUND, 0x4001C);
+		StopGameSfx(STAGE01_SOUND, 0x4001C);
 		fn_8001E904(STAGE01_SOUND, 0x4001D, 0xFF);
-		fn_8001E468(STAGE01_SOUND, 0x4001D, 0xFF, 0);
+		SetGameSfxVolume(STAGE01_SOUND, 0x4001D, 0xFF, 0);
 		break;
 	default:
-		fn_8001E1A4(STAGE01_SOUND, 0x4001C, 600);
-		fn_8001E1A4(STAGE01_SOUND, 0x4001D, 600);
+		FadeOutGameSfx(STAGE01_SOUND, 0x4001C, 600);
+		FadeOutGameSfx(STAGE01_SOUND, 0x4001D, 600);
 		break;
 	}
 }
@@ -2717,9 +2721,9 @@ void HamObj::StatePutDown()
     psq_st   f31, 0xe8(r1), 0, qr0
     stmw     r23, 0xbc(r1)
     mr       r30, r3
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x4c(r30)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r31, r3, 0x1
     cmpwi    r0, 0x1
     lwz      r25, -0x6944(r31)
@@ -2739,21 +2743,21 @@ void HamObj::StatePutDown()
     cmplwi   r23, 0x0
     beq      .L_00002404
     mr       r3, r23
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_000023D4
     mr       r23, r3
     b        .L_00002408
 .L_000023D4:
     mr       r3, r23
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_000023EC
     mr       r23, r3
     b        .L_00002408
 .L_000023EC:
     mr       r3, r23
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_00002404
     mr       r23, r3
@@ -2764,9 +2768,9 @@ void HamObj::StatePutDown()
     cmplwi   r23, 0x0
     beq      .L_00002434
     bne      .L_0000242C
-    lis      r3, lbl_4_rodata_BC@ha
+    lis      r3, sStage01PathAobjH@ha
     lis      r5, lbl_4_rodata_C4@ha
-    addi     r3, r3, lbl_4_rodata_BC@l
+    addi     r3, r3, sStage01PathAobjH@l
     li       r4, 0x95
     addi     r5, r5, lbl_4_rodata_C4@l
     bl       __assert
@@ -2838,9 +2842,9 @@ void HamObj::StatePutDown()
     lwz      r0, 0x34(r30)
     cmplwi   r0, 0x0
     beq      .L_00002714
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, 0x4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r4, r4, 0x1e
@@ -2947,11 +2951,11 @@ void HamObj::StatePutDown()
     mtctr    r12
     bctrl
     lis      r4, __ptmf_null@ha
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r6, r4, __ptmf_null@l
     li       r0, 0x0
     lwz      r5, 0x0(r6)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r4, 0x4(r6)
     addis    r3, r3, 0x1
     subi     r3, r3, 0x6eec
@@ -2970,9 +2974,9 @@ void HamObj::StatePutDown()
     lwz      r0, 0xc(r30)
     cmpwi    r0, 0x1
     bne      .L_0000274C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, 0x4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r4, r4, 0x1b
@@ -3527,9 +3531,9 @@ void HamObj::StateFlip()
     bctrl
     b        .L_00003224
 .L_00003144:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, 0x4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r4, r4, 0x1b
@@ -3736,8 +3740,8 @@ extern "C" void HamObj_StartFlip(HamObj* slot, u32 time)
     lis      r0, 0x4330
     lfd      f1, lbl_4_rodata_108@l(r5)
     stw      r4, 0xc(r1)
-    lis      r4, lbl_8025C400@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r4, r4, gGame@l
     stw      r0, 0x8(r1)
     lfd      f0, 0x8(r1)
     stw      r31, 0x1c(r1)
@@ -3913,9 +3917,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
     lwz      r0, 0x30(r30)
     cmpwi    r0, 0x0
     bne      .L_000042C8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r6, 0x4(r30)
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     li       r3, 0x0
     addis    r5, r5, 0x1
     lwz      r5, -0x6944(r5)
@@ -4015,11 +4019,11 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
     cmpw     r0, r31
     bge      .L_000040D4
     lis      r4, lbl_4_rodata_30@ha
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r7, r4, lbl_4_rodata_30@l
     addi     r6, r1, 0x44
     lwz      r4, 0x0(r7)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r5, 0x4(r7)
     addis    r3, r3, 0x1
     lwz      r0, 0x8(r7)
@@ -4050,9 +4054,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
     mulli    r0, r0, 0xb4
     subf.    r0, r0, r4
     bne      .L_00004208
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x3b
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r29, r3, 0x1
     subi     r29, r29, 0x6eec
     mr       r3, r29
@@ -4090,9 +4094,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
     mulli    r0, r0, 0x78
     subf.    r0, r0, r4
     bne      .L_00004208
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x3b
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r29, r3, 0x1
     subi     r29, r29, 0x6eec
     mr       r3, r29
@@ -4162,9 +4166,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
 .L_000042A0:
     bdnz     .L_0000427C
 .L_000042A4:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x78
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     addis    r3, r3, 0x1
     li       r7, 0x1
@@ -4262,9 +4266,9 @@ extern "C" void HamObj_Update(HamObj* slot, u32 step)
     lbz      r0, playerOffGasPlate@l(r4)
     cmplwi   r0, 0x0
     beq      .L_000044A8
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     addi     r4, r3, 0xc8
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addi     r3, r3, 0xc8

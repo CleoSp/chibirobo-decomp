@@ -16,7 +16,7 @@ public:
 	virtual ~Globals() { } // _08
 };
 STATIC_ASSERT(sizeof(Globals) == 0x100);
-extern "C" Globals lbl_803675CC;
+extern "C" Globals gGlobalScriptResources;
 
 // the files' offsets and tables are little endian, a few record fields are native and
 // don't go through this
@@ -28,24 +28,24 @@ static inline u32 ReadResourceOffset(const u8* p)
 extern "C" {
 // lookups into the globals file's tables by index
 const char* fn_8006DBC8(s32 index);
-const char* fn_8006DBF0(s32 index);
-u32 fn_8006DCFC(s32 index);
-u8* fn_8006DDB8(s32 index);
-u8* fn_8006E034(s32 index); // a costume's name
-u8* fn_8006E160(s32 index); // an attachment's name
+const char* GetLocalizedInterfaceText(s32 index);
+u32 GetStatusIconEventFlagId(s32 index);
+u8* GetStatusIconName(s32 index);
+u8* GetCostumeName(s32 index);    // a costume's name
+u8* GetAttachmentName(s32 index); // an attachment's name
 u8* fn_8006E1D0(s32 index);
 s16 fn_8006E28C(s32 index);
 s16 fn_8006E2D4(s32 index);
-void fn_8006E3AC(s32 index, u16 mask);
-void fn_8006E3FC(s32 index, u16 mask);
-u16 fn_8006E44C(s32 index, u16 mask);
-u8* fn_8006E510(s32 index);
+void ClearItemFlags(s32 index, u16 mask);
+void SetItemFlags(s32 index, u16 mask);
+u16 GetItemFlagsMasked(s32 index, u16 mask);
+u8* GetItemName(s32 index);
 // a 4 byte little endian offset to a script pointer, null for 0
-u8* fn_8006E580(u8* operand);
-BOOL fn_8006E66C(u8* script);
+u8* ResolveEventScriptOffset(u8* operand);
+BOOL IsGlobalEventScript(u8* script);
 // the same for an entry of an offset table
-u8* fn_8006E6D4(s32 index);
-u8* fn_8006E724(s32);
+u8* GetGlobalScriptByIndex(s32 index);
+u8* GetGlobalScriptTable(s32);
 u32 fn_8006E9AC(s32 index);
 u32 fn_8006EAF0(s32 index);
 u32 fn_8006EBC8(s32 index);
