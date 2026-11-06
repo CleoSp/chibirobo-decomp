@@ -10,7 +10,9 @@ extern "C" {
  * @note Address: 0x800DB810
  * @note Size: 0x26C
  */
-extern "C" void fn_800DB810(XObjPlugCord* cord, f32 x, f32 y, f32 z)
+#pragma push
+#pragma opt_strength_reduction off
+extern "C" void ResetPlugCordPoints(XObjPlugCord* cord, f32 x, f32 y, f32 z)
 {
 	Vec center = CVec(x, y, z);
 	for (s32 i = 0; i < cord->mCount; ++i) {
@@ -44,3 +46,4 @@ extern "C" void fn_800DB810(XObjPlugCord* cord, f32 x, f32 y, f32 z)
 	cord->mNodes.mNode[9].mState = 0;
 	cord->mNodes.mEnabled        = 0;
 }
+#pragma pop

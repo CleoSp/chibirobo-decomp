@@ -19,15 +19,45 @@ rel/module.c:
 	.text       start:0x000000F0 end:0x000002A8
 	.rodata     start:0x00000000 end:0x00000070
 
-rel/ana.cpp:
-	.text       start:0x000002A8 end:0x0000183C
+rel/anavectordtor.cpp:
+	.text       start:0x000002A8 end:0x000002F0
+	.rodata     start:0x00000070 end:0x00000080
+	.data       start:0x00000050 end:0x00000078
+
+rel/anadraw.cpp:
+	.text       start:0x000002F0 end:0x000005EC
+
+rel/anajoints.cpp:
+	.text       start:0x000005EC end:0x00000A4C
+	.rodata     start:0x00000080 end:0x000000B8
+	.data       start:0x00000078 end:0x00000098
+
+rel/anaplacement.cpp:
+	.text       start:0x00000A4C end:0x00000ED0
+
+rel/anaactive.cpp:
+	.text       start:0x00000ED0 end:0x00000EDC
+
+rel/anainteraction.cpp:
+	.text       start:0x00000EDC end:0x00000FF4
+
+rel/anacommands.cpp:
+	.text       start:0x00000FF4 end:0x00001624
+
+rel/anaworld/ana.cpp:
+	.text       start:0x00001624 end:0x0000183C
 	.ctors      start:0x00000000 end:0x00000004
-	.rodata     start:0x00000070 end:0x00000168
-	.data       start:0x00000050 end:0x000000E0
+	.rodata     start:0x000000B8 end:0x00000168
+	.data       start:0x00000098 end:0x000000E0
 	.bss        start:0x00000008 end:0x00000380
 
+rel/trash_bss:
+	.bss        start:0x00000380 end:0x000003C8
+
 rel/trash.cpp:
-	.text       start:0x0000183C end:0x00002968
+	.text       start:0x0000183C end:0x000027E8
 	.rodata     start:0x00000168 end:0x000001D9
 	.data       start:0x000000E0 end:0x000000F4
-	.bss        start:0x00000380 end:0x000003C8
+
+rel/trashcommands.cpp:
+	.text       start:0x000027E8 end:0x00002968

@@ -6,12 +6,24 @@ Sections:
 	.data       type:data align:8
 	.bss        type:bss align:8
 
-rel/stage03/decapanel.cpp:
-	.text       start:0x00000000 end:0x000016D4
-	.ctors      start:0x00000000 end:0x00000004
+rel/stage03/panelcommands.cpp:
+	.text       start:0x00000000 end:0x000000F4
+
+rel/stage03/panelupdate/decapanel.cpp:
+	.text       start:0x000000F4 end:0x00000D44
+
+rel/stage03/objflags.cpp:
+	.text       start:0x00000D44 end:0x000010E4
+
+rel/stage03/panelcallbacks.cpp:
+	.text       start:0x000010E4 end:0x00001148
 	.rodata     start:0x00000000 end:0x00000190
 	.data       start:0x00000000 end:0x00000188
-	.bss        start:0x00000000 end:0x00001098
+
+rel/stage03/decapanel.cpp:
+	.text       start:0x00001148 end:0x000016D4
+	.ctors      start:0x00000000 end:0x00000004
+	.bss        start:0x00000000 end:0x00001094
 
 Runtime.PPCEABI.H/global_destructor_chain.c:
 	.text       start:0x000016D4 end:0x00001748

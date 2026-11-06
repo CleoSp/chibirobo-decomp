@@ -10,10 +10,13 @@ static inline void SetPosAndTarget(CObjVec* pos, const Vec& value)
  * @note Address: 0x800E11B8
  * @note Size: 0x20C
  */
-extern "C" void fn_800E11B8(XObjCoin* coin, u32 frames)
+#pragma section RX ".text.xobjcoinfall"
+extern "C" __declspec(section ".text.xobjcoinfall") void UpdateFallingCoin(XObjCoin* coin, u32 frames)
 {
 	CVec step;
 	switch (coin->mState) {
+	case 0:
+		break;
 	case 1:
 		++coin->mFallFrames;
 		coin->mFallSpeed -= 0.09f * frames;

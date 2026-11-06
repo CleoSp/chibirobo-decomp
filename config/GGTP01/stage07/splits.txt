@@ -6,11 +6,34 @@ Sections:
 	.data       type:data align:8
 	.bss        type:bss align:8
 
-rel/stage07/living.cpp:
-	.text       start:0x00000000 end:0x00002648
+rel/stage07/jointzeros.cpp:
+	.bss        start:0x00000000 end:0x00000028
+
+rel/trash_bss:
+	.bss        start:0x00000028 end:0x00000070
+
+rel/stage07/visibility.cpp:
+	.text       start:0x00000000 end:0x00000F88
 	.rodata     start:0x00000000 end:0x000000F8
 	.data       start:0x00000000 end:0x000000C0
-	.bss        start:0x00000000 end:0x00000028
+
+rel/stage07/jointdtor.cpp:
+	.text       start:0x00000F88 end:0x00001010
+
+rel/stage07/anavectordtor.cpp:
+	.text       start:0x00001010 end:0x00001058
+
+rel/stage07/callbacks.cpp:
+	.text       start:0x00001058 end:0x000010D0
+
+rel/stage07/living.cpp:
+	.text       start:0x000010D0 end:0x000011E0
+
+rel/stage07/initialise.cpp:
+	.text       start:0x000011E0 end:0x00001200
+
+rel/stage07/jointsetters.cpp:
+	.text       start:0x00001200 end:0x00002648
 
 rel/module.c:
 	.text       start:0x00002648 end:0x00002800
@@ -21,7 +44,9 @@ rel/fafa.cpp:
 	.rodata     start:0x00000168 end:0x00000228
 
 rel/trash.cpp:
-	.text       start:0x00003E4C end:0x00004F78
+	.text       start:0x00003E4C end:0x00004DF8
 	.rodata     start:0x00000228 end:0x00000299
 	.data       start:0x000000C0 end:0x000000D4
-	.bss        start:0x00000028 end:0x00000070
+
+rel/trashcommands.cpp:
+	.text       start:0x00004DF8 end:0x00004F78

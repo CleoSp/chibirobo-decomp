@@ -718,6 +718,39 @@ def generate_build_ninja(
     mwld_implicit: List[Optional[Path]] = [compilers_implicit or mwld, wrapper_implicit]
 
     # GNU as
+    objcopy = binutils / f"powerpc-eabi-objcopy{EXE}"
+    nm = binutils / f"powerpc-eabi-nm{EXE}"
+    n.rule(
+        "source_dtor_bss",
+        command=f'$python tools/extract_dtor_bss.py "{objcopy}" "{nm}" $in $out $exports $nodes $locals $small_section',
+        description="BSS $out",
+    )
+    n.rule(
+        "source_bss",
+        command=f'"{objcopy}" --only-section=.bss $sbss $exports $in $out',
+        description="BSS $out",
+    )
+    # These original menu tables are word-aligned, including at addresses four bytes past an eight-byte boundary.
+    n.rule(
+        "source_data",
+        command=f'"{objcopy}" --only-section=$section --set-section-alignment=$section=$alignment --rename-section=$section=$output_section $in $out',
+        description="DATA $out",
+    )
+    # Split data tables keep their relocations but use the retail four-byte alignment, including for pooled strings.
+    n.rule(
+        "word_aligned_data",
+        command=(
+            f'"{objcopy}" --remove-section=.comment --set-section-flags=.sdata2=alloc,load,readonly,data,contents '
+            "$word_alignments --set-section-alignment=.rodata=$rodata_alignment $discard $in $out"
+        ),
+        description="ALIGN $out",
+    )
+    extract_text = config.tools_dir / "extract_text.py"
+    n.rule(
+        "source_text",
+        command=f'$python "{extract_text}" "{objcopy}" $section $in $out $anchor $external_data $rtti_symbols $literals $zero_word $rodata_objects $data_objects $binding $ctors $keep_data $array_dtor $keep_extab $keep_bss $keep_rodata $range_alignment',
+        description="EXTRACT $section $out",
+    )
     gnu_as = binutils / f"powerpc-eabi-as{EXE}"
     gnu_as_cmd = (
         f"{CHAIN}{gnu_as} $asflags -o $out $in" + f" && {dtk} elf fixup $out $out"
@@ -1155,6 +1188,30 @@ def generate_build_ninja(
 
             return obj_path
 
+        def extract_code(obj: Object, section: str, source: Path, output: Path):
+            n.build(
+                output, "source_text", source, implicit=[extract_text, binutils_implicit or objcopy],
+                variables={"section": section, "anchor": obj.options.get("source_bss_anchor", ""),
+                           "rtti_symbols": [f"--rtti-symbol {local} {external}" for local, external in obj.options.get("rtti_symbols", {}).items()],
+                           "external_data": ["--external-data", *map(str, obj.options["external_data"])] if obj.options.get("external_data") else "",
+                           "ctors": ["--constructor", obj.options["constructor"]] if obj.options.get("constructor") else "",
+                           "keep_rodata": "--keep-rodata" if obj.options.get("keep_rodata") else "",
+                           "keep_bss": "--keep-bss" if obj.options.get("keep_bss") else "",
+                           "keep_extab": "--keep-extab" if obj.options.get("keep_extab") else "",
+                           "range_alignment": ["--data-alignment", str(obj.options["source_data_alignment"])]
+                                              if obj.options.get("source_data") and obj.options.get("source_data_alignment") else "",
+                           "keep_data": (["--data-prefix", str(obj.options["data_prefix"])] if obj.options.get("data_prefix")
+                                         else ["--data-range", *map(str, obj.options["data_range"])] if obj.options.get("data_range")
+                                         else "--keep-data" if obj.options.get("keep_data") else ""),
+                           "array_dtor": ["--array-dtor", obj.options["array_dtor"]] if obj.options.get("array_dtor") else "",
+                           "rodata_objects": [f"--rodata-object {name} {size}" for name, size in obj.options.get("rodata_objects", [])],
+                           "data_objects": [f"--data-object {name} {size}" for name, size in obj.options.get("data_objects", [])],
+                           "binding": "--strong-functions" if obj.options.get("strong_functions") else "",
+                           "zero_word": ["--zero-word", obj.options["zero_word"]] if obj.options.get("zero_word") else "",
+                           "literals": [f"--literal {bits} {name}" for bits, name in
+                                        obj.options.get("source_literals", {}).items()]},
+            )
+
         def add_unit(
             build_obj: BuildConfigUnit, link_step: LinkStep, in_rel: bool = False
         ):
@@ -1171,7 +1228,50 @@ def generate_build_ninja(
             built_obj_path: Optional[Path] = None
             if obj.src_path is not None and obj.src_path.exists():
                 check_path_case(obj.src_path)
-                if file_is_c_cpp(obj.src_path):
+                if any(obj.options.get(key) for key in ("source_bss", "source_text", "source_data")):
+                    owner = find_object(objects, obj.options["source"], in_rel)
+                    if owner is None or owner.src_path != obj.src_path:
+                        sys.exit(f"{obj_name} requires the matching source path on its owner: {obj.src_path}")
+                    if owner.completed and not (
+                        (owner.options.get("link_text") and owner.options["link_text"] != obj.options.get("source_text"))
+                        or (owner.options.get("word_aligned_data")
+                            and obj.options.get("source_text") in owner.options.get("discard_sections", ()))
+                    ):
+                        sys.exit(f"{obj_name}: linked owner must discard the extracted section")
+                    source = c_build(owner, obj.src_path)
+                    built_obj_path = obj.src_obj_path
+                    if built_obj_path not in source_added:
+                        source_added.add(built_obj_path)
+                        if obj.options.get("source_data") and obj.options.get("data_range"):
+                            extract_code(obj, obj.options["source_data"], source, built_obj_path)
+                        elif section := obj.options.get("source_text"):
+                            extract_code(obj, section, source, built_obj_path)
+                        elif section := obj.options.get("source_data"):
+                            n.build(
+                                built_obj_path, "source_data", source, implicit=binutils_implicit or objcopy,
+                                variables={"section": section, "alignment": str(obj.options.get("source_data_alignment", 4)),
+                                           "output_section": section if section in (".rodata", ".sdata") else ".data"},
+                            )
+                        elif obj.options.get("export_dtor_nodes") or obj.options.get("export_bss_locals"):
+                            n.build(
+                                built_obj_path, "source_dtor_bss", source,
+                                implicit=[Path("tools/extract_dtor_bss.py")] + ([binutils_implicit] if binutils_implicit else [objcopy, nm]),
+                                variables={"exports": obj.options.get("export_symbols", []),
+                                           "small_section": "--sbss" if obj.options.get("source_sbss") else "",
+                                           "nodes": [f"--node {owner} {label}" for owner, label in obj.options.get("export_dtor_nodes", {}).items()],
+                                           "locals": [f"--local {name} {label}" for name, label in obj.options.get("export_bss_locals", {}).items()]},
+                            )
+                        else:
+                            exports = obj.options.get("export_symbols", [])
+                            n.build(
+                                built_obj_path, "source_bss", source,
+                                implicit=binutils_implicit or objcopy,
+                                variables={"sbss": "--only-section=.sbss" if obj.options.get("source_sbss") else "",
+                                           "exports": [f"--globalize-symbol={s}" for s in exports]},
+                            )
+                        if obj.options["add_to_all"]:
+                            source_inputs.append(built_obj_path)
+                elif file_is_c_cpp(obj.src_path):
                     # Add C/C++ build rule
                     built_obj_path = c_build(obj, obj.src_path)
                 elif file_is_asm(obj.src_path):
@@ -1196,6 +1296,22 @@ def generate_build_ninja(
 
             if link_built_obj and built_obj_path is not None:
                 # Use the source-built object
+                if section := obj.options.get("link_text"):
+                    source = built_obj_path
+                    built_obj_path = source.with_suffix(".text.o")
+                    if built_obj_path not in source_added:
+                        source_added.add(built_obj_path)
+                        extract_code(obj, section, source, built_obj_path)
+                        if obj.options["add_to_all"]:
+                            source_inputs.append(built_obj_path)
+                if obj.options.get("word_aligned_data"):
+                    source = built_obj_path
+                    built_obj_path = source.with_suffix(".aligned.o")
+                    n.build(built_obj_path, "word_aligned_data", source, implicit=binutils_implicit or objcopy,
+                            variables={"word_alignments": [f"--set-section-alignment={s}=4" for s in (".bss", ".data", ".sdata", ".sdata2")
+                                                           if s not in obj.options.get("keep_native_alignment", ())],
+                                       "rodata_alignment": str(obj.options.get("source_data_alignment", 4)),
+                                       "discard": " ".join(f"--remove-section={s}" for s in obj.options.get("discard_sections", ()))})
                 link_step.add(built_obj_path)
                 # fill_padding.py needs each source built object's padding rule,
                 # the "padding" option from configure.py or else its compiler
@@ -1717,7 +1833,10 @@ def generate_objdiff_config(
 
         src_exists = obj.src_path is not None and obj.src_path.exists()
         if src_exists:
-            unit_config["base_path"] = obj.src_obj_path
+            comparison = obj.src_obj_path
+            if comparison and obj.completed and obj.options.get("link_text"):
+                comparison = comparison.with_suffix(".text.o")
+            unit_config["base_path"] = comparison
             unit_config["metadata"]["source_path"] = obj.src_path
 
         # Filter out include directories
@@ -1931,6 +2050,9 @@ def generate_compile_commands(
         if (
             obj.src_path is None
             or obj.src_obj_path is None
+            or obj.options.get("source_bss")
+            or obj.options.get("source_text")
+            or obj.options.get("source_data")
             or not file_is_c_cpp(obj.src_path)
         ):
             return

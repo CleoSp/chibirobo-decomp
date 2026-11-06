@@ -5,7 +5,8 @@
  * @note Address: 0x800BB3D0
  * @note Size: 0x338
  */
-extern "C" void fn_800BB3D0(CXObj* object, s32 count, s32* path, f32 angle)
+#pragma section RX ".text.xobjchrjointrot"
+extern "C" __declspec(section ".text.xobjchrjointrot") void SetJointYawByPath(CXObj* object, s32 count, s32* path, f32 angle)
 {
 	CJObj joint(GetJointByPath(object->mJObj, path, count));
 	joint.SetRotationY(angle, 1);

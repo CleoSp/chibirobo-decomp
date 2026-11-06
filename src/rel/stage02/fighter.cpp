@@ -1,6 +1,7 @@
 #include "game/hsd_jobj.h"
-#include "game/ut.h"
+#include "rel/stage02/cameraaction.h"
 #include "game/gmath.h"
+#include "Version.h"
 
 extern "C" {
 #include <dolphin/mtx/mtx.h>
@@ -9,14 +10,28 @@ extern "C" {
 }
 
 // dol functions
-extern "C" u8 lbl_8025C400[];
-extern "C" s32 fn_8001E6C8(void* se, s32 id);
-extern "C" void fn_8001E904(void* se, s32 id, s32 vol);
-extern "C" void fn_8019B56C(void* gx, s32 a, s32 b, s32 c, s32 d);
-extern "C" void fn_80198258(void* game, s32 kind, s32 color, s32 color2, f32 x, f32 y, f32 z, f32 w, f32 h, f32 vx, f32 vy, f32 vz);
+extern "C" u8 gGame[];
+extern "C" s32 IsGameSoundPlaying(void* se, s32 id);
+extern "C" void PlayGameSound(void* se, s32 id, s32 vol);
+extern "C" void SetGsBlendMode(void* gx, s32 a, s32 b, s32 c, s32 d);
+extern "C" void DrawGsCircle(void* game, s32 kind, s32 color, s32 color2, f32 x, f32 y, f32 z, f32 w, f32 h, f32 vx, f32 vy, f32 vz);
 
 // CGame, with the fields past the symbol's 0xA6C30 size
-#define GAME_FIELD(type, offset) (*(type*)(lbl_8025C400 + (offset)))
+#define GAME_FIELD(type, offset) (*(type*)(gGame + (offset)))
+
+#if defined(VERSION_JP)
+enum { PLAYER_OFFSET = 0x9674, MOTION_CAMERA_OFFSET = 0xE5050, DEFAULT_CAMERA_ACTION_OFFSET = 0xE5224, SOUND_OFFSET = 0xE713C };
+#else
+enum { PLAYER_OFFSET = 0x96BC, MOTION_CAMERA_OFFSET = 0xE5D38, DEFAULT_CAMERA_ACTION_OFFSET = 0xE5F0C, SOUND_OFFSET = 0xE7E24 };
+#endif
+
+#if defined(VERSION_JP)
+enum { stageOffset = 0x342C, poolOffset = 0x96B0, tevOffset = 0x294, paletteBufferOffset = 0x3D2C, reticleTextureOffset = 0x3F0 };
+#elif defined(VERSION_PAL)
+enum { stageOffset = 0x344C, poolOffset = 0x96F8, tevOffset = 0x298, paletteBufferOffset = 0x3D4C, reticleTextureOffset = 0x400 };
+#else
+enum { stageOffset = 0x3444, poolOffset = 0x96F8, tevOffset = 0x294, paletteBufferOffset = 0x3D4C, reticleTextureOffset = 0x400 };
+#endif
 
 struct _GXTexObj {
 	u32 dummy[8]; // _00
@@ -35,9 +50,7 @@ class CTexObj : public _GXTexObj {
 public:
 	u32 _20;        // _20
 	u32 _24;        // _24
-	u32 _28;        // _28
-	u32 _2C;        // _2C
-	u32 _30;        // _30
+	u32 mTlut[3];   // _28
 	u32 _34;        // _34
 	s32 _38;        // _38
 	UnkTexMtxs _3C; // _3C
@@ -63,68 +76,25 @@ struct UnkDolObj {
 	HSD_JObj* _00;       // _00
 	u8 _04[0x30];        // _04
 	UnkDolObjVtbl* vtbl; // _34
-	u8 _38[0x90];        // _38
-	CVec _C8;            // _C8
-	u8 _D8[0x150];       // _D8
-	u64 _228;            // _228
-	u8 _230[0x14];       // _230
-	s32* _244;           // _244
-	u8 _248[0x804];      // _248
-	u32* _A4C;           // _A4C
-	u8 _A50[0x1C];       // _A50
-	u8 _A6C[0x100];      // _A6C
-	s32 _B6C;            // _B6C
-};
-
-class CCamera;
-
-class CInterfaceCameraAction {
-public:
-	CVec _00; // _00
-	CVec _10; // _10
-	CVec _20; // _20
-	f32 _30;  // _30
-	f32 _34;  // _34
-	s32 _38;  // _38
-
-	virtual ~CInterfaceCameraAction() { }       // _08
-	virtual void PreviousUpdate() { }           // _0C
-	virtual void Update() = 0;                  // _10
-	virtual void vf14() { }                     // _14
-	virtual void SetCamera(CCamera* camera) { } // _18
-	virtual void Init() { }                     // _1C
-	virtual void vf20() { }                     // _20
-	virtual void vf24() { }                     // _24
-	virtual void vf28() { }                     // _28
-	virtual void SetEye(f32 x, f32 y, f32 z)    // _2C
-	{
-		_00.x = x;
-		_00.y = y;
-		_00.z = z;
-	}
-	virtual void SetInterest(f32 x, f32 y, f32 z) // _30
-	{
-		_10.x = x;
-		_10.y = y;
-		_10.z = z;
-	}
-	virtual void SetAngle(f32 x, f32 y, f32 z) // _34
-	{
-		_20.x = x;
-		_20.y = y;
-		_20.z = z;
-	}
-	virtual void SetEye(const Vec& v) { SetEye(v.x, v.y, v.z); }           // _38
-	virtual void SetInterest(const Vec& v) { SetInterest(v.x, v.y, v.z); } // _3C
-	virtual void SetAngle(const Vec& v) { SetAngle(v.x, v.y, v.z); }       // _40
-	virtual void SetDistance(f32 v) { _30 = v; }                           // _44
-	virtual void SetFov(f32 v) { _34 = v; }                                // _48
-	virtual void SetAngleZ(f32 v) { _20.z = v; }                           // _4C
-	virtual s32 GetMode() { return 0; }                                    // _50
-	virtual s32 GetFlags() { return _38; }                                 // _54
-	virtual f32 GetEaseDivisor() { return 12.0f; }                         // _58
-	virtual s32 vf5C() { return 0; }                                       // _5C
-	virtual s32 GetTarget() { return 0; }                                  // _60
+#if defined(VERSION_JP)
+	u8 _38[0x88]; // _38
+#else
+	u8 _38[0x90]; // _38
+#endif
+	CVec _C8;      // _C8
+	u8 _D8[0x150]; // _D8
+	u64 _228;      // _228
+	u8 _230[0x14]; // _230
+	s32* _244;     // _244
+#if defined(VERSION_JP)
+	u8 _248[0x7FC]; // _240 in Japan; _A4C follows at _A3C
+#else
+	u8 _248[0x804]; // _248
+#endif
+	u32* _A4C;      // _A4C
+	u8 _A50[0x1C];  // _A50
+	u8 _A6C[0x100]; // _A6C
+	s32 _B6C;       // _B6C
 };
 
 inline Vec MakeVec(f32 x, f32 y, f32 z)
@@ -149,7 +119,7 @@ public:
 	}
 	virtual ~CCameraActionFighter() { }
 
-	void SetView(Vec at, Vec eye, MtxPtr mtx)
+	void SetView(const Vec& at, const Vec& eye, MtxPtr mtx)
 	{
 		_68 = false;
 		_50 = at;
@@ -216,33 +186,41 @@ struct Shot {
 	Shot() { }
 	~Shot() { }
 
+	void RecordPosition()
+	{
+		for (s32 j = 9; j > 0; j--) {
+			mTrail[j] = mTrail[j - 1];
+		}
+		mTrail[0] = mPosition;
+	}
+
 	void Start(Vec from, Vec to, Mato* item)
 	{
 		s32 i;
-		_00   = true;
-		_04   = from;
-		_10   = to;
-		_1C   = from;
-		_B0   = item;
-		_34   = 60;
-		_28.x = (_10.x - _04.x) / _34;
-		_28.y = (_10.y - _04.y) / _34;
-		_28.z = (_10.z - _04.z) / _34;
+		_00         = true;
+		_04         = from;
+		_10         = to;
+		mPosition   = from;
+		_B0         = item;
+		_34         = 60;
+		mVelocity.x = (_10.x - _04.x) / _34;
+		mVelocity.y = (_10.y - _04.y) / _34;
+		mVelocity.z = (_10.z - _04.z) / _34;
 		for (i = 0; i < 10; i++) {
-			_38[i] = _1C;
+			mTrail[i] = mPosition;
 		}
 	}
 
-	u8 _00;      // _00
-	u8 _01[0x3]; // _01
-	Vec _04;     // _04
-	Vec _10;     // _10
-	Vec _1C;     // _1C
-	Vec _28;     // _28
-	s32 _34;     // _34
-	Vec _38[10]; // _38
-	Mato* _B0;   // _B0
-	CStatus _B4; // _B4
+	u8 _00;         // _00
+	u8 _01[0x3];    // _01
+	Vec _04;        // _04
+	Vec _10;        // _10
+	Vec mPosition;  // _1C
+	Vec mVelocity;  // _28
+	s32 _34;        // _34
+	Vec mTrail[10]; // _38
+	Mato* _B0;      // _B0
+	CStatus _B4;    // _B4
 };
 
 // where the player is aiming and what's under it
@@ -267,7 +245,7 @@ struct ShotList {
 		}
 		if (i < 5) {
 			_00[i].Start(from, to, item);
-			fn_8001E904(lbl_8025C400 + 0xE7E24, 11, 0xFF);
+			PlayGameSound(gGame + SOUND_OFFSET, 11, 0xFF);
 		}
 	}
 
@@ -345,17 +323,17 @@ inline f32 HSD_AObjGetEndFrame(void* aobj)
 extern "C" void GXProject(f32 x, f32 y, f32 z, Mtx mtx, f32* pm, f32* vp, f32* sx, f32* sy, f32* sz);
 extern "C" u16 GXGetTexObjWidth(_GXTexObj* obj);
 extern "C" u16 GXGetTexObjHeight(_GXTexObj* obj);
-extern "C" void fn_8019B34C(void* gx, s32 a, s32 b);
-extern "C" void fn_8019AFA0(void* gx, s32 mode);
-extern "C" void fn_801990EC(void* game, Vec* pts, s32 color, s32 n);
-extern "C" void fn_801992BC(void* game, s32 a, s32 color, s32 color2, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
-extern "C" void fn_80197800(void* game, CTexObj* tex, s32 c0, s32 c1, s32 c2, s32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v,
-                            f32 rot);
-extern "C" s32 fn_8006F654(const char* name);
-extern "C" const char* fn_8006DBF0(s32 id);
-extern "C" f32 fn_801968BC(void* game, const char* text, s32 a, f32 size);
-extern "C" void fn_80197E90(void* game, s32 r, s32 g, s32 b, s32 a, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v, f32 rot);
-extern "C" void fn_80196610(void* game, s32 color, const char* text, f32 x, f32 y, f32 z, f32 sx, f32 sy, ...);
+extern "C" void SetGsLineWidth(void* gx, s32 a, s32 b);
+extern "C" void SetGsTevMode(void* gx, s32 mode);
+extern "C" void DrawGsLineStrip(void* game, Vec* pts, s32 color, s32 n);
+extern "C" void DrawGsLineSegment(void* game, s32 a, s32 color, s32 color2, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
+extern "C" void DrawGsTexturedQuad(void* game, CTexObj* tex, s32 c0, s32 c1, s32 c2, s32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u,
+                                   f32 v, f32 rot);
+extern "C" s32 FindStageIndexByName(const char* name);
+extern "C" const char* GetLocalizedInterfaceText(s32 id);
+extern "C" f32 MeasureGameTextWidth(void* game, const char* text, s32 a, f32 size);
+extern "C" void DrawGsQuad(void* game, s32 r, s32 g, s32 b, s32 a, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v, f32 rot);
+extern "C" void DrawGsProportionalTextFormat(void* game, s32 color, const char* text, f32 x, f32 y, f32 z, f32 sx, f32 sy, ...);
 extern "C" f64 sin(f64 x);
 extern "C" f64 cos(f64 x);
 
@@ -365,14 +343,22 @@ extern "C" f64 atan2(f64 y, f64 x);
 
 // hangs off CGame, stage model jobj at _00
 struct UnkGame_96BC {
-	HSD_JObj* _00;    // _00
-	u8 _04[0x97C];    // _04
-	u32 _980;         // _980
-	u8 _984[0x8CD4];  // _984
-	f32 _9658;        // _9658
-	f32 _965C;        // _965C
-	u8 _9660[0x9794]; // _9660
-	s32 _12DF4;       // _12DF4
+	HSD_JObj* _00; // _00
+#if defined(VERSION_JP)
+	u8 _04[0x96C];
+#else
+	u8 _04[0x97C];
+#endif
+	u32 _980;        // _980
+	u8 _984[0x8CD4]; // _984
+	f32 _9658;       // _9658
+	f32 _965C;       // _965C
+#if defined(VERSION_JP)
+	u8 _9660[0x96A4];
+#else
+	u8 _9660[0x9794];
+#endif
+	s32 _12DF4; // _12DF4
 };
 
 inline void ResetModelFlags(UnkGame_96BC* model)
@@ -408,7 +394,7 @@ class CMotionControlCamera {
 public:
 	void ChangeAction(CInterfaceCameraAction* action);
 };
-extern "C" void fn_8001E660(void* se, s32 id);
+extern "C" void StopGameSfx(void* se, s32 id);
 extern "C" void FighterPanels_Draw(FighterPanels* fade);
 extern "C" void FighterPanels_Update(FighterPanels* fade, u32 dt);
 // game camera
@@ -603,10 +589,7 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt);
  */
 // inline
 
-/**
- * @note Address: stage02 .text 0x1D8
- * @note Size: 0x16D4
- */
+extern "C" const f32 gFighterHudTextureScale;
 // draws a caption with a black shadow on every side
 inline void DrawCaption(s32 id, f32 x, f32 y)
 {
@@ -614,26 +597,73 @@ inline void DrawCaption(s32 id, f32 x, f32 y)
 	f32 cx;
 	f32 cy;
 
-	fn_80197E90(lbl_8025C400, 0xFF, 0xFF, 0xFF, 0xFF, x, y, 0.0f, 1.0f * (fn_801968BC(lbl_8025C400, fn_8006DBF0(id), 1, 20.0f) - 4.0f),
-	            12.0f, 0.0f, 0.0f, 0.0f);
-	cx = x - fn_801968BC(lbl_8025C400, fn_8006DBF0(id), 1, 20.0f) * 0.5f;
+	DrawGsQuad(gGame, 0xFF, 0xFF, 0xFF, 0xFF, x, y, 0.0f,
+	           gFighterHudTextureScale * (MeasureGameTextWidth(gGame, GetLocalizedInterfaceText(id), 1, 20.0f) - 4.0f), 12.0f, 0.0f, 0.0f,
+	           0.0f);
+	cx = x - MeasureGameTextWidth(gGame, GetLocalizedInterfaceText(id), 1, 20.0f) * 0.5f;
 	cy = y - 13.0f;
 	for (i = 0; i < 4; i++) {
-		fn_80196610(lbl_8025C400, 0xFF, fn_8006DBF0(id), cx + captionShadowX[i], cy + captionShadowY[i], 0.0f, 20.0f, 20.0f);
+		DrawGsProportionalTextFormat(gGame, 0xFF, GetLocalizedInterfaceText(id), cx + captionShadowX[i], cy + captionShadowY[i], 0.0f,
+		                             20.0f, 20.0f);
 	}
-	fn_80196610(lbl_8025C400, -1, fn_8006DBF0(id), cx, cy, 0.0f, 20.0f, 20.0f);
+	DrawGsProportionalTextFormat(gGame, -1, GetLocalizedInterfaceText(id), cx, cy, 0.0f, 20.0f, 20.0f);
 }
 
+extern "C" const f32 gFighterHudFullAlpha;
+#if !defined(VERSION_JP)
+extern "C" const f32 gFighterPanelYOffset;
+extern "C" const f32 gFighterHudTimerXOffset;
+#endif
+
+static inline void DrawFighterHudLabel(CTexObj& tex, f32 x, f32 y, bool gauge)
+{
+	u16 width = GXGetTexObjWidth(&tex);
+#if defined(VERSION_JP)
+	// The Japanese HUD scales the gauge height before setting the TEV mode.
+	f32 w      = gFighterHudTextureScale * width;
+	u16 height = GXGetTexObjHeight(&tex);
+	f32 h;
+	if (gauge) {
+		h = gFighterHudTextureScale * height;
+		SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+	} else {
+		SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+		h = gFighterHudTextureScale * height;
+	}
+#else
+	u16 height = GXGetTexObjHeight(&tex);
+	SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+	f32 w = gFighterHudTextureScale * width;
+	f32 h = gFighterHudTextureScale * height;
+#endif
+	DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, x, y, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+	SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
+}
+
+static inline f32 FighterHudTimerX()
+{
+#if defined(VERSION_JP)
+	return 110.0f;
+#else
+	return 110.0f + gFighterHudTimerXOffset;
+#endif
+}
+
+/**
+ * @note Address: stage02 .text 0x1D8
+ * @note Size: 0x16D4
+ */
 extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 {
 	CTexObj tex;
 	s32 i;
 	s32 d;
+	u16 texWidth;
+	u16 texHeight;
 	f32 x;
 	f32 left;
 	f32 digW;
 	f32 digH;
-	f32 step;
 	f32 w;
 	u32 base;
 	s32 hi;
@@ -642,9 +672,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 	if (time >= 100) {
 		time = 99;
 	}
-	if (fn_8006F654("stage02") == GAME_FIELD(s32, 0x3444)) {
+	const s32 stage = GAME_FIELD(s32, stageOffset);
+	if (FindStageIndexByName("stage02") == stage) {
 		for (i = 0; i < 48; i++) {
-			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, 0x96F8) + i * GAME_FIELD(s32, 0x9708));
+			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, poolOffset) + i * GAME_FIELD(s32, poolOffset + 0x10));
 			s32 kind       = obj->_244 != NULL ? *obj->_244 : -1;
 			if (kind != 0x149) {
 				continue;
@@ -654,26 +685,34 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 			}
 
 			// score
-			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x18), 0);
-			w   = 1.0f * GXGetTexObjWidth(&tex);
-			x   = 640.0f - w * 0.5f - 40.0f;
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, x, 40.0f, 0.0f, w, 1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			tex      = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x18), 0);
+			texWidth = GXGetTexObjWidth(&tex);
+			w        = gFighterHudTextureScale * texWidth;
+			{
+				u16 height = GXGetTexObjHeight(&tex);
+				x          = 640.0f - w * 0.5f - 40.0f;
+				SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, x, 40.0f, 0.0f, w, gFighterHudTextureScale * height, 0.0f, 0.0f, 0.0f);
+			}
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
+#if !defined(VERSION_JP)
 			{
 				CTexObj unused;
 				DrawCaption(0x5A, x, 40.0f);
 			}
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 8), 0);
-			left = 20.0f + (x - 12.0f - 88.0f);
-			digW = 0.8f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 0.8f * (1.0f * GXGetTexObjHeight(&tex));
-			PSMTXScale(tex._3C._30, 0.09090909f, 1.0f, 1.0f);
+#endif
+			tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 8), 0);
+			left      = 20.0f + (x - 12.0f - 88.0f);
+			texWidth  = GXGetTexObjWidth(&tex);
+			digW      = 0.8f * (gFighterHudTextureScale * (texWidth / 11));
+			texHeight = GXGetTexObjHeight(&tex);
+			digH      = 0.8f * (gFighterHudTextureScale * texHeight);
+			PSMTXScale(tex._3C._30, 0.09090909f, gFighterHudTextureScale, gFighterHudTextureScale);
 			tex._38 = 1;
-			base    = 255.0f;
+			base    = gFighterHudFullAlpha;
 			hi      = base | 0xFAE0CF00;
 			lo      = base | 0xE9813A00;
-			step    = 7.0f * digW;
+
 			for (d = 0; d < 4; d++) {
 				f32 div = 1.0f;
 				s32 k;
@@ -685,31 +724,32 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 				if (d == 0 || digit != 0) {
 					PSMTXTrans(tex._3C._00, 0.09090909f * (digit % 10), 0.0f, 0.0f);
 					tex._38 = 1;
-					fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-					fn_80197800(lbl_8025C400, &tex, hi, hi, lo, lo, step + (left - d * digW) - 32.0f, 68.0f, 0.0f, digW, digH, 0.0f, 0.0f,
-					            0.0f);
-					fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+					SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+					DrawGsTexturedQuad(gGame, &tex, hi, hi, lo, lo, 7.0f * digW + (left - d * digW) - 32.0f, 68.0f, 0.0f, digW, digH, 0.0f,
+					                   0.0f, 0.0f);
+					SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 				}
 			}
 
 			// time
 			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x20), 0);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 320.0f, 40.0f, 0.0f, 1.0f * GXGetTexObjWidth(&tex),
-			            1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			DrawFighterHudLabel(tex, 320.0f, 40.0f, false);
+#if !defined(VERSION_JP)
 			{
 				CTexObj unused;
 				DrawCaption(0x5B, 320.0f, 40.0f);
 			}
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 8), 0);
-			digW = 1.4f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 1.4f * (1.0f * GXGetTexObjHeight(&tex));
-			left = 110.0f + 11.0f;
-			PSMTXScale(tex._3C._30, 0.09090909f, 1.0f, 1.0f);
-			hi      = base | 0x1F33FF00;
-			lo      = base | 0xFFFFFF00;
-			step    = 7.0f * digW;
+#endif
+			tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 8), 0);
+			texWidth  = GXGetTexObjWidth(&tex);
+			digW      = 1.4f * (gFighterHudTextureScale * (texWidth / 11));
+			texHeight = GXGetTexObjHeight(&tex);
+			digH      = 1.4f * (gFighterHudTextureScale * texHeight);
+			left      = FighterHudTimerX();
+			PSMTXScale(tex._3C._30, 0.09090909f, gFighterHudTextureScale, gFighterHudTextureScale);
+			hi = base | 0x1F33FF00;
+			lo = base | 0xFFFFFF00;
+
 			tex._38 = 1;
 			for (d = 0; d < 2; d++) {
 				f32 div = 1.0f;
@@ -722,43 +762,50 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 				if (d == 0 || digit != 0) {
 					PSMTXTrans(tex._3C._00, 0.09090909f * (digit % 10), 0.0f, 0.0f);
 					tex._38 = 1;
-					fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-					fn_80197800(lbl_8025C400, &tex, lo, lo, hi, hi, step + (left - d * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW, digH,
-					            0.0f, 0.0f, 0.0f);
-					fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+					SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+					DrawGsTexturedQuad(gGame, &tex, lo, lo, hi, hi, 7.0f * digW + (left - d * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW,
+					                   digH, 0.0f, 0.0f, 0.0f);
+					SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 				}
 			}
-			digW = 1.4f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 1.4f * (1.0f * GXGetTexObjHeight(&tex));
-			left = 110.0f + 11.0f;
+			texWidth  = GXGetTexObjWidth(&tex);
+			digW      = 1.4f * (gFighterHudTextureScale * (texWidth / 11));
+			texHeight = GXGetTexObjHeight(&tex);
+			digH      = 1.4f * (gFighterHudTextureScale * texHeight);
+			left      = FighterHudTimerX();
 			PSMTXTrans(tex._3C._00, 0.90909094f, 0.0f, 0.0f);
 			tex._38 = 1;
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, lo, lo, hi, hi, 7.0f * digW + (left - (time < 10 ? 1 : 2) * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f,
-			            digW, digH, 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+			DrawGsTexturedQuad(gGame, &tex, lo, lo, hi, hi, 7.0f * digW + (left - (time < 10 ? 1 : 2) * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f,
+			                   digW, digH, 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 
 			// gauge
 			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x28), 0);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 44.0f, 0.0f, 1.0f * GXGetTexObjWidth(&tex),
-			            1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			DrawFighterHudLabel(tex, 100.0f, 44.0f, true);
+#if !defined(VERSION_JP)
 			{
 				CTexObj unused;
 				DrawCaption(0x5C, 100.0f, 44.0f);
 			}
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x30), 0);
-			w    = 1.0f * GXGetTexObjWidth(&tex);
-			digH = 1.0f * GXGetTexObjHeight(&tex);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 72.0f, 0.0f, w, digH, 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+#endif
+			tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x30), 0);
+			texWidth  = GXGetTexObjWidth(&tex);
+			w         = gFighterHudTextureScale * texWidth;
+			texHeight = GXGetTexObjHeight(&tex);
+			digH      = gFighterHudTextureScale * texHeight;
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 72.0f, 0.0f, w, digH, 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x38), 0);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f - w * 0.5f + gauge * w / 100.0f, 72.0f, 0.0f,
-			            1.0f * GXGetTexObjWidth(&tex), 1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			{
+				u16 width  = GXGetTexObjWidth(&tex);
+				u16 height = GXGetTexObjHeight(&tex);
+				SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f - w * 0.5f + gauge * w / 100.0f, 72.0f, 0.0f,
+				                   gFighterHudTextureScale * width, gFighterHudTextureScale * height, 0.0f, 0.0f, 0.0f);
+			}
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 			break;
 		}
 	}
@@ -790,17 +837,17 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     blt      .L_00000234
     li       r26, 0x63
 .L_00000234:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, lbl_5_rodata_8C@ha
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     lwz      r17, 0x3444(r4)
     addi     r3, r3, lbl_5_rodata_8C@l
-    bl       fn_8006F654
+    bl       FindStageIndexByName
     cmpw     r3, r17
     bne      .L_00001864
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r0, 0x30
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r4, 0x0
     addis    r3, r3, 0x1
     lwz      r6, -0x68f8(r3)
@@ -893,12 +940,12 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r17, r3
     fnmsubs  f1, f27, f2, f1
     lfs      f0, 0x0(r5)
-    lis      r4, lbl_8025C400@ha
-    addi     r31, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    addi     r31, r4, gGame@l
     fsubs    f29, f1, f0
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     clrlwi   r4, r17, 16
     lis      r0, 0x4330
     stw      r4, 0x414(r1)
@@ -912,11 +959,11 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfd      f0, 0x410(r1)
     lis      r4, lbl_5_rodata_A0@ha
     lfs      f5, 0x0(r3)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fsubs    f0, f0, f1
     lfs      f2, lbl_5_rodata_A0@l(r4)
     fmr      f1, f29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f4, f27
     addi     r4, r1, 0x308
     fmr      f6, f3
@@ -927,27 +974,27 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     li       r7, -0x1
     fmuls    f5, f5, f0
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, __vt__7CTexObj@ha
     li       r3, 0x5a
     addi     r0, r4, __vt__7CTexObj@l
     stw      r0, 0x304(r1)
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r3, lbl_5_rodata_AC@ha
     lis      r4, lbl_5_rodata_94@ha
     addi     r5, r3, lbl_5_rodata_AC@l
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     lfs      f0, 0x0(r5)
     lis      r3, lbl_5_rodata_A4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
@@ -961,7 +1008,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     addi     r4, r3, lbl_5_rodata_B0@l
     fmuls    f4, f0, f1
     lfs      f2, 0x0(r5)
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     lfs      f5, 0x0(r4)
     fmr      f1, f29
     fmr      f7, f3
@@ -970,19 +1017,19 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     li       r5, 0xff
     li       r6, 0xff
     li       r7, 0xff
-    bl       fn_80197E90
+    bl       DrawGsQuad
     li       r3, 0x5a
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r4, lbl_5_rodata_9C@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_9C@l
     lis      r3, lbl_5_rodata_B4@ha
     lfs      f0, 0x0(r5)
@@ -997,13 +1044,13 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfs      f27, 0x0(r5)
     mr       r19, r29
     mr       r20, r30
-    addi     r21, r6, lbl_8025C400@l
+    addi     r21, r6, gGame@l
     addi     r18, r4, lbl_5_rodata_A4@l
     addi     r17, r3, lbl_5_rodata_A8@l
     li       r22, 0x0
 .L_00000570:
     li       r3, 0x5a
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lfs      f1, 0x0(r20)
     mr       r5, r3
     lfs      f0, 0x0(r19)
@@ -1015,14 +1062,14 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f5, f4
     li       r4, 0xff
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     addi     r22, r22, 0x1
     addi     r20, r20, 0x4
     cmpwi    r22, 0x4
     addi     r19, r19, 0x4
     blt      .L_00000570
     li       r3, 0x5a
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
     lis      r6, lbl_5_rodata_B4@ha
     lfs      f4, lbl_5_rodata_A8@l(r4)
@@ -1031,13 +1078,13 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f1, f28
     fmr      f5, f4
     lfs      f3, 0x0(r4)
-    lis      r7, lbl_8025C400@ha
+    lis      r7, gGame@ha
     lfs      f2, lbl_5_rodata_B4@l(r6)
     mr       r5, r3
-    addi     r3, r7, lbl_8025C400@l
+    addi     r3, r7, gGame@l
     li       r4, -0x1
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     lwz      r4, 0xa4c(r28)
     lis      r3, __vt__7CTexObj@ha
     addi     r0, r3, __vt__7CTexObj@l
@@ -1242,7 +1289,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lwz      r3, 0x294(r31)
     stw      r0, 0x340(r1)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     xoris    r3, r21, 0x8000
     lis      r0, 0x4330
     lis      r4, lbl_5_rodata_110@ha
@@ -1260,11 +1307,11 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fsubs    f1, f0, f1
     addi     r4, r3, lbl_5_rodata_D4@l
     lfs      f0, 0x0(r5)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f2, 0x0(r4)
     fnmsubs  f1, f1, f29, f27
     fmr      f5, f28
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     mr       r5, r18
     fadds    f1, f30, f1
@@ -1275,10 +1322,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r7, r17
     mr       r8, r17
     addi     r4, r1, 0x308
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_000009A8:
     addi     r21, r21, 0x1
     cmpwi    r21, 0x4
@@ -1337,7 +1384,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r17, r3
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, 0x4330
     clrlwi   r5, r18, 16
     stw      r5, 0x414(r1)
@@ -1351,7 +1398,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfd      f0, 0x410(r1)
     lis      r3, lbl_5_rodata_94@ha
     stw      r4, 0x408(r1)
-    lis      r8, lbl_8025C400@ha
+    lis      r8, gGame@ha
     lfs      f3, lbl_5_rodata_A4@l(r5)
     addi     r5, r3, lbl_5_rodata_94@l
     lfs      f5, 0x0(r5)
@@ -1362,7 +1409,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f6, f3
     lfd      f0, 0x408(r1)
     lfs      f1, 0x0(r7)
-    addi     r3, r8, lbl_8025C400@l
+    addi     r3, r8, gGame@l
     fsubs    f0, f0, f2
     lfs      f2, 0x0(r6)
     fmuls    f4, f5, f4
@@ -1374,23 +1421,23 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmuls    f5, f5, f0
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, __vt__7CTexObj@ha
     li       r3, 0x5b
     addi     r0, r4, __vt__7CTexObj@l
     stw      r0, 0x204(r1)
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r3, lbl_5_rodata_AC@ha
     lis      r4, lbl_5_rodata_94@ha
     addi     r5, r3, lbl_5_rodata_AC@l
@@ -1408,27 +1455,27 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     addi     r5, r4, lbl_5_rodata_A0@l
     addi     r4, r3, lbl_5_rodata_B0@l
     fmuls    f4, f0, f1
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, 0x0(r6)
     fmr      f7, f3
     lfs      f2, 0x0(r5)
     fmr      f8, f3
     lfs      f5, 0x0(r4)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r4, 0xff
     li       r5, 0xff
     li       r6, 0xff
-    bl       fn_80197E90
+    bl       DrawGsQuad
     li       r3, 0x5b
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r3, lbl_5_rodata_9C@ha
     lis      r4, lbl_5_rodata_D8@ha
     addi     r5, r3, lbl_5_rodata_9C@l
@@ -1436,20 +1483,20 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfs      f2, 0x0(r5)
     lis      r3, lbl_5_rodata_B4@ha
     addi     r5, r3, lbl_5_rodata_B4@l
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     fnmsubs  f28, f1, f2, f0
     lis      r4, lbl_5_rodata_A4@ha
     lis      r3, lbl_5_rodata_A8@ha
     lfs      f27, 0x0(r5)
     mr       r17, r29
     mr       r18, r30
-    addi     r21, r6, lbl_8025C400@l
+    addi     r21, r6, gGame@l
     addi     r20, r4, lbl_5_rodata_A4@l
     addi     r19, r3, lbl_5_rodata_A8@l
     li       r27, 0x0
 .L_00000C40:
     li       r3, 0x5b
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lfs      f1, 0x0(r18)
     mr       r5, r3
     lfs      f0, 0x0(r17)
@@ -1461,14 +1508,14 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f5, f4
     li       r4, 0xff
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     addi     r27, r27, 0x1
     addi     r18, r18, 0x4
     cmpwi    r27, 0x4
     addi     r17, r17, 0x4
     blt      .L_00000C40
     li       r3, 0x5b
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
     lis      r6, lbl_5_rodata_B4@ha
     lfs      f4, lbl_5_rodata_A8@l(r4)
@@ -1477,13 +1524,13 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f1, f28
     fmr      f5, f4
     lfs      f3, 0x0(r4)
-    lis      r7, lbl_8025C400@ha
+    lis      r7, gGame@ha
     lfs      f2, lbl_5_rodata_B4@l(r6)
     mr       r5, r3
-    addi     r3, r7, lbl_8025C400@l
+    addi     r3, r7, gGame@l
     li       r4, -0x1
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     lwz      r4, 0xa4c(r28)
     lis      r3, __vt__7CTexObj@ha
     addi     r0, r3, __vt__7CTexObj@l
@@ -1681,7 +1728,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lwz      r3, 0x294(r31)
     stw      r0, 0x340(r1)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     xoris    r4, r19, 0x8000
     lis      r0, 0x4330
     stw      r4, 0x40c(r1)
@@ -1700,9 +1747,9 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f4, f29
     fsubs    f1, f1, f2
     addi     r4, r3, lbl_5_rodata_EC@l
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     lfs      f2, 0x0(r4)
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     fmr      f5, f28
     fnmsubs  f1, f1, f0, f27
     lfs      f0, 0x0(r5)
@@ -1716,10 +1763,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r8, r18
     addi     r4, r1, 0x308
     fsubs    f1, f1, f0
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_00001064:
     addi     r19, r19, 0x1
     cmpwi    r19, 0x2
@@ -1783,7 +1830,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lwz      r3, 0x294(r31)
     stw      r0, 0x340(r1)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     cmplwi   r26, 0xa
     li       r0, 0x2
     bge      .L_00001170
@@ -1815,20 +1862,20 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfs      f0, lbl_5_rodata_D0@l(r4)
     addi     r4, r3, lbl_5_rodata_EC@l
     fmr      f6, f3
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f7, f3
     fmadds   f1, f2, f27, f1
     lfs      f2, 0x0(r4)
     fmr      f8, f3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     mr       r7, r18
     mr       r8, r18
     fsubs    f1, f1, f0
     addi     r4, r1, 0x308
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0xa4c(r28)
     addi     r3, r28, 0xa6c
     li       r5, 0x0
@@ -1883,7 +1930,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r17, r3
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, 0x4330
     clrlwi   r5, r18, 16
     stw      r5, 0x424(r1)
@@ -1897,7 +1944,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfd      f0, 0x420(r1)
     lis      r3, lbl_5_rodata_94@ha
     stw      r4, 0x428(r1)
-    lis      r8, lbl_8025C400@ha
+    lis      r8, gGame@ha
     lfs      f3, lbl_5_rodata_A4@l(r5)
     addi     r5, r3, lbl_5_rodata_94@l
     lfs      f5, 0x0(r5)
@@ -1908,7 +1955,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f6, f3
     lfd      f0, 0x428(r1)
     lfs      f1, 0x0(r7)
-    addi     r3, r8, lbl_8025C400@l
+    addi     r3, r8, gGame@l
     fsubs    f0, f0, f2
     lfs      f2, 0x0(r6)
     fmuls    f4, f5, f4
@@ -1920,23 +1967,23 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmuls    f5, f5, f0
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, __vt__7CTexObj@ha
     li       r3, 0x5c
     addi     r0, r4, __vt__7CTexObj@l
     stw      r0, 0x104(r1)
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r3, lbl_5_rodata_AC@ha
     lis      r4, lbl_5_rodata_94@ha
     addi     r5, r3, lbl_5_rodata_AC@l
@@ -1954,27 +2001,27 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     addi     r5, r4, lbl_5_rodata_F8@l
     addi     r4, r3, lbl_5_rodata_B0@l
     fmuls    f4, f0, f1
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, 0x0(r6)
     fmr      f7, f3
     lfs      f2, 0x0(r5)
     fmr      f8, f3
     lfs      f5, 0x0(r4)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r4, 0xff
     li       r5, 0xff
     li       r6, 0xff
-    bl       fn_80197E90
+    bl       DrawGsQuad
     li       r3, 0x5c
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     addi     r5, r4, lbl_5_rodata_A8@l
     lfs      f1, 0x0(r5)
     mr       r4, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lis      r3, lbl_5_rodata_9C@ha
     lis      r4, lbl_5_rodata_F4@ha
     addi     r5, r3, lbl_5_rodata_9C@l
@@ -1982,18 +2029,18 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfs      f2, 0x0(r5)
     lis      r3, lbl_5_rodata_FC@ha
     addi     r5, r3, lbl_5_rodata_FC@l
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     fnmsubs  f28, f1, f2, f0
     lis      r4, lbl_5_rodata_A4@ha
     lis      r3, lbl_5_rodata_A8@ha
     lfs      f27, 0x0(r5)
-    addi     r19, r6, lbl_8025C400@l
+    addi     r19, r6, gGame@l
     addi     r18, r4, lbl_5_rodata_A4@l
     addi     r17, r3, lbl_5_rodata_A8@l
     li       r20, 0x0
 .L_00001494:
     li       r3, 0x5c
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lfs      f1, 0x0(r30)
     mr       r5, r3
     lfs      f0, 0x0(r29)
@@ -2005,14 +2052,14 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f5, f4
     li       r4, 0xff
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     addi     r20, r20, 0x1
     addi     r30, r30, 0x4
     cmpwi    r20, 0x4
     addi     r29, r29, 0x4
     blt      .L_00001494
     li       r3, 0x5c
-    bl       fn_8006DBF0
+    bl       GetLocalizedInterfaceText
     lis      r4, lbl_5_rodata_A8@ha
     lis      r6, lbl_5_rodata_FC@ha
     lfs      f4, lbl_5_rodata_A8@l(r4)
@@ -2021,13 +2068,13 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmr      f1, f28
     fmr      f5, f4
     lfs      f3, 0x0(r4)
-    lis      r7, lbl_8025C400@ha
+    lis      r7, gGame@ha
     lfs      f2, lbl_5_rodata_FC@l(r6)
     mr       r5, r3
-    addi     r3, r7, lbl_8025C400@l
+    addi     r3, r7, gGame@l
     li       r4, -0x1
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     lwz      r4, 0xa4c(r28)
     lis      r3, __vt__7CTexObj@ha
     addi     r0, r3, __vt__7CTexObj@l
@@ -2106,17 +2153,17 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lwz      r3, 0x294(r31)
     fsubs    f0, f0, f1
     fmuls    f27, f2, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r5, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
     lis      r4, lbl_5_rodata_100@ha
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r5)
     fmr      f4, f28
     lfs      f2, lbl_5_rodata_100@l(r4)
     fmr      f5, f27
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     addi     r4, r1, 0x308
     fmr      f7, f3
@@ -2125,10 +2172,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     li       r6, -0x1
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0xa4c(r28)
     addi     r3, r28, 0xa6c
     li       r5, 0x0
@@ -2183,7 +2230,7 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     mr       r17, r3
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r7, 0x4330
     lis      r3, lbl_5_rodata_108@ha
     stw      r23, 0x41c(r1)
@@ -2208,12 +2255,12 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     lfs      f5, lbl_5_rodata_94@l(r4)
     addi     r5, r6, lbl_5_rodata_100@l
     stw      r3, 0x414(r1)
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     fnmsubs  f10, f28, f4, f2
     fdivs    f1, f0, f2
     stw      r7, 0x410(r1)
     lfs      f2, 0x0(r5)
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     lfd      f0, 0x410(r1)
     addi     r4, r1, 0x308
     stw      r7, 0x408(r1)
@@ -2231,10 +2278,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
     fmuls    f4, f5, f4
     li       r8, -0x1
     fmuls    f5, f5, f0
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     b        .L_00001864
 .L_0000185C:
     add      r4, r4, r6
@@ -2301,11 +2348,11 @@ extern "C" void DrawFighterHud(void)
 			h = 1.0f;
 		}
 		if (item->_04->vtbl->_118(item->_04, w, h, &a, &b, 0)) {
-			Vec zero  = { 0.0f, 0.0f, 0.0f };
 			item->_18 = true;
 			if (a > b) {
 				a = b;
 			}
+			Vec zero = { 0.0f, 0.0f, 0.0f };
 			item->_04->vtbl->_10C(item->_04, &zero, &item->_08, &item->_0C, &item->_10, 0);
 			item->_0C -= a * 0.5f;
 		} else {
@@ -2313,7 +2360,7 @@ extern "C" void DrawFighterHud(void)
 		}
 	}
 	DrawScoreHud(matoList._10, matoList._1C, 100.0f * matoList._18);
-	FighterAim_Draw(&fighterWork._F4, (UnkGame_E5D38*)(lbl_8025C400 + 0xE5D38), fighterWork._0C);
+	FighterAim_Draw(&fighterWork._F4, (UnkGame_E5D38*)(gGame + MOTION_CAMERA_OFFSET), fighterWork._0C);
 	FighterPanels_Draw(&panels);
 }
 
@@ -2452,9 +2499,9 @@ extern "C" void DrawFighterHud(void)
     lwz      r3, 0x10(r4)
     lwz      r4, 0x1c(r4)
     bl       DrawScoreHud
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r5, fighterWork@ha
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     mr       r3, r27
     addis    r4, r4, 0xe
     addi     r5, r5, fighterWork@l
@@ -2492,26 +2539,29 @@ extern "C" void DrawShots(void)
 			continue;
 		}
 		GAME_FIELD(s32, 0x29C) = 1;
-		fn_8019B56C(GAME_FIELD(void*, 0x290), 1, 4, 5, 15);
+		SetGsBlendMode(GAME_FIELD(void*, 0x290), 1, 4, 5, 15);
 		for (j = 0; j < 10; j++) {
 			Vec up    = { 0.0f, 1.0f, 0.0f };
 			u32 alpha = 96.0f * (1.0f - 0.1f * j);
-			fn_80198258(lbl_8025C400, 16, alpha | 0xFFFFFF00, 0xFFFFFF00, entry->_38[j].x, entry->_38[j].y, entry->_38[j].z, 4.0f, 4.0f,
-			            up.x, up.y, up.z);
+			DrawGsCircle(gGame, 16, alpha | 0xFFFFFF00, 0xFFFFFF00, entry->mTrail[j].x, entry->mTrail[j].y, entry->mTrail[j].z, 4.0f, 4.0f,
+			             up.x, up.y, up.z);
 		}
-		fn_8019B56C(GAME_FIELD(void*, 0x290), 1, 2, 4, 15);
+		SetGsBlendMode(GAME_FIELD(void*, 0x290), 1, 2, 4, 15);
 		{
 			Vec up = { 0.0f, 1.0f, 0.0f };
-			fn_80198258(lbl_8025C400, 16, 0xFFFFFF80, 0xFFFFFF00, entry->_1C.x, entry->_1C.y, entry->_1C.z, 4.0f, 4.0f, up.x, up.y, up.z);
+			DrawGsCircle(gGame, 16, 0xFFFFFF80, 0xFFFFFF00, entry->mPosition.x, entry->mPosition.y, entry->mPosition.z, 4.0f, 4.0f, up.x,
+			             up.y, up.z);
 		}
 		{
 			Vec up = { 0.0f, 1.0f, 0.0f };
-			fn_80198258(lbl_8025C400, 16, 0xFFFFFF80, 0xFFFFFF00, entry->_1C.x, entry->_1C.y, entry->_1C.z, 5.0f, 5.0f, up.x, up.y, up.z);
+			DrawGsCircle(gGame, 16, 0xFFFFFF80, 0xFFFFFF00, entry->mPosition.x, entry->mPosition.y, entry->mPosition.z, 5.0f, 5.0f, up.x,
+			             up.y, up.z);
 		}
-		fn_8019B56C(GAME_FIELD(void*, 0x290), 1, 4, 5, 15);
+		SetGsBlendMode(GAME_FIELD(void*, 0x290), 1, 4, 5, 15);
 		{
 			Vec up = { 0.0f, 1.0f, 0.0f };
-			fn_80198258(lbl_8025C400, 16, 0x64FF64C8, 0x64FF6400, entry->_1C.x, entry->_1C.y, entry->_1C.z, 5.0f, 5.0f, up.x, up.y, up.z);
+			DrawGsCircle(gGame, 16, 0x64FF64C8, 0x64FF6400, entry->mPosition.x, entry->mPosition.y, entry->mPosition.z, 5.0f, 5.0f, up.x,
+			             up.y, up.z);
 		}
 		GAME_FIELD(s32, 0x29C) = 0;
 	}
@@ -2536,9 +2586,9 @@ extern "C" void DrawShots(void)
     lwz      r0, 0x0(r4)
     cmplwi   r0, 0x0
     beq      .L_00001E00
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r28, r4, 0x114
-    addi     r31, r3, lbl_8025C400@l
+    addi     r31, r3, gGame@l
     li       r30, 0x0
 .L_00001B8C:
     lbz      r0, 0x0(r28)
@@ -2551,7 +2601,7 @@ extern "C" void DrawShots(void)
     li       r5, 0x4
     li       r6, 0x5
     li       r7, 0xf
-    bl       fn_8019B56C
+    bl       SetGsBlendMode
     lis      r6, lbl_5_rodata_134@ha
     lis      r5, lbl_5_rodata_88@ha
     lis      r4, lbl_5_rodata_110@ha
@@ -2561,7 +2611,7 @@ extern "C" void DrawShots(void)
     addi     r6, r4, lbl_5_rodata_110@l
     addi     r5, r3, lbl_5_rodata_94@l
     lis      r9, lbl_5_rodata_C@ha
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, lbl_5_rodata_AC@ha
     lfs      f28, 0x0(r8)
     lfs      f29, 0x0(r7)
@@ -2569,7 +2619,7 @@ extern "C" void DrawShots(void)
     lfd      f30, 0x0(r6)
     addi     r24, r9, lbl_5_rodata_C@l
     lfs      f31, 0x0(r5)
-    addi     r26, r4, lbl_8025C400@l
+    addi     r26, r4, gGame@l
     addi     r27, r3, lbl_5_rodata_AC@l
     li       r23, 0x0
     lis      r25, 0x4330
@@ -2602,7 +2652,7 @@ extern "C" void DrawShots(void)
     lfs      f7, 0xc(r1)
     li       r6, -0x100
     lfs      f8, 0x10(r1)
-    bl       fn_80198258
+    bl       DrawGsCircle
     addi     r23, r23, 0x1
     addi     r29, r29, 0xc
     cmpwi    r23, 0xa
@@ -2613,15 +2663,15 @@ extern "C" void DrawShots(void)
     li       r5, 0x2
     li       r6, 0x4
     li       r7, 0xf
-    bl       fn_8019B56C
+    bl       SetGsBlendMode
     lis      r4, lbl_5_rodata_18@ha
     lis      r3, lbl_5_rodata_AC@ha
     addi     r8, r4, lbl_5_rodata_18@l
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     addi     r4, r3, lbl_5_rodata_AC@l
     lwz      r7, 0x0(r8)
     lfs      f4, 0x0(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     lwz      r6, 0x4(r8)
     li       r4, 0x10
     lwz      r0, 0x8(r8)
@@ -2637,15 +2687,15 @@ extern "C" void DrawShots(void)
     lfs      f6, 0x14(r1)
     lfs      f7, 0x18(r1)
     lfs      f8, 0x1c(r1)
-    bl       fn_80198258
+    bl       DrawGsCircle
     lis      r4, lbl_5_rodata_24@ha
     lis      r3, lbl_5_rodata_138@ha
     addi     r8, r4, lbl_5_rodata_24@l
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     addi     r4, r3, lbl_5_rodata_138@l
     lwz      r7, 0x0(r8)
     lfs      f4, 0x0(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     lwz      r6, 0x4(r8)
     li       r4, 0x10
     lwz      r0, 0x8(r8)
@@ -2661,13 +2711,13 @@ extern "C" void DrawShots(void)
     lfs      f6, 0x20(r1)
     lfs      f7, 0x24(r1)
     lfs      f8, 0x28(r1)
-    bl       fn_80198258
+    bl       DrawGsCircle
     lwz      r3, 0x290(r31)
     li       r4, 0x1
     li       r5, 0x4
     li       r6, 0x5
     li       r7, 0xf
-    bl       fn_8019B56C
+    bl       SetGsBlendMode
     lis      r3, lbl_5_rodata_30@ha
     lis      r4, 0x64ff
     addi     r8, r3, lbl_5_rodata_30@l
@@ -2677,9 +2727,9 @@ extern "C" void DrawShots(void)
     addi     r5, r3, lbl_5_rodata_138@l
     lwz      r6, 0x4(r8)
     lfs      f4, 0x0(r5)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r6, 0x30(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r0, 0x8(r8)
     fmr      f5, f4
     stw      r7, 0x2c(r1)
@@ -2692,7 +2742,7 @@ extern "C" void DrawShots(void)
     lfs      f6, 0x2c(r1)
     lfs      f7, 0x30(r1)
     lfs      f8, 0x34(r1)
-    bl       fn_80198258
+    bl       DrawGsCircle
     li       r0, 0x0
     stw      r0, 0x29c(r31)
 .L_00001DF0:
@@ -2720,7 +2770,7 @@ extern "C" void DrawShots(void)
  * @note Address: stage02 .text 0x1E34
  * @note Size: 0x10
  */
-extern "C" void fn_5_1E34(void)
+extern "C" void DrawFighterStage(void)
 {
 	if (fighterWork._00 == NULL) {
 		return;
@@ -2731,6 +2781,8 @@ extern "C" void fn_5_1E34(void)
  * @note Address: stage02 .text 0x1E44
  * @note Size: 0x514
  */
+#pragma push
+#pragma opt_lifetimes off
 extern "C" void UpdateFighter(u32 arg)
 {
 	Mato* best;
@@ -2773,8 +2825,8 @@ extern "C" void UpdateFighter(u32 arg)
 			item->_20 += 1.0f;
 		}
 	}
-	se = lbl_8025C400 + 0xE7E24;
-	if (fn_8001E6C8(se, 0x20006) == 0 && 0.01f < fighterWork._A0 / fighterWork._A8) {
+	se = gGame + SOUND_OFFSET;
+	if (IsGameSoundPlaying(se, 0x20006) == 0 && 0.01f < fighterWork._A0 / fighterWork._A8) {
 		Vec pos;
 		best                = NULL;
 		fighterWork._F4._18 = NULL;
@@ -2803,7 +2855,7 @@ extern "C" void UpdateFighter(u32 arg)
 		}
 		if (best != NULL && !best->_19) {
 			if (best != NULL && fighterWork._110 != best) {
-				fn_8001E904(se, 0x20006, 0xFF);
+				PlayGameSound(se, 0x20006, 0xFF);
 			}
 			fighterWork._F4._18 = best;
 		}
@@ -2813,10 +2865,11 @@ extern "C" void UpdateFighter(u32 arg)
 		s32 frame = GET_LE32(soundCueTable[0] + i * 8);
 		s32 id    = GET_LE32(soundCueTable[0] + i * 8 + 4);
 		if (fighterWork._A4 < (f32)frame && (f32)frame <= fighterWork._A0) {
-			fn_8001E904(se, id, 0xFF);
+			PlayGameSound(se, id, 0xFF);
 		}
 	}
 }
+#pragma pop
 
 // UpdateFighter
 /*
@@ -2940,14 +2993,14 @@ extern "C" void UpdateFighter(u32 arg)
     lwz      r0, 0x0(r26)
     cmpw     r4, r0
     blt      .L_00001F94
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0x2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r25, r4, 0xe
     addi     r4, r3, 0x6
     addi     r25, r25, 0x7e24
     mr       r3, r25
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     bne      .L_000021D8
     lfs      f1, 0xa0(r28)
@@ -3063,7 +3116,7 @@ extern "C" void UpdateFighter(u32 arg)
     mr       r3, r25
     addi     r4, r4, 0x6
     li       r5, 0xff
-    bl       fn_8001E904
+    bl       PlayGameSound
 .L_000021D4:
     stw      r24, 0x10c(r31)
 .L_000021D8:
@@ -3137,7 +3190,7 @@ extern "C" void UpdateFighter(u32 arg)
     bne      .L_000022E0
     mr       r3, r25
     li       r5, 0xff
-    bl       fn_8001E904
+    bl       PlayGameSound
 .L_000022E0:
     addi     r27, r27, 0x8
     addi     r22, r22, 0x8
@@ -3272,11 +3325,12 @@ extern "C" void EndFighter(void)
 	if (fighterWork._00 == NULL) {
 		return;
 	}
-	ResetModelFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC));
-	HSD_JObjClearMtxFlags(GAME_FIELD(UnkGame_96BC*, 0x96BC)->_00);
-	((CMotionControlCamera*)(lbl_8025C400 + 0xE5D38))->ChangeAction(GAME_FIELD(CInterfaceCameraAction*, 0xE5F0C));
-	if (fn_8001E6C8(lbl_8025C400 + 0xE7E24, 0x20004)) {
-		fn_8001E660(lbl_8025C400 + 0xE7E24, 0x20004);
+	ResetModelFlags(GAME_FIELD(UnkGame_96BC*, PLAYER_OFFSET));
+	HSD_JObjClearMtxFlags(GAME_FIELD(UnkGame_96BC*, PLAYER_OFFSET)->_00);
+	((CMotionControlCamera*)(gGame + MOTION_CAMERA_OFFSET))
+	    ->ChangeAction(GAME_FIELD(CInterfaceCameraAction*, DEFAULT_CAMERA_ACTION_OFFSET));
+	if (IsGameSoundPlaying(gGame + SOUND_OFFSET, 0x20004)) {
+		StopGameSfx(gGame + SOUND_OFFSET, 0x20004);
 	}
 	if (fighterWork._00 != NULL) {
 		HSD_JObjClearMtxFlags(fighterWork._00->_00);
@@ -3305,9 +3359,9 @@ extern "C" void EndFighter(void)
     lwz      r0, fighterWork@l(r3)
     cmplwi   r0, 0x0
     beq      .L_000029A4
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x0
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     li       r0, 0x1
     addis    r6, r4, 0x1
     lwz      r5, -0x6944(r6)
@@ -3324,9 +3378,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_000025F4
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3337,9 +3391,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_00002650
     bne      .L_00002624
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3357,26 +3411,26 @@ extern "C" void EndFighter(void)
     mr       r3, r31
     bl       HSD_JObjSetMtxDirtySub
 .L_00002650:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r4, 0x5f0c(r3)
     addi     r3, r3, 0x5d38
     bl       fn_801494A4
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0x2
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     addis    r31, r4, 0xe
     addi     r4, r3, 0x4
     addi     r31, r31, 0x7e24
     mr       r3, r31
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     beq      .L_000026A0
     lis      r4, 0x2
     mr       r3, r31
     addi     r4, r4, 0x4
-    bl       fn_8001E660
+    bl       StopGameSfx
 .L_000026A0:
     lis      r3, fighterWork@ha
     addi     r3, r3, fighterWork@l
@@ -3386,9 +3440,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_000026D8
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3399,9 +3453,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_00002734
     bne      .L_00002708
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3427,9 +3481,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_0000276C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3440,9 +3494,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_000027C8
     bne      .L_0000279C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3466,9 +3520,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_000027F8
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3479,9 +3533,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_00002854
     bne      .L_00002828
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3507,9 +3561,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_0000288C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3520,9 +3574,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_000028E8
     bne      .L_000028BC
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3548,9 +3602,9 @@ extern "C" void EndFighter(void)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_00002920
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x4af
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3561,9 +3615,9 @@ extern "C" void EndFighter(void)
     stw      r0, 0x14(r31)
     beq      .L_0000297C
     bne      .L_00002950
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -3801,13 +3855,21 @@ extern "C" void StartFighter(UnkDolObj* a, UnkDolObj* b, void* c)
 	matoList._18 = 0.0f;
 	matoList._1C = 6000;
 	matoList._28 = NULL;
-	model        = GAME_FIELD(UnkGame_96BC*, 0x96BC);
+	model        = GAME_FIELD(UnkGame_96BC*, PLAYER_OFFSET);
 	model->_980  = 0;
 	model->_980 |= 0x40000000;
 	model->_12DF4 = 0;
-	((CMotionControlCamera*)(lbl_8025C400 + 0xE5D38))->ChangeAction(&fighterCamera);
+	((CMotionControlCamera*)(gGame + MOTION_CAMERA_OFFSET))->ChangeAction(&fighterCamera);
 	{
-		fighterCamera.SetView(MakeVec(0.0f, 40.0f, -180.0f), MakeVec(0.0f, 0.0f, 120.0f), fighterWork._0C);
+		Vec v;
+		v.x          = 0.0f;
+		v.y          = 40.0f;
+		v.z          = -180.0f;
+		Vec interest = v;
+		v.y          = 0.0f;
+		v.z          = 120.0f;
+		Vec eye      = v;
+		fighterCamera.SetView(interest, eye, fighterWork._0C);
 	}
 	fireHoldFrames = 0;
 	lbl_5_bss_0    = 0;
@@ -3845,8 +3907,8 @@ extern "C" void StartFighter(UnkDolObj* a, UnkDolObj* b, void* c)
     mr       r5, r7
     bl       Fighter_Init
     lis      r4, lbl_5_rodata_A4@ha
-    lis      r3, lbl_8025C400@ha
-    addi     r5, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r5, r3, gGame@l
     lfs      f0, lbl_5_rodata_A4@l(r4)
     addis    r3, r5, 0x1
     li       r7, 0x0
@@ -3953,15 +4015,17 @@ extern "C" void ClearFighterObjects(void)
  * @note Address: stage02 .text 0x2EF4
  * @note Size: 0x448
  */
+#pragma push
+#pragma opt_common_subs off
 extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
 {
 	Mtx scale;
 	Mtx m;
-	s32 path[2] = { 0, 0 };
 	HSD_JObj* jobj;
 
 	PSMTXScale(scale, 0.5f, 0.5f, 0.5f);
-	jobj = GetJointByPath(link->_04->_00, path, 2);
+	s32 path[2] = { 0, 0 };
+	jobj        = GetJointByPath(link->_04->_00, path, 2);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, link->_10);
 	HSD_JObjCopyMtx(link->_00->_00, link->_10);
 	link->_A0 = frame;
@@ -3977,6 +4041,7 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
 		HSD_JObjCopyMtx(link->_0C->_00, link->_70);
 	}
 }
+#pragma pop
 
 // PilotNwing_Update
 /*
@@ -4043,9 +4108,9 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
 .L_00002FC0:
     cmplwi   r30, 0x0
     bne      .L_00002FE0
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x47c
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -4053,9 +4118,9 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     cmplwi   r30, 0x0
     beq      .L_00003030
     bne      .L_00003004
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -4081,18 +4146,18 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     lwz      r30, 0x0(r3)
     cmplwi   r30, 0x0
     bne      .L_00003068
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_00003068:
     addic.   r0, r31, 0x10
     bne      .L_00003088
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -4106,9 +4171,9 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     stw      r0, 0x14(r30)
     beq      .L_000030F0
     bne      .L_000030C4
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -4166,18 +4231,18 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     lwz      r30, 0x0(r3)
     cmplwi   r30, 0x0
     bne      .L_000031A8
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_000031A8:
     addic.   r0, r31, 0x40
     bne      .L_000031C8
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -4191,9 +4256,9 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     stw      r0, 0x14(r30)
     beq      .L_00003230
     bne      .L_00003204
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -4230,18 +4295,18 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     lwz      r30, 0x0(r3)
     cmplwi   r30, 0x0
     bne      .L_00003294
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_00003294:
     addic.   r0, r31, 0x70
     bne      .L_000032B4
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -4255,9 +4320,9 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 frame)
     stw      r0, 0x14(r30)
     beq      .L_0000331C
     bne      .L_000032F0
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -4313,7 +4378,7 @@ extern "C" void Fighter_Fire(Fighter* hole, s32 n)
 		hole->_110 = NULL;
 		hole->_114.Add(item->GetPos(), dir, item);
 	}
-	model        = GAME_FIELD(UnkGame_96BC*, 0x96BC);
+	model        = GAME_FIELD(UnkGame_96BC*, PLAYER_OFFSET);
 	model->_9658 = model->_9658 - n > 0.0f ? model->_9658 - n : 0.0f;
 	if (model->_9658 < 0.0f) {
 		model->_9658 = 0.0f;
@@ -4482,8 +4547,8 @@ extern "C" void Fighter_Fire(Fighter* hole, s32 n)
     fdivs    f0, f1, f0
     stfs     f0, 0x144(r8)
     lfs      f0, 0x130(r8)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     li       r4, 0xb
     stfs     f0, 0x14c(r8)
     addis    r3, r3, 0xe
@@ -4547,7 +4612,7 @@ extern "C" void Fighter_Fire(Fighter* hole, s32 n)
     stfs     f0, 0x1bc(r8)
     lfs      f0, 0x138(r8)
     stfs     f0, 0x1c0(r8)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_00003970
 .L_00003680:
     lwz      r3, 0x24(r31)
@@ -4671,8 +4736,8 @@ extern "C" void Fighter_Fire(Fighter* hole, s32 n)
     fdivs    f0, f1, f0
     stfs     f0, 0x144(r8)
     lfs      f0, 0x130(r8)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     li       r4, 0xb
     stfs     f0, 0x14c(r8)
     addis    r3, r3, 0xe
@@ -4736,17 +4801,17 @@ extern "C" void Fighter_Fire(Fighter* hole, s32 n)
     stfs     f0, 0x1bc(r8)
     lfs      f0, 0x138(r8)
     stfs     f0, 0x1c0(r8)
-    bl       fn_8001E904
+    bl       PlayGameSound
 .L_00003964:
     lis      r3, __vt__4CVec@ha
     addi     r0, r3, __vt__4CVec@l
     stw      r0, 0x48(r1)
 .L_00003970:
     xoris    r3, r30, 0x8000
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lis      r0, 0x4330
     stw      r3, 0xbc(r1)
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     lis      r4, lbl_5_rodata_110@ha
     stw      r0, 0xb8(r1)
     addis    r5, r5, 0x1
@@ -4916,14 +4981,13 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
 	Mtx m;
 	Mtx rot;
 	Vec zero;
-	s32 path[2]  = { 0, 0 };
-	s32 path2[1] = { 0 };
 	HSD_JObj* jobj;
 	f32 rate;
 
 	hole->_BC -= dt;
 	PSMTXScale(scale, 0.5f, 0.5f, 0.5f);
-	jobj = GetJointByPath(hole->_04->_00, path, 2);
+	s32 path[2] = { 0, 0 };
+	jobj        = GetJointByPath(hole->_04->_00, path, 2);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, hole->_0C);
 	HSD_JObjCopyMtx(hole->_00->_00, hole->_0C);
 	zero.x = zero.y = zero.z = 0.0f;
@@ -4931,9 +4995,10 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
 	PSMTXRotRad(rot, 'Y', hole->_9C);
 	PSMTXTrans(m, 0.0f, -1.89f, -7.16f);
 	PSMTXConcat(m, rot, m);
-	jobj = GetJointByPath(hole->_00->_00, path2, 1);
+	s32 path2[1] = { 0 };
+	jobj         = GetJointByPath(hole->_00->_00, path2, 1);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), m, hole->_3C);
-	HSD_JObjCopyMtx(GAME_FIELD(UnkGame_96BC*, 0x96BC)->_00, hole->_3C);
+	HSD_JObjCopyMtx(GAME_FIELD(UnkGame_96BC*, PLAYER_OFFSET)->_00, hole->_3C);
 	if (hole->_08 != NULL) {
 		PSMTXTrans(m, 0.0f, 4.11f, -1.0f);
 		PSMTXConcat(hole->_0C, m, hole->_6C);
@@ -5027,9 +5092,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
 .L_00003C84:
     cmplwi   r29, 0x0
     bne      .L_00003CA4
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x47c
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5037,9 +5102,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     cmplwi   r29, 0x0
     beq      .L_00003CF4
     bne      .L_00003CC8
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5065,18 +5130,18 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     lwz      r29, 0x0(r3)
     cmplwi   r29, 0x0
     bne      .L_00003D2C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_00003D2C:
     addic.   r0, r31, 0xc
     bne      .L_00003D4C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -5090,9 +5155,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     stw      r0, 0x14(r29)
     beq      .L_00003DB4
     bne      .L_00003D88
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5174,9 +5239,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
 .L_00003E8C:
     cmplwi   r29, 0x0
     bne      .L_00003EAC
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x47c
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5184,9 +5249,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     cmplwi   r29, 0x0
     beq      .L_00003EFC
     bne      .L_00003ED0
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5208,25 +5273,25 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     addi     r4, r1, 0x20
     addi     r5, r31, 0x3c
     bl       PSMTXConcat
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     lwz      r29, 0x0(r3)
     cmplwi   r29, 0x0
     bne      .L_00003F40
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_00003F40:
     addic.   r0, r31, 0x3c
     bne      .L_00003F60
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -5240,9 +5305,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     stw      r0, 0x14(r29)
     beq      .L_00003FC8
     bne      .L_00003F9C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5279,18 +5344,18 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     lwz      r29, 0x0(r3)
     cmplwi   r29, 0x0
     bne      .L_0000402C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x495
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
 .L_0000402C:
     addic.   r0, r31, 0x6c
     bne      .L_0000404C
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_160@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x496
     addi     r5, r5, lbl_5_rodata_160@l
     bl       __assert
@@ -5304,9 +5369,9 @@ extern "C" void Fighter_Update(Fighter* hole, u32 dt)
     stw      r0, 0x14(r29)
     beq      .L_000040B4
     bne      .L_00004088
-    lis      r3, lbl_5_rodata_148@ha
+    lis      r3, sStage02PathJobjH@ha
     lis      r5, lbl_5_rodata_150@ha
-    addi     r3, r3, lbl_5_rodata_148@l
+    addi     r3, r3, sStage02PathJobjH@l
     li       r4, 0x25d
     addi     r5, r5, lbl_5_rodata_150@l
     bl       __assert
@@ -5441,7 +5506,8 @@ extern "C" void Fighter_Init(Fighter* hole, UnkDolObj* a, UnkDolObj* b, void* c)
 	jobj      = hole->_04->_00;
 	if (jobj == NULL) {
 		aobj = NULL;
-	} else if ((aobj = fn_801908F8(jobj)) == NULL && (aobj = fn_801905D4(jobj)) == NULL && (aobj = fn_801902C4(jobj)) == NULL) {
+	} else if ((aobj = FindJointAnimationInTree(jobj)) == NULL && (aobj = FindMaterialOrTextureAnimationInJointTree(jobj)) == NULL
+	           && (aobj = FindPolygonAnimationInJointTree(jobj)) == NULL) {
 		aobj = NULL;
 	}
 	hole->_A8       = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
@@ -5504,21 +5570,21 @@ extern "C" void Fighter_Init(Fighter* hole, UnkDolObj* a, UnkDolObj* b, void* c)
     cmplwi   r30, 0x0
     beq      .L_000042F4
     mr       r3, r30
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_000042C4
     mr       r30, r3
     b        .L_000042F8
 .L_000042C4:
     mr       r3, r30
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_000042DC
     mr       r30, r3
     b        .L_000042F8
 .L_000042DC:
     mr       r3, r30
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_000042F4
     mr       r30, r3
@@ -5529,9 +5595,9 @@ extern "C" void Fighter_Init(Fighter* hole, UnkDolObj* a, UnkDolObj* b, void* c)
     cmplwi   r30, 0x0
     beq      .L_00004324
     bne      .L_0000431C
-    lis      r3, lbl_5_rodata_180@ha
+    lis      r3, sStage02PathAobjH@ha
     lis      r5, lbl_5_rodata_188@ha
-    addi     r3, r3, lbl_5_rodata_180@l
+    addi     r3, r3, sStage02PathAobjH@l
     li       r4, 0xab
     addi     r5, r5, lbl_5_rodata_188@l
     bl       __assert
@@ -5663,6 +5729,15 @@ extern "C" void Fighter_Init(Fighter* hole, UnkDolObj* a, UnkDolObj* b, void* c)
     blr
 */
 
+#pragma push
+#pragma opt_propagation off
+static inline void DrawFighterPanelQuad(CTexObj& tex, f32 y, f32 width, f32 height)
+{
+	SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+	DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+	SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
+}
+
 /**
  * @note Address: stage02 .text 0x44F0
  * @note Size: 0xCB4
@@ -5672,74 +5747,78 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
 	CTexObj tex;
 	s32 i;
 
-	if (fn_8006F654("stage02") == GAME_FIELD(s32, 0x3444)) {
+	const s32 stage = GAME_FIELD(s32, stageOffset);
+	if (FindStageIndexByName("stage02") == stage) {
 		for (i = 0; i < 48; i++) {
-			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, 0x96F8) + i * GAME_FIELD(s32, 0x9708));
+			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, poolOffset) + i * GAME_FIELD(s32, poolOffset + 0x10));
 			s32 kind       = obj->_244 != NULL ? *obj->_244 : -1;
 			f32 y;
 			f32 half;
+			u16 texWidth;
+			u16 texHeight;
 			f32 w;
 			f32 h;
 			if (kind != 0x149 || obj->_B6C == 0) {
 				continue;
 			}
 			if (fade->_08 > 0.0f) {
-				tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x50), 0);
-				w    = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				y    = 320.0f - 32.0f;
-				half = fade->_08 * (1.0f * GXGetTexObjHeight(&tex));
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, w, half, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
-				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + (fade->_10 + 25) * 8), 0);
-				w   = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h   = fade->_08 * (1.0f * GXGetTexObjHeight(&tex));
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+				tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x50), 0);
+				texWidth  = GXGetTexObjWidth(&tex);
+				w         = 1.1f * (gFighterHudTextureScale * texWidth);
+				texHeight = GXGetTexObjHeight(&tex);
+				half      = fade->_08 * (gFighterHudTextureScale * texHeight);
+#if defined(VERSION_JP)
+				y = 320.0f;
+#else
+				y = 320.0f - gFighterPanelYOffset;
+#endif
+				DrawFighterPanelQuad(tex, y, w, half);
+				tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + (fade->_10 + 25) * 8), 0);
+				texWidth  = GXGetTexObjWidth(&tex);
+				w         = 1.1f * (gFighterHudTextureScale * texWidth);
+				texHeight = GXGetTexObjHeight(&tex);
+				h         = fade->_08 * (gFighterHudTextureScale * texHeight);
+				DrawFighterPanelQuad(tex, y, w, h);
 				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x58), 0);
 				half *= 0.5f;
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = 1.0f * GXGetTexObjHeight(&tex);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, y - half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, y + half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+				f32 top   = y - half;
+				texWidth  = GXGetTexObjWidth(&tex);
+				w         = 1.1f * (gFighterHudTextureScale * texWidth);
+				texHeight = GXGetTexObjHeight(&tex);
+				h         = gFighterHudTextureScale * texHeight;
+				DrawFighterPanelQuad(tex, top, w, h);
+				DrawFighterPanelQuad(tex, y + half, w, h);
 			}
 			if (fade->_0C > 0.0f) {
-				u16 texW;
-				tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x40), 0);
-				texW = GXGetTexObjWidth(&tex);
-				half = fade->_0C * (1.0f * GXGetTexObjHeight(&tex));
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 180.0f, 0.0f, 1.1f * (1.0f * texW), half, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+				tex       = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x40), 0);
+				texWidth  = GXGetTexObjWidth(&tex);
+				texHeight = GXGetTexObjHeight(&tex);
+				half      = fade->_0C * (gFighterHudTextureScale * texHeight);
+				DrawFighterPanelQuad(tex, 180.0f, 1.1f * (gFighterHudTextureScale * texWidth), half);
 				if (fade->_20 == 0) {
 					tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + (fade->_14 + 12) * 8), 0);
 				} else {
 					tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + (fade->_14 + 18) * 8), 0);
 				}
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = fade->_0C * (1.0f * GXGetTexObjHeight(&tex));
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 180.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+				texWidth  = GXGetTexObjWidth(&tex);
+				w         = 1.1f * (gFighterHudTextureScale * texWidth);
+				texHeight = GXGetTexObjHeight(&tex);
+				h         = fade->_0C * (gFighterHudTextureScale * texHeight);
+				DrawFighterPanelQuad(tex, 180.0f, w, h);
 				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->_A4C[2] + 0x48), 0);
 				half *= 0.5f;
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = 1.0f * GXGetTexObjHeight(&tex);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 180.0f - half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-				fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, 100.0f, 180.0f + half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+				f32 top   = 180.0f - half;
+				texWidth  = GXGetTexObjWidth(&tex);
+				w         = 1.1f * (gFighterHudTextureScale * texWidth);
+				texHeight = GXGetTexObjHeight(&tex);
+				h         = gFighterHudTextureScale * texHeight;
+				DrawFighterPanelQuad(tex, top, w, h);
+				DrawFighterPanelQuad(tex, 180.0f + half, w, h);
 			}
 		}
 	}
 }
+#pragma pop
 
 // FighterPanels_Draw
 /*
@@ -5758,21 +5837,21 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     psq_st   f27, 0x158(r1), 0, qr0
     stmw     r26, 0x138(r1)
     lis      r4, __vt__7CTexObj@ha
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     addi     r0, r4, __vt__7CTexObj@l
     lis      r4, lbl_5_rodata_8C@ha
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     stw      r0, 0x104(r1)
     addi     r0, r4, lbl_5_rodata_8C@l
     mr       r27, r3
     lwz      r26, 0x3444(r5)
     mr       r3, r0
-    bl       fn_8006F654
+    bl       FindStageIndexByName
     cmpw     r3, r26
     bne      .L_0000515C
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r28, 0x0
-    addi     r31, r3, lbl_8025C400@l
+    addi     r31, r3, gGame@l
     addis    r29, r31, 0x1
 .L_0000456C:
     lwz      r0, -0x68f8(r29)
@@ -5884,13 +5963,13 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lwz      r3, 0x294(r31)
     fsubs    f31, f31, f0
     fmuls    f30, f3, f1
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r4, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fmr      f2, f31
     addi     r4, r1, 0x8
     fmr      f4, f27
@@ -5902,10 +5981,10 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmr      f7, f3
     li       r8, -0x1
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r6, 0xa4c(r30)
     addi     r3, r30, 0xa6c
     lwz      r4, 0x10(r27)
@@ -5990,13 +6069,13 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lfs      f1, 0x8(r27)
     fmuls    f0, f2, f0
     fmuls    f27, f1, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r4, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fmr      f2, f31
     addi     r4, r1, 0x8
     fmr      f4, f29
@@ -6008,10 +6087,10 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmr      f7, f3
     li       r8, -0x1
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0xa4c(r30)
     addi     r3, r30, 0xa6c
     li       r5, 0x0
@@ -6095,13 +6174,13 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lwz      r3, 0x294(r31)
     fsubs    f0, f0, f1
     fmuls    f28, f2, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r4, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fmr      f2, f27
     addi     r4, r1, 0x8
     fmr      f4, f29
@@ -6113,19 +6192,19 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmr      f7, f3
     li       r8, -0x1
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r4, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fmr      f4, f29
     addi     r4, r1, 0x8
     fmr      f5, f28
@@ -6137,10 +6216,10 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmr      f8, f3
     li       r8, -0x1
     fadds    f2, f31, f30
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_00004B10:
     lis      r3, lbl_5_rodata_A4@ha
     lfs      f1, 0xc(r27)
@@ -6214,7 +6293,7 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lfs      f1, 0xc(r27)
     fmuls    f0, f2, f0
     fmuls    f31, f1, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     clrlwi   r4, r26, 16
     lis      r0, 0x4330
     stw      r4, 0x12c(r1)
@@ -6237,21 +6316,21 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmuls    f0, f2, f0
     addi     r4, r3, lbl_5_rodata_194@l
     fmr      f6, f3
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f2, 0x0(r4)
     fmr      f7, f3
     fmr      f8, f3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmuls    f4, f4, f0
     addi     r4, r1, 0x8
     li       r5, -0x1
     li       r6, -0x1
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r0, 0x20(r27)
     cmpwi    r0, 0x0
     bne      .L_00004D94
@@ -6391,17 +6470,17 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lfs      f1, 0xc(r27)
     fmuls    f0, f2, f0
     fmuls    f29, f1, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r5, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
     lis      r4, lbl_5_rodata_194@ha
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r5)
     fmr      f4, f30
     lfs      f2, lbl_5_rodata_194@l(r4)
     fmr      f5, f29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     addi     r4, r1, 0x8
     fmr      f7, f3
@@ -6410,10 +6489,10 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     li       r6, -0x1
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0xa4c(r30)
     addi     r3, r30, 0xa6c
     li       r5, 0x0
@@ -6500,13 +6579,13 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     lwz      r3, 0x294(r31)
     fsubs    f0, f0, f1
     fmuls    f29, f2, f0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r3, lbl_5_rodata_A4@ha
     lis      r4, lbl_5_rodata_F4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f1, lbl_5_rodata_F4@l(r4)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fmr      f2, f28
     addi     r4, r1, 0x8
     fmr      f4, f31
@@ -6518,23 +6597,23 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fmr      f7, f3
     li       r8, -0x1
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r3, 0x294(r31)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lis      r4, lbl_5_rodata_194@ha
     lis      r3, lbl_5_rodata_A4@ha
     lfs      f3, lbl_5_rodata_A4@l(r3)
     lis      r5, lbl_5_rodata_F4@ha
     lfs      f0, lbl_5_rodata_194@l(r4)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f4, f31
     lfs      f1, lbl_5_rodata_F4@l(r5)
     fmr      f5, f29
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     addi     r4, r1, 0x8
     fmr      f7, f3
@@ -6544,10 +6623,10 @@ extern "C" void FighterPanels_Draw(FighterPanels* fade)
     fadds    f2, f0, f30
     li       r7, -0x1
     li       r8, -0x1
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r31)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_00005150:
     addi     r28, r28, 0x1
     cmpwi    r28, 0x30
@@ -6648,7 +6727,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
 	s32 i;
 	s32 j;
 
-	if (fn_8001E6C8(lbl_8025C400 + 0xE7E24, 0x20006) == 0 && aim->_18 == NULL) {
+	if (IsGameSoundPlaying(gGame + SOUND_OFFSET, 0x20006) == 0 && aim->_18 == NULL) {
 		return;
 	}
 	PSMTXMultVec(m, &aim->_00, &pos);
@@ -6660,8 +6739,8 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
 		cx = aim->_18->_08;
 		cy = aim->_18->_0C;
 	}
-	fn_8019B56C(GAME_FIELD(void*, 0x290), 1, 4, 5, 15);
-	fn_8019B34C(GAME_FIELD(void*, 0x290), 12, 5);
+	SetGsBlendMode(GAME_FIELD(void*, tevOffset - 4), 1, 4, 5, 15);
+	SetGsLineWidth(GAME_FIELD(void*, tevOffset - 4), 12, 5);
 	for (i = 9; i > 0; i--) {
 		reticleSpin[i] = reticleSpin[i - 1];
 	}
@@ -6676,7 +6755,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
 			ring[i].y = cos(angle) * radius + cy;
 			ring[i].z = 0.0f;
 		}
-		fn_801990EC(lbl_8025C400, ring, -1, 65);
+		DrawGsLineStrip(gGame, ring, -1, 65);
 		inner = radius - 10.0f;
 		color = -1;
 		for (j = 0; j < 10; j++) {
@@ -6684,7 +6763,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
 				f32 angle = HALF_PI * i;
 				f32 s     = sin(angle + reticleSpin[j]);
 				f32 c     = cos(angle + reticleSpin[j]);
-				fn_801992BC(lbl_8025C400, 0, color, color, s * radius + cx, c * radius + cy, 0.0f, s * inner + cx, c * inner + cy, 0.0f);
+				DrawGsLineSegment(gGame, 0, color, color, s * radius + cx, c * radius + cy, 0.0f, s * inner + cx, c * inner + cy, 0.0f);
 			}
 			color = (color & ~0xFF) | (u8)(s32)(0.5f * (255.0f * (10 - j) / 10.0f));
 		}
@@ -6699,12 +6778,13 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
 			f32 c     = cos(angle);
 			u16 w;
 			u16 h;
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 0);
-			tex = ((CTexObj*)(lbl_8025C400 + 0x3D6C))->Init((TPLDescriptor*)(GAME_FIELD(u32*, 0x3D4C)[2] + 0x400), 0);
-			w   = GXGetTexObjWidth(&tex);
-			h   = GXGetTexObjHeight(&tex);
-			fn_80197800(lbl_8025C400, &tex, -1, -1, -1, -1, dist * s + cx, dist * c + cy, 0.0f, 1.1f * w, h, 0.0f, 0.0f, angle);
-			fn_8019AFA0(GAME_FIELD(void*, 0x294), 4);
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 0);
+			tex = ((CTexObj*)(gGame + paletteBufferOffset + 0x20))
+			          ->Init((TPLDescriptor*)(GAME_FIELD(u32*, paletteBufferOffset)[2] + reticleTextureOffset), 0);
+			w = GXGetTexObjWidth(&tex);
+			h = GXGetTexObjHeight(&tex);
+			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, dist * s + cx, dist * c + cy, 0.0f, 1.1f * w, h, 0.0f, 0.0f, angle);
+			SetGsTevMode(GAME_FIELD(void*, tevOffset), 4);
 		}
 	}
 }
@@ -6743,16 +6823,16 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     stfd     f18, 0x470(r1)
     psq_st   f18, 0x478(r1), 0, qr0
     stmw     r23, 0x44c(r1)
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     mr       r25, r3
-    addi     r3, r6, lbl_8025C400@l
+    addi     r3, r6, gGame@l
     lis      r6, 0x2
     addis    r3, r3, 0xe
     mr       r24, r4
     mr       r23, r5
     addi     r4, r6, 0x6
     addi     r3, r3, 0x7e24
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     bne      .L_000054A0
     lwz      r0, 0x18(r25)
@@ -6783,18 +6863,18 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     lfs      f22, 0x8(r3)
     lfs      f21, 0xc(r3)
 .L_000054F8:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x1
-    addi     r24, r3, lbl_8025C400@l
+    addi     r24, r3, gGame@l
     li       r5, 0x4
     lwz      r3, 0x290(r24)
     li       r6, 0x5
     li       r7, 0xf
-    bl       fn_8019B56C
+    bl       SetGsBlendMode
     lwz      r3, 0x290(r24)
     li       r4, 0xc
     li       r5, 0x5
-    bl       fn_8019B34C
+    bl       SetGsLineWidth
     lis      r4, reticleSpin@ha
     lis      r3, lbl_5_rodata_A4@ha
     addi     r29, r4, reticleSpin@l
@@ -6812,9 +6892,9 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     addi     r7, r6, lbl_5_rodata_110@l
     lfs      f23, 0x0(r28)
     stfs     f0, 0x20(r29)
-    lis      r6, lbl_8025C400@ha
+    lis      r6, gGame@ha
     lfs      f25, 0x0(r8)
-    addi     r25, r6, lbl_8025C400@l
+    addi     r25, r6, gGame@l
     lfs      f0, 0x18(r29)
     li       r27, 0x0
     lfd      f26, 0x0(r7)
@@ -6875,7 +6955,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     addi     r4, r1, 0x114
     li       r5, -0x1
     li       r6, 0x41
-    bl       fn_801990EC
+    bl       DrawGsLineStrip
     fsubs    f28, f20, f27
     mr       r26, r29
     li       r30, -0x1
@@ -6908,7 +6988,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     fmadds   f4, f19, f28, f22
     li       r4, 0x0
     fmadds   f5, f0, f29, f21
-    bl       fn_801992BC
+    bl       DrawGsLineSegment
     addi     r23, r23, 0x1
     cmpwi    r23, 0x5
     blt      .L_00005674
@@ -6933,23 +7013,23 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     addi     r27, r27, 0x1
     cmpwi    r27, 0x2
     blt      .L_000055D0
-    lis      r3, lbl_5_bss_44@ha
+    lis      r3, sReticleFrameInitialized@ha
     lis      r4, __vt__7CTexObj@ha
-    addi     r5, r3, lbl_5_bss_44@l
+    addi     r5, r3, sReticleFrameInitialized@l
     lbz      r0, 0x0(r5)
     addi     r3, r4, __vt__7CTexObj@l
     stw      r3, 0x110(r1)
     extsb.   r0, r0
     bne      .L_0000576C
     li       r0, 0x1
-    lis      r3, lbl_5_bss_40@ha
+    lis      r3, sReticleFrame@ha
     li       r4, 0x0
     stb      r0, 0x0(r5)
-    stw      r4, lbl_5_bss_40@l(r3)
+    stw      r4, sReticleFrame@l(r3)
 .L_0000576C:
-    lis      r3, lbl_5_bss_40@ha
+    lis      r3, sReticleFrame@ha
     lis      r9, lbl_5_rodata_1A4@ha
-    addi     r28, r3, lbl_5_bss_40@l
+    addi     r28, r3, sReticleFrame@l
     lis      r4, lbl_5_rodata_190@ha
     lwz      r10, 0x0(r28)
     lis      r3, lbl_5_rodata_108@ha
@@ -6965,9 +7045,9 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     lis      r5, lbl_5_rodata_1AC@ha
     addi     r6, r5, lbl_5_rodata_1AC@l
     stw      r0, 0x0(r28)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f28, 0x0(r11)
-    addi     r29, r5, lbl_8025C400@l
+    addi     r29, r5, gGame@l
     lfd      f27, 0x0(r10)
     lis      r5, lbl_5_rodata_A4@ha
     lfs      f26, 0x0(r9)
@@ -7014,7 +7094,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     frsp     f29, f1
     lwz      r3, 0x294(r29)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0x3d4c(r29)
     mr       r3, r27
     li       r5, 0x0
@@ -7089,10 +7169,10 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx m)
     fmuls    f4, f23, f4
     li       r8, -0x1
     fsubs    f5, f0, f20
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r29)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     addi     r26, r26, 0x1
     cmpwi    r26, 0x4
     blt      .L_000057F0
@@ -7151,7 +7231,6 @@ u8* soundCueTable[2];
 extern "C" void ShotList_Update(ShotList* list, u32 dt)
 {
 	u32 i;
-	s32 j;
 
 	for (i = 0; i < 5; i++) {
 		Shot* entry = &list->_00[i];
@@ -7169,7 +7248,8 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt)
 						item->_19 = false;
 					} else if (item->_04 != NULL && (item->_04->_228 & 0x10000)) {
 						item->_30->_28 = item;
-						item->_30->_10 += item->_30->_20[item->_2C];
+						s32 points     = item->_30->_20[item->_2C];
+						item->_30->_10 = points + item->_30->_10;
 						shotEvents.mFlags |= 1;
 					}
 					entry->_B4.mFlags |= 1;
@@ -7177,13 +7257,10 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt)
 					entry->_B4.mFlags |= 2;
 				}
 			} else {
-				entry->_1C.x = entry->_28.x * dt + entry->_1C.x;
-				entry->_1C.y = entry->_28.y * dt + entry->_1C.y;
-				entry->_1C.z = entry->_28.z * dt + entry->_1C.z;
-				for (j = 9; j > 0; j--) {
-					entry->_38[j] = entry->_38[j - 1];
-				}
-				entry->_38[0] = entry->_1C;
+				entry->mPosition.x = entry->mVelocity.x * dt + entry->mPosition.x;
+				entry->mPosition.y = entry->mVelocity.y * dt + entry->mPosition.y;
+				entry->mPosition.z = entry->mVelocity.z * dt + entry->mPosition.z;
+				entry->RecordPosition();
 			}
 		}
 		if (entry->_B4.mFlags & 1) {
@@ -7467,10 +7544,10 @@ void fighter::CCameraActionFighter::Update()
     addi     r3, r3, shotEvents@l
     li       r0, 0x0
     lis      r4, fn_5_6128@ha
-    lis      r5, lbl_5_bss_4@ha
+    lis      r5, sShotEventsDestructorChain@ha
     stw      r6, 0x4(r3)
     addi     r4, r4, fn_5_6128@l
-    addi     r5, r5, lbl_5_bss_4@l
+    addi     r5, r5, sShotEventsDestructorChain@l
     stw      r0, 0x0(r3)
     bl       __register_global_object
     lis      r6, __vt__22CInterfaceCameraAction@ha
@@ -7485,12 +7562,12 @@ void fighter::CCameraActionFighter::Update()
     li       r6, 0x0
     li       r0, 0x1
     lis      r4, fn_5_C@ha
-    lis      r5, lbl_5_bss_48@ha
+    lis      r5, sFighterCameraDestructorChain@ha
     stw      r9, 0x3c(r3)
     addi     r7, r7, __vt__Q27fighter20CCameraActionFighter@l
     addi     r4, r4, fn_5_C@l
     stw      r8, 0xc(r3)
-    addi     r5, r5, lbl_5_bss_48@l
+    addi     r5, r5, sFighterCameraDestructorChain@l
     stw      r8, 0x1c(r3)
     stw      r8, 0x2c(r3)
     stw      r7, 0x3c(r3)
@@ -7526,10 +7603,10 @@ void fighter::CCameraActionFighter::Update()
     bl       __construct_array
     lis      r3, fighterWork@ha
     lis      r4, fn_5_6034@ha
-    lis      r5, lbl_5_bss_112C@ha
+    lis      r5, sFighterWorkDestructorChain@ha
     addi     r3, r3, fighterWork@l
     addi     r4, r4, fn_5_6034@l
-    addi     r5, r5, lbl_5_bss_112C@l
+    addi     r5, r5, sFighterWorkDestructorChain@l
     bl       __register_global_object
     lwz      r0, 0x14(r1)
     mtlr     r0

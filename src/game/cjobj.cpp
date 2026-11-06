@@ -1,3 +1,6 @@
+#define CJOINT_SETTER_SECTION
+#pragma section RX ".text.jointdtors"
+#pragma section RX ".text.msgfontdtor"
 #include "game/cgame.h"
 #include "game/cjobjset.h"
 
@@ -12,6 +15,8 @@ extern void* __vt__7CObjVec[];
 extern void* __vt__5CJObj[];
 }
 
+#pragma section RX ".text.interfacedtors"
+
 // CJObj's weak copies, everything in it is inline
 
 /**
@@ -19,7 +24,8 @@ extern void* __vt__5CJObj[];
  * @note Size: 0x88
  */
 // todo: weak copy
-extern "C" CInterfaceCameraAction* __dt__22CInterfaceCameraActionFv(CInterfaceCameraAction* action, s32 flags)
+extern "C" __declspec(section ".text.interfacedtors") CInterfaceCameraAction*
+__dt__22CInterfaceCameraActionFv(CInterfaceCameraAction* action, s32 flags)
 {
 	if (action != NULL) {
 		*(void***)((u8*)action + 0x3C) = __vt__22CInterfaceCameraAction; // _3C vtable
@@ -38,7 +44,8 @@ extern "C" CInterfaceCameraAction* __dt__22CInterfaceCameraActionFv(CInterfaceCa
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CInterfaceInterpolation* __dt__23CInterfaceInterpolationFv(CInterfaceInterpolation* interp, s32 flags)
+extern "C" __declspec(section ".text.interfacedtors") CInterfaceInterpolation*
+__dt__23CInterfaceInterpolationFv(CInterfaceInterpolation* interp, s32 flags)
 {
 	if (interp != NULL) {
 		*(void***)interp = __vt__23CInterfaceInterpolation;
@@ -54,7 +61,7 @@ extern "C" CInterfaceInterpolation* __dt__23CInterfaceInterpolationFv(CInterface
  * @note Size: 0x88
  */
 // todo: weak copy
-extern "C" CCameraMemento* __dt__14CCameraMementoFv(CCameraMemento* memento, s32 flags)
+extern "C" __declspec(section ".text.interfacedtors") CCameraMemento* __dt__14CCameraMementoFv(CCameraMemento* memento, s32 flags)
 {
 	if (memento != NULL) {
 		*(void***)memento = __vt__14CCameraMemento;
@@ -73,7 +80,7 @@ extern "C" CCameraMemento* __dt__14CCameraMementoFv(CCameraMemento* memento, s32
  * @note Size: 0x48
  */
 // todo: weak copy
-extern "C" CMsgData* __dt__8CMsgDataFv(CMsgData* data, s32 flags)
+extern "C" __declspec(section ".text.interfacedtors") CMsgData* __dt__8CMsgDataFv(CMsgData* data, s32 flags)
 {
 	if (data != NULL) {
 #if defined(VERSION_JP)
@@ -139,177 +146,4 @@ extern "C" CJObj* __dt__5CJObjFv(CJObj* obj, s32 flags)
 		}
 	}
 	return obj;
-}
-
-/**
- * @note Address: 0x80017244
- * @note Size: 0xC4
- */
-extern "C" void SetTranslateX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
-{
-	jobj->CJObj::SetTranslateX(x, force);
-}
-
-/**
- * @note Address: 0x80017308
- * @note Size: 0xC4
- */
-extern "C" void SetTranslateY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
-{
-	jobj->CJObj::SetTranslateY(y, force);
-}
-
-/**
- * @note Address: 0x800173CC
- * @note Size: 0xC4
- */
-extern "C" void SetTranslateZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
-{
-	jobj->CJObj::SetTranslateZ(z, force);
-}
-
-/**
- * @note Address: 0x80017490
- * @note Size: 0xC4
- */
-extern "C" void SetScaleX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
-{
-	jobj->CJObj::SetScaleX(x, force);
-}
-
-/**
- * @note Address: 0x80017554
- * @note Size: 0xC4
- */
-extern "C" void SetScaleY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
-{
-	jobj->CJObj::SetScaleY(y, force);
-}
-
-/**
- * @note Address: 0x80017618
- * @note Size: 0xC4
- */
-extern "C" void SetScaleZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
-{
-	jobj->CJObj::SetScaleZ(z, force);
-}
-
-/**
- * @note Address: 0x800176DC
- * @note Size: 0x19C
- */
-extern "C" void SetRotationX__5CJObjFfl(CJObj* jobj, f32 x, s32 force)
-{
-	jobj->CJObj::SetRotationX(x, force);
-}
-
-/**
- * @note Address: 0x80017878
- * @note Size: 0x19C
- */
-extern "C" void SetRotationY__5CJObjFfl(CJObj* jobj, f32 y, s32 force)
-{
-	jobj->CJObj::SetRotationY(y, force);
-}
-
-/**
- * @note Address: 0x80017A14
- * @note Size: 0x19C
- */
-extern "C" void SetRotationZ__5CJObjFfl(CJObj* jobj, f32 z, s32 force)
-{
-	jobj->CJObj::SetRotationZ(z, force);
-}
-
-/**
- * @note Address: 0x80017BB0
- * @note Size: 0x16C
- */
-extern "C" void SetTranslate__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
-{
-	jobj->CJObj::SetTranslate(x, y, z, force);
-}
-
-/**
- * @note Address: 0x80017D1C
- * @note Size: 0x14C
- */
-extern "C" void SetTranslate__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
-{
-	jobj->CJObj::SetTranslate(v, force);
-}
-
-/**
- * @note Address: 0x80017E68
- * @note Size: 0x168
- */
-extern "C" void SetScale__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
-{
-	jobj->CJObj::SetScale(x, y, z, force);
-}
-
-/**
- * @note Address: 0x80017FD0
- * @note Size: 0x148
- */
-extern "C" void SetScale__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
-{
-	jobj->CJObj::SetScale(v, force);
-}
-
-/**
- * @note Address: 0x80018118
- * @note Size: 0x21C
- */
-extern "C" void SetRotation__5CJObjFfffl(CJObj* jobj, f32 x, f32 y, f32 z, s32 force)
-{
-	Quaternion q;
-
-	if (force == 0) {
-		static Vec zero;
-		// retail tests the cached translation here
-		if (!(jobj->mTranslate != MakeJObjVec(zero, x, y, z))) {
-			return;
-		}
-	}
-	jobj->mRotate.x = x;
-	jobj->mRotate.y = y;
-	jobj->mRotate.z = z;
-	if (jobj->mJObj->flags & USE_QUATERNION) {
-		EulerToQuat(&jobj->mRotate, &q);
-		HSD_JObjSetRotation(jobj->mJObj, &q);
-	} else {
-		HSD_JObjSetRotation(jobj->mJObj, (Quaternion*)&jobj->mRotate);
-	}
-}
-
-/**
- * @note Address: 0x80018334
- * @note Size: 0x1FC
- */
-extern "C" void SetRotation__5CJObjFRC3Vecl(CJObj* jobj, const Vec& v, s32 force)
-{
-	if (force == 0 && !(jobj->mRotate != v)) {
-		return;
-	}
-	jobj->mRotate.x = v.x;
-	jobj->mRotate.y = v.y;
-	jobj->mRotate.z = v.z;
-	if (jobj->mJObj->flags & USE_QUATERNION) {
-		Quaternion q;
-		EulerToQuat(&jobj->mRotate, &q);
-		HSD_JObjSetRotation(jobj->mJObj, &q);
-	} else {
-		HSD_JObjSetRotation(jobj->mJObj, (Quaternion*)&jobj->mRotate);
-	}
-}
-
-/**
- * @note Address: 0x80018530
- * @note Size: 0x80
- */
-extern "C" void SetAnimRate__5CJObjFfUl(CJObj* jobj, f32 rate, u32 mask)
-{
-	jobj->CJObj::SetAnimRate(rate, mask);
 }

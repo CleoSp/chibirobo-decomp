@@ -1,34 +1,39 @@
+#define CJOINT_SETTER_SECTION
+#pragma section RX ".text.jointdtors"
+#pragma section RX ".text.visibility"
+#pragma section RX ".text.callbacks"
+#pragma section RX ".text.stageinit"
 #include "Version.h"
 #include "game/cjobj.h"
 #include "game/cjobjset.h"
+#include "game/ccameraaction.h"
 
 extern "C" f32 PSVECDistance(Vec* a, Vec* b);
 
 // unused, but they sit at the start of this file's rodata
-static const f32 lbl_9_rodata_0[2][9] = {
+extern "C" const f32 sStage07VectorTemplates[2][9] = {
 	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 };
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
-#define MAINGAME_AT(type, offset) (*(type*)(lbl_8025C400 + (offset)))
+#define MAINGAME_AT(type, offset) (*(type*)(gGame + (offset)))
 
 #if defined(VERSION_JP)
-#define STAGE07_FLAG_LIST   MAINGAME_AT(void*, 0xE7114)
-#define STAGE07_SOUND       (&MAINGAME_AT(u8, 0xE713C))
-#define STAGE07_FIELD_E5DDC (&MAINGAME_AT(Vec, 0xE50F4))
+#define STAGE07_SCROLL_CAMERA MAINGAME_AT(CCameraActionScroll2*, 0xE7114)
+#define STAGE07_SOUND         (&MAINGAME_AT(u8, 0xE713C))
+#define STAGE07_FIELD_E5DDC   (&MAINGAME_AT(Vec, 0xE50F4))
 #else
-#define STAGE07_FLAG_LIST   MAINGAME_AT(void*, 0xE7DFC)
-#define STAGE07_SOUND       (&MAINGAME_AT(u8, 0xE7E24))
-#define STAGE07_FIELD_E5DDC (&MAINGAME_AT(Vec, 0xE5DDC))
+#define STAGE07_SCROLL_CAMERA MAINGAME_AT(CCameraActionScroll2*, 0xE7DFC)
+#define STAGE07_SOUND         (&MAINGAME_AT(u8, 0xE7E24))
+#define STAGE07_FIELD_E5DDC   (&MAINGAME_AT(Vec, 0xE5DDC))
 #endif
 
-extern "C" void fn_801469A8(void* obj, s32 value);
-extern "C" s32 fn_8001E6C8(void* obj, s32 id);
-extern "C" s32 fn_8001DF00(void* obj, Vec* pos, s32 arg);
-extern "C" void fn_8001E468(void* obj, s32 id, s32 arg, s32 arg2);
+extern "C" s32 IsGameSoundPlaying(void* obj, s32 id);
+extern "C" s32 GetSoundVolumeAtPosition(void* obj, Vec* pos, s32 arg);
+extern "C" void SetGameSfxVolume(void* obj, s32 id, s32 arg, s32 arg2);
 
 // in rel/trash.cpp and rel/fafa.cpp
 extern "C" void DrawTrashStack(void* arg);
@@ -90,7 +95,7 @@ struct Stage07Game {
 	Stage07Actor* GetActor(s32 index) const { return mActors[index]; }
 };
 
-#define STAGE07_GAME ((Stage07Game*)lbl_8025C400)
+#define STAGE07_GAME ((Stage07Game*)gGame)
 
 struct Stage07PoolEntry {
 	HSD_JObj* jobj; // _00
@@ -102,14 +107,14 @@ struct Stage07PoolEntry {
 	s32* _244; // _244 (JP: _23C)
 };
 
-extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values);
-extern "C" void SetObj37PartVisibility(s32 mode);
-extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdNop(s32 cmd, s32 arg, s32* arg2);
-extern "C" void DrawStage(void* arg);
+extern "C" __declspec(section ".text.visibility") s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values);
+extern "C" __declspec(section ".text.visibility") void SetObj37PartVisibility(s32 mode);
+extern "C" __declspec(section ".text.callbacks") s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2);
+extern "C" __declspec(section ".text.callbacks") s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2);
+extern "C" __declspec(section ".text.callbacks") s32 CmdNop(s32 cmd, s32 arg, s32* arg2);
+extern "C" __declspec(section ".text.callbacks") void DrawStage(void* arg);
 extern "C" void UpdateStage(void* arg);
-extern "C" void InitStage(void* arg);
+extern "C" __declspec(section ".text.stageinit") void InitStage(void* arg);
 
 typedef void (*RelSlotFunc)(void* arg);
 typedef s32 (*RelCmdFunc)(s32 cmd, s32 arg, s32* arg2);
@@ -133,12 +138,12 @@ RelCmdFunc _prolog_cmds[]    = {
  * @note Address: stage07 .text 0x0
  * @note Size: 0x78
  */
-extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
+extern "C" __declspec(section ".text.visibility") s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
 {
 	s32 i;
 
 	for (i = 0; i < count; i++) {
-		fn_801469A8(STAGE07_FLAG_LIST, values[i]);
+		STAGE07_SCROLL_CAMERA->AddHideObj(values[i]);
 	}
 	return 0;
 }
@@ -147,7 +152,7 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
  * @note Address: stage07 .text 0x78
  * @note Size: 0xF10
  */
-extern "C" void SetObj37PartVisibility(s32 mode)
+extern "C" __declspec(section ".text.visibility") void SetObj37PartVisibility(s32 mode)
 {
 	CJObj jobj;
 	s32 size = STAGE07_GAME->mPoolEntrySize;
@@ -218,7 +223,7 @@ extern "C" void SetObj37PartVisibility(s32 mode)
  * @note Address: stage07 .text 0x1058
  * @note Size: 0x28
  */
-extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.callbacks") s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2)
 {
 	SetObj37PartVisibility(arg2[0]);
 	return 0;
@@ -228,7 +233,7 @@ extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage07 .text 0x1080
  * @note Size: 0x28
  */
-extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.callbacks") s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2)
 {
 	SetFafaPartVisibility(arg2[0]);
 	return 0;
@@ -238,7 +243,7 @@ extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage07 .text 0x10A8
  * @note Size: 0x8
  */
-extern "C" s32 CmdNop(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.callbacks") s32 CmdNop(s32 cmd, s32 arg, s32* arg2)
 {
 	return 0;
 }
@@ -247,7 +252,7 @@ extern "C" s32 CmdNop(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage07 .text 0x10B0
  * @note Size: 0x20
  */
-extern "C" void DrawStage(void* arg)
+extern "C" __declspec(section ".text.callbacks") void DrawStage(void* arg)
 {
 	DrawTrashStack(arg);
 }
@@ -262,12 +267,12 @@ extern "C" void UpdateStage(void* arg)
 	void* obj = STAGE07_SOUND;
 	s32 i;
 
-	if (fn_8001E6C8(obj, 0x1000D)) {
+	if (IsGameSoundPlaying(obj, 0x1000D)) {
 		for (i = 0; i < STAGE07_GAME->mActorCount; i++) {
 			actor = STAGE07_GAME->GetActor(i);
 			if ((actor->_228 & 1) && (actor->_228 & 0x10000) && *actor->_238 == 0xD0) {
 				PSVECDistance(STAGE07_FIELD_E5DDC, &actor->_C8);
-				fn_8001E468(obj, 0x1000D, fn_8001DF00(obj, &actor->_C8, 1), 0);
+				SetGameSfxVolume(obj, 0x1000D, GetSoundVolumeAtPosition(obj, &actor->_C8, 1), 0);
 			}
 		}
 	}
@@ -277,22 +282,22 @@ extern "C" void UpdateStage(void* arg)
 /*
     stwu     r1, -0x30(r1)
     mflr     r0
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lis      r4, 0x1
     stw      r0, 0x34(r1)
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     addi     r4, r4, 0xd
     stmw     r25, 0x14(r1)
     addis    r27, r5, 0xe
     addi     r27, r27, 0x7e24
     mr       r25, r3
     mr       r3, r27
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     beq      .L_000011C4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r26, 0x0
-    addi     r30, r3, lbl_8025C400@l
+    addi     r30, r3, gGame@l
     addis    r29, r30, 0xe
     addis    r28, r30, 0x1
     b        .L_000011B8
@@ -325,13 +330,13 @@ extern "C" void UpdateStage(void* arg)
     mr       r3, r27
     addi     r4, r31, 0xc8
     li       r5, 0x1
-    bl       fn_8001DF00
+    bl       GetSoundVolumeAtPosition
     lis      r4, 0x1
     mr       r5, r3
     mr       r3, r27
     li       r6, 0x0
     addi     r4, r4, 0xd
-    bl       fn_8001E468
+    bl       SetGameSfxVolume
 .L_000011B0:
     addi     r30, r30, 0x4
     addi     r26, r26, 0x1
@@ -353,7 +358,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: stage07 .text 0x11E0
  * @note Size: 0x20
  */
-extern "C" void InitStage(void* arg)
+extern "C" __declspec(section ".text.stageinit") void InitStage(void* arg)
 {
 	InitTrash(arg);
 }

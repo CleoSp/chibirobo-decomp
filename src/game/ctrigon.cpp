@@ -1,4 +1,9 @@
 #include "Version.h"
+
+#pragma section RX ".text.trigonvertices"
+#pragma section RX ".text.trigonsearch"
+#pragma section RX ".text.trigonmesh"
+#pragma section RX ".text.trigoncheck"
 #include "game/ctrigon.h"
 #include "game/gmath.h"
 #include "game/mm.h"
@@ -34,24 +39,24 @@ void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys);
 typedef void* (*TrigonGetIdxFunc)(void* base, u8* dl);
 
 // the file runs backwards, these are defined further down
-static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* clr);
-static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx);
+int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* clr);
+int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx);
 extern "C" {
-static void TrigonGetVtxF32(const TRIGON_INFO* tri, Vec* out);
-static void TrigonGetVtxS16(const TRIGON_INFO* tri, Vec* out);
-static void TrigonGetVtxU16(const TRIGON_INFO* tri, Vec* out);
-static void TrigonGetVtxS8(const TRIGON_INFO* tri, Vec* out);
-static void TrigonGetVtxU8(const TRIGON_INFO* tri, Vec* out);
-static void* TrigonGetIdxF32U8(void* base, u8* dl);
-static void* TrigonGetIdxF32U16(void* base, u8* dl);
-static void* TrigonGetIdxS16U8(void* base, u8* dl);
-static void* TrigonGetIdxS16U16(void* base, u8* dl);
-static void* TrigonGetIdxU16U8(void* base, u8* dl);
-static void* TrigonGetIdxU16U16(void* base, u8* dl);
-static void* TrigonGetIdxS8U8(void* base, u8* dl);
-static void* TrigonGetIdxS8U16(void* base, u8* dl);
-static void* TrigonGetIdxU8U8(void* base, u8* dl);
-static void* TrigonGetIdxU8U16(void* base, u8* dl);
+void TrigonGetVtxF32(const TRIGON_INFO* tri, Vec* out);
+void TrigonGetVtxS16(const TRIGON_INFO* tri, Vec* out);
+void TrigonGetVtxU16(const TRIGON_INFO* tri, Vec* out);
+void TrigonGetVtxS8(const TRIGON_INFO* tri, Vec* out);
+void TrigonGetVtxU8(const TRIGON_INFO* tri, Vec* out);
+void* TrigonGetIdxF32U8(void* base, u8* dl);
+void* TrigonGetIdxF32U16(void* base, u8* dl);
+void* TrigonGetIdxS16U8(void* base, u8* dl);
+void* TrigonGetIdxS16U16(void* base, u8* dl);
+void* TrigonGetIdxU16U8(void* base, u8* dl);
+void* TrigonGetIdxU16U16(void* base, u8* dl);
+void* TrigonGetIdxS8U8(void* base, u8* dl);
+void* TrigonGetIdxS8U16(void* base, u8* dl);
+void* TrigonGetIdxU8U8(void* base, u8* dl);
+void* TrigonGetIdxU8U16(void* base, u8* dl);
 static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type);
 static int CompareTrigonDist(const void* a, const void* b);
 }
@@ -60,7 +65,7 @@ static int CompareTrigonDist(const void* a, const void* b);
  * @note Address: 0x801A60C4
  * @note Size: 0x4BC
  */
-void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys)
+__declspec(section ".text.trigonmesh") void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys)
 {
 	u32 totalVerts = 0;
 	u32 totalPolys = 0;
@@ -91,7 +96,7 @@ void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys)
  * @note Address: 0x801A6098
  * @note Size: 0x2C
  */
-static int CompareTrigonDist(const void* a, const void* b)
+__declspec(section ".text.trigonmesh") static int CompareTrigonDist(const void* a, const void* b)
 {
 	const TRIGON_INFO* ta = (const TRIGON_INFO*)a;
 	const TRIGON_INFO* tb = (const TRIGON_INFO*)b;
@@ -108,7 +113,7 @@ static int CompareTrigonDist(const void* a, const void* b)
  * @note Address: 0x801A5DF4
  * @note Size: 0x2A4
  */
-TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
+__declspec(section ".text.trigonmesh") TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
 {
 	mJObj = jobj;
 	HSD_JObjCountVertices(jobj, NULL, &mNumMax);
@@ -125,7 +130,7 @@ TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
 
 	// then again into one that fits
 	u32 size = mNum * sizeof(TRIGON_INFO);
-	mTri     = (TRIGON_INFO*)mm::Alloc((size + 31) & ~31, fn_801911B4("(tri:%4d * %2d)", mNum, sizeof(TRIGON_INFO)));
+	mTri     = (TRIGON_INFO*)mm::Alloc((size + 31) & ~31, FormatToStaticBuffer("(tri:%4d * %2d)", mNum, sizeof(TRIGON_INFO)));
 	if (mTri != NULL) {
 		mNum = 0;
 		HSD_JObjWalkTree(jobj, CollectTrigons, (f32**)this);
@@ -167,7 +172,7 @@ TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
  * @note Address: 0x801A5DB8
  * @note Size: 0x3C
  */
-void CTrigon::Release()
+__declspec(section ".text.trigonmesh") void CTrigon::Release()
 {
 	mm::Free(mTri, 1);
 	mTri = NULL;
@@ -177,7 +182,7 @@ void CTrigon::Release()
  * @note Address: 0x801A5B2C
  * @note Size: 0x28C
  */
-static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
+__declspec(section ".text.trigonmesh") static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
 {
 	CTrigon* trigon  = (CTrigon*)args;
 	TRIGON_INFO* tri = trigon->mTri;
@@ -222,8 +227,9 @@ static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
  * @note Address: 0x801A5AE4
  * @note Size: 0x48
  */
-// _trigonChecker's deleting dtor, the inline virtual from the class. lands weak after
-// ParsePObj since weak copies come out in reverse order of first use
+__declspec(section ".text.trigoncheck") inline _trigonChecker::~_trigonChecker()
+{
+}
 
 /**
  * @note Address: 0x801A57C0
@@ -231,7 +237,7 @@ static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
  */
 // too big to inline, so it ends up weak after ParsePObj. one statement less and
 // ParsePObj swallows all six calls
-inline bool _trigonChecker::Check()
+__declspec(section ".text.trigoncheck") inline bool _trigonChecker::Check()
 {
 	Vec v[3];
 	Vec e1;
@@ -246,7 +252,7 @@ inline bool _trigonChecker::Check()
 	// degenerate triangles never count
 	if (PSVECMag(&cross) > FLT_EPSILON) {
 		CVec normal;
-		fn_8018EE60(&v[0], &v[1], &v[2], &normal);
+		CalcTriangleNormal(&v[0], &v[1], &v[2], &normal);
 
 		// slope against the horizontal, keep anything that faces up
 		f32 xz    = sqrtf(normal.x * normal.x + normal.z * normal.z);
@@ -282,7 +288,7 @@ inline bool _trigonChecker::Check()
 	if (checker.Check()) {    \
 		*out = checker;       \
 		out++;                \
-		num++;                \
+		triangleCount++;      \
 	}
 
 static inline TrigonGetIdxFunc GetIdxFunc(int compType, int idxSize)
@@ -332,9 +338,10 @@ static inline TrigonGetVtxFunc GetVtxFunc(int compType)
  * @note Address: 0x801A50B8
  * @note Size: 0x708
  */
-static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
+#pragma push
+#pragma opt_propagation off
+int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 {
-	// NONMATCHING: regalloc, retail picks the accessor in r3 and moves it to r25 after, and loads display a few lines later
 	int posSize             = 0;
 	int stride              = GetVtxSize(pobj->verts, &posSize, NULL, NULL, NULL);
 	int compType            = pobj->verts->comp_type;
@@ -346,28 +353,28 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 	u8* dl  = pobj->display;
 	u8* end = dl + (pobj->n_display << 5);
 	_trigonChecker checker;
-	int num = 0;
+	int triangleCount = 0;
 	int i;
 
 	while (dl < end) {
-		u8 cmd = dl[0];
-		int n  = dl[1] << 8 | dl[2];
+		u32 opcode      = dl[0] & GX_OPCODE_MASK;
+		int vertexCount = dl[1] << 8 | dl[2];
 		dl += 3;
 
-		switch (cmd & GX_OPCODE_MASK) {
+		switch (opcode) {
 		case GX_NOP:
-			return num;
+			return triangleCount;
 		case GX_POINTS:
-			dl += stride * n;
+			dl += stride * vertexCount;
 			break;
 		case GX_LINES:
-			dl += stride * n;
+			dl += stride * vertexCount;
 			break;
 		case GX_LINESTRIP:
-			dl += stride * n;
+			dl += stride * vertexCount;
 			break;
 		case GX_TRIANGLES:
-			for (i = 0; i < n / 3; i++) {
+			for (i = 0; i < vertexCount / 3; i++) {
 				SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
 				ADD_TRIGON();
 				dl += stride * 3;
@@ -375,7 +382,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			break;
 		case GX_TRIANGLESTRIP:
 			// every other triangle of a strip winds backwards
-			for (i = 2; i < n; i++) {
+			for (i = 2; i < vertexCount; i++) {
 				if (i & 1) {
 					SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride * 2), getIdx(vtx, dl + stride));
 				} else {
@@ -388,7 +395,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			break;
 		case GX_TRIANGLEFAN: {
 			void* first = getIdx(vtx, dl);
-			for (i = 2; i < n; i++) {
+			for (i = 2; i < vertexCount; i++) {
 				SET_TRIGON(first, getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
 				ADD_TRIGON();
 				dl += stride;
@@ -397,7 +404,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			break;
 		}
 		case GX_QUADS:
-			for (i = 0; i < n / 4; i++) {
+			for (i = 0; i < vertexCount / 4; i++) {
 				SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
 				ADD_TRIGON();
 				SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride * 2), getIdx(vtx, dl + stride * 3));
@@ -407,8 +414,9 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			break;
 		}
 	}
-	return num;
+	return triangleCount;
 }
+#pragma pop
 /*
     stwu     r1, -0x80(r1)
     mflr     r0
@@ -911,7 +919,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
  * @note Address: 0x801A4F28
  * @note Size: 0x190
  */
-static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* clr)
+__declspec(section ".text.trigonvertices") int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* clr)
 {
 	int size    = 0;
 	int posSize = 0;
@@ -1018,7 +1026,7 @@ static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* 
  * @note Address: 0x801A4F18
  * @note Size: 0x10
  */
-static void* TrigonGetIdxU8U16(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxU8U16(void* base, u8* dl)
 {
 	return (u8*)base + *(u16*)dl * 3;
 }
@@ -1027,7 +1035,7 @@ static void* TrigonGetIdxU8U16(void* base, u8* dl)
  * @note Address: 0x801A4F08
  * @note Size: 0x10
  */
-static void* TrigonGetIdxU8U8(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxU8U8(void* base, u8* dl)
 {
 	return (u8*)base + *(u8*)dl * 3;
 }
@@ -1036,7 +1044,7 @@ static void* TrigonGetIdxU8U8(void* base, u8* dl)
  * @note Address: 0x801A4EF8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxS8U16(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxS8U16(void* base, u8* dl)
 {
 	return (s8*)base + *(u16*)dl * 3;
 }
@@ -1045,7 +1053,7 @@ static void* TrigonGetIdxS8U16(void* base, u8* dl)
  * @note Address: 0x801A4EE8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxS8U8(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxS8U8(void* base, u8* dl)
 {
 	return (s8*)base + *(u8*)dl * 3;
 }
@@ -1054,7 +1062,7 @@ static void* TrigonGetIdxS8U8(void* base, u8* dl)
  * @note Address: 0x801A4ED8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxU16U16(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxU16U16(void* base, u8* dl)
 {
 	return (u16*)base + *(u16*)dl * 3;
 }
@@ -1063,7 +1071,7 @@ static void* TrigonGetIdxU16U16(void* base, u8* dl)
  * @note Address: 0x801A4EC8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxU16U8(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxU16U8(void* base, u8* dl)
 {
 	return (u16*)base + *(u8*)dl * 3;
 }
@@ -1072,7 +1080,7 @@ static void* TrigonGetIdxU16U8(void* base, u8* dl)
  * @note Address: 0x801A4EB8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxS16U16(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxS16U16(void* base, u8* dl)
 {
 	return (s16*)base + *(u16*)dl * 3;
 }
@@ -1081,7 +1089,7 @@ static void* TrigonGetIdxS16U16(void* base, u8* dl)
  * @note Address: 0x801A4EA8
  * @note Size: 0x10
  */
-static void* TrigonGetIdxS16U8(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxS16U8(void* base, u8* dl)
 {
 	return (s16*)base + *(u8*)dl * 3;
 }
@@ -1090,7 +1098,7 @@ static void* TrigonGetIdxS16U8(void* base, u8* dl)
  * @note Address: 0x801A4E98
  * @note Size: 0x10
  */
-static void* TrigonGetIdxF32U16(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxF32U16(void* base, u8* dl)
 {
 	return (f32*)base + *(u16*)dl * 3;
 }
@@ -1099,7 +1107,7 @@ static void* TrigonGetIdxF32U16(void* base, u8* dl)
  * @note Address: 0x801A4E88
  * @note Size: 0x10
  */
-static void* TrigonGetIdxF32U8(void* base, u8* dl)
+__declspec(section ".text.trigonvertices") void* TrigonGetIdxF32U8(void* base, u8* dl)
 {
 	return (f32*)base + *(u8*)dl * 3;
 }
@@ -1108,7 +1116,7 @@ static void* TrigonGetIdxF32U8(void* base, u8* dl)
  * @note Address: 0x801A4CA0
  * @note Size: 0x1E8
  */
-static void TrigonGetVtxU8(const TRIGON_INFO* tri, Vec* out)
+__declspec(section ".text.trigonvertices") void TrigonGetVtxU8(const TRIGON_INFO* tri, Vec* out)
 {
 	int i;
 	int scale = 1 << tri->mFrac;
@@ -1127,7 +1135,7 @@ static void TrigonGetVtxU8(const TRIGON_INFO* tri, Vec* out)
  * @note Address: 0x801A4A74
  * @note Size: 0x22C
  */
-static void TrigonGetVtxS8(const TRIGON_INFO* tri, Vec* out)
+__declspec(section ".text.trigonvertices") void TrigonGetVtxS8(const TRIGON_INFO* tri, Vec* out)
 {
 	int i;
 	int scale = 1 << tri->mFrac;
@@ -1146,7 +1154,7 @@ static void TrigonGetVtxS8(const TRIGON_INFO* tri, Vec* out)
  * @note Address: 0x801A488C
  * @note Size: 0x1E8
  */
-static void TrigonGetVtxU16(const TRIGON_INFO* tri, Vec* out)
+__declspec(section ".text.trigonvertices") void TrigonGetVtxU16(const TRIGON_INFO* tri, Vec* out)
 {
 	int i;
 	int scale = 1 << tri->mFrac;
@@ -1165,7 +1173,7 @@ static void TrigonGetVtxU16(const TRIGON_INFO* tri, Vec* out)
  * @note Address: 0x801A4684
  * @note Size: 0x208
  */
-static void TrigonGetVtxS16(const TRIGON_INFO* tri, Vec* out)
+__declspec(section ".text.trigonvertices") void TrigonGetVtxS16(const TRIGON_INFO* tri, Vec* out)
 {
 	int i;
 	int scale = 1 << tri->mFrac;
@@ -1184,7 +1192,7 @@ static void TrigonGetVtxS16(const TRIGON_INFO* tri, Vec* out)
  * @note Address: 0x801A45F8
  * @note Size: 0x8C
  */
-static void TrigonGetVtxF32(const TRIGON_INFO* tri, Vec* out)
+__declspec(section ".text.trigonvertices") void TrigonGetVtxF32(const TRIGON_INFO* tri, Vec* out)
 {
 	int i;
 
@@ -1201,9 +1209,9 @@ static void TrigonGetVtxF32(const TRIGON_INFO* tri, Vec* out)
  * @note Size: 0x1D0
  */
 #if defined(VERSION_JP)
-int CTrigon::Check(Vec* pos, f32* floorY, Vec* tri)
+__declspec(section ".text.trigonsearch") int CTrigon::Check(Vec* pos, f32* floorY, Vec* tri)
 #else
-int CTrigon::Search(Vec* pos, f32* floorY)
+__declspec(section ".text.trigonsearch") int CTrigon::Search(Vec* pos, f32* floorY)
 #endif
 {
 	Vec* corner2;
@@ -1244,7 +1252,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
 		if ((u32)k < num) {
 			t = &list[k];
 			t->mGetVtx(t, v);
-			if (t->mColor != 0 && fn_8018EC6C(pos, &v[0], corner1, corner2)) {
+			if (t->mColor != 0 && IsPointInsideTriangleXZ(pos, &v[0], corner1, corner2)) {
 				found = k;
 				break;
 			}
@@ -1253,7 +1261,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
 		if (k >= 0) {
 			t = &list[k];
 			t->mGetVtx(t, v);
-			if (t->mColor != 0 && fn_8018EC6C(pos, &v[0], corner1, corner2)) {
+			if (t->mColor != 0 && IsPointInsideTriangleXZ(pos, &v[0], corner1, corner2)) {
 				found = k;
 				break;
 			}
@@ -1265,7 +1273,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
 	if (found >= 0) {
 		if (floorY != NULL) {
 			CVec hit;
-			fn_8018E8A4(&v[0], corner1, corner2, pos, &hit);
+			IntersectVerticalLineWithTrianglePlane(&v[0], corner1, corner2, pos, &hit);
 			*floorY = hit.y;
 		}
 		if (tri != NULL) {
@@ -1275,7 +1283,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
 #else
 	if (found >= 0 && floorY != NULL) {
 		CVec hit;
-		fn_8018E8A4(&v[0], corner1, corner2, pos, &hit);
+		IntersectVerticalLineWithTrianglePlane(&v[0], corner1, corner2, pos, &hit);
 		*floorY = hit.y;
 	}
 #endif
@@ -1350,7 +1358,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
     mr       r5, r30
     mr       r6, r31
     addi     r4, r1, 0x18
-    bl       fn_8018EC6C
+    bl       IsPointInsideTriangleXZ
     cmpwi    r3, 0x0
     beq      .L_801A4530
     mr       r29, r21
@@ -1373,7 +1381,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
     mr       r5, r30
     mr       r6, r31
     addi     r4, r1, 0x18
-    bl       fn_8018EC6C
+    bl       IsPointInsideTriangleXZ
     cmpwi    r3, 0x0
     beq      .L_801A4588
     mr       r29, r21
@@ -1397,7 +1405,7 @@ int CTrigon::Search(Vec* pos, f32* floorY)
     mr       r6, r22
     addi     r3, r1, 0x18
     addi     r7, r1, 0x8
-    bl       fn_8018E8A4
+    bl       IntersectVerticalLineWithTrianglePlane
     lfs      f0, 0xc(r1)
     lis      r3, __vt__4CVec@ha
     addi     r0, r3, __vt__4CVec@l
@@ -1419,7 +1427,8 @@ int CTrigon::Search(Vec* pos, f32* floorY)
  */
 // japan has the search written straight into Check, see Search above
 #if !defined(VERSION_JP)
-int CTrigon::Check(Vec* pos, f32* floorY, Vec* tri)
+#pragma section RX ".text.trigonfloorcheck"
+__declspec(section ".text.trigonfloorcheck") int CTrigon::Check(Vec* pos, f32* floorY, Vec* tri)
 {
 	int idx = Search(pos, floorY);
 	if (idx >= 0 && tri != NULL) {

@@ -11,6 +11,8 @@ breaks the hash without this. Retail fills:
     (GC/1.2.5n is small_data, everything else small_sections):
       small_sections     any section 0x80 or smaller (MSL, Runtime, TRK)
       small_data         .sdata and .sdata2 only (SDK, HSD)
+      small_data+data_word_tail    keep zero padding to the last data word boundary
+      small_data+rodata_word_tail  keep zero padding to the last rodata word boundary
       small_data+data    plus .data (a few HSD objects)
       small_data+rodata  plus .rodata (tobj)
   - every gap in extab, there's only two, after a table in Gecko_ExceptionPPC
@@ -41,7 +43,7 @@ def fills_inside(rule: str, section: str, size: int) -> bool:
         rule = "small_sections"
     if rule == "small_sections":
         return size <= SMALL_SECTION
-    if rule == "small_data":
+    if rule in ("small_data", "small_data+data_word_tail", "small_data+rodata_word_tail"):
         return section in SMALL_DATA
     if rule == "small_data+data":
         return section in SMALL_DATA or section == ".data"
@@ -113,6 +115,9 @@ def main() -> None:
         for (_, end, obj, syms), (start, _, _, _) in zip(ranges, ranges[1:]):
             if syms:
                 end = max(e for _, e in syms)
+            # A split inside a retail string pool keeps the last string's zero-filled word.
+            if section in (".data", ".rodata") and compilers.get(obj) == f"small_data+{section[1:]}_word_tail":
+                end = (end + 3) & ~3
             if 0 < start - end < 0x20:
                 fill(end, start, f"after {obj} in {section}")
         # rule 2, inside objects built from source

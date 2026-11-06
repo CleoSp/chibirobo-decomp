@@ -22,9 +22,34 @@ rel/module.c:
 	.text       start:0x00000C5C end:0x00000E14
 	.rodata     start:0x00000070 end:0x000000E0
 
-rel/ana.cpp:
-	.text       start:0x00000E14 end:0x000023A8
+rel/anavectordtor.cpp:
+	.text       start:0x00000E14 end:0x00000E5C
+	.rodata     start:0x000000E0 end:0x000000F0
+	.data       start:0x00000358 end:0x00000380
+
+rel/anadraw.cpp:
+	.text       start:0x00000E5C end:0x00001158
+
+rel/anajoints.cpp:
+	.text       start:0x00001158 end:0x000015B8
+	.rodata     start:0x000000F0 end:0x00000128
+	.data       start:0x00000380 end:0x000003A0
+
+rel/anaplacement.cpp:
+	.text       start:0x000015B8 end:0x00001A3C
+
+rel/anaactive.cpp:
+	.text       start:0x00001A3C end:0x00001A48
+
+rel/anainteraction.cpp:
+	.text       start:0x00001A48 end:0x00001B60
+
+rel/anacommands.cpp:
+	.text       start:0x00001B60 end:0x00002190
+
+rel/anaworld/ana.cpp:
+	.text       start:0x00002190 end:0x000023A8
 	.ctors      start:0x00000004 end:0x00000008
-	.rodata     start:0x000000E0 end:0x000001D8
-	.data       start:0x00000358 end:0x000003E8
+	.rodata     start:0x00000128 end:0x000001D8
+	.data       start:0x000003A0 end:0x000003E8
 	.bss        start:0x00000090 end:0x00000408

@@ -1,6 +1,11 @@
 # object_base holds the disc image; dtk reads everything through it.
 object_base: orig/GGTE01
 object: sys/main.dol
+# Retail retains the spider translation unit’s compiler-emitted type names.
+# Keep the state block referenced indirectly via the shared Army data pool.
+# Font initialization indexes the pooled constants from the preceding read-only data anchor.
+# The equipment menu indexes these vertices from its shared read-only data base.
+force_active: [sPObjJointEnvelopeAssert, sParticleDisplayFile, sParticleObjectHeader, sParticleObjectRefCountAssert, psdisp_ident, sParticleUnknownBlendModeMessage, sScrollRoomBaseCounts, sScrollMarkerPosition, sScrollMarker162Offset, sScrollMarker165Offset, sScrollMarker163Offset, sScrollDoorMarkerPosition, sScrollDoorRearOffset, sScrollDoorRaisedOffset, sScrollDoorFarOffset, sScrollDoorProjectionOffset, sScrollLetickerMarkerOffset, sScrollPlayerMarkerOffset, sScrollTypeNameGXTexObj, sAreaCameraSourceFile, sAreaCameraSetEyeError, sAreaCameraUnknownTarget, sAreaCameraSelectionFormat, sAreaCameraOverlayTitle, sAreaCameraSetEyeLabel, sMapCameraAdjacentSides, sMapCameraOpaqueDebugColors, sMapCameraTranslucentDebugColors, sMapCameraUnitX, sMapCameraUnitY, sMapCameraEdgeNormalDown, sMapCameraStateFormat, sMapCameraDrawDebug3dFormat, sMapCameraAreaFormat, sMapCameraOverlayTitle, sMapCameraFlagsFormat, sMapCameraPlayerCollisionFormat, sMapCameraEyeCollisionFormat, sMapCameraHitCollisionFormat, sMapCameraIntersectionFormat, sMapCameraPlaneIntersectionFormat, sMapCameraCrossPointFormat, sMapCameraResetMessage, sMapCameraDisplacementFormat, sMapCameraSpringStateFormat, sMapCameraTypeNameCamAreaInfo, sMapCameraTypeNameCVectorEaseInOutInterpolation, sMapCameraTypeNameCInterfaceVectorInterpolation, sMapCameraTypeNameCInterpolationEaseOutDivide, sMapCameraTypeNameCInterfaceInterpolation, sMapCameraTypeNameCVectorEaseOutDivideInterpolation, sPlayerLookMarkerHeightJointPath, sPlayerDurationGaugeProjectionOffset, sPlayerAnimationGaugeProjectionOffset, sPlayerDustVelocityInitializer, sSelectableCostumeTypes, sPlayerLookAtHeadJointPath, sPlayerGroundShadowRotation, sPlayerPopperMountJointPath, sFloorCollisionPrismCorners, sFloorCollisionSegmentEnds, sFloorFacingPrismOrigin, sFloorFacingPrismCorners, sFloorExtentPrismCorners, sFloorExtentSegmentEnds, sFloorHeightPrismCorners, sFloorCrossingPrismCorners, sFloorCrossingSegmentEnds, sMessageWindowColorAlignment, sAnimationJointRotationCondition, sAnimationTranslationField, __vt__6CJAnim, sEventBaseTypesCVec, gEventTypeInfoCVec, sTypeNameCEvtTimer, sEventTypeNameCStatus64, sEventTypeNameAttrInfo, sEventTypeNameCEvtData, sEventTypeNameCAnmQueue, sEventTypeNameCCameraMemento, sTypeNameCEvtQueueEx, sTypeNameCEvtQueue, sTypeNameCEvtVars, sEventTypeNameEVT_VARS, sTypeNameCEvtFlags, sEventTypeNameEVT_FLAGS, __vt__11CEvtQueueEx, __vt__9CEvtQueue, __vt__8CEvtVars, __vt__9CEvtFlags, gTypeInfoCEvtTimer, sEventTypeInfoAlignment, __vt__7Globals, __vt__7CModule, __vt__7EnvInfo, __vt__5Stage, gTypeInfoInfoPoint, gGlobalResourceFileName, gHudPauseLabel, sHudJointRotationCondition, sHudGXTexObjTypeName, sInfoPointTypeName, sToy0FScaleJointPath, sToy110VisibilityJointPath, sToy156ScaleFirstJointPath, sToy156ScaleSecondJointPath, sPlayerLeftEyeJointPath, sPlayerRightEyeJointPath, sSpiderBossPatrolPoints, sStatusOverviewNeighbors, sStatusCalloutLabelDefaults, sPCDepositDigitDefaults, sPCScrapDigitDefaults, sPCDepositDigitHighlightVertices, sPCDepositConfirmationHighlightVertices, sPCScrapDigitHighlightVertices, sPCUpperFadeBandVertices, sPCLowerFadeBandVertices, sPCHeadingLineVertices, sPCHeadingElbowVertices, sPCHeadingPhaseThreeTipVertices, sPCHeadingPhaseFourTipVertices, sPCScreenBandVertices, sPCProgressPanelVertices, sShopHistoryBackgroundVertices, sShopHistoryUpperMaskVertices, sShopHistoryLowerMaskVertices, sShopCatalogBackgroundVertices, sShopCatalogUpperMaskVertices, sShopCatalogLowerMaskVertices, sMenuBannerUpperVertices, sMenuBannerLowerVertices, sStatusCalloutVertices, sBeveledMenuRectVertices, sMenuRectShadowVertices, sMenuPanelBackgroundVertices, sDiscardCountPanelVertices, sPCRecyclePanelVertices, sPCRankingsVertices, sPCPanelBackgroundVertices, sMainMenuStatusLabel, sMainMenuMemoryCardLabel, sMainMenuSelectStageLabel, sTitleEulerCondition, sTitleTranslationCondition, gTitleTexturePath, gTitleDemoStartPosition, sEquipmentRingScreenOffset, pcChoiceArt, sFontGlyphImageHeader, sSpiderTypeNameCStatus64, sSpiderTypeNameCoordInfo, sSpiderTypeNameAttrInfo, sSpiderTypeNameCEvtData, sSpiderTypeNameCAnmQueue, StateGuard__8XObjArmyFv]
 hash: 103c68e107b691d905306ecb6bbc43ea44893157
 symbols: config/GGTE01/symbols.txt
 splits: config/GGTE01/splits.txt
@@ -25,6 +30,7 @@ modules:
   symbols: config/GGTE01/hori/symbols.txt
   splits: config/GGTE01/hori/splits.txt
 - object: files/qp.bin:rel/shun.rel
+  force_active: [sShunPromptRedOn, sShunPositionScalePairs]
   hash: 9b9490416f761e4863e3f14334174496df5b33c5
   symbols: config/GGTE01/shun/symbols.txt
   splits: config/GGTE01/shun/splits.txt
@@ -33,6 +39,7 @@ modules:
   symbols: config/GGTE01/stage01/symbols.txt
   splits: config/GGTE01/stage01/splits.txt
 - object: files/qp.bin:rel/stage02.rel
+  force_active: [__sinit_rouka_cpp]
   hash: 359cc0ee3b0ecf7df8713730096d974848da0248
   symbols: config/GGTE01/stage02/symbols.txt
   splits: config/GGTE01/stage02/splits.txt

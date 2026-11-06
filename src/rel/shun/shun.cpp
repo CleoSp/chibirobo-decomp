@@ -1,69 +1,35 @@
+#ifdef SHUN_JOINT_TRANSFORMS
+#include "game/shunconstantpool.inc"
+#define CJOINT_SETTER_SECTION
+#pragma section RX ".text.jointdtors"
+#define SHUN_CONDITION_jobj                  sShunJointCondition
+#define SHUN_CONDITION_rotate                sShunRotationCondition
+#define SHUN_CONDITION_scale                 sShunScaleCondition
+#define SHUN_CONDITION_mtx                   "mtx"
+#define JOBJ_H_ASSERT(line, cond)            ((cond) ? (void)0 : __assert(sShunJointHeader, line, SHUN_CONDITION_##cond))
+#define JOBJ_H_ASSERT_TEXT(line, cond, text) ((cond) ? (void)0 : __assert(sShunJointHeader, line, text))
+#define JOBJ_EULER_CONDITION                 sShunEulerRotationCondition
+#define JOBJ_TRANSLATION_CONDITION           sShunTranslationCondition
+#endif
+#define CJOINT_AXIS_SETTER_SECTION
+#pragma section RX ".text.shunonoff"
 #include "game/cjobj.h"
 #include "game/cjobjset.h"
 #include "Version.h"
+#include "game/video.h"
 extern "C" {
 #include <sysdolphin/aobj.h>
 #include <sysdolphin/mtx.h>
 }
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
-struct ShunObj {
-#if defined(VERSION_GGTJ01_01)
-	u8 _00[0x220]; // _00
+#if defined(VERSION_JP)
+#define SHUN_PLAYER() (*(RoboView**)(gGame + 0x9674))
 #else
-	u8 _00[0x228]; // _00
+#define SHUN_PLAYER() (*(RoboView**)(gGame + 0x96BC))
 #endif
-	u64 _228; // _228, JP _220
-};
-#if defined(VERSION_GGTJ01_01)
-typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x228 ? 1 : -1];
-#else
-typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x230 ? 1 : -1];
-#endif
-
-struct ShunObjList {
-	void* _00; // _00
-};
-
-struct SavedObjFlag {
-	s32 mId;  // _00
-	u8 mFlag; // _04
-};
-
-struct SavedObjFlagList {
-	void Apply(s32 mode);
-
-	SavedObjFlag mEntries[0x100]; // _00
-	s32 mCount;                   // _800
-};
-
-extern "C" void fn_800F53F8(s32);
-extern "C" ShunObj* fn_8007F570(ShunObjList* list, s16 id);
-extern "C" void fn_80066B9C(void* obj, s32 arg);
-extern "C" s32 fn_80066A84(void* obj);
-extern "C" void fn_80066BFC(void* obj);
-extern "C" void fn_80066BF0(void* obj);
-extern "C" void fn_8006613C(void* obj, s32, s32);
-extern "C" void SetFafaPartVisibility(s32 arg);
-
-#if defined(VERSION_GGTJ01_01)
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D038))
-#else
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D080))
-#endif
-#define SHUN_8F38() ((void*)(lbl_8025C400 + 0x8F38))
-#define SHUN_96BC() (*(RoboView**)(lbl_8025C400 + 0x96BC))
-
-inline ShunObj* ShunFindObj(s16 id)
-{
-	ShunObjList* list = SHUN_OBJ_LIST();
-	if (list->_00 != NULL) {
-		return fn_8007F570(list, id);
-	}
-	return NULL;
-}
 
 // object at CGame + 0x96BC, a CJObj subclass
 class RoboView : public CJObj {
@@ -83,259 +49,36 @@ public:
 	virtual void vf_7C();
 	virtual void vf_80(s32, s32, s32, s32, s32, f32, f32, f32, f32);
 
-	u8 _38[0x980 - 0x38];     // _38
-	u32 _980;                 // _980
-	u8 _984[0x12DF4 - 0x984]; // _984
-	s32 _12DF4;               // _12DF4
+#if defined(VERSION_JP)
+	u8 _38[0x970 - 0x38];
+	u32 _980; // _970 in Japan
+	u8 _984[0x12CF4 - 0x974];
+#else
+	u8 _38[0x980 - 0x38];
+	u32 _980;
+	u8 _984[0x12DF4 - 0x984];
+#endif
+	s32 _12DF4; // _12CF4 in Japan
 };
 
 struct OnOffWork {
-	s32 _00;      // _00
-	u8 _04[0x4];  // _04
-	s32 _08;      // _08
-	u8 _0C[0x2C]; // _0C
-	CVec _38[3];  // _38
-	s32 _68;      // _68
-	u8 _6C[0xC];  // _6C
-	s32 _78;      // _78
-	s32 _7C;      // _7C
-	u8 _80[0x4];  // _80
-	s32 _84;      // _84
-	CStatus _88;  // _88
+	s32 mTimeLimitFrames; // _00
+	u8 _04[0x4];          // _04
+	s32 _08;              // _08
+	u8 _0C[0x2C];         // _0C
+	CVec _38[3];          // _38
+	s32 _68;              // _68
+	u8 _6C[0xC];          // _6C
+	s32 _78;              // _78
+	s32 _7C;              // _7C
+	u8 _80[0x4];          // _80
+	s32 mMode;            // _84
+	CStatus _88;          // _88
 };
 
-static SavedObjFlagList savedObjFlags;
-static OnOffWork onOffWork;
+OnOffWork onOffWork;
 
-extern "C" {
-s32 CmdSetJunkUnkoFlag(s32 cmd, s32 count, s32* args);
-s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args);
-s32 CmdSaveObjFlag(s32 cmd, s32 count, s32* args);
-s32 CmdClearSavedObjFlags(s32 cmd, s32 count, s32* args);
-s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args);
-s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args);
-s32 CmdShowTimer(s32 cmd, s32 count, s32* args);
-s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args);
-s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args);
-s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args);
-s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args);
-s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args);
-s32 CmdResetOnOff(s32 cmd, s32 count, s32* args);
-s32 CmdPrintArgs(s32 cmd, s32 count, s32* args);
-void fn_3_7F0(void* arg);
-void DrawStageHud(void* arg);
-void UpdateStage(void* arg);
-void InitStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
-
-RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, fn_3_7F0, NULL };
-RelCmdFunc _prolog_cmds[]    = {
-    CmdPrintArgs,          CmdResetOnOff,      CmdStartOnOff0,           CmdStartOnOff1,
-    CmdStartOnOff2,        CmdCheckOnOffFlag,  CmdSetFafaPartVisibility, CmdShowTimer,
-    CmdSetTimerRunning,    CmdSetOrGetTimer,   CmdClearSavedObjFlags,    CmdSaveObjFlag,
-    CmdApplySavedObjFlags, CmdSetJunkUnkoFlag,
-};
-}
-
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline void SavedObjFlagList::Apply(s32 mode)
-{
-	s32 i;
-	ShunObj* obj;
-
-	if (mode != 0) {
-		if (mCount > 0) {
-			s32 j;
-			for (j = 0; j < mCount; j++) {
-				if (mEntries[j].mId == -1) {
-					break;
-				}
-				obj = ShunFindObj(mEntries[j].mId);
-				if (mEntries[j].mFlag & 1) {
-					obj->_228 |= 0x10000;
-				}
-			}
-		}
-	} else {
-		if (mCount > 0) {
-			for (i = 0; i < mCount; i++) {
-				if (mEntries[i].mId == -1) {
-					break;
-				}
-				obj = ShunFindObj(mEntries[i].mId);
-				obj->_228 &= ~0x10000ULL;
-			}
-		}
-	}
-}
-
-/**
- * @note Address: shun .text 0x0
- * @note Size: 0x40
- */
-extern "C" s32 CmdSetJunkUnkoFlag(s32 cmd, s32 count, s32* args)
-{
-	if (args[0] != 0) {
-		fn_800F53F8(1);
-	} else {
-		fn_800F53F8(0);
-	}
-	return 0;
-}
-
-/**
- * @note Address: shun .text 0x40
- * @note Size: 0x158
- */
-extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
-{
-	savedObjFlags.Apply(args[0]);
-	return 0;
-}
-// CmdApplySavedObjFlags
-/*
-    stwu     r1, -0x20(r1)
-    mflr     r0
-    stw      r0, 0x24(r1)
-    stmw     r27, 0xc(r1)
-    lwz      r0, 0x0(r5)
-    cmpwi    r0, 0x0
-    beq      .L_000000EC
-    lis      r3, savedObjFlags@ha
-    addi     r30, r3, savedObjFlags@l
-    lwz      r0, 0x800(r30)
-    cmpwi    r0, 0x0
-    ble      .L_00000180
-    lis      r3, lbl_8025C400@ha
-    mr       r29, r30
-    addi     r3, r3, lbl_8025C400@l
-    li       r31, 0x0
-    addis    r28, r3, 0x6
-    subi     r28, r28, 0x2f80
-    b        .L_000000DC
-.L_0000008C:
-    lwz      r3, 0x0(r29)
-    cmpwi    r3, -0x1
-    beq      .L_00000180
-    lwz      r0, 0x0(r28)
-    extsh    r4, r3
-    cmplwi   r0, 0x0
-    beq      .L_000000B4
-    mr       r3, r28
-    bl       fn_8007F570
-    b        .L_000000B8
-.L_000000B4:
-    li       r3, 0x0
-.L_000000B8:
-    lbz      r0, 0x4(r29)
-    clrlwi.  r0, r0, 31
-    beq      .L_000000D4
-    lwz      r5, 0x22c(r3)
-    lis      r0, 0x1
-    or       r0, r5, r0
-    stw      r0, 0x22c(r3)
-.L_000000D4:
-    addi     r29, r29, 0x8
-    addi     r31, r31, 0x1
-.L_000000DC:
-    lwz      r0, 0x800(r30)
-    cmpw     r31, r0
-    blt      .L_0000008C
-    b        .L_00000180
-.L_000000EC:
-    lis      r3, savedObjFlags@ha
-    addi     r30, r3, savedObjFlags@l
-    lwz      r0, 0x800(r30)
-    cmpwi    r0, 0x0
-    ble      .L_00000180
-    lis      r4, lbl_8025C400@ha
-    lis      r3, 0xffff
-    addi     r4, r4, lbl_8025C400@l
-    mr       r28, r30
-    addis    r27, r4, 0x6
-    subi     r31, r3, 0x1
-    li       r29, 0x0
-    subi     r27, r27, 0x2f80
-    b        .L_00000174
-.L_00000124:
-    lwz      r3, 0x0(r28)
-    cmpwi    r3, -0x1
-    beq      .L_00000180
-    lwz      r0, 0x0(r27)
-    extsh    r4, r3
-    cmplwi   r0, 0x0
-    beq      .L_0000014C
-    mr       r3, r27
-    bl       fn_8007F570
-    b        .L_00000150
-.L_0000014C:
-    li       r3, 0x0
-.L_00000150:
-    lwz      r0, 0x22c(r3)
-    li       r4, -0x1
-    lwz      r5, 0x228(r3)
-    addi     r28, r28, 0x8
-    and      r0, r0, r31
-    addi     r29, r29, 0x1
-    stw      r0, 0x22c(r3)
-    and      r0, r5, r4
-    stw      r0, 0x228(r3)
-.L_00000174:
-    lwz      r0, 0x800(r30)
-    cmpw     r29, r0
-    blt      .L_00000124
-.L_00000180:
-    lmw      r27, 0xc(r1)
-    li       r3, 0x0
-    lwz      r0, 0x24(r1)
-    mtlr     r0
-    addi     r1, r1, 0x20
-    blr
-*/
-
-/**
- * @note Address: shun .text 0x198
- * @note Size: 0xF0
- */
-extern "C" s32 CmdSaveObjFlag(s32 cmd, s32 count, s32* args)
-{
-	s32 id = args[0];
-	ShunObj* obj;
-
-	if (savedObjFlags.mCount < 0x100) {
-		savedObjFlags.mEntries[savedObjFlags.mCount].mId = id;
-		obj                                              = ShunFindObj(savedObjFlags.mEntries[savedObjFlags.mCount].mId);
-		if (obj != NULL && (obj->_228 & 1)) {
-			if (obj->_228 & 0x10000) {
-				savedObjFlags.mEntries[savedObjFlags.mCount].mFlag |= 1;
-			}
-			savedObjFlags.mCount++;
-		}
-	}
-	return 0;
-}
-
-/**
- * @note Address: shun .text 0x288
- * @note Size: 0xB0
- */
-extern "C" s32 CmdClearSavedObjFlags(s32 cmd, s32 count, s32* args)
-{
-	s32 i;
-
-	savedObjFlags.mCount = 0;
-	for (i = 0; i < ARRAY_SIZE(savedObjFlags.mEntries); i++) {
-		savedObjFlags.mEntries[i].mId   = -1;
-		savedObjFlags.mEntries[i].mFlag = 0;
-	}
-	return 0;
-}
+#ifndef SHUN_INIT_ONLY
 
 /**
  * @note Address: N/A
@@ -350,76 +93,10 @@ extern "C" void UnusedCJObjUser(void)
 }
 
 /**
- * @note Address: shun .text 0x338
- * @note Size: 0x88
- */
-// CJObj::~CJObj, inline in game/cjobj.h
-
-/**
- * @note Address: shun .text 0x3C0
- * @note Size: 0x48
- */
-// CVec::~CVec, emitted from the class
-
-/**
- * @note Address: shun .text 0x408
- * @note Size: 0x6C
- */
-extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
-{
-	s32 ret = 0;
-
-	if (args[0] != 0) {
-		fn_80066B9C(SHUN_8F38(), args[1]);
-	} else {
-		ret = fn_80066A84(SHUN_8F38());
-	}
-	return ret;
-}
-
-/**
- * @note Address: shun .text 0x474
- * @note Size: 0x58
- */
-extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
-{
-	if (args[0] != 0) {
-		fn_80066BFC(SHUN_8F38());
-	} else {
-		fn_80066BF0(SHUN_8F38());
-	}
-	return 0;
-}
-
-/**
- * @note Address: shun .text 0x4CC
- * @note Size: 0x68
- */
-extern "C" s32 CmdShowTimer(s32 cmd, s32 count, s32* args)
-{
-	if (args[0] != 0) {
-		fn_8006613C(SHUN_8F38(), 1, 1);
-	} else {
-		fn_8006613C(SHUN_8F38(), 0, 1);
-	}
-	return 0;
-}
-
-/**
- * @note Address: shun .text 0x534
- * @note Size: 0x28
- */
-extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args)
-{
-	SetFafaPartVisibility(args[0]);
-	return 0;
-}
-
-/**
  * @note Address: shun .text 0x55C
  * @note Size: 0x24
  */
-extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
 {
 	if (onOffWork._88.Check(1)) {
 		return 1;
@@ -431,16 +108,16 @@ extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x580
  * @note Size: 0xA8
  */
-extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
 	obj->_12DF4 = 0;
 	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
-	onOffWork._68 = 0;
-	onOffWork._84 = 2;
+	onOffWork._68   = 0;
+	onOffWork.mMode = 2;
 	return 0;
 }
 
@@ -448,16 +125,16 @@ extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x628
  * @note Size: 0xA8
  */
-extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
 	obj->_12DF4 = 0;
 	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
-	onOffWork._68 = 0;
-	onOffWork._84 = 1;
+	onOffWork._68   = 0;
+	onOffWork.mMode = 1;
 	return 0;
 }
 
@@ -465,16 +142,16 @@ extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x6D0
  * @note Size: 0xA4
  */
-extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* obj = SHUN_PLAYER();
 
 	obj->_980 = 0;
 	obj->_980 |= 0x40000000;
 	obj->_12DF4 = 0;
 	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
-	onOffWork._68 = 0;
-	onOffWork._84 = 0;
+	onOffWork._68   = 0;
+	onOffWork.mMode = 0;
 	return 0;
 }
 
@@ -482,9 +159,13 @@ extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x774
  * @note Size: 0x2C
  */
-extern "C" s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
 {
-	onOffWork._00        = 0x708;
+#if defined(VERSION_PAL)
+	onOffWork.mTimeLimitFrames = gVideoFramesPerSecond * 60 / 2;
+#else
+	onOffWork.mTimeLimitFrames = 0x708;
+#endif
 	onOffWork._08        = 0;
 	onOffWork._78        = 0;
 	onOffWork._7C        = 0;
@@ -496,7 +177,7 @@ extern "C" s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7A0
  * @note Size: 0x50
  */
-extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
+extern "C" __declspec(section ".text.shunonoff") s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
 {
 	int i;
 
@@ -509,7 +190,7 @@ extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7F0
  * @note Size: 0x4
  */
-extern "C" void fn_3_7F0(void* arg)
+extern "C" __declspec(section ".text.shunonoff") void ShunNoOpSlot5(void* arg)
 {
 }
 
@@ -517,7 +198,7 @@ extern "C" void fn_3_7F0(void* arg)
  * @note Address: shun .text 0x7F4
  * @note Size: 0x4
  */
-extern "C" void DrawStageHud(void* arg)
+extern "C" __declspec(section ".text.shunonoff") void DrawStageHud(void* arg)
 {
 }
 
@@ -525,7 +206,7 @@ extern "C" void DrawStageHud(void* arg)
  * @note Address: shun .text 0x7F8
  * @note Size: 0x4
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" __declspec(section ".text.shunonoff") void UpdateStage(void* arg)
 {
 }
 
@@ -533,7 +214,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: shun .text 0x7FC
  * @note Size: 0x4
  */
-extern "C" void InitStage(void* arg)
+extern "C" __declspec(section ".text.shunonoff") void InitStage(void* arg)
 {
 }
 
@@ -1577,3 +1258,4 @@ extern "C" void InitStage(void* arg)
  * @note Size: 0x10
  */
 // CVec::CVec, emitted from the class
+#endif

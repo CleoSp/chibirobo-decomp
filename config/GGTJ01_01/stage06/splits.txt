@@ -21,8 +21,14 @@ rel/module.c:
 	.text       start:0x00000310 end:0x000004C8
 	.rodata     start:0x00000020 end:0x00000090
 
-rel/ana.cpp:
-	.text       start:0x000004C8 end:0x00000804
+rel/anaactive.cpp:
+	.text       start:0x000004C8 end:0x000004D4
+
+rel/anainteraction.cpp:
+	.text       start:0x000004D4 end:0x000005EC
+
+rel/anastorage/ana.cpp:
+	.text       start:0x000005EC end:0x00000804
 	.ctors      start:0x00000000 end:0x00000004
 	.rodata     start:0x00000090 end:0x000000A4
 	.data       start:0x00000038 end:0x00000080

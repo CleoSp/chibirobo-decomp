@@ -1,3 +1,6 @@
+#pragma section RX ".text.pobjrender"
+#pragma section RX ".text.pobjshape"
+#pragma section RX ".text.pobjload"
 #include <global.h>
 
 #include <dolphin/gx/gx.h>
@@ -29,19 +32,15 @@ extern struct {
 extern s32 HSD_Index2PosNrmMtx(s32 index);
 extern u32 PSMTXInvXpose(Mtx src, Mtx xpose);
 
-void PObjInfoInit(void);
+HSD_VtxDescList* prev_vtxdesc;
+HSD_VtxDescList* prev_vtxdesclist_array;
+u32 normal_buffer_size;
+u32 vertex_buffer_size;
+f32 (*normal_buffer)[3];
+f32 (*vertex_buffer)[3];
+HSD_PObjInfo* sDefaultPolygonClass;
 
-HSD_PObjInfo hsdPObj = { PObjInfoInit };
-
-static HSD_VtxDescList* prev_vtxdesc;
-static HSD_VtxDescList* prev_vtxdesclist_array;
-static u32 normal_buffer_size;
-static u32 vertex_buffer_size;
-static f32 (*normal_buffer)[3];
-static f32 (*vertex_buffer)[3];
-static HSD_PObjInfo* default_class;
-
-static struct {
+struct {
 	void* obj;
 	u32 mark;
 } mtx_mark[2];
@@ -50,173 +49,6 @@ static struct {
 #define ASSERT_POBJ_MSG(line, cond, msg) ((cond) ? ((void)0) : __assert("pobj.c", line, msg))
 
 #define GX_WGPIPE ((volatile u8*)0xCC008000)
-
-/**
- * @note Address: 0x801AEB88
- * @note Size: 0x18
- */
-void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags)
-{
-	if (pobj != NULL) {
-		pobj->flags |= flags;
-	}
-}
-
-/**
- * @note Address: 0x801AEB70
- * @note Size: 0x18
- */
-void HSD_PObjClearFlags(HSD_PObj* pobj, u32 flags)
-{
-	if (pobj != NULL) {
-		pobj->flags &= ~flags;
-	}
-}
-
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline void HSD_PObjRemoveAnimByFlags(HSD_PObj* pobj, u32 flags)
-{
-	if (pobj != NULL && (flags & POBJ_ANIM)) {
-		HSD_AObjRemove(pobj->aobj);
-		pobj->aobj = NULL;
-	}
-}
-
-/**
- * @note Address: 0x801AEAFC
- * @note Size: 0x74
- */
-void HSD_PObjRemoveAnimAllByFlags(HSD_PObj* pobj, u32 flags)
-{
-	HSD_PObj* pp;
-
-	if (pobj == NULL) {
-		return;
-	}
-
-	for (pp = pobj; pp != NULL; pp = pp->next) {
-		HSD_PObjRemoveAnimByFlags(pp, flags);
-	}
-}
-
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline void HSD_PObjAddAnim(HSD_PObj* pobj, HSD_ShapeAnim* shapeanim)
-{
-	if (pobj != NULL) {
-		if (pobj->aobj != NULL) {
-			HSD_AObjRemove(pobj->aobj);
-		}
-		pobj->aobj = HSD_AObjLoadDesc(shapeanim->aobjdesc);
-	}
-}
-
-/**
- * @note Address: 0x801AEA6C
- * @note Size: 0x90
- */
-void HSD_PObjAddAnimAll(HSD_PObj* pobj, HSD_ShapeAnim* shapeanim)
-{
-	HSD_PObj* po;
-	HSD_ShapeAnim* sa;
-
-	if (pobj == NULL || shapeanim == NULL) {
-		return;
-	}
-
-	for (po = pobj, sa = shapeanim; po != NULL; po = po->next, sa = next_p(sa)) {
-		HSD_PObjAddAnim(po, sa);
-	}
-}
-
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline void HSD_PObjReqAnimByFlags(HSD_PObj* pobj, f32 startframe, u32 flags)
-{
-	if (pobj != NULL && (flags & POBJ_ANIM)) {
-		HSD_AObjReqAnim(pobj->aobj, startframe);
-	}
-}
-
-/**
- * @note Address: 0x801AE9F8
- * @note Size: 0x74
- */
-void HSD_PObjReqAnimAllByFlags(HSD_PObj* pobj, f32 startframe, u32 flags)
-{
-	HSD_PObj* pp;
-
-	if (pobj == NULL) {
-		return;
-	}
-
-	for (pp = pobj; pp != NULL; pp = pp->next) {
-		HSD_PObjReqAnimByFlags(pp, startframe, flags);
-	}
-}
-
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline void ShapeSetSetAnimResult(HSD_ShapeSet* shape_set, u32 type, HSD_ObjData* val)
-{
-	if (shape_set->flags & SHAPESET_ADDITIVE) {
-		shape_set->blend.bp[type - HSD_A_S_W0] = val->fv;
-	} else {
-		shape_set->blend.bl = val->fv;
-	}
-}
-
-/**
- * @note Address: 0x801AE9AC
- * @note Size: 0x4C
- */
-void PObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
-{
-	HSD_PObj* pobj = HSD_POBJ(obj);
-
-	if (pobj == NULL) {
-		return;
-	}
-
-	if (pobj_type(pobj) == POBJ_SHAPEANIM) {
-		ShapeSetSetAnimResult(pobj->u.shape_set, type, val);
-	}
-}
-
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline void HSD_PObjAnim(HSD_PObj* pobj)
-{
-	if (pobj != NULL) {
-		HSD_AObjInterpretAnim(pobj->aobj, pobj, HSD_POBJ_METHOD(pobj)->update);
-	}
-}
-
-/**
- * @note Address: 0x801AE950
- * @note Size: 0x5C
- */
-void HSD_PObjAnimAll(HSD_PObj* pobj)
-{
-	HSD_PObj* pp;
-
-	if (pobj != NULL) {
-		for (pp = pobj; pp != NULL; pp = pp->next) {
-			HSD_PObjAnim(pp);
-		}
-	}
-}
 
 /**
  * @note Address: N/A
@@ -329,6 +161,8 @@ static inline void GXEnd(void)
 #define MAX(a, b)      (((a) > (b)) ? (a) : (b))
 
 // the anim functions live in tobj.c for now, pobj's split ends too early
+const char sPObjLibraryName[] = "sysdolphin_base_library";
+
 void PObjUpdateFunc(void* obj, enum_t type, FObjData* val);
 
 extern HSD_ObjAllocData shadow_alloc_data;
@@ -445,7 +279,7 @@ static inline HSD_ShapeSet* loadShapeSetDesc(HSD_ShapeSetDesc* sdesc)
  * @note Address: 0x801AE68C
  * @note Size: 0x2C4
  */
-s32 PObjLoad(HSD_PObj* pobj, HSD_PObjDesc* desc)
+__declspec(section ".text.pobjload") s32 PObjLoad(HSD_PObj* pobj, HSD_PObjDesc* desc)
 {
 	pobj->next      = HSD_PObjLoadDesc(desc->next);
 	pobj->verts     = desc->verts;
@@ -478,7 +312,7 @@ s32 PObjLoad(HSD_PObj* pobj, HSD_PObjDesc* desc)
  * @note Address: 0x801AE5C8
  * @note Size: 0xC4
  */
-HSD_PObj* HSD_PObjLoadDesc(HSD_PObjDesc* pobjdesc)
+__declspec(section ".text.pobjload") HSD_PObj* HSD_PObjLoadDesc(HSD_PObjDesc* pobjdesc)
 {
 	if (pobjdesc != NULL) {
 		HSD_PObj* pobj;
@@ -514,7 +348,7 @@ HSD_PObj* HSD_PObjAlloc(void)
  */
 HSD_PObjInfo* HSD_PObjGetCurrent(void)
 {
-	return default_class ? default_class : &hsdPObj;
+	return sDefaultPolygonClass ? sDefaultPolygonClass : &hsdPObj;
 }
 
 /**
@@ -526,14 +360,14 @@ void HSD_PObjSetCurrent(HSD_PObjInfo* info)
 	if (info != NULL) {
 		ASSERT_POBJ_MSG(0x28E, hsdIsDescendantOf(info, &hsdPObj), "hsdIsDescendantOf(info, &hsdPObj)");
 	}
-	default_class = info;
+	sDefaultPolygonClass = info;
 }
 
 /**
  * @note Address: 0x801AE554
  * @note Size: 0x74
  */
-void HSD_PObjRemoveAll(HSD_PObj* pobj)
+__declspec(section ".text.pobjload") void HSD_PObjRemoveAll(HSD_PObj* pobj)
 {
 	HSD_PObj* next;
 
@@ -618,7 +452,7 @@ static inline void HSD_PObjResolveRefs(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
  * @note Address: 0x801AE388
  * @note Size: 0x1CC
  */
-void HSD_PObjResolveRefsAll(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
+__declspec(section ".text.pobjload") void HSD_PObjResolveRefsAll(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
 {
 	for (; pobj != NULL && pdesc != NULL; pobj = pobj->next, pdesc = pdesc->next) {
 		HSD_PObjResolveRefs(pobj, pdesc);
@@ -629,7 +463,7 @@ void HSD_PObjResolveRefsAll(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
  * @note Address: 0x801AE0FC
  * @note Size: 0x28C
  */
-void HSD_PObjCountVertices(HSD_PObj* pobj, u32* vertices, u32* polygons)
+__declspec(section ".text.pobjload") void HSD_PObjCountVertices(HSD_PObj* pobj, u32* vertices, u32* polygons)
 {
 	u32 nv = 0;
 	u32 np = 0;
@@ -765,7 +599,7 @@ void HSD_PObjCountVertices(HSD_PObj* pobj, u32* vertices, u32* polygons)
  * @note Address: 0x801AE0D0
  * @note Size: 0x2C
  */
-void HSD_ClearVtxDesc(void)
+__declspec(section ".text.pobjshape") void HSD_ClearVtxDesc(void)
 {
 	GXClearVtxDesc();
 	prev_vtxdesclist_array = 0;
@@ -776,7 +610,7 @@ void HSD_ClearVtxDesc(void)
  * @note Address: 0x801ADD44
  * @note Size: 0x38C
  */
-void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32 dst[3])
+__declspec(section ".text.pobjshape") void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32 dst[3])
 {
 	u8* index_array = shape_set->vertex_idx_list[shape_id];
 	s32 i, idx;
@@ -833,7 +667,7 @@ void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f
  * @note Address: 0x801AD9B8
  * @note Size: 0x38C
  */
-void get_shape_normal_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32 dst[3])
+__declspec(section ".text.pobjshape") void get_shape_normal_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32 dst[3])
 {
 	u8* index_array = shape_set->normal_idx_list[shape_id];
 	s32 i, idx;
@@ -886,7 +720,7 @@ void get_shape_normal_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f
  * @note Address: 0x801AD5B8
  * @note Size: 0x400
  */
-void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32* dst)
+__declspec(section ".text.pobjshape") void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, s32 shape_id, s32 arrayidx, f32* dst)
 {
 	u8* index_array = shape_set->normal_idx_list[shape_id];
 	s32 idx;
@@ -1068,11 +902,10 @@ void interpretShapeAnimDisplayList(HSD_PObj* pobj, f32 (*vertex)[3], f32 (*norma
  */
 void drawShapeAnim(HSD_PObj* pobj)
 {
-	// NONMATCHING: register allocation and the averaged NBT loop's index updates
+	// NONMATCHING: register allocation
 	HSD_ShapeSet* shape_set = pobj->u.shape_set;
 	f32 blend;
-	s32 shape_id, i;
-	s32 blend_nbt;
+	s32 i, blend_nbt, shape_id;
 
 	if (vertex_buffer_size == 0) {
 		vertex_buffer_size = HSD_DEFAULT_MAX_SHAPE_VERTICES;
@@ -1118,8 +951,10 @@ void drawShapeAnim(HSD_PObj* pobj)
 
 					get_shape_nbt_xyz(shape_set, shape_id, i, s0);
 					get_shape_nbt_xyz(shape_set, pobj_min(shape_id + 1, shape_set->nb_shape - 1), i, s1);
-					for (j = 0; j < 9; j++) {
-						normal_buffer[idx][j] = __fmadds(blend, s1[j] - s0[j], s0[j]);
+					for (j = 0; j < 3; j++) {
+						(normal_buffer + idx)[j][0] = __fmadds(blend, s1[j * 3] - s0[j * 3], s0[j * 3]);
+						(normal_buffer + idx)[j][1] = __fmadds(blend, s1[j * 3 + 1] - s0[j * 3 + 1], s0[j * 3 + 1]);
+						(normal_buffer + idx)[j][2] = __fmadds(blend, s1[j * 3 + 2] - s0[j * 3 + 2], s0[j * 3 + 2]);
 					}
 				}
 			} else {
@@ -1162,12 +997,12 @@ void drawShapeAnim(HSD_PObj* pobj)
 						normal_buffer[idx][0] = __fmadds(b, s[0], normal_buffer[idx][0]);
 						normal_buffer[idx][1] = __fmadds(b, s[1], normal_buffer[idx][1]);
 						normal_buffer[idx][2] = __fmadds(b, s[2], normal_buffer[idx][2]);
-						normal_buffer[idx][3] = __fmadds(b, s[3], normal_buffer[idx][3]);
-						normal_buffer[idx][4] = __fmadds(b, s[4], normal_buffer[idx][4]);
-						normal_buffer[idx][5] = __fmadds(b, s[5], normal_buffer[idx][5]);
-						normal_buffer[idx][6] = __fmadds(b, s[6], normal_buffer[idx][6]);
-						normal_buffer[idx][7] = __fmadds(b, s[7], normal_buffer[idx][7]);
-						normal_buffer[idx][8] = __fmadds(b, s[8], normal_buffer[idx][8]);
+						normal_buffer[idx + 1][0] = __fmadds(b, s[3], normal_buffer[idx + 1][0]);
+						normal_buffer[idx + 1][1] = __fmadds(b, s[4], normal_buffer[idx + 1][1]);
+						normal_buffer[idx + 1][2] = __fmadds(b, s[5], normal_buffer[idx + 1][2]);
+						normal_buffer[idx + 2][0] = __fmadds(b, s[6], normal_buffer[idx + 2][0]);
+						normal_buffer[idx + 2][1] = __fmadds(b, s[7], normal_buffer[idx + 2][1]);
+						normal_buffer[idx + 2][2] = __fmadds(b, s[8], normal_buffer[idx + 2][2]);
 					}
 				}
 			} else {
@@ -1193,7 +1028,7 @@ void drawShapeAnim(HSD_PObj* pobj)
  * @note Address: 0x801ACB64
  * @note Size: 0x18
  */
-void HSD_PObjClearMtxMark(void* obj, u32 mark)
+__declspec(section ".text.pobjrender") void HSD_PObjClearMtxMark(void* obj, u32 mark)
 {
 	s32 i;
 
@@ -1227,7 +1062,7 @@ static inline PObjSetupFlag GetSetupFlags(HSD_JObj* jobj)
  * @note Address: 0x801AC8EC
  * @note Size: 0x278
  */
-void SetupSharedVtxModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
+__declspec(section ".text.pobjrender") void SetupSharedVtxModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 {
 	HSD_JObj* jobj;
 	Mtx n0, n1, m;
@@ -1303,7 +1138,7 @@ void SetupSharedVtxModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
  * @note Address: 0x801AC574
  * @note Size: 0x378
  */
-void SetupEnvelopeModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
+__declspec(section ".text.pobjrender") void SetupEnvelopeModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 {
 	s32 MtxIdx;
 	HSD_JObj* jobj;
@@ -1415,7 +1250,7 @@ static inline void SetupRigidModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 re
  * @note Address: 0x801AC2E0
  * @note Size: 0x294
  */
-void PObjSetupMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
+__declspec(section ".text.pobjrender") void PObjSetupMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 {
 	switch (pobj_type(pobj)) {
 	case POBJ_SKIN:
@@ -1573,7 +1408,7 @@ static inline void PObjDispShapeAnim(HSD_PObj* pobj, u32 rendermode)
  * @note Address: 0x801ABFF8
  * @note Size: 0x2E8
  */
-void HSD_PObjDisp(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
+__declspec(section ".text.pobjrender") void HSD_PObjDisp(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 {
 	if (pobj->flags & POBJ_HIDE) {
 		return;
@@ -1663,7 +1498,7 @@ static inline void HSD_ShapeSetRemove(HSD_ShapeSet* shape_set)
  * @note Address: 0x801ABECC
  * @note Size: 0x12C
  */
-void PObjRelease(HSD_Class* o)
+__declspec(section ".text.pobjrender") void PObjRelease(HSD_Class* o)
 {
 	HSD_PObj* pobj = HSD_POBJ(o);
 
@@ -1691,10 +1526,10 @@ void PObjRelease(HSD_Class* o)
  * @note Address: 0x801ABE20
  * @note Size: 0xAC
  */
-void PObjAmnesia(HSD_ClassInfo* info)
+__declspec(section ".text.pobjrender") void PObjAmnesia(HSD_ClassInfo* info)
 {
-	if (info == (HSD_ClassInfo*)default_class) {
-		default_class = NULL;
+	if (info == (HSD_ClassInfo*)sDefaultPolygonClass) {
+		sDefaultPolygonClass = NULL;
 	}
 	if (info == HSD_CLASS_INFO(&hsdPObj)) {
 		if (_HSD_MemCheckOwn(vertex_buffer)) {
@@ -1715,9 +1550,9 @@ void PObjAmnesia(HSD_ClassInfo* info)
  * @note Address: 0x801ABD88
  * @note Size: 0x98
  */
-void PObjInfoInit(void)
+__declspec(section ".text.pobjrender") void PObjInfoInit(void)
 {
-	hsdInitClassInfo(HSD_CLASS_INFO(&hsdPObj), HSD_CLASS_INFO(&hsdClass), "sysdolphin_base_library", "hsd_pobj", sizeof(HSD_PObjInfo),
+	hsdInitClassInfo(HSD_CLASS_INFO(&hsdPObj), HSD_CLASS_INFO(&hsdClass), (char*)sPObjLibraryName, "hsd_pobj", sizeof(HSD_PObjInfo),
 	                 sizeof(HSD_PObj));
 	HSD_CLASS_INFO(&hsdPObj)->release  = PObjRelease;
 	HSD_CLASS_INFO(&hsdPObj)->amnesia  = PObjAmnesia;

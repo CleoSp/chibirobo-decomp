@@ -11,55 +11,17 @@ static inline s32 GetLightMode()
 	return GetEnvData()[4];
 }
 
-static inline u32 MakeRGB(s32 r, s32 g, s32 b)
-{
-	s32 cr = r;
-	if (cr >= 256) {
-		cr = 255;
-	}
-	s32 cg = g;
-	if (cg >= 256) {
-		cg = 255;
-	}
-	s32 cb = b;
-	if (cb >= 256) {
-		cb = 255;
-	}
-	return (cr << 16) | (cg << 8) | cb;
-}
-
-// the floor kind of a triangle, from its vertex color
-/**
- * @note Address: 0x80093210
- * @note Size: 0x48C
- */
-extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
-{
-	static u32 sColors[13] = {
-		MakeRGB(0, 0, 0),       MakeRGB(256, 256, 128), MakeRGB(256, 0, 0), MakeRGB(0, 0, 0), MakeRGB(256, 256, 0),
-		MakeRGB(256, 256, 256), MakeRGB(0, 0, 0),       MakeRGB(0, 0, 0),   MakeRGB(0, 0, 0), MakeRGB(0, 256, 256),
-		MakeRGB(256, 0, 256),   MakeRGB(256, 0, 128),   MakeRGB(0, 0, 0),
-	};
-	u32 color = map->mTrigon[trigon].mTri[tri].mColor;
-	for (s32 i = 1; i < 13; i++) {
-		if (color == sColors[i]) {
-			return i;
-		}
-	}
-	return 0;
-}
-
 /**
  * @note Address: 0x8009369C
  * @note Size: 0xCC
  */
-void XObjMap::vfA4(u32 frames)
+#pragma section RX ".text.maplightupdate"
+__declspec(section ".text.maplightupdate") void XObjMap::UpdateObject(u32 frames)
 {
-	// NONMATCHING: induction pointer difference, see XObjLight::Update
-	vfA4__4XObjFUl(this, frames);
+	UpdateObject__4XObjFUl(this, frames);
 	if (GetLightMode() == 1) {
 		for (int i = 0; i < mLightNum; i++) {
-			if (GetLightDesc(i) != NULL && GetLightAnimNum(i) > 0) {
+			if (GetLightDesc(i) != NULL && mArchive.mNum[i + 2] > 0) {
 				mLights[i].SetAnimRate(frames);
 				mLights[i].Anim();
 			}
@@ -71,7 +33,7 @@ void XObjMap::vfA4(u32 frames)
  * @note Address: 0x80093768
  * @note Size: 0xC0
  */
-void XObjMap::Release()
+__declspec(section ".text.maplightupdate") void XObjMap::Release()
 {
 	for (int i = 0; i < mTrigonCount; i++) {
 		mTrigon[i].Release();
@@ -91,14 +53,14 @@ void XObjMap::Release()
  * @note Address: 0x80093828
  * @note Size: 0x298
  */
-BOOL XObjMap::vf9C(const CoordInfo& info)
+BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
 {
 	// NONMATCHING: the dol copies a zero path template before storing the index
-	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
-		int i;
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+		int i = 0;
 		int j;
 		int n = 0;
-		for (i = 0;; i++) {
+		for (;; i++) {
 			s32 path[]     = { 0 };
 			path[0]        = i;
 			HSD_JObj* jobj = GetJointByPath(mJObj, path, 1);
@@ -123,8 +85,9 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
 		}
 		for (i = 0; i < mTrigonCount; i++) { }
 		if (GetLightMode() == 1) {
+			i            = 0;
 			CLight* prev = NULL;
-			for (i = 0; i < 8; i++) {
+			for (; i < 8; i++) {
 				if (GetLightDesc(i) != NULL) {
 					mLights[i].Init(GetLightDesc(i)->mDesc, GetEnvData()[5] & (1 << (7 - i)));
 					if (GetLightAnimNum(i) > 0) {
@@ -151,9 +114,10 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
  * @note Address: 0x80093AC0
  * @note Size: 0x9C
  */
-void XObjMap::vf98()
+#pragma section RX ".text.mapreset"
+__declspec(section ".text.mapreset") void XObjMap::ResetObjectState()
 {
-	vf98__4XObjFv(this);
+	ResetObjectState__4XObjFv(this);
 	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
 		mTrigonOrder[i] = 0;
@@ -168,7 +132,7 @@ void XObjMap::vf98()
  * @note Address: 0x80093B5C
  * @note Size: 0x20
  */
-void XObjMap::vf90(u32 id)
+__declspec(section ".text.mapreset") void XObjMap::InitializeObject(u32 id)
 {
-	vf90__4XObjFUl(this, id);
+	InitializeObject__4XObjFUl(this, id);
 }

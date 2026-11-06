@@ -5,8 +5,8 @@
 #include <sysdolphin/tev.h>
 #include <sysdolphin/video.h>
 
-#define HSD_ANTIALIAS_OVERLAP      4
-#define HSD_ANTIALIAS_GARBAGE_SIZE (640 * HSD_ANTIALIAS_OVERLAP * VI_DISPLAY_PIX_SZ)
+#define HSD_ANTIALIAS_OVERLAP     4
+#define HSD_ANTIALIAS_BUFFER_SIZE (640 * HSD_ANTIALIAS_OVERLAP * VI_DISPLAY_PIX_SZ)
 
 #define GX_LEQUAL       3
 #define GX_CLAMP_TOP    1
@@ -70,7 +70,10 @@ typedef struct _HSD_VIInfo {
 } HSD_VIInfo;
 
 HSD_VIInfo HSD_VIData;
-static u8 garbage[HSD_ANTIALIAS_GARBAGE_SIZE] __attribute__((aligned(32)));
+static u8 sAntialiasOverlapBuffer[HSD_ANTIALIAS_BUFFER_SIZE] __attribute__((aligned(32)));
+
+static int sVIRenewCount;
+static int sVIRetraceCount;
 
 #define _p (&HSD_VIData)
 
@@ -147,6 +150,8 @@ HSD_VIGXDrawDoneCallback HSD_VISetUserGXDrawDoneCallback(HSD_VIGXDrawDoneCallbac
  * @note Address: 0x801CB3D4
  * @note Size: 0x270
  */
+#pragma push
+#pragma opt_lifetimes off
 void HSD_VIPreRetraceCB(u32 retraceCount)
 {
 	s32 idx;
@@ -183,23 +188,19 @@ void HSD_VIPreRetraceCB(u32 retraceCount)
 		VIFlush();
 	}
 
-	{
-		static int vr_count    = 0;
-		static int renew_count = 0;
-
-		if (renew) {
-			renew_count++;
-		}
-		if (++vr_count >= _p->perf.frame_period) {
-			_p->perf.frame_renew = renew_count;
-			vr_count = renew_count = 0;
-		}
+	if (renew) {
+		sVIRenewCount++;
+	}
+	if (++sVIRetraceCount >= _p->perf.frame_period) {
+		_p->perf.frame_renew = sVIRenewCount;
+		sVIRetraceCount = sVIRenewCount = 0;
 	}
 
 	if (_p->pre_cb) {
 		_p->pre_cb(retraceCount);
 	}
 }
+#pragma pop
 
 /**
  * @note Address: 0x801CB644
@@ -319,7 +320,7 @@ void HSD_VICopyEFB2XFBPtr(HSD_VIStatus* vi, void* buffer, HSD_RenderPass rpass)
 		GXCopyDisp((void*)((u32)buffer + offset), GX_TRUE);
 		GXSetDispCopySrc(0, 0, rmode->fbWidth, HSD_ANTIALIAS_OVERLAP);
 		GXSetCopyClamp(GX_CLAMP_TOP | GX_CLAMP_BOTTOM);
-		GXCopyDisp((void*)garbage, GX_TRUE);
+		GXCopyDisp((void*)sAntialiasOverlapBuffer, GX_TRUE);
 		break;
 
 	default:

@@ -1,88 +1,88 @@
 #include "game/xobjmap.h"
 
-// XObjLight::vfA4
+#pragma section RX ".text.stagelight"
+
+extern "C" const f32 sStageLightAnimStartFrame;
+
 /**
  * @note Address: 0x80092E38
  * @note Size: 0xC8
  */
-extern "C" void vfA4__9XObjLightFUl(XObjLight* object, u32 frames)
+__declspec(section ".text.stagelight") void XObjLight::UpdateObject(u32 frames)
 {
 	if ((s32)GetEnvData()[4] == 2) {
-		for (s32 i = 0; i < object->mLightNum; ++i) {
-			if (object->GetLightDesc(i) && object->GetLightAnimNum(i) > 0) {
-				object->mLights[i].SetAnimRate((f32)frames);
-				object->mLights[i].Anim();
+		for (int i = 0; i < mLightNum; ++i) {
+			if (GetLightDesc(i) && mArchive.mNum[i + 2] > 0) {
+				mLights[i].SetAnimRate((f32)frames);
+				mLights[i].Anim();
 			}
 		}
 	}
 }
 
-// XObjLight::Release
 /**
  * @note Address: 0x80092F00
  * @note Size: 0x98
  */
-extern "C" void Release__9XObjLightFv(XObjLight* object)
+__declspec(section ".text.stagelight") void XObjLight::Release()
 {
 	if ((s32)GetEnvData()[4] == 2) {
-		for (s32 i = 0; i < object->mLightNum; ++i) {
-			if (object->GetLightDesc(i))
-				object->mLights[i].Release();
+		for (s32 i = 0; i < mLightNum; ++i) {
+			if (GetLightDesc(i))
+				mLights[i].Release();
 		}
 	}
-	Release__4XObjFv(object);
+	XObj::Release();
 }
 
-// XObjLight::vf9C
 /**
  * @note Address: 0x80092F98
  * @note Size: 0x14C
  */
-extern "C" BOOL vf9C__9XObjLightFRC9CoordInfo(XObjLight* object, CoordInfo* info)
+__declspec(section ".text.stagelight") BOOL XObjLight::LoadFromPlacement(const CoordInfo& info)
 {
-	if (vf9C__4XObjFRC9CoordInfo(object, info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		if ((s32)GetEnvData()[4] == 2) {
 			HSD_LObj* previous = NULL;
-			for (s32 i = 0; i < 8; ++i) {
-				if (object->GetLightDesc(i)) {
-					object->mLights[i].Init(object->GetLightDesc(i)->mDesc, GetEnvData()[5] & (1 << (7 - i)));
-					if (object->GetLightAnimNum(i) > 0) {
-						object->mLightAnims[i] = 0;
-						object->mLights[i].SetAnim(object->GetLightDesc(i)->mAnims[object->mLightAnims[i]], 0.0f);
+			for (int i = 0; i < 8; ++i) {
+				if (GetLightDesc(i)) {
+					int lightMask = GetEnvData()[5];
+					mLights[i].Init(GetLightDesc(i)->mDesc, lightMask & (1 << (7 - i)));
+					if (mArchive.mNum[i + 2] > 0) {
+						mLightAnims[i] = 0;
+						mLights[i].SetAnim(GetLightDesc(i)->mAnims[mLightAnims[i]], sStageLightAnimStartFrame);
 					}
-					++object->mLightNum;
+					++mLightNum;
 					if (previous)
-						previous->next = &object->mLights[i];
-					previous = &object->mLights[i];
+						previous->next = &mLights[i];
+					previous = &mLights[i];
 				}
 			}
 			if (previous)
 				previous->next = NULL;
 		}
-		object->mStatus.mFlags &= ~0x10000ULL;
+		mStatus.mFlags &= ~0x10000ULL;
 		return TRUE;
 	}
 	return FALSE;
 }
 
-// XObjLight::vf98
 /**
  * @note Address: 0x800930E4
  * @note Size: 0x30
  */
-extern "C" void vf98__9XObjLightFv(XObjLight* object)
+__declspec(section ".text.stagelight") void XObjLight::ResetObjectState()
 {
-	object->mLightNum = 0;
+	mLightNum = 0;
 	for (u32 i = 0; i < 8; ++i)
-		object->mLightAnims[i] = -1;
+		mLightAnims[i] = -1;
 }
 
-// XObjLight::vf90
 /**
  * @note Address: 0x80093114
  * @note Size: 0x20
  */
-extern "C" void vf90__9XObjLightFUl(XObjLight* object, u32 id)
+__declspec(section ".text.stagelight") void XObjLight::InitializeObject(u32 id)
 {
-	vf90__4XObjFUl(object, id);
+	XObj::InitializeObject(id);
 }

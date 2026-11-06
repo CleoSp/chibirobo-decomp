@@ -241,7 +241,7 @@ extern u16 lbl_8065BA84;
 extern u16 lbl_8065BA86;
 extern u16 lbl_8065BA8A;
 extern u16 lbl_8065BA8C;
-u16 lbl_8065B090 = 0x100;
+u16 sParticleGeneratorIdCounter = 0x100;
 // .sbss comes out last declaration first
 extern HSD_psAppSRT* freeAppSRT;
 extern u32 lbl_8065BAB8;
@@ -253,15 +253,15 @@ HSD_Generator* lbl_8065BAA0;
 HSD_Generator* lbl_8065BA9C;
 HSD_SList* lbl_8065BA98;
 
-char lbl_8025B3D8[] = "generator.c";
-char lbl_8025B3E4[] = "psCamera";
+char sPathGeneratorC[] = "generator.c";
+char sGeneratorCameraCondition[] = "psCamera";
 
 void psKillAllGenerator(void);
 f32 generateParticle(HSD_Generator* gen);
 void psApplyGeneratorJObj(HSD_Generator* gen);
 HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind);
 void psSetBillboardCamera(HSD_CObj* cobj);
-HSD_psAppSRT* fn_801E56F8(HSD_Generator* gp, s32 status);
+HSD_psAppSRT* CreateGeneratorAppSRT(HSD_Generator* gp, s32 status);
 s32 psRemoveParticleAppSRT(HSD_Particle* pp);
 s32 psRemoveGeneratorAppSRT(HSD_Generator* gp);
 
@@ -485,19 +485,21 @@ extern void GXSetTevOp(u8 stage, u32 mode);
  * @note Address: 0x801E2434
  * @note Size: 0x28
  */
-u16 psGetNewIDNum(void)
+#pragma section RX ".text.genlifecycle"
+#pragma section RX ".text.genexec"
+__declspec(section ".text.genlifecycle") u16 psGetNewIDNum(void)
 {
-	if (++lbl_8065B090 < 0x100) {
-		lbl_8065B090 = 0x100;
+	if (++sParticleGeneratorIdCounter < 0x100) {
+		sParticleGeneratorIdCounter = 0x100;
 	}
-	return lbl_8065B090;
+	return sParticleGeneratorIdCounter;
 }
 
 /**
  * @note Address: 0x801E245C
  * @note Size: 0x98
  */
-void psInitGenerator(s32 num)
+__declspec(section ".text.genlifecycle") void psInitGenerator(s32 num)
 {
 	HSD_Generator* gp;
 	s32 i;
@@ -526,7 +528,7 @@ void psInitGenerator(s32 num)
  * @note Address: 0x801E24F4
  * @note Size: 0x58
  */
-void psRemoveGenerator(void)
+__declspec(section ".text.genlifecycle") void psRemoveGenerator(void)
 {
 	HSD_Generator* gp;
 	HSD_Generator* next;
@@ -545,7 +547,7 @@ void psRemoveGenerator(void)
  * @note Address: 0x801E254C
  * @note Size: 0x1BC
  */
-void psKillGenerator(HSD_Generator* gen)
+__declspec(section ".text.genlifecycle") void psKillGenerator(HSD_Generator* gen)
 {
 	gen_kill(gen);
 }
@@ -554,7 +556,7 @@ void psKillGenerator(HSD_Generator* gen)
  * @note Address: 0x801E2708
  * @note Size: 0x1F0
  */
-void psKillAllGenerator(void)
+__declspec(section ".text.genlifecycle") void psKillAllGenerator(void)
 {
 	HSD_Generator* gen;
 	HSD_Generator* next;
@@ -572,7 +574,7 @@ void psKillAllGenerator(void)
  * @note Address: 0x801E28F8
  * @note Size: 0x2DC
  */
-void psApplyGeneratorJObj(HSD_Generator* gen)
+__declspec(section ".text.genlifecycle") void psApplyGeneratorJObj(HSD_Generator* gen)
 {
 	HSD_JObj* jobj;
 	Vec col;
@@ -722,7 +724,7 @@ f32 generateParticle(HSD_Generator* gen)
 
 	if (gen->kind & 0x10000) {
 		if (!psCamera) {
-			__assert(lbl_8025B3D8, 0x21A, lbl_8025B3E4);
+			__assert(sPathGeneratorC, 0x21A, sGeneratorCameraCondition);
 		}
 		look.x = psCamera->eye_position->pos.x - gen->pos.x;
 		look.y = psCamera->eye_position->pos.y - gen->pos.y;
@@ -1241,11 +1243,11 @@ f32 generateParticle(HSD_Generator* gen)
     lwz      r0, psCamera@sda21(r0)
     cmplwi   r0, 0x0
     bne      .L_801E2E88
-    lis      r3, lbl_8025B3D8@ha
-    lis      r5, lbl_8025B3E4@ha
-    addi     r3, r3, lbl_8025B3D8@l
+    lis      r3, sPathGeneratorC@ha
+    lis      r5, sGeneratorCameraCondition@ha
+    addi     r3, r3, sPathGeneratorC@l
     li       r4, 0x21a
-    addi     r5, r5, lbl_8025B3E4@l
+    addi     r5, r5, sGeneratorCameraCondition@l
     bl       __assert
 .L_801E2E88:
     lwz      r5, psCamera@sda21(r0)
@@ -2478,7 +2480,7 @@ f32 generateParticle(HSD_Generator* gen)
  * @note Address: 0x801E3FE0
  * @note Size: 0x3A0
  */
-void psExecGenerator(u32 mask)
+__declspec(section ".text.genexec") void psExecGenerator(u32 mask)
 {
 	HSD_Generator* gen;
 	HSD_JObj* jobj;
@@ -2558,7 +2560,7 @@ void psExecGenerator(u32 mask)
  * @note Address: 0x801E4380
  * @note Size: 0xAC
  */
-HSD_Generator* fn_801E4380(int linkNo, int bank, int kind, HSD_JObj* jobj)
+__declspec(section ".text.genexec") HSD_Generator* psCreateJointGenerator(int linkNo, int bank, int kind, HSD_JObj* jobj)
 {
 	HSD_Generator* gen = psCreateGeneratorID(linkNo, bank, kind);
 
@@ -2600,10 +2602,10 @@ static inline HSD_Generator* gen_allocGenerator(void)
 			gen->next                = lbl_8065BA9C->next->next;
 			lbl_8065BA9C->next->next = gen;
 		}
-		if (++lbl_8065B090 < 0x100) {
-			lbl_8065B090 = 0x100;
+		if (++sParticleGeneratorIdCounter < 0x100) {
+			sParticleGeneratorIdCounter = 0x100;
 		}
-		gen->idnum    = lbl_8065B090;
+		gen->idnum    = sParticleGeneratorIdCounter;
 		gen->appsrt   = NULL;
 		gen->userfunc = NULL;
 	}
@@ -2614,7 +2616,7 @@ static inline HSD_Generator* gen_allocGenerator(void)
  * @note Address: 0x801E442C
  * @note Size: 0x82C
  */
-HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
+__declspec(section ".text.genexec") HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 {
 	HSD_Generator* gen;
 	HSD_PSTexGroup* tex;
@@ -2758,7 +2760,7 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 
 		if (gen->kind & 0x20000) {
 			gen->type |= 0x800;
-			fn_801E56F8(gen, 0);
+			CreateGeneratorAppSRT(gen, 0);
 			if (gen->appsrt != NULL) {
 				gen->appsrt->xA2 = 1;
 				gen->appsrt->gp  = gen;
@@ -2772,7 +2774,7 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
  * @note Address: 0x801E4C58
  * @note Size: 0xBC
  */
-HSD_Generator* fn_801E4C58(int linkNo, int bank, int kind, HSD_JObj* jobj)
+__declspec(section ".text.genexec") HSD_Generator* psCreateQueuedJointGenerator(int linkNo, int bank, int kind, HSD_JObj* jobj)
 {
 	HSD_Generator* gen = psCreateGeneratorID(linkNo, bank, kind);
 
@@ -2794,7 +2796,7 @@ HSD_Generator* fn_801E4C58(int linkNo, int bank, int kind, HSD_JObj* jobj)
  * @note Address: 0x801E4D14
  * @note Size: 0xEC
  */
-void psSetBillboardCamera(HSD_CObj* cobj)
+__declspec(section ".text.genexec") void psSetBillboardCamera(HSD_CObj* cobj)
 {
 	gen_cobjUnref(psCamera);
 	if (cobj != NULL) {

@@ -1,10 +1,12 @@
 #include "game/cgame.h"
 
+#pragma section RX ".text.divide"
+
 /**
  * @note Address: 0x800169E4
  * @note Size: 0xD8
  */
-bool CVectorEaseOutDivideInterpolation::Start(Vec from, Vec to, f32 time)
+__declspec(section ".text.divide") bool CVectorEaseOutDivideInterpolation::Start(Vec from, Vec to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
@@ -20,7 +22,7 @@ bool CVectorEaseOutDivideInterpolation::Start(Vec from, Vec to, f32 time)
  * @note Address: 0x80016ABC
  * @note Size: 0x2C
  */
-bool CInterpolationEaseOutDivide::Start(f32 from, f32 to, f32 time)
+__declspec(section ".text.divide") bool CInterpolationEaseOutDivide::Start(f32 from, f32 to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
@@ -35,7 +37,7 @@ bool CInterpolationEaseOutDivide::Start(f32 from, f32 to, f32 time)
  * @note Address: 0x80016AE8
  * @note Size: 0xE0
  */
-bool CVectorEaseOutDivideInterpolation::Update(u32 step, f32 dt)
+__declspec(section ".text.divide") bool CVectorEaseOutDivideInterpolation::Update(u32 step, f32 dt)
 {
 	bool x = mAxes[0].Update(step, dt);
 	bool y = mAxes[1].Update(step, dt);
@@ -50,7 +52,7 @@ bool CVectorEaseOutDivideInterpolation::Update(u32 step, f32 dt)
  * @note Address: 0x80016BC8
  * @note Size: 0x84
  */
-bool CInterpolationEaseOutDivide::Update(u32 step, f32 dt)
+__declspec(section ".text.divide") bool CInterpolationEaseOutDivide::Update(u32 step, f32 dt)
 {
 	bool done = false;
 	for (u32 i = 0; i < step; i++) {
@@ -66,7 +68,7 @@ bool CInterpolationEaseOutDivide::Update(u32 step, f32 dt)
  * @note Address: 0x80016C4C
  * @note Size: 0x58
  */
-bool CInterpolationEaseOutDivide::Step(f32 dt)
+__declspec(section ".text.divide") bool CInterpolationEaseOutDivide::Step(f32 dt)
 {
 	f32 last = mValue;
 	if (mDivisor > 0.0f) {
@@ -82,7 +84,7 @@ bool CInterpolationEaseOutDivide::Step(f32 dt)
  * @note Address: 0x80016CA4
  * @note Size: 0xB4
  */
-bool CVectorEaseOutDivideInterpolation::Step(f32 dt)
+__declspec(section ".text.divide") bool CVectorEaseOutDivideInterpolation::Step(f32 dt)
 {
 	bool x = mAxes[0].Step(dt);
 	bool y = mAxes[1].Step(dt);
@@ -94,7 +96,7 @@ bool CVectorEaseOutDivideInterpolation::Step(f32 dt)
  * @note Address: 0x80016D58
  * @note Size: 0xBC
  */
-Vec CVectorEaseOutDivideInterpolation::Get()
+__declspec(section ".text.divide") Vec CVectorEaseOutDivideInterpolation::Get()
 {
 	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
 }
@@ -103,7 +105,7 @@ Vec CVectorEaseOutDivideInterpolation::Get()
  * @note Address: 0x80016E14
  * @note Size: 0x8
  */
-f32 CInterpolationEaseOutDivide::Get()
+__declspec(section ".text.divide") f32 CInterpolationEaseOutDivide::Get()
 {
 	return mValue;
 }

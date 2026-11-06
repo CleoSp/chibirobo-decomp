@@ -2,7 +2,7 @@
 #include <dolphin/gx/gx.h>
 #include <sysdolphin/class.h>
 #include <sysdolphin/gobjproc.h>
-#include <sysdolphin/texp.h>
+#include <sysdolphin/texpdag.h>
 #include <sysdolphin/tev.h>
 #include <sysdolphin/tobj.h>
 
@@ -126,15 +126,6 @@ extern void memset(void* ptr, s32 value, u32 size);
 #define GX_DISABLE 0
 #define GX_TRUE    1
 #define GX_FALSE   0
-
-struct HSD_TExpDag {
-	HSD_TETev* tev;
-	u8 idx;
-	u8 nb_dep;
-	u8 nb_ref;
-	u8 dist;
-	struct HSD_TExpDag* depend[8];
-};
 
 struct HSD_TExpRes {
 	s32 failed;
@@ -1236,8 +1227,8 @@ void TExp2TevDesc(HSD_TExp* texp, HSD_TExpTevDesc* desc, int* init_cprev, int* i
 	tevdesc->u.tevconf.mode = GX_TC_LINEAR;
 }
 
-static u32 id1[4] = { GX_KCOLOR0, GX_KCOLOR1, GX_KCOLOR2, GX_KCOLOR3 };
-static u32 id2[3] = { GX_TEVREG0, GX_TEVREG1, GX_TEVREG2 };
+static u32 sTExpKonstRegisterIds[4] = { GX_KCOLOR0, GX_KCOLOR1, GX_KCOLOR2, GX_KCOLOR3 };
+static u32 sTExpTevRegisterIds[3] = { GX_TEVREG0, GX_TEVREG1, GX_TEVREG2 };
 
 /**
  * @note Address: 0x801D847C
@@ -1666,12 +1657,12 @@ void HSD_TExpSetReg(HSD_TExp* clist)
 		GXPixModeSync();
 		for (i = 0; i < 4; i++) {
 			if (changed & (1 << i)) {
-				GXSetTevKColor(id1[i], reg[i]);
+				GXSetTevKColor(sTExpKonstRegisterIds[i], reg[i]);
 			}
 		}
 		for (i = 4; i < 7; i++) {
 			if (changed & (1 << i)) {
-				GXSetTevColor(id2[i - 4], reg[i]);
+				GXSetTevColor(sTExpTevRegisterIds[i - 4], reg[i]);
 			}
 		}
 		HSD_StateInvalidate(0x10);

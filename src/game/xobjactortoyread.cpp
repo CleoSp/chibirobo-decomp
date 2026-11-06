@@ -1,19 +1,16 @@
 #include "game/xobjactor.h"
+#include "game/actortoyanimation.h"
 #include "game/cjobjset.h"
 #include "game/xchr.h"
 #include "game/globals.h"
 #include "game/hsd_dobj.h"
 
-extern "C" {
-// the sound tables the toys play along their anims
-extern u8 lbl_8022C7E0[];
-}
-
 /**
  * @note Address: 0x8012214C
  * @note Size: 0x82C
  */
-void XObjActorToy::vfAC()
+#pragma section RX ".text.xobjactortoyread"
+__declspec(section ".text.xobjactortoyread") void XObjActorToy::vfAC()
 {
 	vfAC__9XObjActorFv(this);
 	if (mFirst.mStatus.mFlags & 0x10000) {
@@ -40,11 +37,12 @@ void XObjActorToy::vfAC()
 	}
 }
 
+#pragma section RX ".text.actortoyload"
 /**
  * @note Address: 0x80122978
  * @note Size: 0x64
  */
-void XObjActorToy::Release()
+__declspec(section ".text.actortoyload") void XObjActorToy::Release()
 {
 	mFirst.Release();
 	mSecond.Release();
@@ -57,25 +55,25 @@ void XObjActorToy::Release()
  * @note Address: 0x801229DC
  * @note Size: 0x1E8
  */
-BOOL XObjActorToy::vf9C(const CoordInfo& info)
+__declspec(section ".text.actortoyload") BOOL XObjActorToy::LoadFromPlacement(const CoordInfo& info)
 {
 	switch (GetKind()) {
 	case 0xF:
 		switch (mLoad) {
 		case 0:
-			if (!vf9C__9XObjActorFRC9CoordInfo(this, info)) {
+			if (!LoadFromPlacement__9XObjActorFRC9CoordInfo(this, info)) {
 				break;
 			}
 			mLoad++;
 		case 1:
-			if (!mFirst.vf9C(CoordInfo(GetSpawnData(0x2A)))) {
+			if (!mFirst.LoadFromPlacement(CoordInfo(GetSpawnData(0x2A)))) {
 				break;
 			}
 			mFirst.mStatus.mFlags &= ~0x10000ULL;
 			mFirst.SetPos(mMoveTranslate, 0);
 			mLoad++;
 		case 2:
-			if (!mSecond.vf9C(CoordInfo(GetSpawnData(0x2B)))) {
+			if (!mSecond.LoadFromPlacement(CoordInfo(GetSpawnData(0x2B)))) {
 				break;
 			}
 			mSecond.mStatus.mFlags &= ~0x10000ULL;
@@ -88,49 +86,49 @@ BOOL XObjActorToy::vf9C(const CoordInfo& info)
 		}
 		return FALSE;
 	}
-	return vf9C__9XObjActorFRC9CoordInfo(this, info) != FALSE;
+	return LoadFromPlacement__9XObjActorFRC9CoordInfo(this, info) != FALSE;
 }
 
 /**
  * @note Address: 0x80122BC4
  * @note Size: 0x174
  */
-void XObjActorToy::vf98()
+__declspec(section ".text.actortoyload") void XObjActorToy::ResetObjectState()
 {
-	u8* data = lbl_8022C7E0;
-	vf98__9XObjActorFv(this);
+	ActorToyAnimationData* data = &gActorToyAnimationData;
+	ResetObjectState__9XObjActorFv(this);
 	mLoad = 0;
 	_1F90 = 0;
-	mFirst.vf98();
-	mSecond.vf98();
+	mFirst.ResetObjectState();
+	mSecond.ResetObjectState();
 	switch (GetKind()) {
 	case 0x6F:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x374);
+		mAnimSfx.mEvents = data->sounds6F;
 		break;
 	case 0x110:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x68);
+		mAnimSfx.mEvents = data->sounds110;
 		break;
 	case 0x117:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x50C);
+		mAnimSfx.mEvents = data->sounds117;
 		break;
 	case 0x159:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x4DC);
+		mAnimSfx.mEvents = data->sounds159;
 		break;
 	case 0x1FB:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x62C);
+		mAnimSfx.mEvents = data->sounds1FB;
 		break;
 	case 0x1FC:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x3EC);
+		mAnimSfx.mEvents = data->sounds1FC;
 		break;
 	case 0x25E:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x74C);
+		mAnimSfx.mEvents = data->sounds25E;
 		break;
 	case 0x317:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x68C);
+		mAnimSfx.mEvents = data->sounds317;
 		break;
 	case 0x26C:
 	case 0x485:
-		mAnimSfx.mEvents = (AnimSfxEvent*)(data + 0x4AC);
+		mAnimSfx.mEvents = data->sounds26CAnd485;
 		break;
 	default:
 		mAnimSfx.mEvents = NULL;
@@ -142,7 +140,7 @@ void XObjActorToy::vf98()
  * @note Address: 0x80122D38
  * @note Size: 0x60
  */
-void XObjActorToy::vf94()
+__declspec(section ".text.actortoyload") void XObjActorToy::vf94()
 {
 	vf94__9XObjActorFv(this);
 	mLoad = 0;
@@ -155,11 +153,11 @@ void XObjActorToy::vf94()
  * @note Address: 0x80122D98
  * @note Size: 0x74
  */
-void XObjActorToy::vf90(u32 id)
+__declspec(section ".text.actortoyload") void XObjActorToy::InitializeObject(u32 id)
 {
-	vf90__9XObjActorFUl(this, id);
+	InitializeObject__9XObjActorFUl(this, id);
 	mLoad = 0;
 	_1F90 = 0;
-	mFirst.vf90(id);
-	mSecond.vf90(id);
+	mFirst.InitializeObject(id);
+	mSecond.InitializeObject(id);
 }

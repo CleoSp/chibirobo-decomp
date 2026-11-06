@@ -1,4 +1,7 @@
 #include "game/cobj.h"
+
+#pragma section RX ".text.objectinterpolation"
+#pragma section RX ".text.objectarchiveclear"
 #include "game/cjobjset.h"
 #include "game/gmath.h"
 #include "game/hsd_dobj.h"
@@ -31,7 +34,7 @@ void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags);
 // the same with a formatted message
 #define HALTF(line, ...)        \
 	OSReport("\n!!!HALT!!!\n"); \
-	OSPanic(__FILE__, line, "%s%s", fn_801911B4(__VA_ARGS__), __FUNCTION__)
+	OSPanic(__FILE__, line, "%s%s", FormatToStaticBuffer(__VA_ARGS__), __FUNCTION__)
 
 // a material with two extra colors added on top of its tev result
 struct XCObj {
@@ -43,9 +46,9 @@ struct XCObj {
 void XCObjInfoInit();
 HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list);
 void XCObjSetColors(HSD_JObj* jobj, u32* colors, s32);
-HSD_MObjInfo xCObj = { XCObjInfoInit };
+extern HSD_MObjInfo xCObj;
 
-static void ReadDone(s32, s32* state);
+void ObjectArchiveReadDone(s32, s32* state);
 
 // todo: cleanup
 static inline void ReleaseJObj(CJObj* obj)
@@ -136,7 +139,7 @@ inline void CXObj::ClearQueue()
  * @note Address: 0x801A43B4
  * @note Size: 0x4
  */
-void CXObj::ApplyTransform()
+__declspec(section ".text.objectarchiveclear") void CXObj::ApplyTransform()
 {
 }
 
@@ -144,7 +147,7 @@ void CXObj::ApplyTransform()
  * @note Address: 0x801A4318
  * @note Size: 0x9C
  */
-void CJArchive::Clear()
+__declspec(section ".text.objectarchiveclear") void CJArchive::Clear()
 {
 	mArchive        = NULL;
 	mState          = 0;
@@ -166,7 +169,7 @@ void CJArchive::Clear()
  * @note Size: 0x10
  */
 // the DevCom callback, moves ReadCheck on to parsing
-static void ReadDone(s32, s32* state)
+__declspec(section ".text.objectarchiveclear") void ObjectArchiveReadDone(s32, s32* state)
 {
 	(*state)++;
 }
@@ -205,7 +208,11 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
 			}
 			return FALSE;
 		}
+#if defined(VERSION_JP)
+		HALTF(273, "%s(%d)\n", path, result);
+#else
 		HALTF(285, "%s(%d)\n", path, result);
+#endif
 	}
 	return TRUE;
 }
@@ -301,22 +308,22 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
     li       r3, 0x0
     b        .L_801A42EC
 .L_801A42A0:
-    lis      r3, lbl_8020F094@ha
-    addi     r3, r3, lbl_8020F094@l
+    lis      r3, sObjectHaltMessage@ha
+    addi     r3, r3, sObjectHaltMessage@l
     crclr    cr1eq
     bl       OSReport
     mr       r4, r31
     mr       r5, r29
-    li       r3, lbl_8065F750@sda21
+    li       r3, sObjectReadErrorFormat@sda21
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r7, lbl_8020F0A4@ha
-    lis      r5, lbl_80258800@ha
+    bl       FormatToStaticBuffer
+    lis      r7, sPathCobjCpp@ha
+    lis      r5, sObjectReadAsyncName@ha
     mr       r6, r3
     li       r4, 0x11d
-    addi     r3, r7, lbl_8020F0A4@l
-    addi     r7, r5, lbl_80258800@l
-    li       r5, lbl_8065F738@sda21
+    addi     r3, r7, sPathCobjCpp@l
+    addi     r7, r5, sObjectReadAsyncName@l
+    li       r5, sObjectPanicFormat@sda21
     crclr    cr1eq
     bl       OSPanic
 .L_801A42E8:
@@ -337,10 +344,11 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
  */
 BOOL CJArchive::ReadCheck()
 {
+	s32 result;
 	switch (mState) {
 	case 1: {
 		CObjArchive* archive = mArchive;
-		s32 result           = archive->mFile.GetResult();
+		result               = archive->mFile.GetResult();
 		if (result == 0) {
 			archive->mFile.CloseHandle();
 		}
@@ -355,7 +363,11 @@ BOOL CJArchive::ReadCheck()
 				mState = 0;
 				break;
 			} else {
+#if defined(VERSION_JP)
+				HALTF(295, "%s(%d)\n", mArchive->mFile.mPath, result);
+#else
 				HALTF(307, "%s(%d)\n", mArchive->mFile.mPath, result);
+#endif
 			}
 		} else {
 			break;
@@ -365,8 +377,8 @@ BOOL CJArchive::ReadCheck()
 		if (mFlags & 2) {
 			u32 size = ((mArchive->mFile.mSize + 31) & ~31);
 			if (mAramAddr + size < ARGetSize()) {
-				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1, ReadDone,
-				                  &mState);
+				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1,
+				                  ObjectArchiveReadDone, &mState);
 				while (*(volatile s32*)&mState == 2) { }
 			} else {
 				mState++;
@@ -391,9 +403,9 @@ BOOL CJArchive::ReadCheck()
     stw      r31, 0x1c(r1)
     stw      r30, 0x18(r1)
     mr       r30, r3
-    lis      r3, lbl_8020F030@ha
+    lis      r3, sObjectRodataBase@ha
     stw      r29, 0x14(r1)
-    addi     r31, r3, lbl_8020F030@l
+    addi     r31, r3, sObjectRodataBase@l
     stw      r28, 0x10(r1)
     lwz      r0, 0x4(r30)
     cmpwi    r0, 0x2
@@ -449,16 +461,16 @@ BOOL CJArchive::ReadCheck()
     bl       OSReport
     lwz      r4, 0x0(r30)
     mr       r5, r29
-    li       r3, lbl_8065F750@sda21
+    li       r3, sObjectReadErrorFormat@sda21
     addi     r4, r4, 0x80
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_8025880C@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sObjectReadCheckName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_8025880C@l
+    addi     r7, r4, sObjectReadCheckName@l
     addi     r3, r31, 0x74
     li       r4, 0x133
-    li       r5, lbl_8065F738@sda21
+    li       r5, sObjectPanicFormat@sda21
     crclr    cr1eq
     bl       OSPanic
 .L_801A4030:
@@ -475,8 +487,8 @@ BOOL CJArchive::ReadCheck()
     cmplw    r0, r3
     bge      .L_801A40A0
     lwz      r4, 0x0(r30)
-    lis      r3, ReadDone__FlPl@ha
-    addi     r9, r3, ReadDone__FlPl@l
+    lis      r3, ObjectArchiveReadDone__FlPl@ha
+    addi     r9, r3, ObjectArchiveReadDone__FlPl@l
     addi     r10, r30, 0x4
     lwz      r3, 0x10c(r4)
     li       r7, 0xb
@@ -513,14 +525,14 @@ BOOL CJArchive::ReadCheck()
     bl       OSReport
     addi     r3, r31, 0x90
     addi     r5, r28, 0x80
-    li       r4, lbl_8065ADB0@sda21
+    li       r4, sObjectArchiveParseName@sda21
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
     addi     r3, r31, 0x74
     li       r4, 0x33
-    li       r5, lbl_8065F738@sda21
-    li       r7, lbl_8065ADB0@sda21
+    li       r5, sObjectPanicFormat@sda21
+    li       r7, sObjectArchiveParseName@sda21
     crclr    cr1eq
     bl       OSPanic
     addi     r3, r28, 0x44
@@ -577,6 +589,8 @@ void CJArchive::Release()
  * @note Address: 0x801A3A84
  * @note Size: 0x390
  */
+#pragma push
+#pragma opt_common_subs off
 void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 {
 	CJArchiveScene* scene;
@@ -613,10 +627,10 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 	}
 
 	scene    = GetScene(sceneIndex);
-	mDesc[0] = scene != NULL ? scene->_04 : NULL;
-	if (mDesc[0] != NULL && mDesc[0]->_04 != NULL) {
+	mDesc[0] = scene != NULL ? scene->mCamera : NULL;
+	if (mDesc[0] != NULL && mDesc[0]->mAnimations != NULL) {
 		for (mNum[1] = 0;; mNum[1]++) {
-			if (mDesc[0]->_04[mNum[1]] == NULL) {
+			if (mDesc[0]->mAnimations[mNum[1]] == NULL) {
 				break;
 			}
 		}
@@ -626,13 +640,13 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 
 	for (int i = 0; i < 8; i++) {
 		scene        = GetScene(sceneIndex);
-		mDesc[i + 1] = scene != NULL ? scene->_08[i] : NULL;
+		mDesc[i + 1] = scene != NULL ? scene->mLights[i] : NULL;
 		if (mDesc[i + 1] == NULL) {
 			break;
 		}
-		if (mDesc[i + 1]->_04 != NULL) {
+		if (mDesc[i + 1]->mAnimations != NULL) {
 			for (mNum[i + 2] = 0;; mNum[i + 2]++) {
-				if (mDesc[i + 1]->_04[mNum[i + 2]] == NULL) {
+				if (mDesc[i + 1]->mAnimations[mNum[i + 2]] == NULL) {
 					break;
 				}
 			}
@@ -644,10 +658,10 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 #if !defined(VERSION_JP)
 	scene    = GetScene(sceneIndex);
 	mDesc[9] = scene != NULL ? scene->_0C : NULL;
-	if (mDesc[9] != NULL && mDesc[9]->_04 != NULL) {
+	if (mDesc[9] != NULL && mDesc[9]->mAnimations != NULL) {
 		// checks the last list but counts the first one, retail's like that
 		for (mNum[10] = 0;; mNum[10]++) {
-			if (mDesc[0]->_04[mNum[10]] == NULL) {
+			if (mDesc[0]->mAnimations[mNum[10]] == NULL) {
 				break;
 			}
 		}
@@ -656,6 +670,7 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 	}
 #endif
 }
+#pragma pop
 // CJArchive::SetupScene(long, long)
 /*
     stwu     r1, -0x20(r1)
@@ -993,13 +1008,14 @@ HSD_ShapeAnimJoint* CJArchive::GetShapeAnimJoint(s32 id, s32 depth, const s32* p
  * @note Address: 0x801A37E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjSetFlags(mobj, flags);
+			HSD_MObjSetFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1051,13 +1067,14 @@ extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3768
  * @note Size: 0x80
  */
-extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjClearFlags(mobj, flags);
+			HSD_MObjClearFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1109,13 +1126,14 @@ extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A36E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjSetFlags(pobj, flags);
+			HSD_PObjSetFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1167,13 +1185,14 @@ extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3668
  * @note Size: 0x80
  */
-extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjClearFlags(pobj, flags);
+			HSD_PObjClearFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1266,7 +1285,7 @@ u8 CObjVec::Step(u32 frames)
     lfs      f2, 0x10(r3)
     fcmpu    cr0, f3, f2
     beq      .L_801A3494
-    lfs      f1, lbl_8065F71C@sda21(r0)
+    lfs      f1, sObjectInterpolationZero@sda21(r0)
     lfs      f0, 0x20(r3)
     fcmpu    cr0, f1, f0
     bne      .L_801A34D4
@@ -1275,7 +1294,7 @@ u8 CObjVec::Step(u32 frames)
     lfs      f0, 0x14(r3)
     fcmpu    cr0, f1, f0
     beq      .L_801A34B4
-    lfs      f1, lbl_8065F71C@sda21(r0)
+    lfs      f1, sObjectInterpolationZero@sda21(r0)
     lfs      f0, 0x24(r3)
     fcmpu    cr0, f1, f0
     bne      .L_801A34D4
@@ -1284,7 +1303,7 @@ u8 CObjVec::Step(u32 frames)
     lfs      f0, 0x18(r3)
     fcmpu    cr0, f1, f0
     beq      .L_801A34D8
-    lfs      f1, lbl_8065F71C@sda21(r0)
+    lfs      f1, sObjectInterpolationZero@sda21(r0)
     lfs      f0, 0x28(r3)
     fcmpu    cr0, f1, f0
     beq      .L_801A34D8
@@ -1296,7 +1315,7 @@ u8 CObjVec::Step(u32 frames)
     bge      .L_801A3520
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f2, lbl_8065F730@sda21(r0)
+    lfd      f2, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f3, 0x20(r3)
     lfd      f1, 0x8(r1)
@@ -1313,7 +1332,7 @@ u8 CObjVec::Step(u32 frames)
     ble      .L_801A355C
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f2, lbl_8065F730@sda21(r0)
+    lfd      f2, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f3, 0x20(r3)
     lfd      f1, 0x8(r1)
@@ -1332,7 +1351,7 @@ u8 CObjVec::Step(u32 frames)
     bge      .L_801A35A4
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x24(r3)
     lfd      f0, 0x8(r1)
@@ -1348,7 +1367,7 @@ u8 CObjVec::Step(u32 frames)
     ble      .L_801A35DC
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x24(r3)
     lfd      f0, 0x8(r1)
@@ -1366,7 +1385,7 @@ u8 CObjVec::Step(u32 frames)
     bge      .L_801A3624
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x28(r3)
     lfd      f0, 0x8(r1)
@@ -1382,7 +1401,7 @@ u8 CObjVec::Step(u32 frames)
     ble      .L_801A365C
     lis      r0, 0x4330
     stw      r4, 0xc(r1)
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x28(r3)
     lfd      f0, 0x8(r1)
@@ -1536,10 +1555,13 @@ BOOL CXObj::ReadAsync(CObjArchive* archive, const char* path, u32 a, u32 flags, 
  * @note Address: 0x801A2F38
  * @note Size: 0x134
  */
+// Retail calls both Attach and the base ReadCheck out of line.
+#pragma push
+#pragma auto_inline off
 void CXObj::Attach(HSD_JObj* jobj)
 {
 	CJObj::Attach(jobj);
-	fn_800D40EC(this);
+	SyncMoveFromJoint(this);
 }
 // CXObj::Attach(_HSD_JObj*)
 /*
@@ -1554,16 +1576,16 @@ void CXObj::Attach(HSD_JObj* jobj)
     lwz      r31, 0x0(r3)
     cmplwi   r31, 0x0
     bne      .L_801A2F74
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x3e4
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A2F74:
     addic.   r30, r29, 0x4
     bne      .L_801A2F90
-    lis      r4, lbl_8020F088@ha
-    li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F088@l
+    lis      r4, sObjectTranslationCondition@ha
+    li       r3, sObjectJObjHeader@sda21
+    addi     r5, r4, sObjectTranslationCondition@l
     li       r4, 0x3e5
     bl       __assert
 .L_801A2F90:
@@ -1576,16 +1598,16 @@ void CXObj::Attach(HSD_JObj* jobj)
     lwz      r31, 0x0(r29)
     cmplwi   r31, 0x0
     bne      .L_801A2FC4
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x2dd
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A2FC4:
     addic.   r30, r29, 0x14
     bne      .L_801A2FDC
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x2de
-    li       r5, lbl_8065F710@sda21
+    li       r5, sObjectRotationCondition@sda21
     bl       __assert
 .L_801A2FDC:
     lfs      f0, 0x1c(r31)
@@ -1599,16 +1621,16 @@ void CXObj::Attach(HSD_JObj* jobj)
     lwz      r31, 0x0(r29)
     cmplwi   r31, 0x0
     bne      .L_801A3018
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x351
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A3018:
     addic.   r30, r29, 0x24
     bne      .L_801A3030
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x352
-    li       r5, lbl_8065F708@sda21
+    li       r5, sObjectScaleCondition@sda21
     bl       __assert
 .L_801A3030:
     lfs      f0, 0x2c(r31)
@@ -1618,7 +1640,7 @@ void CXObj::Attach(HSD_JObj* jobj)
     stfs     f0, 0x4(r30)
     lfs      f0, 0x34(r31)
     stfs     f0, 0x8(r30)
-    bl       fn_800D40EC
+    bl       SyncMoveFromJoint
     lwz      r0, 0x24(r1)
     lwz      r31, 0x1c(r1)
     lwz      r30, 0x18(r1)
@@ -1649,6 +1671,7 @@ BOOL CXObj::ReadCheck()
 	}
 	return mLoadState == 0;
 }
+#pragma pop
 // CXObj::ReadCheck()
 /*
     stwu     r1, -0x20(r1)
@@ -1712,21 +1735,21 @@ BOOL CXObj::ReadCheck()
     lwz      r30, 0x0(r31)
     cmplwi   r30, 0x0
     bne      .L_801A2E58
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x351
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A2E58:
     addic.   r0, r31, 0x128
     bne      .L_801A2E70
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x352
-    li       r5, lbl_8065F708@sda21
+    li       r5, sObjectScaleCondition@sda21
     bl       __assert
 .L_801A2E70:
     lfs      f1, 0x2c(r30)
     li       r0, 0x0
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     stfs     f1, 0x128(r31)
     lfs      f1, 0x30(r30)
     stfs     f1, 0x12c(r31)
@@ -1895,7 +1918,7 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
     stw      r0, 0x40(r1)
     stw      r0, 0x24(r1)
     bl       PSVECMag
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     fcmpo    cr0, f1, f0
     ble      .L_801A227C
     lfs      f1, 0x34(r1)
@@ -1904,14 +1927,14 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
     fneg     f1, f1
 .L_801A21C8:
     lfs      f2, 0x38(r1)
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     stfs     f1, 0x34(r1)
     fcmpo    cr0, f2, f0
     bge      .L_801A21E0
     fneg     f2, f2
 .L_801A21E0:
     lfs      f1, 0x3c(r1)
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     stfs     f2, 0x38(r1)
     fcmpo    cr0, f1, f0
     bge      .L_801A21F8
@@ -1930,7 +1953,7 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
     lfs      f2, 0xc(r1)
     addi     r0, r3, __vt__4CVec@l
     lfs      f1, 0x8(r1)
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     stfs     f1, 0xe8(r31)
     stfs     f2, 0xec(r31)
     stfs     f3, 0xf0(r31)
@@ -1938,16 +1961,16 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
     lfs      f1, 0xe8(r31)
     fcmpo    cr0, f1, f0
     ble      .L_801A225C
-    lfs      f0, lbl_8065F724@sda21(r0)
+    lfs      f0, sJointRotationSnapThreshold@sda21(r0)
     fcmpo    cr0, f1, f0
     bge      .L_801A225C
     stfs     f0, 0xe8(r31)
 .L_801A225C:
     lfs      f1, 0xf0(r31)
-    lfs      f0, lbl_8065F71C@sda21(r0)
+    lfs      f0, sObjectInterpolationZero@sda21(r0)
     fcmpo    cr0, f1, f0
     ble      .L_801A227C
-    lfs      f0, lbl_8065F724@sda21(r0)
+    lfs      f0, sJointRotationSnapThreshold@sda21(r0)
     fcmpo    cr0, f1, f0
     bge      .L_801A227C
     stfs     f0, 0xf0(r31)
@@ -2128,7 +2151,7 @@ void CXObj::UpdateAnim(u32 speed)
     lis      r0, 0x4330
     stw      r31, 0xc(r1)
     mr       r28, r3
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x15c(r3)
     lfd      f0, 0x8(r1)
@@ -2175,7 +2198,7 @@ void CXObj::UpdateAnim(u32 speed)
     beq      .L_801A1840
     lis      r0, 0x4330
     stw      r31, 0xc(r1)
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     stw      r0, 0x8(r1)
     lfs      f2, 0x178(r29)
     lfd      f0, 0x8(r1)
@@ -2190,7 +2213,7 @@ void CXObj::UpdateAnim(u32 speed)
     lis      r4, HSD_AObjSetRate@ha
     stw      r31, 0xc(r1)
     addi     r6, r4, HSD_AObjSetRate@l
-    lfd      f1, lbl_8065F730@sda21(r0)
+    lfd      f1, sObjectUnsignedConversionBias@sda21(r0)
     li       r4, 0x6
     stw      r0, 0x8(r1)
     li       r5, 0x5a0
@@ -2255,9 +2278,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A190C
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x3b8
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A190C:
     stfs     f31, 0x38(r30)
@@ -2267,9 +2290,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1938
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1938:
     lwz      r4, 0x14(r30)
@@ -2289,9 +2312,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1984
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x3c6
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1984:
     stfs     f31, 0x3c(r30)
@@ -2301,9 +2324,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A19B0
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A19B0:
     lwz      r4, 0x14(r30)
@@ -2323,9 +2346,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A19FC
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x3d4
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A19FC:
     stfs     f31, 0x40(r30)
@@ -2335,9 +2358,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1A28
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1A28:
     lwz      r4, 0x14(r30)
@@ -2357,9 +2380,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1A74
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x325
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1A74:
     stfs     f31, 0x2c(r30)
@@ -2369,9 +2392,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1AA0
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1AA0:
     lwz      r4, 0x14(r30)
@@ -2391,9 +2414,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1AEC
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x333
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1AEC:
     stfs     f31, 0x30(r30)
@@ -2403,9 +2426,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1B18
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1B18:
     lwz      r4, 0x14(r30)
@@ -2425,9 +2448,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1B64
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x341
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1B64:
     stfs     f31, 0x34(r30)
@@ -2437,9 +2460,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1B90
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1B90:
     lwz      r4, 0x14(r30)
@@ -2459,17 +2482,17 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1BDC
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x2a4
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1BDC:
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1BFC
-    lis      r4, lbl_8020F060@ha
-    li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    lis      r4, sObjectNoQuaternionCondition@ha
+    li       r3, sObjectJObjHeader@sda21
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2a5
     bl       __assert
 .L_801A1BFC:
@@ -2480,9 +2503,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1C28
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1C28:
     lwz      r4, 0x14(r30)
@@ -2502,17 +2525,17 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1C74
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x2b8
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1C74:
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1C94
-    lis      r4, lbl_8020F060@ha
-    li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    lis      r4, sObjectNoQuaternionCondition@ha
+    li       r3, sObjectJObjHeader@sda21
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2b9
     bl       __assert
 .L_801A1C94:
@@ -2523,9 +2546,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1CC0
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1CC0:
     lwz      r4, 0x14(r30)
@@ -2545,17 +2568,17 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     lfs      f31, 0x178(r31)
     bne      .L_801A1D0C
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x2cc
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1D0C:
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1D2C
-    lis      r4, lbl_8020F060@ha
-    li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    lis      r4, sObjectNoQuaternionCondition@ha
+    li       r3, sObjectJObjHeader@sda21
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2cd
     bl       __assert
 .L_801A1D2C:
@@ -2566,9 +2589,9 @@ void CXObj::UpdateAnim(u32 speed)
     cmplwi   r30, 0x0
     beq      .L_801A1D84
     bne      .L_801A1D58
-    li       r3, lbl_8065F6F8@sda21
+    li       r3, sObjectJObjHeader@sda21
     li       r4, 0x25d
-    li       r5, lbl_8065F700@sda21
+    li       r5, sObjectJObjCondition@sda21
     bl       __assert
 .L_801A1D58:
     lwz      r4, 0x14(r30)
@@ -2612,7 +2635,7 @@ void CXObj::UpdateAnim(u32 speed)
  * @note Address: 0x801A16B0
  * @note Size: 0x4C
  */
-void CXObj::Push(HSD_JObj* jobj, u32 type, f32 value)
+__declspec(section ".text.objectinterpolation") void CXObj::Push(HSD_JObj* jobj, u32 type, f32 value)
 {
 	for (int i = 0; i < 10; i++) {
 		if (mQueue[i].mJObj == NULL) {
@@ -2629,7 +2652,7 @@ void CXObj::Push(HSD_JObj* jobj, u32 type, f32 value)
  * @note Address: 0x801A163C
  * @note Size: 0x74
  */
-BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b, u32 c)
+__declspec(section ".text.objectinterpolation") BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b, u32 c)
 {
 	switch (mLoadState) {
 	case 0:
@@ -2646,11 +2669,14 @@ BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b
  * @note Address: 0x801A1498
  * @note Size: 0x1A4
  */
-BOOL CXObjIntp::ReadCheck()
+__declspec(section ".text.objectinterpolation") BOOL CXObjIntp::ReadCheck()
 {
 	if (mLoadState == 1 && CXObj::ReadCheck() && (mLoadFlags & 0x10000)) {
 		mIntp.Attach(mArchive.LoadJObj());
-		fn_8018FD80(mIntp.mJObj);
+#if defined(VERSION_JP)
+		RemoveJointTreeDisplayObjects(mIntp.mJObj);
+#endif
+		ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		mBlend = 1.0f;
 	}
 	return mLoadState == 0;
@@ -2661,7 +2687,7 @@ BOOL CXObjIntp::ReadCheck()
  * @note Address: 0x801A13F0
  * @note Size: 0xA8
  */
-void CXObjIntp::Release()
+__declspec(section ".text.objectinterpolation") void CXObjIntp::Release()
 {
 	if (mIntp.mJObj != NULL) {
 		ReleaseJObj(&mIntp);
@@ -2676,7 +2702,7 @@ void CXObjIntp::Release()
  * @note Address: 0x801A138C
  * @note Size: 0x64
  */
-BOOL CXObjIntp::StepRotate(u32 frames)
+__declspec(section ".text.objectinterpolation") BOOL CXObjIntp::StepRotate(u32 frames)
 {
 	BOOL moving = CXObj::StepRotate(frames);
 	if (mIntp.mJObj != NULL) {
@@ -2689,7 +2715,7 @@ BOOL CXObjIntp::StepRotate(u32 frames)
  * @note Address: 0x801A1328
  * @note Size: 0x64
  */
-BOOL CXObjIntp::StepTranslate(u32 frames)
+__declspec(section ".text.objectinterpolation") BOOL CXObjIntp::StepTranslate(u32 frames)
 {
 	BOOL moving = CXObj::StepTranslate(frames);
 	if (mIntp.mJObj != NULL) {
@@ -2702,7 +2728,7 @@ BOOL CXObjIntp::StepTranslate(u32 frames)
  * @note Address: 0x801A12C4
  * @note Size: 0x64
  */
-BOOL CXObjIntp::StepScale(u32 frames)
+__declspec(section ".text.objectinterpolation") BOOL CXObjIntp::StepScale(u32 frames)
 {
 	BOOL moving = CXObj::StepScale(frames);
 	if (mIntp.mJObj != NULL) {
@@ -2715,12 +2741,13 @@ BOOL CXObjIntp::StepScale(u32 frames)
  * @note Address: 0x801A1020
  * @note Size: 0x2A4
  */
-void CXObjIntp::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend, f32 blendRate)
+__declspec(section ".text.objectinterpolation") void CXObjIntp::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
+                                                                        f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
 	if ((force || id != mAnimId) && mIntp.mJObj != NULL) {
 		if (blend < 1.0f) {
-			fn_8018F658(mJObj, mIntp.mJObj);
-			fn_8018FD80(mIntp.mJObj);
+			CopyJointPoseTree(mJObj, mIntp.mJObj);
+			ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		} else if (mBlend < 1.0f) {
 			ApplyTransform();
 		}
@@ -2735,7 +2762,7 @@ void CXObjIntp::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void
  * @note Address: 0x801A0EE8
  * @note Size: 0x138
  */
-void CXObjIntp::UpdateAnim(u32 speed)
+__declspec(section ".text.objectinterpolation") void CXObjIntp::UpdateAnim(u32 speed)
 {
 	if (mIntp.mJObj != NULL) {
 		if (mBlend < 1.0f) {
@@ -2748,7 +2775,7 @@ void CXObjIntp::UpdateAnim(u32 speed)
 			if (t >= 1.0f || GetAObj(mJObj)->flags & AOBJ_NO_ANIM) {
 				mBlend = 1.0f;
 			} else {
-				fn_8018EEC8(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
+				BlendJointTreePoses(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
 			}
 		}
 	} else {
@@ -2760,9 +2787,9 @@ void CXObjIntp::UpdateAnim(u32 speed)
  * @note Address: 0x801A0BCC
  * @note Size: 0x31C
  */
-void CXObjIntp::ApplyTransform()
+__declspec(section ".text.objectinterpolation") void CXObjIntp::ApplyTransform()
 {
-	fn_8018F9B4(mArchive.mJoint, mJObj);
+	RestoreJointTreePose(mArchive.mJoint, mJObj);
 	mTranslate.Set(mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);
 	HSD_JObjSetTranslate(mJObj, &mTranslate);
 	mScale.Set(mMoveScale.x, mMoveScale.y, mMoveScale.z);
@@ -2776,7 +2803,7 @@ void CXObjIntp::ApplyTransform()
  * @note Address: 0x801A0A58
  * @note Size: 0x174
  */
-void CJointRot::Init(CXObj* obj, s32 depth, s32* path, char axis)
+__declspec(section ".text.objectinterpolation") void CJointRot::Init(CXObj* obj, s32 depth, s32* path, char axis)
 {
 	mMode   = 0;
 	mSpeed  = 0.0f;
@@ -2815,7 +2842,7 @@ void CJointRot::Init(CXObj* obj, s32 depth, s32* path, char axis)
  * @note Address: 0x801A0774
  * @note Size: 0x2E4
  */
-bool CJointRot::Update(u32 frames)
+__declspec(section ".text.objectinterpolation") bool CJointRot::Update(u32 frames)
 {
 	if (mMode == 0) {
 		return false;

@@ -1,5 +1,7 @@
 #include "game/cgame.h"
 
+#pragma section RX ".text.none"
+
 void operator delete(void* object);
 
 extern "C" void* __vt__20CCameraActionAreaExM[];
@@ -8,7 +10,7 @@ extern "C" void* __vt__20CCameraActionAreaExM[];
  * @note Address: 0x8001585C
  * @note Size: 0x1C
  */
-bool CInterpolationNone::Start(f32 from, f32 to, f32 time)
+__declspec(section ".text.none") bool CInterpolationNone::Start(f32 from, f32 to, f32 time)
 {
 	mTime  = 1.0f;
 	mValue = to;
@@ -20,7 +22,7 @@ bool CInterpolationNone::Start(f32 from, f32 to, f32 time)
  * @note Address: 0x80015878
  * @note Size: 0x24
  */
-bool CInterpolationNone::Step(f32 dt)
+__declspec(section ".text.none") bool CInterpolationNone::Step(f32 dt)
 {
 	mTime = 1.0f;
 	return mTime <= 0.0f;
@@ -30,7 +32,7 @@ bool CInterpolationNone::Step(f32 dt)
  * @note Address: 0x8001589C
  * @note Size: 0x2C
  */
-bool CInterpolationNone::Update(u32 step, f32 dt)
+__declspec(section ".text.none") bool CInterpolationNone::Update(u32 step, f32 dt)
 {
 	return Step(dt);
 }
@@ -39,7 +41,7 @@ bool CInterpolationNone::Update(u32 step, f32 dt)
  * @note Address: 0x800158C8
  * @note Size: 0x8
  */
-f32 CInterpolationNone::Get()
+__declspec(section ".text.none") f32 CInterpolationNone::Get()
 {
 	return mValue;
 }
@@ -48,7 +50,7 @@ f32 CInterpolationNone::Get()
  * @note Address: 0x800158D0
  * @note Size: 0xCC
  */
-bool CVectorNoneInterpolation::Start(Vec from, Vec to, f32 time)
+__declspec(section ".text.none") bool CVectorNoneInterpolation::Start(Vec from, Vec to, f32 time)
 {
 	if (time < 0.0f) {
 		return false;
@@ -63,7 +65,7 @@ bool CVectorNoneInterpolation::Start(Vec from, Vec to, f32 time)
  * @note Address: 0x8001599C
  * @note Size: 0xB4
  */
-bool CVectorNoneInterpolation::Step(f32 dt)
+__declspec(section ".text.none") bool CVectorNoneInterpolation::Step(f32 dt)
 {
 	bool x = mAxes[0].Step(dt);
 	bool y = mAxes[1].Step(dt);
@@ -75,7 +77,7 @@ bool CVectorNoneInterpolation::Step(f32 dt)
  * @note Address: 0x80015A50
  * @note Size: 0x2C
  */
-bool CVectorNoneInterpolation::Update(u32 step, f32 dt)
+__declspec(section ".text.none") bool CVectorNoneInterpolation::Update(u32 step, f32 dt)
 {
 	return Step(dt);
 }
@@ -84,7 +86,7 @@ bool CVectorNoneInterpolation::Update(u32 step, f32 dt)
  * @note Address: 0x80015A7C
  * @note Size: 0xBC
  */
-Vec CVectorNoneInterpolation::Get()
+__declspec(section ".text.none") Vec CVectorNoneInterpolation::Get()
 {
 	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
 }
@@ -93,8 +95,9 @@ Vec CVectorNoneInterpolation::Get()
  * @note Address: 0x80015BBC
  * @note Size: 0x98
  */
-// todo: weak copy
-extern "C" CCameraActionAreaExM* __dt__20CCameraActionAreaExMFv(CCameraActionAreaExM* action, s32 flags)
+#pragma section RX ".text.cameraareadtor"
+extern "C" __declspec(section ".text.cameraareadtor") CCameraActionAreaExM* __dt__20CCameraActionAreaExMFv(CCameraActionAreaExM* action,
+                                                                                                           s32 flags)
 {
 	if (action != NULL) {
 		*(void***)((u8*)action + 0x3C) = __vt__20CCameraActionAreaExM; // _3C vtable

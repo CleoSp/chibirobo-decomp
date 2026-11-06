@@ -1,10 +1,12 @@
+// Keep literals for the inline CJObj methods with their separately linked definitions.
+#pragma section const_type ".rodata.inline"
 #include "Version.h"
 #include "game/cjobj.h"
 
 // linked into both shun and stage07
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
 struct ObjDesc {
 	s32 mId; // _00
@@ -41,7 +43,7 @@ typedef char FafaGame_size_check[sizeof(FafaGame) == 0x9728 ? 1 : -1];
 #else
 typedef char FafaGame_size_check[sizeof(FafaGame) == 0x9770 ? 1 : -1];
 #endif
-#define SHUN_ITEMS() (&((FafaGame*)lbl_8025C400)->mItems)
+#define SHUN_ITEMS() (&((FafaGame*)gGame)->mItems)
 
 // three levels, child then N siblings at each
 // todo: cleanup
@@ -74,6 +76,8 @@ inline HSD_JObj* FafaFindPart(HSD_JObj* root, s32* path)
  * @note Address: shun .text 0x1FB8
  * @note Size: 0x164C
  */
+#pragma section const_type
+#pragma section code_type ".text.fafa"
 extern "C" void SetFafaPartVisibility(s32 mode)
 {
 	CJObj obj;
@@ -154,3 +158,6 @@ extern "C" void SetFafaPartVisibility(s32 mode)
 		break;
 	}
 }
+
+#pragma section const_type ".rodata.inline"
+#pragma section code_type

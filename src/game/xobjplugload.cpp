@@ -1,4 +1,5 @@
 #include "game/xchr.h"
+#include "game/cjobjinlineattach.h"
 #include "game/texturecopy.h"
 #include "game/stagedata.h"
 
@@ -6,23 +7,27 @@
 
 extern "C" {
 
-// XObjPlug::vf9C, the plug, then its wire effect from spawn 16
+extern const s32 sPlugRootJointIndex;
+
+#pragma section RX ".text.plugload"
+#pragma section RX ".text.plugplacement"
+// XObjPlug::LoadFromPlacement, the plug, then its wire effect from spawn 16
 /**
  * @note Address: 0x800D9414
  * @note Size: 0x104
  */
-BOOL vf9C__8XObjPlugFRC9CoordInfo(XObjPlug* object, const CoordInfo& info)
+__declspec(section ".text.plugplacement") BOOL LoadFromPlacement__8XObjPlugFRC9CoordInfo(XObjPlug* object, const CoordInfo& info)
 {
 	switch (object->mLoadState) {
 	case 0:
-		if (!vf9C__4XObjFRC9CoordInfo(object, &info)) {
+		if (!LoadFromPlacement__4XObjFRC9CoordInfo(object, &info)) {
 			break;
 		}
 		object->mLoadState++;
 	case 1:
-		if (object->mWire.vf9C(CoordInfo(GetSpawnData(16)))) {
-			Vec pos = lbl_8025C400.GetPlayer()->mMoveTranslate;
-			fn_800DB810(&object->mCord, pos.x, pos.y, pos.z);
+		if (object->mWire.LoadFromPlacement(CoordInfo(GetSpawnData(16)))) {
+			Vec pos = gGame.GetPlayer()->mMoveTranslate;
+			ResetPlugCordPoints(&object->mCord, pos.x, pos.y, pos.z);
 			object->mLoadState++;
 		}
 		break;
@@ -30,12 +35,36 @@ BOOL vf9C__8XObjPlugFRC9CoordInfo(XObjPlug* object, const CoordInfo& info)
 	return object->mLoadState > 1;
 }
 
+/**
+ * @note Address: 0x800D9518
+ * @note Size: 0x53C
+ */
+__declspec(section ".text.plugload") void ResetObjectState__8XObjPlugFv(XObjPlug* object)
+{
+	ResetObjectState__4XObjFv(object);
+	object->_D3C = 0;
+	if (object->mStatus.mFlags & 1) {
+		Vec position = gGame.GetPlayer()->mMoveTranslate;
+		ResetPlugCordPoints(&object->mCord, position.x, position.y, position.z);
+		s32 path[] = { sPlugRootJointIndex };
+		CJObj joint(FindJointByPath(object->mJObj, path, 1));
+		joint.SetRotationX(0.0f, 0);
+		joint.SetRotationZ(0.0f, 0);
+	}
+	SetPlugCordEndpointSource(&object->mCord, 0, &object->mCordAnchor);
+	SetPlugCordEndpointSource(&object->mCord, 1, NULL);
+	SetPlugCordEndpointSource(&object->mCord, 2, NULL);
+	object->_D38 = 0;
+	object->mWire.ResetObjectState();
+	object->mWire.mSparkMode = -1;
+}
+
 // XObjPlug::vf94
 /**
  * @note Address: 0x800D9A54
  * @note Size: 0x28
  */
-void vf94__8XObjPlugFv(XObjPlug* object)
+__declspec(section ".text.plugload") void vf94__8XObjPlugFv(XObjPlug* object)
 {
 	object->mStatus.mFlags &= ~0x0400000000000000ULL;
 }
@@ -44,25 +73,25 @@ void vf94__8XObjPlugFv(XObjPlug* object)
  * @note Address: 0x800D9A7C
  * @note Size: 0x8
  */
-void fn_800D9A7C(XObjPlug* object, f32 speed)
+__declspec(section ".text.plugload") void SetPlugCordSpeed(XObjPlug* object, f32 speed)
 {
 	object->mCord.mSpeed = speed;
 }
 
-// XObjPlug::vf90
+// XObjPlug::InitializeObject
 /**
  * @note Address: 0x800D9A84
  * @note Size: 0x8C
  */
-void vf90__8XObjPlugFUl(XObjPlug* object, u32 id)
+__declspec(section ".text.plugload") void InitializeObject__8XObjPlugFUl(XObjPlug* object, u32 id)
 {
-	vf90__4XObjFUl(object, id);
-	fn_800DBA7C(&object->mCord, 20, 0.0f, 0.0f, 0.0f, 0.5f);
+	InitializeObject__4XObjFUl(object, id);
+	InitPlugCord(&object->mCord, 20, 0.0f, 0.0f, 0.0f, 0.5f);
 	object->mCord.mColor = 0x141414FF;
 	object->mCord._60    = 0x141414FF;
 	object->mCord.mWidth = 0.2f;
 	object->mLoadState   = 0;
-	object->mWire.vf90(id);
+	object->mWire.InitializeObject(id);
 }
 
 } // extern "C"

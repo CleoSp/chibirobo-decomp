@@ -13,15 +13,15 @@ extern "C" f32 PSVECDistance(Vec* a, Vec* b);
 static inline HSD_AObj* FindAnim(HSD_JObj* jobj)
 {
 	if (jobj != NULL) {
-		HSD_AObj* aobj = fn_801908F8(jobj);
+		HSD_AObj* aobj = FindJointAnimationInTree(jobj);
 		if (aobj != NULL) {
 			return aobj;
 		}
-		aobj = fn_801905D4(jobj);
+		aobj = FindMaterialOrTextureAnimationInJointTree(jobj);
 		if (aobj != NULL) {
 			return aobj;
 		}
-		aobj = fn_801902C4(jobj);
+		aobj = FindPolygonAnimationInJointTree(jobj);
 		if (aobj != NULL) {
 			return aobj;
 		}
@@ -127,7 +127,7 @@ struct TrashObj {
 	virtual void vf124(); // _124
 	virtual void vf128(); // _128
 	virtual void vf12C(); // _12C
-	virtual void vf130(); // _130
+	virtual void OnPushDisplacement(const Vec&);
 	virtual void vf134(); // _134
 	virtual void vf138(); // _138
 	virtual void vf13C(); // _13C
@@ -172,17 +172,17 @@ typedef char TrashXObjViewSizeCheck[sizeof(TrashObj) == 0xA58 ? 1 : -1];
 typedef char TrashXObjViewSizeCheck[sizeof(TrashObj) == 0xA68 ? 1 : -1];
 #endif
 
-static TrashObj* trashTarget;
-static s32 trashStackNum;
-static f32 trashStackScale;
-static TrashObj* trashObj;
-static s32 trashState;
+TrashObj* trashTarget;
+s32 trashStackNum;
+f32 trashStackScale;
+TrashObj* trashObj;
+s32 trashState;
 static Vec trashPos;
 static Vec trashDest;
 static Vec trashStep;
 static f32 trashArc;
-static s32 trashResult;
-static u8 trashActive;
+s32 trashResult;
+u8 trashActive;
 static s32 trashboxIndex;
 
 extern "C" void DrawTrashStack(void* arg);
@@ -222,11 +222,12 @@ extern "C" void DrawTrashStack(void* arg)
 		return;
 	}
 
-	count   = trashStackNum;
-	Vec pos = actor->_C8;
-	angle   = 1.0471976f + actor->_FC;
-	jobj    = actor->jobj;
-	if (count < 0) {
+	const s32 stackSize = trashStackNum;
+	Vec pos             = actor->_C8;
+	angle               = 1.0471976f + actor->_FC;
+	jobj                = actor->jobj;
+	count               = stackSize;
+	if (stackSize < 0) {
 		count = 0;
 	}
 	if (count > 10) {
@@ -673,7 +674,7 @@ extern "C" void UpdateTrash(u32 frames)
 
 	if (trashTarget != NULL && trashActive) {
 		CPad pad(0);
-		robot = (TrashObj*)lbl_8025C400.GetPlayer();
+		robot = (TrashObj*)gGame.GetPlayer();
 		switch (trashState) {
 		case 0:
 			trashObj = robot->_A64;
@@ -712,9 +713,9 @@ extern "C" void UpdateTrash(u32 frames)
 			break;
 		case 3: {
 			if (30.0f <= GetAnimFrame(robot->jobj) && GetAnimFrame(robot->jobj) < 33.0f) {
-				XSound* obj = &lbl_8025C400.mSound;
-				if (!fn_8001E6C8(obj, 0x1B9)) {
-					fn_8001E904(obj, 0x1B9, 0xFF);
+				XSound* obj = &gGame.mSound;
+				if (!IsGameSoundPlaying(obj, 0x1B9)) {
+					PlayGameSound(obj, 0x1B9, 0xFF);
 				}
 			}
 			trashArc += 0.08726646f * frames;
@@ -791,10 +792,10 @@ extern "C" void UpdateTrash(u32 frames)
     li       r4, 0x0
     bl       __ct__4CPadFUc
     lis      r3, trashState@ha
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     addi     r5, r3, trashState@l
     lwz      r0, 0x0(r5)
-    addi     r3, r4, lbl_8025C400@l
+    addi     r3, r4, gGame@l
     addis    r3, r3, 0x1
     cmpwi    r0, 0x3
     lwz      r31, -0x6944(r3)
@@ -875,21 +876,21 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r30, 0x0
     beq      .L_00001FC8
     mr       r3, r30
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_00001F98
     mr       r30, r3
     b        .L_00001FCC
 .L_00001F98:
     mr       r3, r30
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_00001FB0
     mr       r30, r3
     b        .L_00001FCC
 .L_00001FB0:
     mr       r3, r30
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_00001FC8
     mr       r30, r3
@@ -900,9 +901,9 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r30, 0x0
     beq      .L_00001FF8
     bne      .L_00001FF0
-    lis      r3, lbl_7_rodata_1A4@ha
+    lis      r3, sStage04PathAobjH@ha
     lis      r5, lbl_7_rodata_1AC@ha
-    addi     r3, r3, lbl_7_rodata_1A4@l
+    addi     r3, r3, sStage04PathAobjH@l
     li       r4, 0x95
     addi     r5, r5, lbl_7_rodata_1AC@l
     bl       __assert
@@ -983,21 +984,21 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r29, 0x0
     beq      .L_00002158
     mr       r3, r29
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_00002128
     mr       r29, r3
     b        .L_0000215C
 .L_00002128:
     mr       r3, r29
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_00002140
     mr       r29, r3
     b        .L_0000215C
 .L_00002140:
     mr       r3, r29
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_00002158
     mr       r29, r3
@@ -1008,9 +1009,9 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r29, 0x0
     beq      .L_00002188
     bne      .L_00002180
-    lis      r3, lbl_7_rodata_1A4@ha
+    lis      r3, sStage04PathAobjH@ha
     lis      r5, lbl_7_rodata_1AC@ha
-    addi     r3, r3, lbl_7_rodata_1A4@l
+    addi     r3, r3, sStage04PathAobjH@l
     li       r4, 0x95
     addi     r5, r5, lbl_7_rodata_1AC@l
     bl       __assert
@@ -1030,21 +1031,21 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r29, 0x0
     beq      .L_000021F8
     mr       r3, r29
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_000021C8
     mr       r29, r3
     b        .L_000021FC
 .L_000021C8:
     mr       r3, r29
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_000021E0
     mr       r29, r3
     b        .L_000021FC
 .L_000021E0:
     mr       r3, r29
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_000021F8
     mr       r29, r3
@@ -1055,9 +1056,9 @@ extern "C" void UpdateTrash(u32 frames)
     cmplwi   r29, 0x0
     beq      .L_00002228
     bne      .L_00002220
-    lis      r3, lbl_7_rodata_1A4@ha
+    lis      r3, sStage04PathAobjH@ha
     lis      r5, lbl_7_rodata_1AC@ha
-    addi     r3, r3, lbl_7_rodata_1A4@l
+    addi     r3, r3, sStage04PathAobjH@l
     li       r4, 0x95
     addi     r5, r5, lbl_7_rodata_1AC@l
     bl       __assert
@@ -1072,19 +1073,19 @@ extern "C" void UpdateTrash(u32 frames)
     lfs      f0, lbl_7_rodata_1C0@l(r3)
     fcmpo    cr0, f1, f0
     bge      .L_00002274
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x1b9
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r29, r3, 0xe
     addi     r29, r29, 0x7e24
     mr       r3, r29
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     bne      .L_00002274
     mr       r3, r29
     li       r4, 0x1b9
     li       r5, 0xff
-    bl       fn_8001E904
+    bl       PlayGameSound
 .L_00002274:
     lis      r0, 0x4330
     lis      r3, lbl_7_rodata_1C8@ha
@@ -1326,7 +1327,7 @@ extern "C" void UpdateTrash(u32 frames)
 extern "C" void InitTrash(void* arg)
 {
 	TrashObj* actor;
-	CGame* game = &lbl_8025C400;
+	CGame* game = &gGame;
 	s32 count;
 	s32 i;
 
@@ -1351,10 +1352,12 @@ extern "C" void InitTrash(void* arg)
 // needed as an inline for the stack layout of the two CVec copies
 static inline s32 IsNearXZ(const Vec& p, const Vec& q)
 {
-	CVec a(p);
-	CVec b(q);
-	b.y = 0.0f;
-	a.y = 0.0f;
+	CVec a;
+	CVec b;
+	static_cast<Vec&>(a) = p;
+	static_cast<Vec&>(b) = q;
+	b.y                  = 0.0f;
+	a.y                  = 0.0f;
 	if (11.5f < PSVECDistance(&a, &b)) {
 		return 0;
 	}
@@ -1374,7 +1377,7 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
 	if (trashboxIndex < 0) {
 		return 0;
 	}
-	game  = &lbl_8025C400;
+	game  = &gGame;
 	robot = (TrashObj*)game->GetPlayer();
 	if (trashboxIndex != robot->_9D4) {
 		return 0;
@@ -1394,8 +1397,8 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
     li       r3, 0x0
     b        .L_000027D8
 .L_0000270C:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r4, r3, 0x1
     lwz      r7, -0x6944(r4)
     lwz      r0, 0x9d4(r7)
@@ -1458,9 +1461,10 @@ extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage04 .text 0x27E8
  * @note Size: 0x9C
  */
-extern "C" s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2)
+#pragma section RX ".text.trashcommands"
+extern "C" __declspec(section ".text.trashcommands") s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2)
 {
-	TrashObj* robot = (TrashObj*)lbl_8025C400.GetPlayer();
+	TrashObj* robot = (TrashObj*)gGame.GetPlayer();
 
 	if (robot->_A64 != NULL) {
 		robot->_A48 = 6;
@@ -1476,7 +1480,7 @@ extern "C" s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage04 .text 0x2884
  * @note Size: 0x2C
  */
-extern "C" s32 CmdEndTrash(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.trashcommands") s32 CmdEndTrash(s32 cmd, s32 arg, s32* arg2)
 {
 	if (trashTarget != NULL) {
 		trashObj    = NULL;
@@ -1489,7 +1493,7 @@ extern "C" s32 CmdEndTrash(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage04 .text 0x28B0
  * @note Size: 0x10
  */
-extern "C" s32 CmdGetTrashResult(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.trashcommands") s32 CmdGetTrashResult(s32 cmd, s32 arg, s32* arg2)
 {
 	return trashResult;
 }
@@ -1498,9 +1502,9 @@ extern "C" s32 CmdGetTrashResult(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage04 .text 0x28C0
  * @note Size: 0xA8
  */
-extern "C" s32 CmdStartTrash(s32 cmd, s32 arg, s32* arg2)
+extern "C" __declspec(section ".text.trashcommands") s32 CmdStartTrash(s32 cmd, s32 arg, s32* arg2)
 {
-	CGame* game     = &lbl_8025C400;
+	CGame* game     = &gGame;
 	f32 scale       = arg2[2] / 100.0f;
 	s32 idx         = arg2[0];
 	s32 num         = arg2[1];

@@ -2,6 +2,7 @@
 #include <dolphin/gx/gxtypes.h>
 #include <dolphin/mtx/mtxtypes.h>
 #include <sysdolphin/forward.h>
+#include <sysdolphin/pslist.h>
 #include <sysdolphin/jobj.h>
 #include <sysdolphin/memory.h>
 #include <sysdolphin/lobj.h>
@@ -279,7 +280,6 @@ typedef struct {
 	u8 count;
 } TrailStripHdr;
 
-extern void particleSort(s32 bank, void** opaHead, void** xluHead);
 extern void psSetupTevCommon(void);
 extern void psSetupTevInvalidState(void);
 extern void psSetupTev(HSD_Particle* pp);
@@ -362,7 +362,7 @@ typedef struct {
 extern HSD_PSFormGroup** psFormGroupArray[64];
 
 // billboard texcoords, two bytes each, picked by GX_INDEX8
-u8 lbl_802590E0[32] __attribute__((aligned(32)))
+u8 sParticleBillboardTexCoords[32] __attribute__((aligned(32)))
 = { 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0 };
 
 static Mtx psdisp_view;
@@ -385,13 +385,13 @@ s32 lbl_8065B918;
 u32 lbl_8065B914;
 GXColor lbl_8065B910;
 GXColor lbl_8065B90C;
-GXColor lbl_8065B908;
-GXColor lbl_8065B904;
-GXColor lbl_8065B900;
+GXColor psdispTevReg0Color;
+GXColor psdispTevReg1Color;
+GXColor psdispTevReg2Color;
 s32 lbl_8065B8FC;
 HSD_Fog* particleFog;
 
-static const f64 lbl_805E6010 = 0.01;
+static const f64 sParticleRotationEpsilon = 0.01;
 
 HSD_Particle* psDispSubPointTrail(HSD_Particle* pp);
 void psDispSubAPPSRTPoint(HSD_Particle* pp);
@@ -667,32 +667,36 @@ void setupTevReg(HSD_Particle* pp)
 
 	psdisp_getColorPrimEnv(pp, &prim, &env);
 	if ((pp->kind & 0x80) || (!(pp->kind & 0x80000000) && !(pp->kind & 0x100000))) {
-		if (lbl_8065B908.r != prim.r || lbl_8065B908.g != prim.g || lbl_8065B908.b != prim.b || lbl_8065B908.a != prim.a) {
-			lbl_8065B908 = prim;
-			GXSetTevColor(GX_TEVREG0, lbl_8065B908);
+		if (psdispTevReg0Color.r != prim.r || psdispTevReg0Color.g != prim.g || psdispTevReg0Color.b != prim.b
+		    || psdispTevReg0Color.a != prim.a) {
+			psdispTevReg0Color = prim;
+			GXSetTevColor(GX_TEVREG0, psdispTevReg0Color);
 		}
 		if (pp->kind & 0x80) {
-			if (lbl_8065B904.r != env.r || lbl_8065B904.g != env.g || lbl_8065B904.b != env.b || lbl_8065B904.a != env.a) {
-				lbl_8065B904 = env;
-				GXSetTevColor(GX_TEVREG1, lbl_8065B904);
+			if (psdispTevReg1Color.r != env.r || psdispTevReg1Color.g != env.g || psdispTevReg1Color.b != env.b
+			    || psdispTevReg1Color.a != env.a) {
+				psdispTevReg1Color = env;
+				GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
 			}
-		} else if (lbl_8065B904.r != 0 || lbl_8065B904.g != 0 || lbl_8065B904.b != 0 || lbl_8065B904.a != 0) {
-			lbl_8065B904.r = lbl_8065B904.g = lbl_8065B904.b = lbl_8065B904.a = 0;
-			GXSetTevColor(GX_TEVREG1, lbl_8065B904);
+		} else if (psdispTevReg1Color.r != 0 || psdispTevReg1Color.g != 0 || psdispTevReg1Color.b != 0 || psdispTevReg1Color.a != 0) {
+			psdispTevReg1Color.r = psdispTevReg1Color.g = psdispTevReg1Color.b = psdispTevReg1Color.a = 0;
+			GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
 		}
 	}
 	if (pp->kind & 0x80000000) {
 		psdisp_getColorMatAmb(pp, &mat, &amb);
 		if (pp->kind & 0x80) {
-			if (lbl_8065B900.r != mat.r || lbl_8065B900.g != mat.g || lbl_8065B900.b != mat.b || lbl_8065B900.a != mat.a) {
-				lbl_8065B900 = mat;
-				GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+			if (psdispTevReg2Color.r != mat.r || psdispTevReg2Color.g != mat.g || psdispTevReg2Color.b != mat.b
+			    || psdispTevReg2Color.a != mat.a) {
+				psdispTevReg2Color = mat;
+				GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 			}
 		} else {
 			mat.a = (mat.a * prim.a) >> 8;
-			if (lbl_8065B900.r != mat.r || lbl_8065B900.g != mat.g || lbl_8065B900.b != mat.b || lbl_8065B900.a != mat.a) {
-				lbl_8065B900 = mat;
-				GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+			if (psdispTevReg2Color.r != mat.r || psdispTevReg2Color.g != mat.g || psdispTevReg2Color.b != mat.b
+			    || psdispTevReg2Color.a != mat.a) {
+				psdispTevReg2Color = mat;
+				GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 			}
 		}
 	}
@@ -708,8 +712,8 @@ void psDispSubAPPSRTPoint(HSD_Particle* pp)
 	f32 velY;
 	f32 velZ;
 	f32 x;
-	f32 y;
 	f32 z;
+	f32 y;
 	f32 prevX;
 	f32 prevY;
 	f32 prevZ;
@@ -1544,7 +1548,7 @@ void psDispSubAppSRT(HSD_Particle* pp, u32* cmdList)
 		angle = pp->rotate;
 	}
 
-	if (__fabs(angle) > lbl_805E6010) {
+	if (__fabs(angle) > sParticleRotationEpsilon) {
 		Mtx rot;
 		Vec axis;
 		f32 rx = rightX;
@@ -2772,7 +2776,7 @@ void psDispSub(HSD_Particle* pp, u32* cmdList)
 		angle = pp->rotate;
 	}
 
-	if (__fabs(angle) > lbl_805E6010) {
+	if (__fabs(angle) > sParticleRotationEpsilon) {
 		Mtx rot;
 		Vec axis;
 		f32 rx = rightX;
@@ -3276,8 +3280,8 @@ void psDispSub(HSD_Particle* pp, u32* cmdList)
 void _psDispParticlesSub(s32 bankMask, s32 kind)
 {
 	s32 i;
-	void* opaHead;
-	void* xluHead;
+	HSD_Particle* opaHead;
+	HSD_Particle* xluHead;
 	HSD_Particle* pp;
 	void* prevTex;
 	u32 prevKind;
@@ -3313,10 +3317,10 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 
 			switch (kind) {
 			case 1:
-				pp = (HSD_Particle*)opaHead;
+				pp = opaHead;
 				break;
 			case 2:
-				pp = (HSD_Particle*)xluHead;
+				pp = xluHead;
 				break;
 			default:
 				continue;
@@ -3366,21 +3370,21 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 							psSetupTevInvalidState();
 							psSetupTevCommon();
 
-							lbl_8065B908.r = 0xFF;
-							lbl_8065B908.g = 0xFF;
-							lbl_8065B908.b = 0xFF;
-							lbl_8065B908.a = 0xFF;
-							lbl_8065B904.r = 0;
-							lbl_8065B904.g = 0;
-							lbl_8065B904.b = 0;
-							lbl_8065B904.a = 0;
-							lbl_8065B900.r = 0xFF;
-							lbl_8065B900.g = 0xFF;
-							lbl_8065B900.b = 0xFF;
-							lbl_8065B900.a = 0xFF;
-							GXSetTevColor(GX_TEVREG0, lbl_8065B908);
-							GXSetTevColor(GX_TEVREG1, lbl_8065B904);
-							GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+							psdispTevReg0Color.r = 0xFF;
+							psdispTevReg0Color.g = 0xFF;
+							psdispTevReg0Color.b = 0xFF;
+							psdispTevReg0Color.a = 0xFF;
+							psdispTevReg1Color.r = 0;
+							psdispTevReg1Color.g = 0;
+							psdispTevReg1Color.b = 0;
+							psdispTevReg1Color.a = 0;
+							psdispTevReg2Color.r = 0xFF;
+							psdispTevReg2Color.g = 0xFF;
+							psdispTevReg2Color.b = 0xFF;
+							psdispTevReg2Color.a = 0xFF;
+							GXSetTevColor(GX_TEVREG0, psdispTevReg0Color);
+							GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
+							GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 
 							lbl_8065B918 = -1;
 							GXSetZCompLoc(GX_DISABLE);
@@ -3436,7 +3440,7 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 							GXEnableTexOffsets(0, 1, 1);
 							HSD_MtxGetRotationMtx(psdisp_cam, rvmtxRot, 'z', 'x');
 							GXSetCullMode(GX_CULL_BACK);
-							GXSetArray(0xD, (void*)lbl_802590E0, 2);
+							GXSetArray(0xD, (void*)sParticleBillboardTexCoords, 2);
 
 							GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 							GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_U8, 0);
@@ -3824,39 +3828,39 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
     bl       psSetupTevInvalidState
     bl       psSetupTevCommon
     li       r7, 0xff
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     stb      r7, 0x1(r5)
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     li       r6, 0x0
     addi     r4, r1, 0x20
     stb      r7, 0x2(r5)
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     li       r3, 0x1
     stb      r7, 0x3(r5)
-    li       r5, lbl_8065B904@sda21
+    li       r5, psdispTevReg1Color@sda21
     stb      r6, 0x1(r5)
-    li       r5, lbl_8065B904@sda21
-    stb      r7, lbl_8065B908@sda21(r0)
+    li       r5, psdispTevReg1Color@sda21
+    stb      r7, psdispTevReg0Color@sda21(r0)
     stb      r6, 0x2(r5)
-    li       r5, lbl_8065B904@sda21
-    lwz      r0, lbl_8065B908@sda21(r0)
+    li       r5, psdispTevReg1Color@sda21
+    lwz      r0, psdispTevReg0Color@sda21(r0)
     stb      r6, 0x3(r5)
-    li       r5, lbl_8065B900@sda21
+    li       r5, psdispTevReg2Color@sda21
     stb      r7, 0x1(r5)
-    li       r5, lbl_8065B900@sda21
+    li       r5, psdispTevReg2Color@sda21
     stb      r7, 0x2(r5)
-    li       r5, lbl_8065B900@sda21
-    stb      r6, lbl_8065B904@sda21(r0)
-    stb      r7, lbl_8065B900@sda21(r0)
+    li       r5, psdispTevReg2Color@sda21
+    stb      r6, psdispTevReg1Color@sda21(r0)
+    stb      r7, psdispTevReg2Color@sda21(r0)
     stb      r7, 0x3(r5)
     stw      r0, 0x20(r1)
     bl       GXSetTevColor
-    lwz      r0, lbl_8065B904@sda21(r0)
+    lwz      r0, psdispTevReg1Color@sda21(r0)
     addi     r4, r1, 0x1c
     li       r3, 0x2
     stw      r0, 0x1c(r1)
     bl       GXSetTevColor
-    lwz      r0, lbl_8065B900@sda21(r0)
+    lwz      r0, psdispTevReg2Color@sda21(r0)
     addi     r4, r1, 0x18
     li       r3, 0x3
     stw      r0, 0x18(r1)
@@ -4016,9 +4020,9 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
     bl       fn_801CF3C8
     li       r3, 0x2
     bl       GXSetCullMode
-    lis      r4, lbl_802590E0@ha
+    lis      r4, sParticleBillboardTexCoords@ha
     li       r3, 0xd
-    addi     r4, r4, lbl_802590E0@l
+    addi     r4, r4, sParticleBillboardTexCoords@l
     li       r5, 0x2
     bl       fn_80187110
     li       r3, 0x0

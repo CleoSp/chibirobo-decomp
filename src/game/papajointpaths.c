@@ -1,0 +1,13 @@
+const float sPapaAttachmentVectors[2][3][3] = { { { 1, 1, 1 } }, { { 1, 1, 1 } } };
+const long sPapaPlayerReleaseJointPath[6]   = { 0, 2, 2, 0, 0, 0 };
+const long sPapaProp1F4JointPath[6]         = { 0, 2, 2, 0, 0, 0 };
+const long sPapaProp360JointPath[6]         = { 0, 2, 2, 0, 0, 0 };
+const long sPapaProp1D3JointPath[6]         = { 0, 2, 2, 0, 0, 0 };
+const long sPapaProp375JointPath[6]         = { 0, 2, 2, 0, 0, 0 };
+const long sPapaProp3FAJointPath[6]         = { 0, 2, 1, 0, 0, 0 };
+const long sPapaProp401JointPath[6]         = { 0, 2, 2, 0, 0, 0 };
+const long sPapaHeldPlayerJointPath[6]      = { 0, 2, 2, 0, 0, 0 };
+const long sPapaPlayerFacingJointPath[4]    = { 0, 2, 0, 0 };
+const long sPapaHideJointPath[5]            = { 0, 2, 0, 0, 1 };
+const long sPapaShowJointPath[5]            = { 0, 2, 0, 0, 1 };
+const long sPapaPickupJointPath[6]          = { 0, 2, 2, 0, 0, 0 };

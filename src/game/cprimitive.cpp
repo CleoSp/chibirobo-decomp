@@ -10,7 +10,17 @@ void GXDrawSphere(u8 numMajor, u8 numMinor);
 void GXDrawCube(void);
 }
 
+#pragma section RX ".text.primitivetransform"
+#pragma section RX ".text.primitivebasicdraw"
+
 #define HSD_STATE_VTX_ATTR 2
+
+static inline void WriteVertexPosition(const Vec& pos)
+{
+	GXWGFifo.f32 = pos.x;
+	GXWGFifo.f32 = pos.y;
+	GXWGFifo.f32 = pos.z;
+}
 
 static inline void LoadNrmMtx(MtxP mtx)
 {
@@ -76,7 +86,7 @@ static inline void SetVtxPosNrmClr(GXVtxAttrFmtList* fmt = NULL)
  * @note Address: 0x8019E2A8
  * @note Size: 0x120
  */
-void CPrimitive::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
+__declspec(section ".text.primitivetransform") void CPrimitive::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
 {
 	Set(tx, ty, tz, sx, sy, sz, rx, ry, rz);
 }
@@ -85,7 +95,7 @@ void CPrimitive::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f3
  * @note Address: 0x8019E188
  * @note Size: 0x120
  */
-void CPrimitive::Set(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
+__declspec(section ".text.primitivetransform") void CPrimitive::Set(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
 {
 	SetTrans(tx, ty, tz);
 	SetScale(sx, sy, sz);
@@ -99,7 +109,7 @@ void CPrimitive::Set(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32
  * @note Address: 0x8019DF5C
  * @note Size: 0x22C
  */
-MtxP CPrimitive::LoadMtx(Mtx view)
+__declspec(section ".text.primitivetransform") MtxP CPrimitive::LoadMtx(Mtx view)
 {
 	MtxP mtx;
 
@@ -149,9 +159,9 @@ MtxP CPrimitive::LoadMtx(Mtx view)
 			PSMTXConcat(rot, scale, mModel);
 			PSMTXConcat(view, mModel, mModelView);
 			if (mBillboard == 1) {
-				fn_80190E60(mModelView, mModelView);
+				BuildBillboardMatrixFromUp(mModelView, mModelView);
 			} else if (mBillboard == 2) {
-				fn_80190AF0(mModelView, mModelView, mBillboardZ);
+				BuildBillboardMatrixWithZRotation(mModelView, mModelView, mBillboardZ);
 			}
 		}
 		mDirty = FALSE;
@@ -166,14 +176,14 @@ MtxP CPrimitive::LoadMtx(Mtx view)
  * @note Address: 0x8019DCFC
  * @note Size: 0x260
  */
-void CLine::Draw(Mtx view, Vec* pos, u32 color, u16 count)
+void CLine::Draw(Mtx view, Vec* __restrict pos, u32 color, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color);
 	}
 }
@@ -340,14 +350,14 @@ void CLine::Draw(Mtx view, Vec* pos, u32 color, u16 count)
  * @note Address: 0x8019DA64
  * @note Size: 0x298
  */
-void CLine::Draw(Mtx view, Vec* pos, u32* color, u16 count)
+void CLine::Draw(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color[i]);
 	}
 }
@@ -528,14 +538,14 @@ void CLine::Draw(Mtx view, Vec* pos, u32* color, u16 count)
  * @note Address: 0x8019D7E4
  * @note Size: 0x280
  */
-void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
+void CLine::Draw(Mtx view, PrimVertex* __restrict vtx, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		WriteVertexPosition(vtx[i].pos);
 		GXColor1u32(vtx[i].color);
 	}
 }
@@ -710,14 +720,14 @@ void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
  * @note Address: 0x8019D580
  * @note Size: 0x264
  */
-void CTriangle::Draw(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, Vec* __restrict pos, u32 color, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color);
 	}
 }
@@ -885,17 +895,17 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
  * @note Address: 0x8019D2FC
  * @note Size: 0x284
  */
-void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
+void CTriangle::DrawLit(Mtx view, Vec* __restrict pos, u32 color, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXNormal3f32(normal.x, normal.y, normal.z);
 		GXColor1u32(color);
 	}
@@ -981,7 +991,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1072,14 +1082,14 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
  * @note Address: 0x8019D060
  * @note Size: 0x29C
  */
-void CTriangle::Draw(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color[i]);
 	}
 }
@@ -1261,21 +1271,24 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type
  * @note Address: 0x8019CDBC
  * @note Size: 0x2A4
  */
-void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type)
+#pragma push
+#pragma scheduling 604
+void CTriangle::DrawLit(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXNormal3f32(normal.x, normal.y, normal.z);
 		GXColor1u32(color[i]);
 	}
 }
+#pragma pop
 /*
     stwu     r1, -0x120(r1)
     mflr     r0
@@ -1357,7 +1370,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1456,14 +1469,14 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
  * @note Address: 0x8019CB38
  * @note Size: 0x284
  */
-void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, PrimVertex* __restrict vtx, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		WriteVertexPosition(vtx[i].pos);
 		GXColor1u32(vtx[i].color);
 	}
 }
@@ -1639,21 +1652,25 @@ void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
  * @note Address: 0x8019C8A4
  * @note Size: 0x294
  */
-void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
+#pragma push
+#pragma scheduling 604
+void CTriangle::DrawLit(Mtx view, PrimVertex* __restrict vtx, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
+	CalcTriangleNormal(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		const u32 color = vtx[i].color;
+		WriteVertexPosition(vtx[i].pos);
 		GXNormal3f32(normal.x, normal.y, normal.z);
-		GXColor1u32(vtx[i].color);
+		GXColor1u32(color);
 	}
 }
+#pragma pop
 /*
     stwu     r1, -0x120(r1)
     mflr     r0
@@ -1734,7 +1751,7 @@ void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
     addi     r4, r29, 0x10
     addi     r5, r29, 0x20
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1927,16 +1944,16 @@ void CCircle::Draw(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
     clrlwi   r5, r0, 16
     li       r4, 0x0
     bl       GXBegin
-    lfs      f0, lbl_8065F644@sda21(r0)
+    lfs      f0, sPrimitiveZero@sda21(r0)
     lis      r25, 0xcc01
-    lfs      f29, lbl_8065F648@sda21(r0)
+    lfs      f29, sPrimitiveFullTurn@sda21(r0)
     addi     r27, r29, 0x1
     stfs     f0, -0x8000(r25)
     li       r20, 0x1
-    lfd      f30, lbl_8065F650@sda21(r0)
+    lfd      f30, sPrimitiveUnsignedConversionBias@sda21(r0)
     lis      r26, 0x4330
     stfs     f0, -0x8000(r25)
-    lfd      f31, lbl_8065F658@sda21(r0)
+    lfd      f31, sPrimitiveSignedConversionBias@sda21(r0)
     stfs     f0, -0x8000(r25)
     stw      r30, -0x8000(r25)
     b        .L_8019C708
@@ -2138,19 +2155,19 @@ void CCircle::DrawLit(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
     clrlwi   r5, r0, 16
     li       r4, 0x0
     bl       GXBegin
-    lfs      f0, lbl_8065F644@sda21(r0)
+    lfs      f0, sPrimitiveZero@sda21(r0)
     lis      r17, 0xcc01
     li       r3, 0x0
     li       r0, 0x1
     stfs     f0, -0x8000(r17)
     addi     r15, r28, 0x1
-    lfs      f29, lbl_8065F648@sda21(r0)
+    lfs      f29, sPrimitiveFullTurn@sda21(r0)
     li       r18, 0x1
     stfs     f0, -0x8000(r17)
     lis      r16, 0x4330
-    lfd      f30, lbl_8065F650@sda21(r0)
+    lfd      f30, sPrimitiveUnsignedConversionBias@sda21(r0)
     stfs     f0, -0x8000(r17)
-    lfd      f31, lbl_8065F658@sda21(r0)
+    lfd      f31, sPrimitiveSignedConversionBias@sda21(r0)
     stb      r3, -0x8000(r17)
     stb      r3, -0x8000(r17)
     stb      r0, -0x8000(r17)
@@ -2330,7 +2347,7 @@ void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
     li       r4, 0x0
     li       r5, 0x4
     bl       GXBegin
-    lfs      f2, lbl_8065F640@sda21(r0)
+    lfs      f2, sPrimitiveOne@sda21(r0)
     lis      r3, 0xcc01
     lfs      f0, 0x178(r26)
     lfs      f1, 0x17c(r26)
@@ -2518,7 +2535,7 @@ void CTile::DrawLit(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
     li       r4, 0x0
     li       r5, 0x4
     bl       GXBegin
-    lfs      f2, lbl_8065F640@sda21(r0)
+    lfs      f2, sPrimitiveOne@sda21(r0)
     lis      r4, 0xcc01
     lfs      f0, 0x178(r27)
     li       r3, 0x0
@@ -2581,7 +2598,7 @@ void CTile::DrawLit(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
  * @note Address: 0x8019BB04
  * @note Size: 0x15C
  */
-void CSprite::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
+__declspec(section ".text.primitivebasicdraw") void CSprite::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry, f32 rz)
 {
 	CPrimitive::Init(tx, ty, tz, sx, sy, sz, rx, ry, rz);
 	mTex     = NULL;
@@ -2593,7 +2610,8 @@ void CSprite::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 r
  * @note Address: 0x8019BA88
  * @note Size: 0x7C
  */
-void CSprite::Draw(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, u32 color0, u32 color1, u32 color2, u32 color3)
+__declspec(section ".text.primitivebasicdraw") void CSprite::Draw(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, u32 color0,
+                                                                  u32 color1, u32 color2, u32 color3)
 {
 	if (mTex != NULL) {
 		LoadMtx(view);
@@ -2605,7 +2623,8 @@ void CSprite::Draw(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, u3
  * @note Address: 0x8019B9EC
  * @note Size: 0x9C
  */
-void CSprite::DrawLit(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, u32 color0, u32 color1, u32 color2, u32 color3)
+__declspec(section ".text.primitivebasicdraw") void CSprite::DrawLit(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, u32 color0,
+                                                                     u32 color1, u32 color2, u32 color3)
 {
 	if (mTex != NULL) {
 		LoadNrmMtx(LoadMtx(view));
@@ -2617,7 +2636,7 @@ void CSprite::DrawLit(Mtx view, GXTexMapID map, u32 mtxId, GXTexMtxType mtxType,
  * @note Address: 0x8019B9A8
  * @note Size: 0x44
  */
-void CCube::Draw(Mtx view)
+__declspec(section ".text.primitivebasicdraw") void CCube::Draw(Mtx view)
 {
 	LoadNrmMtx(LoadMtx(view));
 	GXDrawCube();
@@ -2627,7 +2646,7 @@ void CCube::Draw(Mtx view)
  * @note Address: 0x8019B944
  * @note Size: 0x64
  */
-void CSphere::Draw(Mtx view, u8 major, u8 minor)
+__declspec(section ".text.primitivebasicdraw") void CSphere::Draw(Mtx view, u8 major, u8 minor)
 {
 	LoadNrmMtx(LoadMtx(view));
 	GXDrawSphere(major, minor);
@@ -2637,7 +2656,7 @@ void CSphere::Draw(Mtx view, u8 major, u8 minor)
  * @note Address: 0x8019B8F0
  * @note Size: 0x54
  */
-void CCylinder::Draw(Mtx view, u8 sides)
+__declspec(section ".text.primitivebasicdraw") void CCylinder::Draw(Mtx view, u8 sides)
 {
 	LoadNrmMtx(LoadMtx(view));
 	GXDrawCylinder(sides);

@@ -8,7 +8,8 @@
  * @note Address: 0x800DE608
  * @note Size: 0x1EC
  */
-extern "C" u32 vf100__8XObjDustFll(XObjDust* object, void* unused, u32 flags)
+#pragma section RX ".text.xobjdustpad"
+extern "C" __declspec(section ".text.xobjdustpad") u32 vf100__8XObjDustFll(XObjDust* object, void* unused, u32 flags)
 {
 	if ((flags & 3) == 1)
 		return flags;
@@ -19,7 +20,8 @@ extern "C" u32 vf100__8XObjDustFll(XObjDust* object, void* unused, u32 flags)
 			f32 y                 = pad.mPad->mStickY;
 			f32 x                 = pad.mPad->mStickX;
 			f32 magnitude         = sqrtf(x * x + y * y);
-			object->mBounceHeight = ((rand() % 400 + 400) / 100.0f) * magnitude;
+			f32 factor            = (rand() % 400 + 400) / 100.0f;
+			object->mBounceHeight = factor * magnitude;
 		}
 	}
 	return 0;

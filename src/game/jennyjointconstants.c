@@ -1,0 +1,9 @@
+const char sJennyCVecTypeName[]           = "CVec";
+const char sJennyCJObjTypeName[]          = "CJObj";
+const char sJennyCXObjTypeName[]          = "CXObj";
+const char sJennyXObjTypeName[]           = "XObj";
+const char sJennyJointAssertFile[]        = "jobj.h";
+const char sJennyJointCondition[]         = "jobj";
+const float sJennyJointZero               = 0.0f;
+const char sJennyJointScaleCondition[]    = "scale";
+const char sJennyJointRotationCondition[] = "rotate";

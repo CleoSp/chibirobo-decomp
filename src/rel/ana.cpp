@@ -1,132 +1,12 @@
 #include "Version.h"
-#include "game/hsd_jobj.h"
-#include "game/ut.h"
+#include "rel/anaobj.h"
+#include "rel/ana.h"
 #include "game/cgame.h"
+#include "game/xchr.h"
 
 extern "C" {
 void OSReport(const char* msg, ...);
 }
-
-struct UnkIdData {
-	s32 mId; // _00
-};
-
-struct UnkKindData {
-	u8 _00[0x14]; // _00
-	s16 mKind;    // _14
-};
-
-// the parts of the dol's AnaObj this rel reads
-class AnaObj {
-public:
-	HSD_JObj* mJObj; // _00
-	u8 _04[0x30];    // _04
-	// _34 vtable
-	virtual void vf08();  // _08
-	virtual void vf0C();  // _0C
-	virtual void vf10();  // _10
-	virtual void vf14();  // _14
-	virtual void vf18();  // _18
-	virtual void vf1C();  // _1C
-	virtual void vf20();  // _20
-	virtual void vf24();  // _24
-	virtual void vf28();  // _28
-	virtual void vf2C();  // _2C
-	virtual void vf30();  // _30
-	virtual void vf34();  // _34
-	virtual void vf38();  // _38
-	virtual void vf3C();  // _3C
-	virtual void vf40();  // _40
-	virtual void vf44();  // _44
-	virtual void vf48();  // _48
-	virtual void vf4C();  // _4C
-	virtual void vf50();  // _50
-	virtual void vf54();  // _54
-	virtual void vf58();  // _58
-	virtual void vf5C();  // _5C
-	virtual void vf60();  // _60
-	virtual void vf64();  // _64
-	virtual void vf68();  // _68
-	virtual void vf6C();  // _6C
-	virtual void vf70();  // _70
-	virtual void vf74();  // _74
-	virtual void vf78();  // _78
-	virtual void vf7C();  // _7C
-	virtual void vf80();  // _80
-	virtual void vf84();  // _84
-	virtual void vf88();  // _88
-	virtual void vf8C();  // _8C
-	virtual void vf90();  // _90
-	virtual void vf94();  // _94
-	virtual void vf98();  // _98
-	virtual void vf9C();  // _9C
-	virtual void vfA0();  // _A0
-	virtual void vfA4();  // _A4
-	virtual void vfA8();  // _A8
-	virtual void vfAC();  // _AC
-	virtual void vfB0();  // _B0
-	virtual void vfB4();  // _B4
-	virtual void vfB8();  // _B8
-	virtual void vfBC();  // _BC
-	virtual void vfC0();  // _C0
-	virtual void vfC4();  // _C4
-	virtual void vfC8();  // _C8
-	virtual void vfCC();  // _CC
-	virtual void vfD0();  // _D0
-	virtual void vfD4();  // _D4
-	virtual void vfD8();  // _D8
-	virtual void vfDC();  // _DC
-	virtual void vfE0();  // _E0
-	virtual void vfE4();  // _E4
-	virtual void vfE8();  // _E8
-	virtual void vfEC();  // _EC
-	virtual void vfF0();  // _F0
-	virtual void vfF4();  // _F4
-	virtual void vfF8();  // _F8
-	virtual void vfFC();  // _FC
-	virtual void vf100(); // _100
-	virtual void vf104(); // _104
-	virtual void vf108(); // _108
-	virtual void vf10C(); // _10C
-	virtual void vf110(); // _110
-	virtual void vf114(); // _114
-	virtual void vf118(); // _118
-	virtual void vf11C(); // _11C
-	virtual void vf120(); // _120
-	virtual void vf124(); // _124
-	virtual void vf128(); // _128
-	virtual void vf12C(); // _12C
-	virtual void vf130(); // _130
-	virtual void vf134(); // _134
-	virtual void vf138(); // _138
-	virtual void vf13C(); // _13C
-	virtual void vf140(); // _140
-	virtual void vf144(); // _144
-	virtual u32 vf148();  // _148
-
-#if defined(VERSION_JP)
-	u8 _38[0xC0 - 0x38]; // _38
-#else
-	u8 _38[0xC8 - 0x38]; // _38
-#endif
-	Vec mPos;             // _C8 (JP: _C0)
-	u8 _D4[0x228 - 0xD4]; // _D4 (JP: _CC)
-	u64 mFlags;           // _228 (JP: _220)
-	u8 _230[0x8];         // _230 (JP: _228)
-	UnkIdData* mIdData;   // _238 (JP: _230)
-#if defined(VERSION_JP)
-	u8 _234[0x4]; // _234
-#else
-	u8 _23C[0x4]; // _23C
-#endif
-	UnkKindData* mKind; // _240 (JP: _238)
-#if defined(VERSION_JP)
-	u8 _23C[0x970 - 0x23C]; // _23C
-#else
-	u8 _244[0x980 - 0x244]; // _244
-#endif
-	u32* mBits; // _980 (JP: _970)
-};
 
 struct RoboView {
 #if defined(VERSION_JP)
@@ -150,42 +30,11 @@ typedef char AnaXObjViewSizeCheck[sizeof(AnaObj) == 0x988 ? 1 : -1];
 typedef char AnaRoboViewSizeCheck[sizeof(RoboView) == 0xA68 ? 1 : -1];
 #endif
 
-extern "C" CVec fn_800A0978(RoboView* mgr);
-
-class Ana {
-public:
-	Ana() { }
-	~Ana() { }
-	virtual bool IsActive();
-
-	void SetJObj(s32 kind, s32 which)
-	{
-		mJObjKind  = kind;
-		mJObjWhich = which;
-	}
-
-	Vec mPos;        // _04
-	f32 mRotY;       // _10
-	CStatus mStatus; // _14
-	s32 mId;         // _1C
-	s32 mJObjKind;   // _20
-	s32 mJObjWhich;  // _24
-};
-
-class AnaNull : public Ana {
-public:
-	virtual bool IsActive() { return false; }
-};
-
-#define ANA_NUM        20
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
-s32 activeAnaNum;
-static Ana anas[ANA_NUM];
-static AnaNull anaNull;
-AnaObj* tutiAnaObj;
-AnaObj* tutiHutaObj;
-AnaObj* flowerObjs[3];
+extern s32 activeAnaNum;
+extern Ana anas[ANA_NUM];
+extern AnaNull anaNull;
 
 inline Ana* GetAna(s32 id)
 {
@@ -243,19 +92,12 @@ inline void DropObj(AnaObj* obj)
 	obj->vf54();
 }
 
-extern "C" HSD_JObj* GetAnaJObj(s32 kind, s32 which);
-
-/**
- * @note Address: stage04 .text 0x2A8
- * @note Size: 0x48
- */
-// CVec::~CVec
-
 /**
  * @note Address: stage04 .text 0x2F0
  * @note Size: 0x2FC
  */
-extern "C" void Ana_Draw(Ana* ana)
+#pragma section RX ".text.anadraw"
+extern "C" __declspec(section ".text.anadraw") void Ana_Draw(Ana* ana)
 {
 	HSD_JObj* jobj = GetAnaJObj(ana->mJObjKind, ana->mJObjWhich);
 	f32 x, y, z;
@@ -264,7 +106,7 @@ extern "C" void Ana_Draw(Ana* ana)
 		return;
 	}
 	if (ana->mStatus.mFlags & 8) {
-		const CVec& pos = fn_800A0978((RoboView*)lbl_8025C400.GetPlayer());
+		const CVec& pos = GetPlayerCarryJointWorldPosition(gGame.GetPlayer());
 		x               = pos.x;
 		y               = pos.y;
 		z               = pos.z;
@@ -281,101 +123,35 @@ extern "C" void Ana_Draw(Ana* ana)
 }
 
 /**
- * @note Address: stage04 .text 0x5EC
- * @note Size: 0x460
- */
-extern "C" HSD_JObj* GetAnaJObj(s32 kind, s32 which)
-{
-	HSD_JObj* jobj0;
-	HSD_JObj* jobj1;
-	AnaObj* obj;
-
-	if (tutiAnaObj == NULL) {
-		return NULL;
-	}
-	jobj0 = tutiAnaObj->mJObj;
-	jobj1 = NULL;
-	if (tutiHutaObj != NULL) {
-		jobj1 = tutiHutaObj->mJObj;
-	}
-	if (which < 0 || which >= ARRAY_COUNT(flowerObjs)) {
-		which = 0;
-	}
-	obj = flowerObjs[which];
-	switch (kind) {
-	case 1:
-		return jobj0;
-	case 2:
-		return jobj1;
-	case 3: {
-		if (obj == NULL) {
-			return NULL;
-		}
-		s32 path[2] = { 0, 0 };
-		return GetJointByPath(obj->mJObj, path, 1);
-	}
-	case 4: {
-		if (obj == NULL) {
-			return NULL;
-		}
-		s32 path[2] = { 1, 0 };
-		return GetJointByPath(obj->mJObj, path, 1);
-	}
-	case 5: {
-		if (obj == NULL) {
-			return NULL;
-		}
-		s32 path[2] = { 2, 0 };
-		return GetJointByPath(obj->mJObj, path, 1);
-	}
-	case 6:
-		if (obj == NULL) {
-			return NULL;
-		}
-		if (which == 0) {
-			s32 path[2] = { 4, 0 };
-			return GetJointByPath(obj->mJObj, path, 1);
-		} else {
-			s32 path[2] = { 3, 0 };
-			return GetJointByPath(obj->mJObj, path, 1);
-		}
-	case 7:
-		if (obj == NULL) {
-			return NULL;
-		}
-		if (which == 0) {
-			s32 path[2] = { 3, 0 };
-			return GetJointByPath(obj->mJObj, path, 1);
-		} else {
-			s32 path[2] = { 4, 0 };
-			return GetJointByPath(obj->mJObj, path, 1);
-		}
-	}
-	return NULL;
-}
-
-/**
  * @note Address: stage04 .text 0xA4C
  * @note Size: 0x250
  */
-extern "C" s32 AddAna(s32 id, f32 x, f32 y, f32 z)
+#pragma section RX ".text.anaplacement"
+extern "C" __declspec(section ".text.anaplacement") s32 AddAna(s32 id, f32 x, f32 y, f32 z)
 {
 	CVec pos(x, y, z);
 	u32 i;
 
 	if (id >= 0 && id < ARRAY_COUNT(anas)) {
+#if defined(VERSION_PAL)
+		Ana& entry = anas[id];
+		if (!(entry.mStatus.mFlags & 1)) {
+			activeAnaNum++;
+		}
+		entry.mStatus.mFlags |= 1;
+#else
 		if (!(anas[id].mStatus.mFlags & 1)) {
 			activeAnaNum++;
 		}
-#if !defined(VERSION_GGTP01)
 		OSReport("id=%d,%4.2f,%4.2f,%4.2f\n", id, x, y, z);
 		OSReport("Ana::%4.2f, %4.2f, %4.2f\n", x, y, z);
-#endif
 		anas[id].mStatus.mFlags |= 1;
-		anas[id].mPos.x = x;
-		anas[id].mPos.y = y;
-		anas[id].mPos.z = z;
-		anas[id].mId    = id;
+		Ana& entry = anas[id];
+#endif
+		entry.mPos.x = x;
+		entry.mPos.y = y;
+		entry.mPos.z = z;
+		entry.mId    = id;
 		return id;
 	}
 
@@ -564,7 +340,7 @@ extern "C" s32 AddAna(s32 id, f32 x, f32 y, f32 z)
  * @note Address: stage04 .text 0xC9C
  * @note Size: 0x5C
  */
-extern "C" void DrawAnas(void)
+extern "C" __declspec(section ".text.anaplacement") void DrawAnas(void)
 {
 	u32 i;
 	for (i = 0; i < ANA_NUM; i++) {
@@ -578,7 +354,7 @@ extern "C" void DrawAnas(void)
  * @note Address: stage04 .text 0xCF8
  * @note Size: 0x4
  */
-extern "C" void UpdateAnas(void)
+extern "C" __declspec(section ".text.anaplacement") void UpdateAnas(void)
 {
 }
 
@@ -586,7 +362,7 @@ extern "C" void UpdateAnas(void)
  * @note Address: stage04 .text 0xCFC
  * @note Size: 0x14C
  */
-extern "C" void InitAnas(void)
+extern "C" __declspec(section ".text.anaplacement") void InitAnas(void)
 {
 	s32 num;
 	s32 i;
@@ -601,10 +377,10 @@ extern "C" void InitAnas(void)
 	for (j = 0; j < ANA_NUM; j++) {
 		anas[j].mStatus.mFlags = 0;
 	}
-	num = lbl_8025C400.mXObjs.mObjectCount;
+	num = gGame.mXObjs.mObjectCount;
 
 	for (i = 0; i < num; i++) {
-		AnaObj* obj = (AnaObj*)lbl_8025C400.mXObjs.mObjects[i];
+		AnaObj* obj = (AnaObj*)gGame.mXObjs.mObjects[i];
 		if (obj->mFlags & 1) {
 			if (obj->mIdData->mId == 0x2A9) {
 				tutiAnaObj = obj;
@@ -630,9 +406,9 @@ extern "C" void InitAnas(void)
     lis      r4, anas@ha
     li       r0, 0x0
     addi     r6, r4, anas@l
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x14(r6)
-    addi     r4, r3, lbl_8025C400@l
+    addi     r4, r3, gGame@l
     addis    r5, r4, 0x1
     lis      r3, flowerObjs@ha
     stw      r0, 0x3c(r6)
@@ -722,7 +498,7 @@ extern "C" void InitAnas(void)
  * @note Address: stage04 .text 0xE48
  * @note Size: 0x88
  */
-extern "C" s32 CmdAttachAnaToRobo(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anaplacement") s32 CmdAttachAnaToRobo(s32 cmd, s32 argc, s32* args)
 {
 	Ana* ana = GetAna(args[0]);
 	if (!ana->IsActive()) {
@@ -733,24 +509,16 @@ extern "C" s32 CmdAttachAnaToRobo(s32 cmd, s32 argc, s32* args)
 }
 
 /**
- * @note Address: stage04 .text 0xED0
- * @note Size: 0xC
- */
-bool Ana::IsActive()
-{
-	return mStatus.mFlags & 1;
-}
-
-/**
  * @note Address: stage04 .text 0xEDC
  * @note Size: 0x118
  */
-extern "C" s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
+#pragma section RX ".text.anainteraction"
+extern "C" __declspec(section ".text.anainteraction") s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
 {
-	AnaObj* obj = ((RoboView*)lbl_8025C400.GetPlayer())->mHeld;
+	AnaObj* obj = ((RoboView*)gGame.GetPlayer())->mHeld;
 	if (obj != NULL) {
 		obj->mFlags &= ~0x10000ULL;
-		ReleaseHeld((RoboView*)lbl_8025C400.GetPlayer());
+		ReleaseHeld((RoboView*)gGame.GetPlayer());
 		DropObj(obj);
 	}
 	return 0;
@@ -760,9 +528,9 @@ extern "C" s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
 /*
     stwu     r1, -0x10(r1)
     mflr     r0
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stw      r0, 0x14(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r5, r3, 0x1
     stw      r31, 0xc(r1)
     lwz      r3, -0x6944(r5)
@@ -839,7 +607,8 @@ extern "C" s32 CmdDropHeldObj(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0xFF4
  * @note Size: 0x74
  */
-extern "C" s32 CmdSetAnaRotY(s32 cmd, s32 argc, s32* args)
+#pragma section RX ".text.anacommands"
+extern "C" __declspec(section ".text.anacommands") s32 CmdSetAnaRotY(s32 cmd, s32 argc, s32* args)
 {
 	Ana* ana   = GetAna(args[0]);
 	ana->mRotY = 57.295776f * args[1];
@@ -850,7 +619,7 @@ extern "C" s32 CmdSetAnaRotY(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0x1068
  * @note Size: 0x98
  */
-extern "C" s32 CmdSetAnaJObj(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anacommands") s32 CmdSetAnaJObj(s32 cmd, s32 argc, s32* args)
 {
 	Ana* ana = GetAna(args[0]);
 	if (!ana->IsActive()) {
@@ -864,7 +633,7 @@ extern "C" s32 CmdSetAnaJObj(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0x1100
  * @note Size: 0x14C
  */
-extern "C" s32 CmdPlantTane(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anacommands") s32 CmdPlantTane(s32 cmd, s32 argc, s32* args)
 {
 	AnaObj* obj;
 	Ana* ana = GetAna(args[0]);
@@ -872,9 +641,9 @@ extern "C" s32 CmdPlantTane(s32 cmd, s32 argc, s32* args)
 		return 0;
 	}
 	ana->SetJObj(2, 0);
-	obj = ((RoboView*)lbl_8025C400.GetPlayer())->mHeld;
+	obj = ((RoboView*)gGame.GetPlayer())->mHeld;
 	if (obj != NULL) {
-		ReleaseHeld((RoboView*)lbl_8025C400.GetPlayer());
+		ReleaseHeld((RoboView*)gGame.GetPlayer());
 		DropObj(obj);
 	}
 	return 1;
@@ -884,7 +653,7 @@ extern "C" s32 CmdPlantTane(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0x124C
  * @note Size: 0x240
  */
-extern "C" s32 CmdFindNearestAna(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anacommands") s32 CmdFindNearestAna(s32 cmd, s32 argc, s32* args)
 {
 	Ana* best = NULL;
 
@@ -894,7 +663,7 @@ extern "C" s32 CmdFindNearestAna(s32 cmd, s32 argc, s32* args)
 		f32 z = args[2] / 100.0f;
 		best  = GetNearestAna(x, y, z);
 	} else {
-		AnaObj* player = (AnaObj*)lbl_8025C400.mXObjs.mObjects[((RoboView*)lbl_8025C400.GetPlayer())->mPlayerIdx];
+		AnaObj* player = (AnaObj*)gGame.mXObjs.mObjects[((RoboView*)gGame.GetPlayer())->mPlayerIdx];
 		if (player != NULL) {
 			best = GetNearestAna(player->mPos.x, player->mPos.y, player->mPos.z);
 			// retail tests the player's result here and again below
@@ -913,7 +682,7 @@ extern "C" s32 CmdFindNearestAna(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0x148C
  * @note Size: 0x8C
  */
-extern "C" s32 CmdSetTutiAna(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anacommands") s32 CmdSetTutiAna(s32 cmd, s32 argc, s32* args)
 {
 	Ana* ana = GetAna(args[0]);
 	if (!ana->IsActive()) {
@@ -927,7 +696,7 @@ extern "C" s32 CmdSetTutiAna(s32 cmd, s32 argc, s32* args)
  * @note Address: stage04 .text 0x1518
  * @note Size: 0x10C
  */
-extern "C" s32 CmdAddAna(s32 cmd, s32 argc, s32* args)
+extern "C" __declspec(section ".text.anacommands") s32 CmdAddAna(s32 cmd, s32 argc, s32* args)
 {
 	if (argc >= 4) {
 		return AddAna(args[3], args[0] / 100.0f, args[1] / 100.0f, args[2] / 100.0f);
