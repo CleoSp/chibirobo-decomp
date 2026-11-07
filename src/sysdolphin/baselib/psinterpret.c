@@ -246,8 +246,8 @@ extern int __float_min[];
 extern s32 psRemoveParticleAppSRT(HSD_Particle* pp);
 extern s32 psAttachParticleAppSRT(HSD_Particle* pp, HSD_psAppSRT* srt);
 extern s32 psAttachGeneratorAppSRT(HSD_Generator* gen, HSD_psAppSRT* srt);
-extern s32 fn_801E5808(HSD_Particle* pp, HSD_psAppSRT* srt);
-extern s32 fn_801E5874(HSD_Generator* gen, HSD_psAppSRT* srt);
+extern s32 AttachParticleAppSRT(HSD_Particle* pp, HSD_psAppSRT* srt);
+extern s32 AttachGeneratorAppSRT(HSD_Generator* gen, HSD_psAppSRT* srt);
 extern HSD_Generator* psCreateGeneratorID(s32 linkNo, s32 bank, s32 idx);
 extern void psSetPointJObj(s32 no, HSD_JObj* jobj);
 
@@ -348,9 +348,9 @@ static inline BOOL particle_JObjMtxIsDirty(HSD_JObj* jobj)
 	return result;
 }
 
-// fn_801E2208 through _psListGetNext are inlines, psInterpretParticle0 is too big to
+// SetupDirtyParticleJointMatrix through _psListGetNext are inlines, psInterpretParticle0 is too big to
 // take them so the compiler puts copies after it, last used first, same as retail
-static inline void fn_801E2208(HSD_JObj* jobj)
+static inline void SetupDirtyParticleJointMatrix(HSD_JObj* jobj)
 {
 	if (jobj == NULL || !particle_JObjMtxIsDirty(jobj)) {
 		return;
@@ -437,7 +437,7 @@ static inline void HSD_MTXSRT(Mtx mtx, Vec* scale, Vec* rotate, Vec* translate, 
  * @note Address: N/A
  * @note Size: 0x64
  */
-static inline void fn_801E22F0(HSD_Generator* gen, HSD_JObj* jobj)
+static inline void AttachJointToParticleGenerator(HSD_Generator* gen, HSD_JObj* jobj)
 {
 	if (gen != NULL) {
 		gen->jobj = jobj;
@@ -479,7 +479,7 @@ void fn_801DE4F0(HSD_Generator* gen)
 		return;
 	}
 
-	fn_801E2208(jobj);
+	SetupDirtyParticleJointMatrix(jobj);
 
 	if (gen->type & 0x200) {
 		gen->pos.x = gen->jobj->mtx[0][3];
@@ -673,7 +673,7 @@ void setVelToJObj(HSD_Particle* pp, HSD_JObj* jobj)
 		return;
 	}
 
-	fn_801E2208(jobj);
+	SetupDirtyParticleJointMatrix(jobj);
 
 	dx     = jobj->mtx[0][3] - pp->pos.x;
 	dy     = jobj->mtx[1][3] - pp->pos.y;
@@ -705,7 +705,7 @@ s32 applyForceJObj(HSD_Particle* pp, HSD_JObj* jobj, f32 force, f32 range)
 		return 0;
 	}
 
-	fn_801E2208(jobj);
+	SetupDirtyParticleJointMatrix(jobj);
 
 	dx = jobj->mtx[0][3] - pp->pos.x;
 	dy = jobj->mtx[1][3] - pp->pos.y;
@@ -958,7 +958,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 							pp->gen->numChild++;
 						}
 						if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-							fn_801E5808(child, pp->appsrt);
+							AttachParticleAppSRT(child, pp->appsrt);
 						} else {
 							psAttachParticleAppSRT(child, pp->appsrt);
 						}
@@ -986,7 +986,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 							pp->gen->numChild++;
 						}
 						if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-							fn_801E5808(child, pp->appsrt);
+							AttachParticleAppSRT(child, pp->appsrt);
 						} else {
 							psAttachParticleAppSRT(child, pp->appsrt);
 						}
@@ -1006,11 +1006,11 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 					if (gchild != NULL) {
 						gchild->idnum = pp->idnum;
 						if (pp->gen != NULL) {
-							fn_801E22F0(gchild, pp->gen->jobj);
+							AttachJointToParticleGenerator(gchild, pp->gen->jobj);
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5874(gchild, pp->appsrt);
+								AttachGeneratorAppSRT(gchild, pp->appsrt);
 							} else {
 								psAttachGeneratorAppSRT(gchild, pp->appsrt);
 							}
@@ -1073,11 +1073,11 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 					if (gchild != NULL) {
 						gchild->idnum = pp->idnum;
 						if (pp->gen != NULL) {
-							fn_801E22F0(gchild, pp->gen->jobj);
+							AttachJointToParticleGenerator(gchild, pp->gen->jobj);
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5874(gchild, pp->appsrt);
+								AttachGeneratorAppSRT(gchild, pp->appsrt);
 							} else {
 								psAttachGeneratorAppSRT(gchild, pp->appsrt);
 							}
@@ -1145,11 +1145,11 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 					if (gchild != NULL) {
 						gchild->idnum = pp->idnum;
 						if (pp->gen != NULL) {
-							fn_801E22F0(gchild, pp->gen->jobj);
+							AttachJointToParticleGenerator(gchild, pp->gen->jobj);
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5874(gchild, pp->appsrt);
+								AttachGeneratorAppSRT(gchild, pp->appsrt);
 							} else {
 								psAttachGeneratorAppSRT(gchild, pp->appsrt);
 							}
@@ -1304,7 +1304,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5808(child, pp->appsrt);
+								AttachParticleAppSRT(child, pp->appsrt);
 							} else {
 								psAttachParticleAppSRT(child, pp->appsrt);
 							}
@@ -1458,7 +1458,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5808(child, pp->appsrt);
+								AttachParticleAppSRT(child, pp->appsrt);
 							} else {
 								psAttachParticleAppSRT(child, pp->appsrt);
 							}
@@ -1491,7 +1491,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 						}
 						if (pp->appsrt != NULL) {
 							if (pp->gen != NULL && (pp->gen->type & 0x2000)) {
-								fn_801E5808(child, pp->appsrt);
+								AttachParticleAppSRT(child, pp->appsrt);
 							} else {
 								psAttachParticleAppSRT(child, pp->appsrt);
 							}
@@ -2095,7 +2095,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 
 		jobj = psPointJObj[jobjIdx];
 		if (jobj != NULL) {
-			fn_801E2208(jobj);
+			SetupDirtyParticleJointMatrix(jobj);
 			jobj = psPointJObj[jobjIdx];
 			HSD_JObjAddTx(jobj, pp->pos.x - jobj->mtx[0][3]);
 			jobj = psPointJObj[jobjIdx];
@@ -2846,7 +2846,7 @@ void psInterpretParticles(u32 flags)
     beq      .L_801DF770
     lwz      r4, 0x90(r31)
     mr       r3, r26
-    bl       fn_801E5808
+    bl       AttachParticleAppSRT
     b        .L_801DF77C
 .L_801DF770:
     lwz      r4, 0x90(r31)
@@ -2904,7 +2904,7 @@ void psInterpretParticles(u32 flags)
     beq      .L_801DF844
     lwz      r4, 0x90(r31)
     mr       r3, r26
-    bl       fn_801E5808
+    bl       AttachParticleAppSRT
     b        .L_801DF850
 .L_801DF844:
     lwz      r4, 0x90(r31)
@@ -2938,7 +2938,7 @@ void psInterpretParticles(u32 flags)
     cmplwi   r4, 0x0
     beq      .L_801DF8BC
     lwz      r4, 0x10(r4)
-    bl       fn_801E22F0
+    bl       AttachJointToParticleGenerator
 .L_801DF8BC:
     lwz      r4, 0x90(r31)
     cmplwi   r4, 0x0
@@ -2950,7 +2950,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801DF8EC
     mr       r3, r26
-    bl       fn_801E5874
+    bl       AttachGeneratorAppSRT
     b        .L_801DF8F4
 .L_801DF8EC:
     mr       r3, r26
@@ -3100,7 +3100,7 @@ void psInterpretParticles(u32 flags)
     cmplwi   r4, 0x0
     beq      .L_801DFB20
     lwz      r4, 0x10(r4)
-    bl       fn_801E22F0
+    bl       AttachJointToParticleGenerator
 .L_801DFB20:
     lwz      r4, 0x90(r31)
     cmplwi   r4, 0x0
@@ -3112,7 +3112,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801DFB50
     mr       r3, r26
-    bl       fn_801E5874
+    bl       AttachGeneratorAppSRT
     b        .L_801DFB58
 .L_801DFB50:
     mr       r3, r26
@@ -3278,7 +3278,7 @@ void psInterpretParticles(u32 flags)
     cmplwi   r4, 0x0
     beq      .L_801DFDC0
     lwz      r4, 0x10(r4)
-    bl       fn_801E22F0
+    bl       AttachJointToParticleGenerator
 .L_801DFDC0:
     lwz      r4, 0x90(r31)
     cmplwi   r4, 0x0
@@ -3290,7 +3290,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801DFDF0
     mr       r3, r26
-    bl       fn_801E5874
+    bl       AttachGeneratorAppSRT
     b        .L_801DFDF8
 .L_801DFDF0:
     mr       r3, r26
@@ -3642,7 +3642,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801E0328
     mr       r3, r26
-    bl       fn_801E5808
+    bl       AttachParticleAppSRT
     b        .L_801E0330
 .L_801E0328:
     mr       r3, r26
@@ -3928,7 +3928,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801E0750
     mr       r3, r26
-    bl       fn_801E5808
+    bl       AttachParticleAppSRT
     b        .L_801E0758
 .L_801E0750:
     mr       r3, r26
@@ -3993,7 +3993,7 @@ void psInterpretParticles(u32 flags)
     rlwinm.  r0, r0, 0, 18, 18
     beq      .L_801E0840
     mr       r3, r26
-    bl       fn_801E5808
+    bl       AttachParticleAppSRT
     b        .L_801E0848
 .L_801E0840:
     mr       r3, r26
@@ -5577,7 +5577,7 @@ void psInterpretParticles(u32 flags)
     lwzx     r3, r26, r27
     cmplwi   r3, 0x0
     beq      .L_801E1F88
-    bl       fn_801E2208
+    bl       SetupDirtyParticleJointMatrix
     lwzx     r3, r26, r27
     lfs      f1, 0x40(r31)
     lfs      f0, 0x50(r3)
@@ -5648,10 +5648,10 @@ void psInterpretParticles(u32 flags)
  * @note Address: 0x801E2208
  * @note Size: 0x70
  */
-// fn_801E2208
+// SetupDirtyParticleJointMatrix
 
 /**
  * @note Address: 0x801E22F0
  * @note Size: 0x64
  */
-// fn_801E22F0
+// AttachJointToParticleGenerator

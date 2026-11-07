@@ -31,7 +31,7 @@ void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags);
 // the same with a formatted message
 #define HALTF(line, ...)        \
 	OSReport("\n!!!HALT!!!\n"); \
-	OSPanic(__FILE__, line, "%s%s", fn_801911B4(__VA_ARGS__), __FUNCTION__)
+	OSPanic(__FILE__, line, "%s%s", FormatToStaticBuffer(__VA_ARGS__), __FUNCTION__)
 
 // a material with two extra colors added on top of its tev result
 struct XCObj {
@@ -309,12 +309,12 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
     mr       r5, r29
     li       r3, lbl_8065F750@sda21
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r7, lbl_8020F0A4@ha
+    bl       FormatToStaticBuffer
+    lis      r7, sPathCobjCpp@ha
     lis      r5, lbl_80258800@ha
     mr       r6, r3
     li       r4, 0x11d
-    addi     r3, r7, lbl_8020F0A4@l
+    addi     r3, r7, sPathCobjCpp@l
     addi     r7, r5, lbl_80258800@l
     li       r5, lbl_8065F738@sda21
     crclr    cr1eq
@@ -452,7 +452,7 @@ BOOL CJArchive::ReadCheck()
     li       r3, lbl_8065F750@sda21
     addi     r4, r4, 0x80
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r4, lbl_8025880C@ha
     mr       r6, r3
     addi     r7, r4, lbl_8025880C@l
@@ -515,7 +515,7 @@ BOOL CJArchive::ReadCheck()
     addi     r5, r28, 0x80
     li       r4, lbl_8065ADB0@sda21
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
     addi     r3, r31, 0x74
     li       r4, 0x33
@@ -993,13 +993,14 @@ HSD_ShapeAnimJoint* CJArchive::GetShapeAnimJoint(s32 id, s32 depth, const s32* p
  * @note Address: 0x801A37E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjSetFlags(mobj, flags);
+			HSD_MObjSetFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1051,13 +1052,14 @@ extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3768
  * @note Size: 0x80
  */
-extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjClearFlags(mobj, flags);
+			HSD_MObjClearFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1109,13 +1111,14 @@ extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A36E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjSetFlags(pobj, flags);
+			HSD_PObjSetFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1167,13 +1170,14 @@ extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3668
  * @note Size: 0x80
  */
-extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjClearFlags(pobj, flags);
+			HSD_PObjClearFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1536,10 +1540,13 @@ BOOL CXObj::ReadAsync(CObjArchive* archive, const char* path, u32 a, u32 flags, 
  * @note Address: 0x801A2F38
  * @note Size: 0x134
  */
+// Retail calls both Attach and the base ReadCheck out of line.
+#pragma push
+#pragma auto_inline off
 void CXObj::Attach(HSD_JObj* jobj)
 {
 	CJObj::Attach(jobj);
-	fn_800D40EC(this);
+	SyncMoveFromJoint(this);
 }
 // CXObj::Attach(_HSD_JObj*)
 /*
@@ -1618,7 +1625,7 @@ void CXObj::Attach(HSD_JObj* jobj)
     stfs     f0, 0x4(r30)
     lfs      f0, 0x34(r31)
     stfs     f0, 0x8(r30)
-    bl       fn_800D40EC
+    bl       SyncMoveFromJoint
     lwz      r0, 0x24(r1)
     lwz      r31, 0x1c(r1)
     lwz      r30, 0x18(r1)
@@ -1649,6 +1656,7 @@ BOOL CXObj::ReadCheck()
 	}
 	return mLoadState == 0;
 }
+#pragma pop
 // CXObj::ReadCheck()
 /*
     stwu     r1, -0x20(r1)
@@ -2650,7 +2658,10 @@ BOOL CXObjIntp::ReadCheck()
 {
 	if (mLoadState == 1 && CXObj::ReadCheck() && (mLoadFlags & 0x10000)) {
 		mIntp.Attach(mArchive.LoadJObj());
-		fn_8018FD80(mIntp.mJObj);
+#if defined(VERSION_JP)
+		RemoveJointTreeDisplayObjects(mIntp.mJObj);
+#endif
+		ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		mBlend = 1.0f;
 	}
 	return mLoadState == 0;
@@ -2719,8 +2730,8 @@ void CXObjIntp::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void
 {
 	if ((force || id != mAnimId) && mIntp.mJObj != NULL) {
 		if (blend < 1.0f) {
-			fn_8018F658(mJObj, mIntp.mJObj);
-			fn_8018FD80(mIntp.mJObj);
+			CopyJointPoseTree(mJObj, mIntp.mJObj);
+			ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		} else if (mBlend < 1.0f) {
 			ApplyTransform();
 		}
@@ -2748,7 +2759,7 @@ void CXObjIntp::UpdateAnim(u32 speed)
 			if (t >= 1.0f || GetAObj(mJObj)->flags & AOBJ_NO_ANIM) {
 				mBlend = 1.0f;
 			} else {
-				fn_8018EEC8(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
+				BlendJointTreePoses(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
 			}
 		}
 	} else {
@@ -2762,7 +2773,7 @@ void CXObjIntp::UpdateAnim(u32 speed)
  */
 void CXObjIntp::ApplyTransform()
 {
-	fn_8018F9B4(mArchive.mJoint, mJObj);
+	RestoreJointTreePose(mArchive.mJoint, mJObj);
 	mTranslate.Set(mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);
 	HSD_JObjSetTranslate(mJObj, &mTranslate);
 	mScale.Set(mMoveScale.x, mMoveScale.y, mMoveScale.z);

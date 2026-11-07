@@ -16,4 +16,8 @@ STATIC_ASSERT(sizeof(ResetState) == 0x18);
 
 extern "C" ResetState lbl_80210730;
 
+#if defined(VERSION_PAL)
+extern "C" f32 gProgressiveFadeFrames;
+#endif
+
 #endif

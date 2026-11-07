@@ -7,8 +7,7 @@ extern "C" {
 void GXSetTexCopySrc(u16 left, u16 top, u16 wd, u16 ht);
 void GXSetTexCopyDst(u16 wd, u16 ht, GXTexFmt fmt, GXBool mipmap);
 void GXCopyTex(void* dest, GXBool clear);
-void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags);
-void fn_8000CBF4(HSD_JObj* jobj, f32* limits);
+void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, f32* limits);
 }
 
 // an object that is drawn into the shadow, or onto it with the mask
@@ -28,14 +27,14 @@ static inline bool IsShadowObj(XObj* obj, u64 mask)
 // NONMATCHING: the shadow object and the first loop's registers rotate
 // renders the shadow of the first light that casts one, from above the main camera's
 // interest. the player's shadow object gets the height of its highest joint under the player
-extern "C" void fn_8000C450(CGame* game)
+extern "C" void RenderSceneShadow(CGame* game)
 {
 	UnkPlayer* player;
 	XObj* target;
 	s32 i;
 	XObj* obj;
 	if (game->mStatus.mFlags & 1) {
-		player        = (UnkPlayer*)lbl_8025C400.mXObjs.mPools[2].First();
+		player        = (UnkPlayer*)gGame.mXObjs.mPools[2].First();
 		target        = player->GetShadowObj();
 		f32 limits[2] = { 1.0f + player->mMoveTranslate.y, NAN };
 		for (i = 0; i < game->mDrawLists[1].mCount; i++) {
@@ -44,10 +43,10 @@ extern "C" void fn_8000C450(CGame* game)
 				if (obj == target) {
 					limits[1] = NAN;
 					if (obj->mJObj != NULL) {
-						HSD_JObjWalkTree(obj->mJObj, (HSD_JObjWalkTreeCallback)fn_8000CBF4, (f32**)limits);
+						HSD_JObjWalkTree(obj->mJObj, (HSD_JObjWalkTreeCallback)FindHighestJointBelowHeightLimit, (f32**)limits);
 					}
 				} else if (obj->mJObj != NULL) {
-					HSD_JObjWalkTree(obj->mJObj, (HSD_JObjWalkTreeCallback)JObjClearMObjFlags, (f32**)0x4000000);
+					HSD_JObjWalkTree(obj->mJObj, JObjClearMObjFlags, (f32**)0x4000000);
 				}
 			}
 		}
@@ -77,10 +76,10 @@ extern "C" void fn_8000C450(CGame* game)
 				Vec center = game->GetCamera()->mInterest;
 				shadow->AddRect(&center, 100.0f, -100.0f, -100.0f, 100.0f);
 				game->mGs.mCamera = shadow->StartRender();
-				if (fn_8019997C(game)) {
-					fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
-					fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
-					fn_8019B360(lbl_8025C400.mGs.mCurRenderMode, 2);
+				if (BeginGsCamera(game)) {
+					SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
+					SetGsChannelEnabled(&gGame.mGs, 0, 0);
+					SetGsCullMode(gGame.mGs.mCurRenderMode, 2);
 					SetupAll(TRUE);
 					for (s32 i = 0; i < game->mDrawLists[1].mCount; i++) {
 						XObj* obj = game->mDrawLists[1].mObjects[i];
@@ -103,7 +102,7 @@ extern "C" void fn_8000C450(CGame* game)
 							obj->vfBC(&obj->mMoveTranslate, sin(3.1415927f * alpha * 0.5f));
 						}
 					}
-					fn_80199944(&game->mGs);
+					EndGsCamera(&game->mGs);
 				}
 				shadow->EndRender();
 				break;
@@ -127,25 +126,25 @@ extern "C" void fn_8000D118(CGame* game)
 	UnkPlayer* player;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x4000000000)) {
 		game->mGs.mCamera = game->vf34();
-		if (fn_8019997C(game)) {
+		if (BeginGsCamera(game)) {
 			InvalidateAll();
-			fn_80199AB0(&lbl_8025C400.mGs, 4, 0);
-			fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 0, 4, 5, 15);
-			fn_8019B648(lbl_8025C400.mGs.mCurRenderMode, 0);
-			fn_8019B5D0(lbl_8025C400.mGs.mCurRenderMode, 1);
-			fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-			fn_8019B3E8(lbl_8025C400.mGs.mCurRenderMode, 0, 0);
+			SetGsChannelEnabled(&gGame.mGs, 4, 0);
+			SetGsBlendMode(gGame.mGs.mCurRenderMode, 0, 4, 5, 15);
+			SetGsColorUpdate(gGame.mGs.mCurRenderMode, 0);
+			SetGsAlphaUpdate(gGame.mGs.mCurRenderMode, 1);
+			SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+			SetGsDestinationAlpha(gGame.mGs.mCurRenderMode, 0, 0);
 			SetupAll(TRUE);
 			Vec quad[4] = { { 0.0f, 0.0f, 0.0f }, { 640.0f, 0.0f, 0.0f }, { 640.0f, 448.0f, 0.0f }, { 0.0f, 448.0f, 0.0f } };
-			fn_80198614(&lbl_8025C400.mGs, quad[0].x, quad[0].y, quad[0].z, 4, quad[1].x, quad[1].y, quad[1].z, 4, quad[2].x, quad[2].y,
-			            quad[2].z, 4, quad[3].x, quad[3].y, quad[3].z, 4);
-			fn_8019B648(lbl_8025C400.mGs.mCurRenderMode, 1);
+			DrawGsVertexQuad(&gGame.mGs, quad[0].x, quad[0].y, quad[0].z, quad[1].x, quad[1].y, quad[1].z, quad[2].x, quad[2].y, quad[2].z,
+			                 quad[3].x, quad[3].y, quad[3].z, 4, 4, 4, 4);
+			SetGsColorUpdate(gGame.mGs.mCurRenderMode, 1);
 			InvalidateAll();
-			fn_80199944(&game->mGs);
+			EndGsCamera(&game->mGs);
 		}
 
 		game->mGs.mCamera = game->GetCamera();
-		if (fn_8019997C(game)) {
+		if (BeginGsCamera(game)) {
 			XObj* targets[2] = { NULL, NULL };
 			player           = (UnkPlayer*)game->mXObjs.mPools[2].First();
 			if (targets[0] == NULL) {
@@ -172,7 +171,7 @@ extern "C" void fn_8000D118(CGame* game)
 					obj->vfAC();
 				}
 			}
-			fn_80199944(&game->mGs);
+			EndGsCamera(&game->mGs);
 		}
 
 		for (i = 0; i < game->mDrawLists[1].mCount; i++) {
@@ -194,7 +193,7 @@ extern "C" void fn_8000D118(CGame* game)
  */
 // a joint walk: finds the highest joint at or under the limit in limits[0] and keeps it in
 // limits[1], nan to start, and marks the materials of those joints
-extern "C" void fn_8000CBF4(HSD_JObj* jobj, f32* limits)
+extern "C" void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, f32* limits)
 {
 	Vec pos;
 	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &pos);
@@ -228,23 +227,23 @@ extern "C" void vf20__5CGameFv(CGame* game)
 	if (game->mStatus.mFlags & 1) {
 		s32 i;
 		game->mGs.mCamera = game->GetCamera();
-		if (fn_8019997C(game)) {
+		if (BeginGsCamera(game)) {
 			for (i = 0; i < game->mDrawLists[1].mCount; i++) {
 				if (game->mDrawLists[1].mObjects[i]->GetCategory() == 3) {
 					game->mDrawLists[1].mObjects[i]->vfAC();
 				}
 			}
-			fn_80199944(&game->mGs);
+			EndGsCamera(&game->mGs);
 		}
 		game->mGs.mCamera = game->GetCamera();
-		if (fn_8019997C(game)) {
+		if (BeginGsCamera(game)) {
 			for (i = 0; i < game->mDrawLists[1].mCount; i++) {
 				if (game->mDrawLists[1].mObjects[i]->GetCategory() != 3) {
 					game->mDrawLists[1].mObjects[i]->vfAC();
 				}
 			}
-			fn_8006F338(2, 0, NULL);
-			fn_80199944(&game->mGs);
+			CallStageModule(2, 0, NULL);
+			EndGsCamera(&game->mGs);
 		}
 		InvalidateAll();
 	}
@@ -329,9 +328,9 @@ extern "C" void vfD4__4XObjFP7CShadow(XObj* obj, CShadow* shadow)
 // copies what was drawn into the effect's texture
 static inline void CopyToTexture(CFbTexEff* effect)
 {
-	fn_8019B648(lbl_8025C400.mGs.mCurRenderMode, 1);
-	fn_8019B5D0(lbl_8025C400.mGs.mCurRenderMode, 1);
-	fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 1);
+	SetGsColorUpdate(gGame.mGs.mCurRenderMode, 1);
+	SetGsAlphaUpdate(gGame.mGs.mCurRenderMode, 1);
+	SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 1);
 	SetupAll(TRUE);
 	if (effect->mTexture.mImage != NULL) {
 		u16 width, height;
@@ -356,7 +355,7 @@ static inline void CopyToTexture(CFbTexEff* effect)
  */
 // NONMATCHING: the mirror, its view and the object list pointer rotate registers
 // draws what each mirror shows into its texture
-extern "C" void fn_8000D704(CGame* game)
+extern "C" void RenderMirrorTextures(CGame* game)
 {
 	MtxPtr view;
 	FbMirrorEx* mirror;
@@ -365,10 +364,10 @@ extern "C" void fn_8000D704(CGame* game)
 	XObj* obj;
 	if ((game->mStatus.mFlags & 1) && (game->mStatus.mFlags & 0x100000000000)) {
 		for (i = 0; i < 5; i++) {
-			mirror = &lbl_8035FA24[i];
+			mirror = &gFramebufferMirrors[i];
 			if (mirror->mJoint != NULL && mirror->mVisible && !IsMirrorOff(mirror)) {
 				game->mGs.mCamera = &mirror->mCamera;
-				if (fn_8019997C(game)) {
+				if (BeginGsCamera(game)) {
 					view = mirror->mView;
 					for (j = 0; j < game->mDrawLists[2].mCount; j++) {
 						obj = game->mDrawLists[2].mObjects[j];
@@ -376,7 +375,7 @@ extern "C" void fn_8000D704(CGame* game)
 							obj->vfB4(view);
 						}
 					}
-					fn_80199944(&game->mGs);
+					EndGsCamera(&game->mGs);
 					if (mirror->mVisible) {
 						CopyToTexture(mirror);
 					}

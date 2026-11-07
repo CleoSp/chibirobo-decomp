@@ -1,6 +1,7 @@
 #ifndef _GAME_CGAMEUTIL_H
 #define _GAME_CGAMEUTIL_H
 
+#include "game/cmdline.h"
 #include "types.h"
 #include "game/cgame.h"
 #include "game/stagedata.h"
@@ -8,9 +9,9 @@
 // the inlines the cgame units share
 
 extern "C" {
-void fn_8019B278(CGsRenderMode* mode, BOOL force);
-void fn_8019AED0(CGsTevStage* stage, BOOL force);
-void fn_8019AE94(CGsChannel* chan, BOOL force);
+void ApplyGsRenderMode(CGsRenderMode* mode, BOOL force);
+void ApplyGsTevStage(CGsTevStage* stage, BOOL force);
+void ApplyGsChannel(CGsChannel* chan, BOOL force);
 void HSD_PadRumbleOffN(u8 no);
 void HSD_PadRumblePauseAll(void);
 s32 DVDGetDriveStatus(void);
@@ -21,22 +22,22 @@ void HSD_PadRumbleActiveAll(void);
 // sends all of the current render, tev and channel state
 static inline void SetupAll(BOOL force)
 {
-	CGs* gs = &lbl_8025C400.mGs;
+	CGs* gs = &gGame.mGs;
 	if (gs->mCurRenderMode != NULL) {
-		fn_8019B278(gs->mCurRenderMode, force);
+		ApplyGsRenderMode(gs->mCurRenderMode, force);
 	}
 	if (gs->mCurTevStage != NULL) {
-		fn_8019AED0(gs->mCurTevStage, force);
+		ApplyGsTevStage(gs->mCurTevStage, force);
 	}
 	if (gs->mCurChannel != NULL) {
-		fn_8019AE94(gs->mCurChannel, force);
+		ApplyGsChannel(gs->mCurChannel, force);
 	}
 }
 
 // forgets all of the state after drawing behind its back
 static inline void InvalidateAll()
 {
-	CGs* gs = &lbl_8025C400.mGs;
+	CGs* gs = &gGame.mGs;
 	HSD_StateInvalidate(HSD_STATE_ALL);
 	if (gs->mCurRenderMode != NULL) {
 		gs->mCurRenderMode->Invalidate();
@@ -121,7 +122,7 @@ STATIC_ASSERT(sizeof(UnkStageInfo) == 0x12);
 // the loaded stage's EnvInfo starts with a pointer to them, see game/stagedata.h
 static inline UnkStageInfo* GetStageInfo()
 {
-	return *(UnkStageInfo**)fn_8006F4B8();
+	return *(UnkStageInfo**)GetStageEnvironment();
 }
 
 // CBase::Update, keeps the rumble off while the disc can't be read and watches for the reset
@@ -174,15 +175,5 @@ static inline void BaseUpdate(CBase* base, u32 frames)
 		}
 	}
 }
-
-// what the command line can set
-struct CmdLineArgs {
-	s32 mStage;   // _00
-	s32 mSlot;    // _04, the card slot, 0 for A
-	u8 _08[0x18]; // _08
-};
-STATIC_ASSERT(sizeof(CmdLineArgs) == 0x20);
-
-extern "C" CmdLineArgs lbl_8020FBC0;
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef _GAME_XOBJACTOR_H
 #define _GAME_XOBJACTOR_H
 
-#include "game/xobj.h"
+#include "game/xobjjointpart.h"
 #include "game/ctpl.h"
 #include "game/csound.h"
 #include "game/cptcl.h"
@@ -12,12 +12,6 @@
 
 // the people and toys, class names from RTTI and the vtables at 0x8022BF90 (XObjActor) and on.
 // offsets are usa, everything past XObj sits 0x10 lower in japan
-
-struct XObjActorPart {
-	u32 _00;            // _00
-	u32 _04;            // _04
-	u8 _08[0x38 - 0x8]; // _08
-};
 
 // the base of the people and toys
 class XObjActor : public XObj {
@@ -41,28 +35,29 @@ public:
 	f32 _9D8;         // _9D8
 	f32 _9DC;         // _9DC
 	s32 mCmd[20];     // _9E0, the event command vf124 got and its args, the rest is the kind's scratch
-	u8 _A30[0xA38 - 0xA30];
-	f32 _A38; // _A38
-	f32 _A3C; // _A3C
-	Vec _A40; // _A40
-	s16 _A4C; // _A4C, id of the attached object, -1 for none
+	u8 _A30[4];
+	s32 mMovePhase; // _A34, index into the movement speed cycle
+	f32 _A38;       // _A38
+	f32 _A3C;       // _A3C
+	Vec _A40;       // _A40
+	s16 _A4C;       // _A4C, id of the attached object, -1 for none
 	u8 _A4E[0xA50 - 0xA4E];
 	XObj* _A50;              // _A50, the attached object
 	Mtx _A54;                // _A54, where the attached object is held
-	XObj* _A84;              // _A84, held object
-	u32 _A88;                // _A88
+	XObj* mHeldObjects[2];   // _A84, Mama can carry a pair
 	AnimSfx mAnimSfx;        // _A8C, its events are the kind's table
 	s32 mLookMode;           // _A9C, 0 ahead, 1 at mLookTarget, 3 at mLookAngle
-	f32 _AA0;                // _AA0
+	f32 mHeadYaw;            // _AA0
 	f32 mLookAngle;          // _AA4
 	f32 mLookRate;           // _AA8
-	s32 mLookTarget;         // _AAC, a Vec*
-	f32 _AB0;                // _AB0
-	XObjActorPart mParts[8]; // _AB4
+	const Vec* mLookTarget;  // _AAC
+	f32 mHeadPitch;          // _AB0
+	XObjJointPart mParts[8]; // _AB4
 	u8 _C74[0xC78 - 0xC74];
 
 	XObjActor();
 
+	virtual s32 vf124(s32 count, s32* args);
 	virtual ~XObjActor();               // _08
 	virtual void vf148(u32 frames);     // _148, the kind's own update
 	virtual void vf14C(u32 frames) = 0; // _14C, runs the subclass's mState
@@ -87,10 +82,10 @@ STATIC_ASSERT(sizeof(XObjActor) == 0xC78);
 
 // an object a toy reads in by id and holds on to
 struct XObjActorToyPiece {
-	s16 mId;            // _00, -1 for none
-	s32 mState;         // _04
-	XObj* mObj;         // _08
-	u8 _0C[0x3C - 0xC]; // _0C
+	s16 mId;    // _00, -1 for none
+	s32 mState; // _04
+	XObj* mObj; // _08
+	Mtx mMount; // _0C, world matrix of the attachment joint
 };
 STATIC_ASSERT(sizeof(XObjActorToyPiece) == 0x3C);
 
@@ -102,7 +97,7 @@ public:
 	// _00-_C78 = XObjActor
 	StateFunc mState;             // _C78, run every frame by vf14C
 	CStatus _C84;                 // _C84, kinds queued to hide
-	s32 mLoad;                    // _C8C, which part vf9C is reading
+	s32 mLoad;                    // _C8C, which part LoadFromPlacement is reading
 	XObj mFirst;                  // _C90
 	XObj mSecond;                 // _1610, _1600 in japan
 	s32 _1F90;                    // _1F90, _1F70 in japan
@@ -113,24 +108,25 @@ public:
 
 	XObjActorToy();
 
-	virtual ~XObjActorToy();                  // _08
-	virtual void Release();                   // _54
-	virtual void vf90(u32 id);                // _90
-	virtual void vf94();                      // _94
-	virtual void vf98();                      // _98
-	virtual BOOL vf9C(const CoordInfo& info); // _9C
-	virtual void vfAC();                      // _AC
-	virtual void vfC8();                      // _C8
-	virtual s32 vf124(s32 count, s32* args);  // _124
-	virtual void vf130();                     // _130
-	virtual void vf148(u32 frames);           // _148
-	virtual void vf14C(u32 frames);           // _14C
-	virtual void vf150();                     // _150
-	virtual void vf158();                     // _158
-	virtual void vf15C();                     // _15C
-	virtual void vf164(f32 frame);            // _164
+	virtual ~XObjActorToy();                               // _08
+	virtual void Release();                                // _54
+	virtual void vf90(u32 id);                             // _90
+	virtual void vf94();                                   // _94
+	virtual void ResetObjectState();                       // _98
+	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C
+	virtual void vfAC();                                   // _AC
+	virtual void vfC8();                                   // _C8
+	virtual s32 vf124(s32 count, s32* args);               // _124
+	virtual void vf130();                                  // _130
+	virtual void vf148(u32 frames);                        // _148
+	virtual void vf14C(u32 frames);                        // _14C
+	virtual void vf150();                                  // _150
+	virtual void vf158();                                  // _158
+	virtual void vf15C();                                  // _15C
+	virtual void vf164(f32 frame);                         // _164
 
 	bool IsFree() const;
+	void StateCarry(u32 frames);
 	void StatePickUp(u32 frames);
 };
 #if defined(VERSION_JP)
@@ -158,7 +154,7 @@ public:
 
 	virtual ~XObjActorJenny();               // _08
 	virtual void UpdateAnim(u32 frames);     // _88
-	virtual void vfA4(u32 frames);           // _A4
+	virtual void UpdateObject(u32 frames);   // _A4
 	virtual s32 vf124(s32 count, s32* args); // _124
 	virtual void vf148(u32 frames);          // _148
 	virtual void vf14C(u32 frames);          // _14C
@@ -194,7 +190,7 @@ public:
 	XObjActorMama();
 
 	virtual ~XObjActorMama();                // _08
-	virtual void vfA4(u32 frames);           // _A4
+	virtual void UpdateObject(u32 frames);   // _A4
 	virtual s32 vf124(s32 count, s32* args); // _124
 	virtual void vf148(u32 frames);          // _148
 	virtual void vf14C(u32 frames);          // _14C
@@ -266,8 +262,8 @@ public:
 	u32 _C88;         // _C88
 	CStatus _C8C;     // _C8C, kinds queued to hide
 	Mtx _C94;         // _C94, where it holds what it carries
-	u8 _CC4[0xCF4 - 0xCC4];
-	s16 _CF4; // _CF4
+	Mtx _CC4;         // _CC4, mount for the object loaded by command 5
+	s16 _CF4;         // _CF4
 	u8 _CF6[0xCF8 - 0xCF6];
 	s32 _CF8;   // _CF8
 	XObj* _CFC; // _CFC
@@ -314,7 +310,7 @@ public:
 
 	virtual ~XObjActorDeca();                // _08
 	virtual void UpdateAnim(u32 frames);     // _88
-	virtual void vfA4(u32 frames);           // _A4
+	virtual void UpdateObject(u32 frames);   // _A4
 	virtual Vec GetCameraTarget();           // _EC
 	virtual s32 vf124(s32 count, s32* args); // _124
 	virtual void vf148(u32 frames);          // _148
@@ -336,19 +332,19 @@ STATIC_ASSERT(sizeof(XObjActorDeca) == 0xCA8);
 
 // XObjActor's own virtuals, the ones the subclasses call through to
 extern "C" {
-void vf164__9XObjActorFf(XObjActor* object, f32 frame);                       // vf164
-Vec GetCameraTarget__9XObjActorFv(XObjActor* object);                         // GetCameraTarget
-void vfC8__9XObjActorFv(XObjActor* object);                                   // vfC8
-void vfAC__9XObjActorFv(XObjActor* object);                                   // vfAC
-void vf148__9XObjActorFUl(XObjActor* object, u32 frames);                     // vf148
-BOOL vf9C__9XObjActorFRC9CoordInfo(XObjActor* object, const CoordInfo& info); // vf9C
-void vf94__9XObjActorFv(XObjActor* object);                                   // vf94
-void vf98__9XObjActorFv(XObjActor* object);                                   // vf98
-void vf90__9XObjActorFUl(XObjActor* object, u32 id);                          // vf90
+void vf164__9XObjActorFf(XObjActor* object, f32 frame);                                    // vf164
+Vec GetCameraTarget__9XObjActorFv(XObjActor* object);                                      // GetCameraTarget
+void vfC8__9XObjActorFv(XObjActor* object);                                                // vfC8
+void vfAC__9XObjActorFv(XObjActor* object);                                                // vfAC
+void vf148__9XObjActorFUl(XObjActor* object, u32 frames);                                  // vf148
+BOOL LoadFromPlacement__9XObjActorFRC9CoordInfo(XObjActor* object, const CoordInfo& info); // LoadFromPlacement
+void vf94__9XObjActorFv(XObjActor* object);                                                // vf94
+void ResetObjectState__9XObjActorFv(XObjActor* object);                                    // ResetObjectState
+void vf90__9XObjActorFUl(XObjActor* object, u32 id);                                       // vf90
 
 // the counts the toys hand to the script, game/xobjactorse.cpp
 s32 fn_80106AC0();
-s32 fn_80106B50();
+s32 CountSmallSpidersGrabbingPlayer();
 }
 
 // the joint at the end of the path, one child step then path[i] sibling steps per level
@@ -372,13 +368,13 @@ inline HSD_JObj* GetJointFromRoot(HSD_JObj* jobj, s32 depth, s32* path)
 // one of the toys in pool 7
 inline XObjActorToy* GetToy(s32 i)
 {
-	return (XObjActorToy*)lbl_8025C400.mXObjs.mPools[10].Get(i);
+	return (XObjActorToy*)gGame.mXObjs.mPools[10].Get(i);
 }
 
 // starts reading in the object with the given id
 inline XObj* ReadObj(s16 id)
 {
-	return fn_80132698(&lbl_8025C400.mXObjs, &CoordInfo(fn_8006EDB4(id)), 0, TRUE);
+	return SpawnObjectFromPlacement(&gGame.mXObjs, &CoordInfo(GetStageObjectPlacementByIndex(id)), 0, TRUE);
 }
 
 // an object an event tied to one of the actor's joints
@@ -404,13 +400,6 @@ struct XObjActor3Place {
 	s32 mRot[3]; // _10
 };
 STATIC_ASSERT(sizeof(XObjActor3Place) == 0x1C);
-
-// haisui_nezumi's dust, the set and the particles it runs
-struct XObjActor3Dust {
-	CPtcl mPtcl;           // _00
-	CPtclDust3 mPtcls[50]; // _14
-};
-STATIC_ASSERT(sizeof(XObjActor3Dust) == 0xFB4);
 
 // pool 5's objects, 48 of them
 class XObjActor3 : public XObj {
@@ -448,7 +437,7 @@ public:
 	s32 _C04; // _C04, count of shown pool 17 objects
 	u8 _C08;  // _C08
 	u8 _C09[0xC0C - 0xC09];
-	XObjActor3Dust mDust;     // _C0C
+	DustParticlePool mDust;   // _C0C
 	CTexObj mTex[2];          // _1BC0
 	s32 _1DC0[6];             // _1DC0
 	s32 mRumble;              // _1DD8
@@ -463,13 +452,14 @@ public:
 	XObjActor3();
 
 	virtual ~XObjActor3(); // _08
+	virtual BOOL LoadFromPlacement(const CoordInfo& info);
 
 	virtual void vf148(); // _148
 
 	// the stage table entry it was placed from
 	const XObjActor3Place* GetPlace() const { return (const XObjActor3Place*)mCoord._00; }
 
-	// what the actor does each frame by its kind, through lbl_8022C330
+	// what the actor does each frame by its kind, through gActor3UpdateHandlers
 	void Kind0(u32 frames);  // 0x8011529C
 	void Kind1(u32 frames);  // 0x801151E0
 	void Kind2(u32 frames);  // 0x80114CC8
@@ -494,7 +484,7 @@ public:
 
 typedef void (XObjActor3::*XObjActor3Func)(u32 frames);
 
-extern "C" XObjActor3Func lbl_8022C330[20];
+extern "C" XObjActor3Func gActor3UpdateHandlers[20];
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(XObjActor3) == 0x2130);
 #else

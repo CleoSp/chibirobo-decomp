@@ -22,7 +22,7 @@ public:
 	s32 mSampleBank;                  // _F4
 	u8 mSampleReady;                  // _F8
 	u8 _F9[0xFC - 0xF9];              // _F9
-	s32 mDefaultTrack;                // _FC, fn_8001E11C also writes 1 or 0 here
+	s32 mDefaultTrack;                // _FC, SetMusicPlaybackPaused also writes 1 or 0 here
 	s32 mStageBank;                   // _100, the stage's sfx bank, cleared on every stage change
 	u8 _104[0x108 - 0x104];           // _104
 	s32 _108[32];                     // _108, ids that fn_8001E904 started, zero means free
@@ -61,7 +61,7 @@ STATIC_ASSERT(sizeof(XSound) == 0x3E4);
 inline void XSound::StopIfPlaying(s32 sfx)
 {
 	if (fn_8001E6C8(this, sfx)) {
-		fn_8001E660(this, sfx);
+		StopGameSfx(this, sfx);
 	}
 }
 

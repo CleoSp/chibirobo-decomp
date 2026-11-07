@@ -13,12 +13,12 @@ static inline BOOL ReadFailed(Memcard* card)
  * @note Address: 0x80087508
  * @note Size: 0x34C
  */
-extern "C" BOOL fn_80087508(Memcard* card)
+extern "C" BOOL ReadValidatedSaveIntoCardBuffer(Memcard* card)
 {
 	card->mState     = 12;
 	SaveHeader* save = &card->mFile.mData.mHeader;
-	for (s32 copy = 0; copy < 2; ++copy) {
-		card->mCard.Read(card->mBuffer, 0x6000, copy * 0x6000);
+	for (s32 copy = 0, offset = 0; copy < 2; ++copy, offset += sizeof(SaveFile)) {
+		card->mCard.Read(card->mBuffer, sizeof(SaveFile), offset);
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY)
 			return ReadFailed(card);

@@ -19,7 +19,8 @@ extern "C" u32 vf100__8XObjDustFll(XObjDust* object, void* unused, u32 flags)
 			f32 y                 = pad.mPad->mStickY;
 			f32 x                 = pad.mPad->mStickX;
 			f32 magnitude         = sqrtf(x * x + y * y);
-			object->mBounceHeight = ((rand() % 400 + 400) / 100.0f) * magnitude;
+			f32 factor            = (rand() % 400 + 400) / 100.0f;
+			object->mBounceHeight = factor * magnitude;
 		}
 	}
 	return 0;

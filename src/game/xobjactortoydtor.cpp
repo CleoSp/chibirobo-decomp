@@ -66,17 +66,17 @@ void XObjActorToy::vf164(f32 frame)
 			HSD_AObj* aobj = GetTexAObj(GetJointByPath(mJObj, path, 3), 4);
 			frame          = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		}
-		if (fn_8001E6C8(&lbl_8025C400.mSound, 0x10001F)) {
+		if (fn_8001E6C8(&gGame.mSound, 0x10001F)) {
 			if (mAnimId != 0x10) {
-				fn_8001E660(&lbl_8025C400.mSound, 0x10001F);
+				StopGameSfx(&gGame.mSound, 0x10001F);
 			} else {
-				fn_8001E468(&lbl_8025C400.mSound, 0x10001F, fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0), 0);
+				SetGameSfxVolume(&gGame.mSound, 0x10001F, GetSoundVolumeAtPosition(&gGame.mSound, &mMoveTranslate, 0), 0);
 			}
 		}
 		break;
 	case 0x159:
-		if (fn_8001E6C8(&lbl_8025C400.mSound, 0xE0008) && mAnimId != 7) {
-			fn_8001E660(&lbl_8025C400.mSound, 0xE0008);
+		if (fn_8001E6C8(&gGame.mSound, 0xE0008) && mAnimId != 7) {
+			StopGameSfx(&gGame.mSound, 0xE0008);
 		}
 		break;
 	}

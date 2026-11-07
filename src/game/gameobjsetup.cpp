@@ -1,3 +1,7 @@
+#include "game/newgamestate.h"
+#include "game/arcache.h"
+#include "game/globals.h"
+
 #include "game/cgame.h"
 #include "game/xobjmap.h"
 #include "game/mm.h"
@@ -6,9 +10,9 @@
 
 extern "C" {
 u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, GXBool mipmap, u8 maxLod);
-void fn_80011270(CGame* game);
-void fn_8001146C(CGame* game);
-BOOL fn_80132B98(XOBJS* objs);
+void BuildObjectDrawList(CGame* game);
+void SelectSceneLights(CGame* game);
+BOOL UpdateStageObjectLoading(XOBJS* objs);
 void Reset2__16CCameraActionMapFv(CInterfaceCameraAction* action);
 }
 
@@ -41,13 +45,13 @@ extern "C" BOOL fn_80011638(CGame* game)
 	s32 mode;
 	s32 i;
 	HSD_JObj* jobj;
-	if (fn_80132B98(&game->mXObjs)) {
-		mode                                                                  = GetStageInfo()->mCameraMode;
-		((CCameraActionScroll*)lbl_8025C400.mCameraActions.mTable[11])->mZoom = 1;
-		if (fn_8006F3CC() && fn_8006F3BC()) {
+	if (UpdateStageObjectLoading(&game->mXObjs)) {
+		mode                                                           = GetStageInfo()->mCameraMode;
+		((CCameraActionScroll*)gGame.mCameraActions.mTable[11])->mZoom = 1;
+		if (fn_8006F3CC() && GetStageCameraInfoRecords()) {
 			game->mCameraActions.mTable[1]->vf14();
 		}
-		if (fn_8006F3CC() && fn_8006F3BC()) {
+		if (fn_8006F3CC() && GetStageCameraInfoRecords()) {
 			((CCameraActionAreaExM*)game->mCameraActions.mTable[1])->vf64();
 		}
 		((CCameraActionAnim*)game->mCameraActions.mTable[6])->SetObj((XObjCamera*)game->mXObjs.mPools[0].First());
@@ -65,13 +69,13 @@ extern "C" BOOL fn_80011638(CGame* game)
 
 		if (game->mStatus.mFlags & 0x100) {
 			game->mStatus.mFlags &= ~0x300;
-			fn_800236EC(&game->mRoboeyes, 0, 0, 0, 0, 1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+			StartScreenWipe(&game->mRoboeyes, 0, 0, 0, 0, 1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		}
-		fn_8001146C(game);
-		fn_80011270(game);
+		SelectSceneLights(game);
+		BuildObjectDrawList(game);
 
 		game->mStatus.mFlags &= ~0x2000000000;
-		mirror = lbl_8035FA24;
+		mirror = gFramebufferMirrors;
 		game->mStatus.mFlags &= ~0x8000000000;
 		game->mStatus.mFlags &= ~0x100000000000;
 		mirrors = 0;
@@ -104,7 +108,7 @@ extern "C" BOOL fn_80011638(CGame* game)
 						for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
 							HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 							if (mobj != NULL) {
-								fn_801BA3AC(mobj, 255, 255, 255);
+								SetMaterialAmbientColor(mobj, 255, 255, 255);
 								HSD_TObj* tobj = HSD_MObjGetTObj(mobj);
 								if (tobj != NULL) {
 									tobj->imagedesc = (HSD_ImageDesc*)mirror;
@@ -131,4 +135,256 @@ extern "C" BOOL fn_80011638(CGame* game)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+extern "C" {
+BOOL UpdateProgressiveScanPrompt(u32);
+BOOL fn_8001F97C(XSound*, s32);
+BOOL LoadMenuGroupResources(MenuEx*);
+BOOL fn_8008A2A0(Memcard*);
+BOOL fn_8007F038(CEvt*);
+BOOL LoadMessageCursorObject(CMsg*);
+BOOL HideHudPointCounters(InfoScrn*);
+BOOL LoadGlobalResourceData();
+u32 fn_8006E940(s32);
+void SetAttachmentCountById(AttachmentValues*, s32, s32);
+void RestoreGameSaveData(Memcard*);
+void RestoreSavedPlayerAndCamera(Memcard*);
+u32 CheckStageFlag(s32, u32);
+BOOL LoadStageByIndex(s32);
+void fn_8006F4E4();
+void* fn_8006F3DC();
+void RegisterEventObjectId(CEvt*, s16, s16);
+void* fn_8006F42C();
+void* fn_8006F41C();
+u32 fn_8006EA18(s32);
+extern ARPreCache gAramPrecache;
+u32 TakeNextCounterValue(void*, u32*);
+s32 HSD_DevComRequest(s32, u32, void*, u32, s32, s32, u32 (*)(void*, u32*), void*);
+u32 ARGetSize();
+void* fn_8006EE18();
+}
+
+static inline BOOL PreloadStageArchives()
+{
+	ARPreCache& cache = gAramPrecache;
+	switch (cache._00) {
+	case 0:
+		if (cache.mFile0.ConvertPathToEntrynum("/qp/pc.idx") < 0 || cache.mFile1.ConvertPathToEntrynum("/qp/pc.bin") < 0)
+			return TRUE;
+		++cache._00;
+	case 1: {
+		if (!cache.mFile0.ReadEx("/qp/pc.idx", 0, 0))
+			break;
+		++cache._00;
+		s32 entry   = DVDConvertPathToEntrynum("/qp/pc.bin");
+		u32 address = gARAMCacheInfo.mBaseAddress;
+		HSD_DevComRequest(entry, 0, (void*)address, ARGetSize() - gARAMCacheInfo.mBaseAddress, 0x23, 1, TakeNextCounterValue, &cache);
+		break;
+	}
+	case 3: {
+		XObjSource* src = (XObjSource*)fn_8006EE18();
+		const u8* pair  = (const u8*)cache.mFile0.mBuffer;
+		if (pair) {
+			for (s32 id = 0;; ++id, ++src) {
+				if (*(const u32*)pair == 0xffffffff || src->mCache.address == 0xffffffff)
+					break;
+				if (src->mCache.size != 1)
+					continue;
+				u32 address = ReadResourceOffset(pair), size = ReadResourceOffset(pair + 4);
+				if (address + size >= ARGetSize())
+					break;
+				src->mCache.address = address;
+				src->mCache.size    = size;
+				u32 padded          = (size + 31) & ~31u;
+
+				gARAMCacheInfo.mEntries[gARAMCacheInfo.mCount].address  = gARAMCacheInfo.mBaseAddress;
+				gARAMCacheInfo.mEntries[gARAMCacheInfo.mCount].size     = padded;
+				gARAMCacheInfo.mEntries[gARAMCacheInfo.mCount].objectId = id;
+				gARAMCacheInfo.mEntries[gARAMCacheInfo.mCount].name     = src->mName;
+				++gARAMCacheInfo.mCount;
+				gARAMCacheInfo.mBaseAddress += padded;
+				pair += 8;
+			}
+		}
+		cache.mFile0.Close();
+		++cache._00;
+	}
+	case 4:
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static inline BOOL LoadStartingAttachments(CGame* game)
+{
+	if (!LoadGlobalResourceData())
+		return FALSE;
+	if (!lbl_8020FBC0.mPick1) {
+		u32 level = fn_8006E940(0);
+		SetAttachmentCountById(&game->GetPlayer()->mAttachments, 1, level);
+	}
+	if (!lbl_8020FBC0.mPick2) {
+		u32 level = fn_8006E940(1);
+		SetAttachmentCountById(&game->GetPlayer()->mAttachments, 2, level);
+	}
+	if (!lbl_8020FBC0.mPick3) {
+		u32 level = fn_8006E940(2);
+		SetAttachmentCountById(&game->GetPlayer()->mAttachments, 3, level);
+	}
+	return TRUE;
+}
+
+BOOL CGame::BeforeUpdate()
+{
+	// Ready stages fall through. Pending reads resume at the same stage next frame.
+	switch (_3338) {
+	case 0:
+		return TRUE;
+	case 1:
+		if (!UpdateProgressiveScanPrompt(vf2C()))
+			break;
+#if defined(VERSION_PAL)
+		mOutline.SetSize(gGame.mGs.mScreen.fbWidth, gGame.mGs.mScreen.efbHeight);
+		mBlur.SetSize(gGame.mGs.mScreen.fbWidth / 2, gGame.mGs.mScreen.efbHeight / 2);
+#endif
+		++_3338;
+	case 2:
+		++_3338;
+	case 3:
+		if (!fn_8001F97C(&mSound, -1))
+			break;
+		++_3338;
+	case 4:
+		if ((mStatus.mFlags & 0x200000000ULL) && !mArchive.ReadEx("/qp.bin", 0, 0))
+			break;
+		++_3338;
+	case 5:
+		if (!mTpl.ReadEx("tpl/misc.tpl", 0, 0))
+			break;
+		++_3338;
+		mScrnTex.mTex        = mTpl.mTex.Init(&((TPLPalette*)mTpl.mBuffer)->descriptorArray[121 - StatusTextureOffset], 0);
+		mOutline.mPatternTex = &mScrnTex.mTex;
+		mOutline.mFrame      = 0;
+		mOutline.mThick2     = 0;
+	case 6:
+		if ((mStatus.mFlags & 0x400000000ULL) && mLogo.mState != 15) {
+			if (!mLogo.IsActive())
+				mLogo.mState = 1;
+			if (mLogo.mState <= 2)
+				break;
+		}
+		++_3338;
+	case 7:
+		if ((mStatus.mFlags & 0x40000000000ULL) && !PreloadStageArchives())
+			break;
+		++_3338;
+	case 8:
+		if ((mStatus.mFlags & 0x400000000ULL) && mLogo.mState != 15)
+			break;
+		++_3338;
+	case 9:
+		if (!mParticle.Read("particle/chibi_robo"))
+			break;
+		++_3338;
+	case 10:
+		if (!LoadMenuGroupResources(&mMenu))
+			break;
+		++_3338;
+	case 11:
+		if (!fn_8008A2A0(&mMemcard.mCard))
+			break;
+		++_3338;
+	case 12:
+		++_3338;
+	case 13:
+		if (!fn_8007F038(&mEvt))
+			break;
+		++_3338;
+	case 14:
+		if (!LoadMessageCursorObject(mCMsgs))
+			break;
+		++_3338;
+	case 15:
+		if (!HideHudPointCounters(&mInfoScrn))
+			break;
+		++_3338;
+	case 16:
+		++_3338;
+	case 17:
+		if (!LoadStartingAttachments(this))
+			break;
+		++_3338;
+	case 18:
+		if (!GetPlayer()->LoadFromPlacement(CoordInfo(GetSpawnData(14))))
+			break;
+		++_3338;
+	case 19:
+		if ((mStatus.mFlags & 0x20000000) && mTitle.mState != 23) {
+			if (!(mTitle.mState >= 1 && mTitle.mState < 23)) {
+				ResetNewGameState();
+				mTitle.mState = 1;
+			}
+			break;
+		}
+		++_3338;
+	case 20:
+		if (mMemcardLoaded) {
+			RestoreGameSaveData(&mMemcard.mCard);
+			mMemcardLoaded = FALSE;
+			mStatus.mFlags |= 0x2000;
+			InitBatteryGauge(&mInfoScrn, GetPlayer()->mParams.mBattery);
+		}
+		++_3338;
+	case 21:
+		++_3338;
+	case 22:
+		CheckStageFlag(gGame.mStage, 2);
+		++_3338;
+		break;
+	case 23: {
+		if (!LoadStageByIndex(mStage))
+			break;
+		fn_8006F4E4();
+		const s32* pair = (const s32*)fn_8006F3DC();
+		while (pair[0] >= 0) {
+			RegisterEventObjectId(&mEvt, pair[1], pair[0]);
+			pair += 2;
+		}
+		++_3338;
+	}
+	case 24: {
+		u8* script = (u8*)fn_8006F42C();
+		if (script)
+			StartOrQueueEventScript(&mEvt, script, 0, -1, -1);
+		++_3338;
+	}
+	case 25:
+		if (mEvt.mData.mScript)
+			break;
+		if (CheckStageFlag(gGame.mStage, 4))
+			mStatus.mFlags |= 0x40;
+		++_3338;
+	case 26:
+		if (!fn_80011638(this))
+			break;
+		mStatus.mFlags &= ~0x40ULL;
+		if (mStatus.mFlags & 0x2000)
+			RestoreSavedPlayerAndCamera(&mMemcard.mCard);
+		++_3338;
+	case 27:
+		CallStageModule(0, 0, NULL);
+		++_3338;
+	case 28: {
+		if (mFade.mSpeed.r != 0 || mFade.mSpeed.g != 0 || mFade.mSpeed.b != 0 || mFade.mSpeed.a != 0)
+			break;
+		StartScreenFade(&mFade, 0, 0, 0, 255, 0, 0, 0, 0, 0.5f);
+		StartOrQueueEventScript(&mEvt, (u8*)fn_8006F41C(), 0, -1, -1);
+		u32 minutes = fn_8006EA18(1), hours = fn_8006EA18(0);
+		_FF204 = (s32)(hours * 216000 + (minutes * 3600 + fn_8006EA18(2) * 60));
+		mStatus.mFlags |= 1;
+		++_3338;
+	}
+	}
+	return !(_3338 > 0 && _3338 < 29);
 }

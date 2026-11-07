@@ -10,16 +10,16 @@
 
 extern "C" {
 // takes the roll back out of the cobj when it isn't using an up vector
-f32 fn_801C0DEC(HSD_CObj* cobj);
+f32 GetCameraRoll(HSD_CObj* cobj);
 }
 
 class CCamera;
 
 extern "C" {
 // sets the camera up for a render mode, cbasesetup.cpp
-CCamera* fn_8001D3D4(CCamera* camera, GXRenderModeObj* mode);
+CCamera* InitGamePerspectiveCamera(CCamera* camera, GXRenderModeObj* mode);
 // the same for CBase's second camera
-CCamera* fn_8001D1D0(CCamera* camera, GXRenderModeObj* mode);
+CCamera* InitGameOrthoCamera(CCamera* camera, GXRenderModeObj* mode);
 }
 
 class CCamera : public HSD_CObj {

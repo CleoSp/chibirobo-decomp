@@ -53,13 +53,12 @@ extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
  * @note Address: 0x8009369C
  * @note Size: 0xCC
  */
-void XObjMap::vfA4(u32 frames)
+void XObjMap::UpdateObject(u32 frames)
 {
-	// NONMATCHING: induction pointer difference, see XObjLight::Update
-	vfA4__4XObjFUl(this, frames);
+	UpdateObject__4XObjFUl(this, frames);
 	if (GetLightMode() == 1) {
 		for (int i = 0; i < mLightNum; i++) {
-			if (GetLightDesc(i) != NULL && GetLightAnimNum(i) > 0) {
+			if (GetLightDesc(i) != NULL && mArchive.mNum[i + 2] > 0) {
 				mLights[i].SetAnimRate(frames);
 				mLights[i].Anim();
 			}
@@ -91,10 +90,10 @@ void XObjMap::Release()
  * @note Address: 0x80093828
  * @note Size: 0x298
  */
-BOOL XObjMap::vf9C(const CoordInfo& info)
+BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
 {
 	// NONMATCHING: the dol copies a zero path template before storing the index
-	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
 		int i;
 		int j;
 		int n = 0;
@@ -151,9 +150,9 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
  * @note Address: 0x80093AC0
  * @note Size: 0x9C
  */
-void XObjMap::vf98()
+void XObjMap::ResetObjectState()
 {
-	vf98__4XObjFv(this);
+	ResetObjectState__4XObjFv(this);
 	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
 		mTrigonOrder[i] = 0;

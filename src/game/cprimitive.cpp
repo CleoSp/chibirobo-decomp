@@ -12,6 +12,13 @@ void GXDrawCube(void);
 
 #define HSD_STATE_VTX_ATTR 2
 
+static inline void WriteVertexPosition(const Vec& pos)
+{
+	GXWGFifo.f32 = pos.x;
+	GXWGFifo.f32 = pos.y;
+	GXWGFifo.f32 = pos.z;
+}
+
 static inline void LoadNrmMtx(MtxP mtx)
 {
 	Mtx inv;
@@ -166,14 +173,14 @@ MtxP CPrimitive::LoadMtx(Mtx view)
  * @note Address: 0x8019DCFC
  * @note Size: 0x260
  */
-void CLine::Draw(Mtx view, Vec* pos, u32 color, u16 count)
+void CLine::Draw(Mtx view, Vec* __restrict pos, u32 color, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color);
 	}
 }
@@ -340,14 +347,14 @@ void CLine::Draw(Mtx view, Vec* pos, u32 color, u16 count)
  * @note Address: 0x8019DA64
  * @note Size: 0x298
  */
-void CLine::Draw(Mtx view, Vec* pos, u32* color, u16 count)
+void CLine::Draw(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color[i]);
 	}
 }
@@ -528,14 +535,14 @@ void CLine::Draw(Mtx view, Vec* pos, u32* color, u16 count)
  * @note Address: 0x8019D7E4
  * @note Size: 0x280
  */
-void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
+void CLine::Draw(Mtx view, PrimVertex* __restrict vtx, u16 count)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		WriteVertexPosition(vtx[i].pos);
 		GXColor1u32(vtx[i].color);
 	}
 }
@@ -710,14 +717,14 @@ void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
  * @note Address: 0x8019D580
  * @note Size: 0x264
  */
-void CTriangle::Draw(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, Vec* __restrict pos, u32 color, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color);
 	}
 }
@@ -885,17 +892,17 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
  * @note Address: 0x8019D2FC
  * @note Size: 0x284
  */
-void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
+void CTriangle::DrawLit(Mtx view, Vec* __restrict pos, u32 color, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXNormal3f32(normal.x, normal.y, normal.z);
 		GXColor1u32(color);
 	}
@@ -981,7 +988,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1072,14 +1079,14 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
  * @note Address: 0x8019D060
  * @note Size: 0x29C
  */
-void CTriangle::Draw(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXColor1u32(color[i]);
 	}
 }
@@ -1261,21 +1268,24 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type
  * @note Address: 0x8019CDBC
  * @note Size: 0x2A4
  */
-void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type)
+#pragma push
+#pragma scheduling 604
+void CTriangle::DrawLit(Mtx view, Vec* __restrict pos, u32* __restrict color, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
+		WriteVertexPosition(pos[i]);
 		GXNormal3f32(normal.x, normal.y, normal.z);
 		GXColor1u32(color[i]);
 	}
 }
+#pragma pop
 /*
     stwu     r1, -0x120(r1)
     mflr     r0
@@ -1357,7 +1367,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1456,14 +1466,14 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
  * @note Address: 0x8019CB38
  * @note Size: 0x284
  */
-void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
+void CTriangle::Draw(Mtx view, PrimVertex* __restrict vtx, u16 count, GXPrimitive type)
 {
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		WriteVertexPosition(vtx[i].pos);
 		GXColor1u32(vtx[i].color);
 	}
 }
@@ -1639,21 +1649,25 @@ void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
  * @note Address: 0x8019C8A4
  * @note Size: 0x294
  */
-void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
+#pragma push
+#pragma scheduling 604
+void CTriangle::DrawLit(Mtx view, PrimVertex* __restrict vtx, u16 count, GXPrimitive type)
 {
 	Vec normal;
 
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
+	CalcTriangleNormal(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
+		const u32 color = vtx[i].color;
+		WriteVertexPosition(vtx[i].pos);
 		GXNormal3f32(normal.x, normal.y, normal.z);
-		GXColor1u32(vtx[i].color);
+		GXColor1u32(color);
 	}
 }
+#pragma pop
 /*
     stwu     r1, -0x120(r1)
     mflr     r0
@@ -1734,7 +1748,7 @@ void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
     addi     r4, r29, 0x10
     addi     r5, r29, 0x20
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0

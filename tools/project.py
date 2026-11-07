@@ -718,6 +718,18 @@ def generate_build_ninja(
     mwld_implicit: List[Optional[Path]] = [compilers_implicit or mwld, wrapper_implicit]
 
     # GNU as
+    objcopy = binutils / f"powerpc-eabi-objcopy{EXE}"
+    n.rule(
+        "source_bss",
+        command=f'"{objcopy}" --only-section=.bss $exports $in $out',
+        description="BSS $out",
+    )
+    extract_text = config.tools_dir / "extract_text.py"
+    n.rule(
+        "source_text",
+        command=f'$python "{extract_text}" "{objcopy}" $section $in $out $anchor',
+        description="EXTRACT $section $out",
+    )
     gnu_as = binutils / f"powerpc-eabi-as{EXE}"
     gnu_as_cmd = (
         f"{CHAIN}{gnu_as} $asflags -o $out $in" + f" && {dtk} elf fixup $out $out"
@@ -1171,7 +1183,30 @@ def generate_build_ninja(
             built_obj_path: Optional[Path] = None
             if obj.src_path is not None and obj.src_path.exists():
                 check_path_case(obj.src_path)
-                if file_is_c_cpp(obj.src_path):
+                if obj.options.get("source_bss") or obj.options.get("source_text"):
+                    owner = find_object(objects, obj.options["source"], in_rel)
+                    if owner is None or owner.completed or owner.src_path != obj.src_path:
+                        sys.exit(f"{obj_name} requires a partially matched owner: {obj.src_path}")
+                    source = c_build(owner, obj.src_path)
+                    built_obj_path = obj.src_obj_path
+                    if built_obj_path not in source_added:
+                        source_added.add(built_obj_path)
+                        if section := obj.options.get("source_text"):
+                            n.build(
+                                built_obj_path, "source_text", source,
+                                implicit=[extract_text, binutils_implicit or objcopy],
+                                variables={"section": section, "anchor": obj.options.get("source_bss_anchor", "")},
+                            )
+                        else:
+                            exports = obj.options.get("export_symbols", [])
+                            n.build(
+                                built_obj_path, "source_bss", source,
+                                implicit=binutils_implicit or objcopy,
+                                variables={"exports": [f"--globalize-symbol={s}" for s in exports]},
+                            )
+                        if obj.options["add_to_all"]:
+                            source_inputs.append(built_obj_path)
+                elif file_is_c_cpp(obj.src_path):
                     # Add C/C++ build rule
                     built_obj_path = c_build(obj, obj.src_path)
                 elif file_is_asm(obj.src_path):
@@ -1931,6 +1966,8 @@ def generate_compile_commands(
         if (
             obj.src_path is None
             or obj.src_obj_path is None
+            or obj.options.get("source_bss")
+            or obj.options.get("source_text")
             or not file_is_c_cpp(obj.src_path)
         ):
             return

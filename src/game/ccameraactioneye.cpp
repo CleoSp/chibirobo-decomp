@@ -6,7 +6,7 @@
 #include "game/cgame.h"
 #include "game/xchr.h"
 
-#define EYE_PLAYER lbl_8025C400.GetPlayer()
+#define EYE_PLAYER gGame.GetPlayer()
 
 extern "C" {
 Vec fn_800A09BC(XObj* player);
@@ -98,8 +98,8 @@ inline f32 Clamp(f32 x, f32 max, f32 min)
  */
 inline void PlayTurnSound()
 {
-	if (!fn_8001E6C8(&lbl_8025C400.mSound, 3)) {
-		fn_8001E904(&lbl_8025C400.mSound, 3, 0xFF);
+	if (!fn_8001E6C8(&gGame.mSound, 3)) {
+		fn_8001E904(&gGame.mSound, 3, 0xFF);
 	}
 }
 
@@ -109,16 +109,16 @@ inline void PlayTurnSound()
  */
 void CCameraActionEye::Update(u32 step)
 {
-	SetEye(fn_800A09BC(lbl_8025C400.GetPlayer()));
+	SetEye(fn_800A09BC(gGame.GetPlayer()));
 	CPad pad(0);
 
-	if (!(lbl_8025C400.mStatus.mFlags & 0xC00)) {
+	if (!(gGame.mStatus.mFlags & 0xC00)) {
 		bool active = false;
-		if (lbl_8025C400.mStatus.mFlags & 1) {
-			if (!(lbl_8025C400.mStatus.mFlags & 0x22)) {
+		if (gGame.mStatus.mFlags & 1) {
+			if (!(gGame.mStatus.mFlags & 0x22)) {
 				bool held = false;
-				if (lbl_8025C400.mDvdStatus != 0 || lbl_8025C400.mPrevDvdStatus != 0) {
-					if (lbl_8025C400.mDiskOk == 0) {
+				if (gGame.mDvdStatus != 0 || gGame.mPrevDvdStatus != 0) {
+					if (gGame.mDiskOk == 0) {
 						held = true;
 					}
 				}
@@ -128,22 +128,22 @@ void CCameraActionEye::Update(u32 step)
 			}
 		}
 		if (active) {
-			if ((pad.mPad->mTrigger & 0x40) && (pad.mPad->mButton & 0x20) && (lbl_8025C400.mStatus.mFlags & 0x80000000)) {
-				lbl_8025C400.mStatus.mFlags ^= 0x200;
-				if (lbl_8025C400.mStatus.mFlags & 0x200) {
-					fn_80023438(&lbl_8025C400.mRoboeyes, 0x80, 0x80, 0xFF, 0xFF, 0x80, 0x80, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 430.0f,
-					            400.0f, 0.0f, 0xFF, 0);
+			if ((pad.mPad->mTrigger & 0x40) && (pad.mPad->mButton & 0x20) && (gGame.mStatus.mFlags & 0x80000000)) {
+				gGame.mStatus.mFlags ^= 0x200;
+				if (gGame.mStatus.mFlags & 0x200) {
+					StartScreenWipeColorTransition(&gGame.mRoboeyes, 0x80, 0x80, 0xFF, 0xFF, 0x80, 0x80, 0xFF, 320.0f, 224.0f, 430.0f,
+					                               400.0f, 430.0f, 400.0f, 0.0f, 0xFF, 0);
 				} else {
-					fn_80023438(&lbl_8025C400.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f, 400.0f, 430.0f,
-					            400.0f, 0.0f, 0xFF, 0);
+					StartScreenWipeColorTransition(&gGame.mRoboeyes, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 320.0f, 224.0f, 430.0f,
+					                               400.0f, 430.0f, 400.0f, 0.0f, 0xFF, 0);
 				}
 			}
 
 			f32 zoom;
-			if (lbl_8025C400.mStatus.mFlags & 0x200) {
+			if (gGame.mStatus.mFlags & 0x200) {
 				f32 x = Clamp(pad.mPad->mSubStickX, 0.8f, -0.8f);
 				f32 y = Clamp(pad.mPad->mSubStickY, 0.8f, -0.8f);
-				if (lbl_8025C400.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
 					y = 0.0f;
 					x = y;
 				}
@@ -152,7 +152,7 @@ void CCameraActionEye::Update(u32 step)
 			} else {
 				f32 turn = Clamp(pad.mPad->mStickX, 0.8f, -0.8f);
 				f32 tilt = Clamp(pad.mPad->mStickY, 0.8f, -0.8f);
-				if (lbl_8025C400.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
 					tilt = 0.0f;
 					turn = tilt;
 				}
@@ -181,10 +181,10 @@ void CCameraActionEye::Update(u32 step)
 				} else {
 					mLook.mTarget.x = mOverride.x;
 				}
-				lbl_8025C400.GetPlayer()->SetRotationY(EYE_PLAYER->mMoveRotate.y - (2.0f * DEG2RAD) * turn * step, 0);
+				gGame.GetPlayer()->SetRotationY(EYE_PLAYER->mMoveRotate.y - (2.0f * DEG2RAD) * turn * step, 0);
 
 				zoom = pad.mPad->mSubStickY;
-				if (lbl_8025C400.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
 					zoom = 0.0f;
 				}
 				if (mOverride.z == 0.0f) {
@@ -212,17 +212,17 @@ void CCameraActionEye::Update(u32 step)
 			static f32 sLastSpeed = 0.0f;
 			f32 stick             = pad.mPad->mSubStickY;
 			if (Abs(speedZ - sLastSpeed) < 0.02f) {
-				lbl_8025C400.mBlur.mTarget  = 0.0f;
-				lbl_8025C400.mBlur.mSpeed   = 0.1f;
-				lbl_8025C400.mBlur.mOffsetX = lbl_8025C400.mBlur.mOffsetY = 2.0f * -stick;
+				gGame.mBlur.mTarget  = 0.0f;
+				gGame.mBlur.mSpeed   = 0.1f;
+				gGame.mBlur.mOffsetX = gGame.mBlur.mOffsetY = 2.0f * -stick;
 			} else {
-				lbl_8025C400.mBlur.mAlpha   = 0.8f;
-				lbl_8025C400.mBlur.mTarget  = 0.0f;
-				lbl_8025C400.mBlur.mSpeed   = 0.1f;
-				lbl_8025C400.mBlur.mOffsetX = lbl_8025C400.mBlur.mOffsetY = 2.0f * -stick;
+				gGame.mBlur.mAlpha   = 0.8f;
+				gGame.mBlur.mTarget  = 0.0f;
+				gGame.mBlur.mSpeed   = 0.1f;
+				gGame.mBlur.mOffsetX = gGame.mBlur.mOffsetY = 2.0f * -stick;
 			}
 			sLastSpeed = speedZ;
 		}
 	}
-	lbl_8025C400.mRoboeyes._5C = mAngle.y;
+	gGame.mRoboeyes._5C = mAngle.y;
 }

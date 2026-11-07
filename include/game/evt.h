@@ -324,21 +324,36 @@ class XObj;
 
 extern "C" {
 // script flags, one bit each, and script variables. both go in the save file
-extern u32 lbl_8036781C[0x80];
-extern s32 lbl_80367A2C[0x800];
+extern u32 gEventFlagWords[0x80];
+extern s32 gEventVariables[0x800];
 // the camera states scripts save and load
-extern CCameraMemento lbl_8036AA3C[];
+extern CCameraMemento gEventCameraMementos[];
 
 // world position of the joint a path leads to, path holds a sibling count per level
-CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path);
-CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path);
+CVec GetEventJointWorldPosition(CJObj* obj, s32 depth, s32* path);
+CVec CJObj_GetJointWorldPositionByPath(CJObj* obj, s32 depth, s32* path);
 // start a script on evt, or park it in the queue while another one runs
-void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s16 argument0, s16 argument1);
-void fn_8007F040(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
+void StartOrQueueEventScript(CEvt* evt, u8* script, u32 context, s16 argument0, s16 argument1);
+void ResetEventScriptState(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
 // runs the script on for step frames
 void CEvt_Update(CEvt* evt, s32 step);
 // the object an event refers to by id, -1 is the one running the script
-XObj* fn_8007F570(void* context, s16 id);
+XObj* ResolveEventObjectId(void* context, s16 id);
 }
+
+struct EvtBeatLatch {
+	s32 _00; // _00
+	s32 _04; // _04
+};
+
+extern "C" EvtBeatLatch lbl_8065B244;
+struct EvtCmdEntry {
+	u8 command;                                 // _00
+	u8 _01[3];                                  // _01
+	const char* name;                           // _04
+	s32 (CEvt::*handler)(u8 command, s32 step); // _08
+};
+STATIC_ASSERT(sizeof(EvtCmdEntry) == 0x14);
+extern "C" EvtCmdEntry evtCmdTable[];
 
 #endif

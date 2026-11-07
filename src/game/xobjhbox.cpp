@@ -1,4 +1,4 @@
-#include "game/xobjflags.h"
+#include "game/xobjhitevent.h"
 #include "game/xobjhbox.h"
 #include "game/cgame.h"
 #include "game/cgs.h"
@@ -19,9 +19,9 @@ extern "C" {
  * @note Address: 0x800DF9A0
  * @note Size: 0x184
  */
-extern "C" void vf98__8XObjDustFv(XObjDust* dust)
+extern "C" void ResetObjectState__8XObjDustFv(XObjDust* dust)
 {
-	vf98__4XObjFv(dust);
+	ResetObjectState__4XObjFv(dust);
 	if (dust->GetObjFlags() & 1) {
 		dust->mBaseY        = dust->mMoveTranslate.y;
 		dust->mPhase        = fmod((f32)rand(), TWO_PI);
@@ -47,10 +47,7 @@ extern "C" void vf98__8XObjDustFv(XObjDust* dust)
  */
 extern "C" s32 GetFlagIndex__8XObjDustFv(XObjDust* dust)
 {
-	s32 id = dust->_260;
-	if (id > 0)
-		return (s32)((u32)fn_8006F390(2) + (u32)id);
-	return 0;
+	return dust->GetPlacementFlagIndex(2);
 }
 
 /**
@@ -63,14 +60,11 @@ extern "C" u32 vf100__8XObjHBoxFll(XObjHBox* box, s32 unused, u32 flags)
 		return flags;
 	if (box->mAnimId == 0)
 		return flags;
-	lbl_8025C400.GetPlayer()->_9A90 = 0.0f;
+	gGame.GetPlayer()->_9A90 = 0.0f;
 	box->mStatus.mFlags |= 0x4000000000000000ULL;
 	box->mPart.mHit = 1.0f;
-	fn_8001E904(&lbl_8025C400.mSound, 285, 255);
-	const void* script = box->vf128();
-	if (!fn_8009FDE4(lbl_8025C400.GetPlayer())) {
-		fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)box, -1, -1);
-	}
+	fn_8001E904(&gGame.mSound, 285, 255);
+	StartObjectHitEvent(box, -1, -1);
 	HSD_AudioSFXKeyOff(box->mPart.mSfx);
 	return 0;
 }
@@ -101,15 +95,19 @@ extern "C" void vfC8__8XObjHBoxFv(XObjHBox* box)
 		f32 ring  = box->mRing;
 		f32 inner = 400.0f * ring;
 		f32 outer = 400.0f * (1.0f - ring);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 2, 4, 15);
-		// retail adds an int zero to both radii
-		s32 pad   = 0;
-		u32 color = (u32)(255.0f * ring) | 0xFFFFFF00;
-		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, inner + pad, inner + pad, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outer + pad, outer + pad, 0.0f, 0.0f, 0.0f);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
+
+		for (s32 offset = 0; offset < 1; ++offset) {
+			DrawGsCircle(&gGame.mGs, 16, (u32)(255.0f * ring) | 0xFFFFFF00, 0xFFFFFF00, x, y, 0.0f, inner + offset, inner + offset, 0.0f,
+			             0.0f, 0.0f);
+		}
+		for (s32 offset = 0; offset < 1; ++offset) {
+			DrawGsCircle(&gGame.mGs, 16, (u32)(255.0f * ring) | 0xFFFFFF00, 0xFFFFFF00, x, y, 0.0f, outer + offset, outer + offset, 0.0f,
+			             0.0f, 0.0f);
+		}
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
 	}
 }
 

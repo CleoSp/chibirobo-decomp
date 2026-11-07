@@ -15,17 +15,17 @@ static inline HSD_CameraAnim** GetCameraAnims(XObjCamera* object)
  * @note Address: 0x80092B80
  * @note Size: 0x10
  */
-extern "C" bool fn_80092B80(XObjCamera* object)
+extern "C" bool HasCameraAnimation(XObjCamera* object)
 {
 	return object->mCameraAnim >= 0;
 }
 
-// XObjCamera::vfA4
+// XObjCamera::UpdateObject
 /**
  * @note Address: 0x80092B90
  * @note Size: 0xF8
  */
-extern "C" void vfA4__10XObjCameraFUl(XObjCamera* object, u32 frames)
+extern "C" void UpdateObject__10XObjCameraFUl(XObjCamera* object, u32 frames)
 {
 	if (object->mCameraAnim >= 0) {
 		object->mCamera.SetAnimRate((f32)frames);
@@ -41,7 +41,7 @@ extern "C" void vfA4__10XObjCameraFUl(XObjCamera* object, u32 frames)
  * @note Address: 0x80092C88
  * @note Size: 0x68
  */
-extern "C" void fn_80092C88(XObjCamera* object, s32 index, f32 frame)
+extern "C" void SetStageCameraAnimation(XObjCamera* object, s32 index, f32 frame)
 {
 	object->mCameraAnim = index;
 	object->mCamera.SetAnim(GetCameraAnims(object)[object->mCameraAnim], frame);
@@ -59,26 +59,26 @@ extern "C" void Release__10XObjCameraFv(XObjCamera* object)
 	Release__4XObjFv(object);
 }
 
-// XObjCamera::vf9C
+// XObjCamera::LoadFromPlacement
 /**
  * @note Address: 0x80092D34
  * @note Size: 0x5C
  */
-extern "C" BOOL vf9C__10XObjCameraFRC9CoordInfo(XObjCamera* object, CoordInfo* info)
+extern "C" BOOL LoadFromPlacement__10XObjCameraFRC9CoordInfo(XObjCamera* object, CoordInfo* info)
 {
-	if (vf9C__4XObjFRC9CoordInfo(object, info)) {
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(object, info)) {
 		object->mCamera.Init(GetCObjDesc(object));
 		return TRUE;
 	}
 	return FALSE;
 }
 
-// XObjCamera::vf98
+// XObjCamera::ResetObjectState
 /**
  * @note Address: 0x80092D90
  * @note Size: 0xC
  */
-extern "C" void vf98__10XObjCameraFv(XObjCamera* object)
+extern "C" void ResetObjectState__10XObjCameraFv(XObjCamera* object)
 {
 	object->mCameraAnim = -1;
 }

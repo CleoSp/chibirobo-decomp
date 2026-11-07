@@ -1,7 +1,18 @@
 #include "game/hsd_jobj.h"
 #include "game/cgame.h"
+#include "game/cgsdefaults.h"
 #include "game/csound.h"
 #include "game/mm.h"
+#include "game/progressive.h"
+#include "game/video.h"
+#include "game/vistate.h"
+extern "C" {
+#include <dolphin/gx/gx.h>
+extern GXRenderModeObj GXPal528IntDf;
+void HSD_SetPixelFormat(s32, s32);
+void HSD_SetZSortMode(s32, s32);
+void GXSetClipMode(s32);
+}
 #include "Dolphin/OS/OSFastCast.h"
 
 extern "C" {
@@ -19,7 +30,7 @@ extern "C" {
  * @note Address: 0x8001CEFC
  * @note Size: 0xD4
  */
-extern "C" CLight* fn_8001CEFC(CLight* lights)
+extern "C" CLight* InitTwoLightSet(CLight* lights)
 {
 	CLight* light;
 
@@ -47,7 +58,7 @@ extern "C" CLight* fn_8001CEFC(CLight* lights)
  * @note Address: 0x8001CFD0
  * @note Size: 0x1D0
  */
-extern "C" CLight* fn_8001CFD0(CLight* lights)
+extern "C" CLight* InitFourLightSet(CLight* lights)
 {
 	CLight* light;
 
@@ -98,7 +109,7 @@ extern "C" CLight* fn_8001CFD0(CLight* lights)
  * @note Address: 0x8001D1D0
  * @note Size: 0xCC
  */
-extern "C" CCamera* fn_8001D1D0(CCamera* camera, GXRenderModeObj* rmode)
+extern "C" CCamera* InitGameOrthoCamera(CCamera* camera, GXRenderModeObj* rmode)
 {
 	camera->Init(0.0f, 10000.0f, rmode);
 #if defined(VERSION_PAL)
@@ -116,9 +127,9 @@ extern "C" CCamera* fn_8001D1D0(CCamera* camera, GXRenderModeObj* rmode)
  * @note Address: 0x8001D2D0
  * @note Size: 0xF4
  */
-extern "C" CCamera* fn_8001D2D0(CCamera* camera)
+extern "C" CCamera* InitMotionControlCameraDefaults(CCamera* camera)
 {
-	camera->Init(1.0f, 80000.0f, 30.0f, &lbl_8025C400.mGs.mScreen);
+	camera->Init(1.0f, 80000.0f, 30.0f, &gGame.mGs.mScreen);
 	camera->SetScale(1.0f, 1.0f, 1.0f);
 	camera->SetInterest(-4.2f, 0.0f, -64.0f);
 	camera->SetAngle(0.41887903f, -3.1415927f, 0.0f);
@@ -132,7 +143,7 @@ extern "C" CCamera* fn_8001D2D0(CCamera* camera)
  * @note Address: 0x8001D3D4
  * @note Size: 0xEC
  */
-extern "C" CCamera* fn_8001D3D4(CCamera* camera, GXRenderModeObj* rmode)
+extern "C" CCamera* InitGamePerspectiveCamera(CCamera* camera, GXRenderModeObj* rmode)
 {
 	camera->Init(1.0f, 80000.0f, 30.0f, rmode);
 	camera->SetScale(1.0f, 1.0f, 1.0f);
@@ -163,7 +174,7 @@ void HSD_VIDrawDoneXFB(s32 idx);
  * @note Address: 0x8001D4C0
  * @note Size: 0x2C
  */
-extern "C" void fn_8001D4C0(void)
+extern "C" void InitGameDVD(void)
 {
 	DVDSetAutoFatalMessaging(TRUE);
 	DVDChangeDir((char*)"/qp/");
@@ -175,17 +186,61 @@ extern "C" u32 lbl_80361E10[8];
  * @note Address: 0x8001D4EC
  * @note Size: 0x30
  */
-extern "C" void fn_8001D4EC(void)
+extern "C" void InitGameARAM(void)
 {
 	ARInit(lbl_80361E10, 8);
 	ARQInit();
+}
+
+extern "C" void GameXFBDrawDoneCallback(int idx);
+
+/**
+ * @note Address: 0x8001D51C
+ * @note Size: 0x384
+ */
+extern "C" void InitGameRenderState(CBase* base)
+{
+	CGs* gs = &base->mGs;
+#if defined(VERSION_PAL)
+	SetGsScreenModeAndRenderDefaults(gs, 21, 0, 0, 0);
+	gs->mScreen._40      = gGame.mGs.mScreen.xfbHeight / 448.0f;
+	gs->mScreen.viHeight = 480;
+#else
+	SetGsScreenModeAndRenderDefaults(gs, 4, 0, 16, 0);
+#endif
+#if !defined(VERSION_JP)
+	fn_80196C0C(gs, 1.2f);
+#endif
+	HSD_SetPixelFormat(1, 0);
+	GXSetPixelFmt(1, 0);
+	GXSetCopyFilter(0, NULL, 0, NULL);
+
+	InitializeVideoClearState((GXColor) { 0, 0, 0, 0 });
+	GXSetClipMode(0);
+	HSD_SetZSortMode(1, 1);
+
+	ConfigureGsRenderMode(gs, NULL, (u8) { GX_TRUE }, (u8) { GX_FALSE }, (GsBlendMode) { 1, 4, 5, 15 },
+	                      (GsAlphaCompare) { 4, 0, 0, 3, 255 }, (GsDstAlpha) { 0, 0 }, (GsZMode) { 1, 7, 1 }, (u8) { GX_TRUE },
+	                      (u8) { GX_TRUE }, (s32) { 2 }, (GsLineWidth) { 12, 5 }, (GsLineWidth) { 24, 5 });
+	ConfigureGsPrimaryTevStage(gs);
+	ConfigureGsChannel(gs, NULL, (s32) { GX_COLOR0 }, (GsChanCtrl) { GX_DISABLE, GX_SRC_REG, GX_SRC_REG, 0, 2, 2 },
+	                   (GXColor) { 0, 0, 0, 255 }, (GXColor) { 255, 255, 255, 255 });
+	ConfigureGsChannel(gs, NULL, (s32) { GX_ALPHA0 }, (GsChanCtrl) { GX_DISABLE, GX_SRC_REG, GX_SRC_REG, 0, 0, 2 },
+	                   (GXColor) { 0, 0, 0, 255 }, (GXColor) { 255, 255, 255, 255 });
+	if (gs->mCurRenderMode)
+		ApplyGsRenderMode(gs->mCurRenderMode, TRUE);
+	if (gs->mCurTevStage)
+		ApplyGsTevStage(gs->mCurTevStage, TRUE);
+	if (gs->mCurChannel)
+		ApplyGsChannel(gs->mCurChannel, TRUE);
+	HSD_VISetUserGXDrawDoneCallback(GameXFBDrawDoneCallback);
 }
 
 /**
  * @note Address: 0x8001D8A0
  * @note Size: 0x20
  */
-extern "C" void fn_8001D8A0(s32 idx)
+extern "C" void GameXFBDrawDoneCallback(int idx)
 {
 	HSD_VIDrawDoneXFB(idx);
 }
@@ -206,6 +261,9 @@ extern "C" void fn_8001D8C0(void)
 	OSSetArenaLo(OSInitAlloc(lo, hi, 1));
 	HSD_SetInitParameter(HSD_INIT_FIFO_SIZE, 0x40000);
 	HSD_SetInitParameter(HSD_INIT_XFB_MAX_NUM, 3);
+#if defined(VERSION_PAL)
+	HSD_SetInitParameter(HSD_INIT_RENDER_MODE_OBJ, &GXPal528IntDf);
+#endif
 	HSD_Init();
 	mm::Init();
 	lbl_8065B178 = (s32*)OSAllocFromHeap(__OSCurrHeap, 8);
@@ -289,7 +347,7 @@ extern "C" BOOL CheckStart__7AnimSfxFP12AnimSfxEventff(AnimSfx* sfx, AnimSfxEven
  * @note Size: 0x10
  */
 // empties the sound's queue
-extern "C" void fn_8001DC10(XSound* sound)
+extern "C" void ClearGameSoundQueue(XSound* sound)
 {
 	sound->mQueueWrite = 0;
 	sound->mQueueRead  = 0;
@@ -306,16 +364,16 @@ static inline bool IsAllSfx(s32 sfx)
 	return (sfx & 0xFFFF0000) == 0xFFFF0000;
 }
 
-// CSound's stop, fn_8001E660 in the dol
+// CSound's stop, StopGameSfx in the dol
 static inline BOOL StopSfx(XSound* sound, s32 sfx)
 {
 	if (IsAllSfx(sfx)) {
 		sound->_2B4 = 0;
 		sound->_2C8 = 0;
-		fn_801E9FA4();
+		AXDriverStopAllStreams();
 		return TRUE;
 	}
-	return fn_801E62A8(sfx);
+	return AXDriverKeyOffSfx(sfx);
 }
 
 /**
@@ -336,12 +394,35 @@ extern "C" void Update__7AnimSfxFlfUc(AnimSfx* sfx, s32 anim, f32 frame, u8 vol)
 	for (s32 i = 0; sfx->mEvents != NULL && (event = &sfx->mEvents[i])->mAnim >= 0; i++) {
 		if (event->mAnim == anim || event->mAnim == prev) {
 			if (prev != anim && event->mAnim == prev && sfx->CheckStop(event)) {
-				StopSfx(&lbl_8025C400.mSound, sfx->GetSfx(event));
+				StopSfx(&gGame.mSound, sfx->GetSfx(event));
 			}
 			if (event->mAnim == anim && sfx->CheckStart(event, sfx->mFrame, frame)) {
-				fn_8001E904(&lbl_8025C400.mSound, sfx->GetSfx(event), vol);
+				fn_8001E904(&gGame.mSound, sfx->GetSfx(event), vol);
 			}
 		}
 	}
 	sfx->mFrame = frame;
 }
+
+#if defined(VERSION_JP)
+extern "C" void SetSoundMenuSelection(XSound* sound, s32 index, s32 selection)
+{
+	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
+		return;
+	if (selection < 0 || selection >= ARRAY_SIZE(gSoundMenuEffects))
+		return;
+	fn_8001E904(sound, gSoundMenuEffects[selection], 0xFF);
+	gSoundMenuSelections[index] = selection;
+}
+
+extern "C" s32 GetSoundMenuSelection(XSound*, s32 index)
+{
+	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
+		return -1;
+	return gSoundMenuSelections[index];
+}
+#endif
+
+#if defined(VERSION_PAL)
+f32 gProgressiveFadeFrames = 0.15f * FRAME_RATE;
+#endif

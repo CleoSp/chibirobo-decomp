@@ -37,7 +37,7 @@ void vfAC__14XObjAttachmentFv(XObjAttachment* object)
  * @note Address: 0x800D55BC
  * @note Size: 0x248
  */
-void vfA4__6XObjOXFUl(XObjOX* object, u32 frames)
+void UpdateObject__6XObjOXFUl(XObjOX* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -57,7 +57,7 @@ void vfA4__6XObjOXFUl(XObjOX* object, u32 frames)
 			}
 			break;
 		}
-		vfA4__4XObjFUl(object, frames);
+		UpdateObject__4XObjFUl(object, frames);
 	}
 }
 
@@ -87,7 +87,7 @@ void fn_800D5874(XObjOX* object)
  * @note Size: 0x374
  */
 // NONMATCHING: rodata order
-void fn_800D58E4(XObjRadar* object, f32 angle)
+void SetRadarDishPitch(XObjRadar* object, f32 angle)
 {
 	s32 path[4] = { 0, 0, 0, 0 };
 	CJObj joint(FindJointByPath(object->mJObj, path, 4));
@@ -95,20 +95,31 @@ void fn_800D58E4(XObjRadar* object, f32 angle)
 }
 
 /**
+ * @note Address: 0x800D5C58
+ * @note Size: 0x33C
+ */
+void SetRadarDishYaw(XObjRadar* object, f32 angle)
+{
+	s32 path[] = { 0 };
+	CJObj joint(FindJointByPath(object->mJObj, path, 1));
+	joint.SetRotationY(object->mYaw + angle, 0);
+}
+
+/**
  * @note Address: 0x800D5F94
  * @note Size: 0x5C
  */
-CVec fn_800D5F94(XObjRadar* object)
+CVec GetRadarDishWorldPosition(XObjRadar* object)
 {
 	s32 path[4] = { 0, 0, 0, 0 };
-	return fn_8007E7F4(object, 4, path);
+	return CJObj_GetJointWorldPositionByPath(object, 4, path);
 }
 
 /**
  * @note Address: 0x800D5FF0
  * @note Size: 0x27C
  */
-void vfA4__9XObjRadarFUl(XObjRadar* object, u32 frames)
+void UpdateObject__9XObjRadarFUl(XObjRadar* object, u32 frames)
 {
 	if (object->mVisible) {
 		CopyParentMtx(object);
@@ -130,7 +141,7 @@ void vfA4__9XObjRadarFUl(XObjRadar* object, u32 frames)
 		case 10:
 			break;
 		}
-		vfA4__4XObjFUl(object, frames);
+		UpdateObject__4XObjFUl(object, frames);
 	}
 }
 
@@ -157,9 +168,27 @@ void fn_800D6344(XObjRadar* object)
 {
 	object->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	object->mState = 2;
-	lbl_8025C400.mSound.StopIfPlaying(0x18C);
-	lbl_8025C400.mSound.StopIfPlaying(0x18D);
-	lbl_8025C400.mSound.StopIfPlaying(0x18E);
+	gGame.mSound.StopIfPlaying(0x18C);
+	gGame.mSound.StopIfPlaying(0x18D);
+	gGame.mSound.StopIfPlaying(0x18E);
+}
+
+/**
+ * @note Address: 0x800D6418
+ * @note Size: 0x6A8
+ */
+void ActivatePlayerRadar(XObjRadar* radar)
+{
+	radar->Show();
+	radar->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	radar->mState = 1;
+	CJObj joint;
+	s32 yawPath[] = { 0 };
+	joint.Attach(FindJointByPath(radar->mJObj, yawPath, 1));
+	joint.SetRotationY(radar->mYaw, FALSE);
+	s32 pitchPath[] = { 0, 0, 0, 0 };
+	joint.Attach(FindJointByPath(radar->mJObj, pitchPath, 4));
+	joint.SetRotationX(radar->mPitch, FALSE);
 }
 
 /**
@@ -171,3 +200,22 @@ void fn_800D6340(XObjRadar* object)
 }
 
 } // extern "C"
+
+BOOL XObjRadar::LoadFromPlacement(const CoordInfo& info)
+{
+	BOOL loaded = XObj::LoadFromPlacement(info);
+	if (loaded) {
+		CJObj joint;
+		if (__fpclassifyf(mYaw) == FP_NAN) {
+			s32 path[] = { 0 };
+			joint.Attach(FindJointByPath(mJObj, path, 1));
+			mYaw = HSD_JObjGetRotationY(joint.mJObj);
+		}
+		if (__fpclassifyf(mPitch) == FP_NAN) {
+			s32 path[] = { 0, 0, 0, 0 };
+			joint.Attach(FindJointByPath(mJObj, path, 4));
+			mPitch = HSD_JObjGetRotationX(joint.mJObj);
+		}
+	}
+	return loaded;
+}

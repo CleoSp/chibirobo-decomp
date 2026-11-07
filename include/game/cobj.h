@@ -20,7 +20,7 @@ public:
 	s32 mRefCount; // _130
 	// _134 vtable
 
-	CObjArchive() { mRefCount = 0; }
+	CObjArchive();
 	virtual ~CObjArchive() { } // _08 (weak)
 
 	// inlined:
@@ -131,7 +131,7 @@ typedef char CJArchive_size_check[sizeof(CJArchive) == 0x80 ? 1 : -1];
 class CJAnim : public CJArchive {
 public:
 	// _00-_80 = CJArchive
-	s32 mLoading; // _80, fn_8008A38C's step
+	s32 mLoading; // _80, LoadJointAnimationAsync's step
 
 	virtual ~CJAnim() { }   // _08, inline, retail keeps a weak copy
 	virtual void Clear();   // _0C
@@ -211,6 +211,9 @@ public:
 		mMoveScale.Reset(0.0f, 0.0f, 0.0f);
 	}
 
+	explicit CXObj(HSD_JObj* jobj);
+	virtual ~CXObj(); // _08
+
 	// CJObj overrides, defined in another file
 	virtual void SetTranslateX(f32 x, s32 force);                                                                     // _0C
 	virtual void SetTranslateY(f32 y, s32 force);                                                                     // _10
@@ -260,6 +263,12 @@ public:
 	HSD_JObj* FindJoint(s32 depth, s32* path);
 	void ClearQueue();
 };
+
+#ifndef DEFER_OBJECT_DESTRUCTORS
+inline CXObj::~CXObj()
+{
+}
+#endif
 #if defined(VERSION_JP)
 typedef char CXObj_size_check[sizeof(CXObj) == 0x1E0 ? 1 : -1];
 #else

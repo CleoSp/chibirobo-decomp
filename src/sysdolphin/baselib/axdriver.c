@@ -327,7 +327,7 @@ BOOL HSD_AudioSFXKeyOff(s32 vid)
  * @note Address: 0x801E62A8
  * @note Size: 0x11C
  */
-BOOL fn_801E62A8(s32 sfx)
+BOOL AXDriverKeyOffSfx(s32 sfx)
 {
 	BOOL enabled;
 	HSD_SM* v;
@@ -344,6 +344,20 @@ BOOL fn_801E62A8(s32 sfx)
 	}
 	return FALSE;
 }
+
+#if defined(VERSION_PAL)
+BOOL HSD_AudioSFXKeyOffAll(void)
+{
+	BOOL enabled = OSDisableInterrupts();
+	HSD_SM* v;
+	for (v = lbl_8065BB18; v != NULL; v = v->next) {
+		if (v->flags & SMSTATE_MASK)
+			AXDriverKeyOff(v);
+	}
+	OSRestoreInterrupts(enabled);
+	return TRUE;
+}
+#endif
 
 /**
  * @note Address: 0x801E63C4
@@ -417,7 +431,7 @@ static inline BOOL AXDriverCheckSfxLimit(HSD_SM* v)
 
 // volume byte and db conversions for the relative volume commands. plain
 // static, so their constants and the int to float magic land before
-// fn_801E64E8's in .sdata2
+// StartAxDriverSynthVoice's in .sdata2
 static s32 AXDriverDBToVol(s16 db)
 {
 	return 255.0f * HSD_SynthDBxToVol(db << 16);
@@ -432,7 +446,7 @@ static s32 AXDriverVolToDB(s16 vol)
  * @note Address: 0x801E64E8
  * @note Size: 0x6C4
  */
-s32 fn_801E64E8(HSD_SM* v)
+s32 StartAxDriverSynthVoice(HSD_SM* v)
 {
 	f32 left;
 	f32 right;
@@ -473,7 +487,7 @@ void AXDriverExec(HSD_SM* v)
 		if (v->flags & flag) {
 			switch (flag) {
 			case 0x1:
-				if ((v->pid = fn_801E64E8(v)) != -1) {
+				if ((v->pid = StartAxDriverSynthVoice(v)) != -1) {
 					HSD_ASSERTMSG(495, pvoices[v->pid & AXDRIVER_PIDMASK] == NULL, "pvoices[v->pid&AXDRIVER_PIDMASK] == NULL");
 					pvoices[v->pid & AXDRIVER_PIDMASK] = v;
 					HSD_SynthSetVolFader(v->pid, v->_22, v->_24, 1, v->_1F);
@@ -1208,7 +1222,7 @@ s32 HSD_AudioSFXCountByID(s32 sfx)
  * @note Address: 0x801E8C18
  * @note Size: 0x16C
  */
-BOOL fn_801E8C18(void* data)
+BOOL LoadSoundSampleMetadata(void* data)
 {
 	s32 offset;
 	s32 i;
@@ -1497,7 +1511,7 @@ static inline BOOL AXDriverResume(s32 vid)
  * @note Address: 0x801E93A8
  * @note Size: 0x13C
  */
-BOOL fn_801E93A8(s32 track)
+BOOL AXDriverPauseTrack(s32 track)
 {
 	BOOL enabled;
 	HSD_SM* v;
@@ -1520,7 +1534,7 @@ BOOL fn_801E93A8(s32 track)
  * @note Address: 0x801E94E4
  * @note Size: 0x120
  */
-BOOL fn_801E94E4(s32 sfx)
+BOOL AXDriverPauseSfx(s32 sfx)
 {
 	BOOL enabled;
 	HSD_SM* v;
@@ -1542,7 +1556,7 @@ BOOL fn_801E94E4(s32 sfx)
  * @note Address: 0x801E9604
  * @note Size: 0x120
  */
-BOOL fn_801E9604(s32 sfx)
+BOOL AXDriverResumeSfx(s32 sfx)
 {
 	BOOL enabled;
 	HSD_SM* v;
@@ -1564,7 +1578,7 @@ BOOL fn_801E9604(s32 sfx)
  * @note Address: 0x801E9724
  * @note Size: 0x13C
  */
-BOOL fn_801E9724(s32 track)
+BOOL AXDriverResumeTrack(s32 track)
 {
 	BOOL enabled;
 	HSD_SM* v;
@@ -1627,7 +1641,7 @@ s32 fn_801E9860(const char* path, u8 vol, s32 b, s32 c, s16 pitch, u8 aux0, u8 a
 	return slot;
 }
 
-BOOL fn_801EA298(s32 slot);
+BOOL IsActiveStreamSlot(s32 slot);
 
 static inline s32 AXDriverFindSlot(void)
 {
@@ -1639,7 +1653,7 @@ static inline s32 AXDriverFindSlot(void)
 		}
 	}
 	for (i = 1; i <= lbl_8065B0C8; i++) {
-		if (!fn_801EA298(i)) {
+		if (!IsActiveStreamSlot(i)) {
 			return i;
 		}
 	}
@@ -1695,7 +1709,7 @@ static inline void AXDriverStopSlot(s32 slot)
  * @note Address: 0x801E9FA4
  * @note Size: 0x84
  */
-void fn_801E9FA4(void)
+void AXDriverStopAllStreams(void)
 {
 	s32 i;
 
@@ -1720,7 +1734,7 @@ static inline BOOL AXDriverSetSlotVolume(s32 slot, u8 vol, u16 frames)
  * @note Address: 0x801EA028
  * @note Size: 0x9C
  */
-BOOL fn_801EA028(u8 vol, u16 frames)
+BOOL AXDriverSetAllStreamVolumes(u8 vol, u16 frames)
 {
 	s32 i;
 
@@ -1743,7 +1757,7 @@ static inline BOOL AXDriverPauseSlot(s32 slot)
  * @note Address: 0x801EA0C4
  * @note Size: 0x70
  */
-BOOL fn_801EA0C4(void)
+BOOL AXDriverPauseAllStreams(void)
 {
 	s32 i;
 
@@ -1766,7 +1780,7 @@ static inline BOOL AXDriverResumeSlot(s32 slot)
  * @note Address: 0x801EA134
  * @note Size: 0x70
  */
-BOOL fn_801EA134(void)
+BOOL AXDriverResumeAllStreams(void)
 {
 	s32 i;
 
@@ -1789,7 +1803,7 @@ static inline BOOL AXDriverSetSlotPitch(s32 slot, s16 pitch)
  * @note Address: 0x801EA1A4
  * @note Size: 0xF4
  */
-BOOL fn_801EA1A4(s16 pitch)
+BOOL AXDriverSetAllStreamPitches(s16 pitch)
 {
 	s32 i;
 
@@ -1803,7 +1817,7 @@ BOOL fn_801EA1A4(s16 pitch)
  * @note Address: 0x801EA298
  * @note Size: 0x50
  */
-BOOL fn_801EA298(s32 slot)
+BOOL IsActiveStreamSlot(s32 slot)
 {
 	if (lbl_8025B6D8[slot] == -1) {
 		return FALSE;
@@ -1815,7 +1829,7 @@ BOOL fn_801EA298(s32 slot)
  * @note Address: 0x801EA2E8
  * @note Size: 0x20
  */
-s32 fn_801EA2E8(void)
+s32 AXDriverIsStreamActive(void)
 {
 	return HSD_SynthPStreamIsActive();
 }
@@ -1833,7 +1847,7 @@ static inline BOOL AXDriverSetSlotParam(s32 slot, s32 a, s32 b)
  * @note Address: 0x801EA308
  * @note Size: 0x90
  */
-BOOL fn_801EA308(s32 a, s32 b)
+BOOL AXDriverSetAllStreamParams(s32 a, s32 b)
 {
 	s32 i;
 

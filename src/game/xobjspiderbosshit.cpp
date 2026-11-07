@@ -13,6 +13,12 @@ extern "C" s32 vf100__14XObjSpiderBossFll(XObjSpiderBoss* spider, s32 unused, s3
 	return value;
 }
 
+static inline Vec HitParticleRotation(f32 yaw)
+{
+	Vec rotation = { 0.0f, yaw, 0.0f };
+	return rotation;
+}
+
 /**
  * @note Address: 0x801051B4
  * @note Size: 0x1A8
@@ -30,8 +36,8 @@ extern "C" void vf138__14XObjSpiderBossFRC3Vecf(XObjSpiderBoss* spider, const Ve
 	if (flags & 0x8000) {
 		return;
 	}
-	XObjChr* player = lbl_8025C400.GetPlayer();
-	if (fn_8009C1BC(&player->mAttachments, 2) < 2) {
+	XObjChr* player = gGame.GetPlayer();
+	if (GetAttachmentCountById(&player->mAttachments, 2) < 2) {
 		return;
 	}
 	vf138__4XObjFRC3Vecf(spider, pos, strength);
@@ -45,13 +51,11 @@ extern "C" void vf138__14XObjSpiderBossFRC3Vecf(XObjSpiderBoss* spider, const Ve
 	hit.z                = z;
 	spider->mHitPos      = hit;
 	spider->mHitStrength = strength;
-	CParticle* particle  = &lbl_8025C400.mParticle;
+	CParticle* particle  = &gGame.mParticle;
 	particle->Kill(0xB3);
-	Vec rot   = { 0.0f, 0.0f, 0.0f };
-	rot.y     = spider->mTargetRotY;
 	Vec scale = { 1.0f, 1.0f, 1.0f };
-	particle->CreateSRT(0xB3, 1, *pos, scale, rot, TRUE);
-	XSound* sound = &lbl_8025C400.mSound;
+	particle->CreateSRT(0xB3, 1, *pos, scale, HitParticleRotation(spider->mTargetRotY), TRUE);
+	XSound* sound = &gGame.mSound;
 	if (!fn_8001E6C8(sound, 0x127)) {
 		fn_8001E904(sound, 0x127, 255); // npc_spider_bakuhatsu
 	}

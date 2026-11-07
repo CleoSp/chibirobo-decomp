@@ -26,8 +26,10 @@ rel/ana.cpp:
 	.data       start:0x00000050 end:0x000000E0
 	.bss        start:0x00000008 end:0x00000380
 
+rel/trash_bss:
+	.bss        start:0x00000380 end:0x000003C8
+
 rel/trash.cpp:
 	.text       start:0x000017B0 end:0x000028DC
 	.rodata     start:0x00000118 end:0x00000189
 	.data       start:0x000000E0 end:0x000000F4
-	.bss        start:0x00000380 end:0x000003C8

@@ -54,8 +54,8 @@ typedef char CLight_size_check[sizeof(CLight) == 0x358 ? 1 : -1];
 
 extern "C" {
 // set up CBase's two light lists, cbasesetup.cpp
-CLight* fn_8001CFD0(CLight* lights);
-CLight* fn_8001CEFC(CLight* lights);
+CLight* InitFourLightSet(CLight* lights);
+CLight* InitTwoLightSet(CLight* lights);
 }
 
 #endif

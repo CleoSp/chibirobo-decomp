@@ -3,6 +3,9 @@
 #include "game/gmath.h"
 
 extern "C" {
+void ApproachHudValue(f32* value, f32* target, f32 step);
+CVec GetStagePlacementScale(XObj* object);
+void HSD_MtxGetScale(Mtx matrix, Vec* scale);
 void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
 void fn_800660E8(void* info, s32 on, s32 arg); // InfoScrn's
 }
@@ -52,7 +55,7 @@ HSD_JObj* XObjActorDeca::vf168()
 CVec XObjActorDeca::vf16C()
 {
 	s32 path[3] = { 0, 3, 0 };
-	return fn_8007E7C8(this, 3, path);
+	return GetEventJointWorldPosition(this, 3, path);
 }
 
 /**
@@ -82,7 +85,7 @@ Vec XObjActorDeca::GetCameraTarget()
 // NONMATCHING: scheduling
 s32 XObjActorDeca::vf124(s32 count, s32* command)
 {
-	XObjChr* player = lbl_8025C400.GetPlayer();
+	XObjChr* player = gGame.GetPlayer();
 	CJObj jobj;
 	CVec target;
 	vf124__9XObjActorFlPl(this, count, command);
@@ -90,18 +93,18 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 	case 1:
 		switch (command[1]) {
 		case 0:
-			fn_8010771C(this, 0.08726646f);
+			ResetActorLook(this, 0.08726646f);
 			break;
 		case 1:
-			fn_801076FC(this, (s32)&lbl_8025C400.GetPlayer()->mMoveTranslate, 0.08726646f);
+			SetActorLookTarget(this, &gGame.GetPlayer()->mMoveTranslate, 0.08726646f);
 			break;
 		case 2:
 			if (FindObj(command[2]) != NULL) {
-				fn_801076FC(this, (s32)&FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
+				SetActorLookTarget(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3:
-			fn_801076DC(this, DEG2RAD * command[2], DEG2RAD * command[3]);
+			SetActorLookAngle(this, DEG2RAD * command[2], DEG2RAD * command[3]);
 			break;
 		}
 		break;
@@ -139,7 +142,7 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 			mCmd[0] = 0;
 			break;
 		case 3:
-			fn_8001E904(&lbl_8025C400.mSound, 0x50014, 0xFF);
+			fn_8001E904(&gGame.mSound, 0x50014, 0xFF);
 			switch (mCmd[1]) {
 			case 0:
 				_C90.mFlags |= 2;
@@ -167,9 +170,9 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 			break;
 		case 6:
 			if (mCmd[1] == 1) {
-				fn_800660E8(&lbl_8025C400.mInfoScrn, 1, 1);
+				fn_800660E8(&gGame.mInfoScrn, 1, 1);
 			} else {
-				fn_800660E8(&lbl_8025C400.mInfoScrn, 0, 1);
+				fn_800660E8(&gGame.mInfoScrn, 0, 1);
 			}
 			mCmd[0] = 0;
 			break;
@@ -179,7 +182,7 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 				_998.mFlags |= 0x100;
 				player->_980.mFlags = 0;
 				player->_980.mFlags |= 0x40000000;
-				player->mPadReset = FALSE;
+				player->mPad.mReset = FALSE;
 				break;
 			default: {
 				_998.mFlags &= ~0x100;
@@ -191,7 +194,7 @@ s32 XObjActorDeca::vf124(s32 count, s32* command)
 				player->_980.mFlags = 0;
 				player->_980.mFlags |= 0x20000000;
 				player->_980.mFlags |= 7;
-				player->mPadReset = TRUE;
+				player->mPad.mReset = TRUE;
 				HSD_JObjClearMtxFlags(player->mJObj);
 				break;
 			}
@@ -231,13 +234,13 @@ void XObjActorDeca::StatePickUp(u32 frames)
 {
 	switch (_990) {
 	case 0: {
-		XObjActorTao* tao = ((XObjActorTao*)lbl_8025C400.mXObjs.mPools[14].mObjects);
+		XObjActorTao* tao = ((XObjActorTao*)gGame.mXObjs.mPools[14].mObjects);
 		if ((tao->mStatus.mFlags & 1) && !tao->IsFree()) {
 			return;
 		}
 		bool busy = false;
 		for (s32 i = 0; i < 15; i++) {
-			XObjActorToy* toy = (XObjActorToy*)lbl_8025C400.mXObjs.mPools[10].Get(i);
+			XObjActorToy* toy = (XObjActorToy*)gGame.mXObjs.mPools[10].Get(i);
 			if (toy->GetKind() == 0x159) {
 				if (!(toy->mStatus.mFlags & 1)) {
 					break;
@@ -251,7 +254,7 @@ void XObjActorDeca::StatePickUp(u32 frames)
 		if (busy) {
 			return;
 		}
-		XObjActorPapa* papa = ((XObjActorPapa*)lbl_8025C400.mXObjs.mPools[13].mObjects);
+		XObjActorPapa* papa = ((XObjActorPapa*)gGame.mXObjs.mPools[13].mObjects);
 		if ((papa->mStatus.mFlags & 1) && !papa->IsFree()) {
 			return;
 		}
@@ -271,7 +274,7 @@ void XObjActorDeca::StatePickUp(u32 frames)
 			if (_A50->mStatus.mFlags & 0x0040000000000000ULL) {
 				return;
 			}
-			lbl_8025C400.mStatus.mFlags |= 0x1000;
+			gGame.mStatus.mFlags |= 0x1000;
 		}
 		_990++;
 	case 2:
@@ -337,6 +340,56 @@ void XObjActorDeca::StateHold(u32 frames)
 }
 
 /**
+ * @note Address: 0x80130D18
+ * @note Size: 0xD98
+ */
+void XObjActorDeca::vf148(u32 frames)
+{
+	vf148__9XObjActorFUl(this, frames);
+	CJObj joint;
+	XObjChr* player = gGame.GetPlayer();
+	if (_C90.mFlags & 1) {
+		s32 first[3] = { 0, 0, 0 };
+		joint.Attach(FindJointByPath(mJObj, first, 3));
+		HSD_JObjSetFlags(joint.mJObj, 0x10);
+		s32 second[4] = { 0, 0, 0, 0 };
+		joint.Attach(FindJointByPath(mJObj, second, 4));
+		HSD_JObjSetFlags(joint.mJObj, 0x10);
+	} else {
+		s32 first[3] = { 0, 0, 0 };
+		joint.Attach(FindJointByPath(mJObj, first, 3));
+		HSD_JObjClearFlags(joint.mJObj, 0x10);
+		s32 second[4] = { 0, 0, 0, 0 };
+		joint.Attach(FindJointByPath(mJObj, second, 4));
+		HSD_JObjClearFlags(joint.mJObj, 0x10);
+	}
+	ApproachHudValue(&_CA0, &_CA4, 0.1f);
+	s32 head[5] = { 0, 1, 0, 0, 0 };
+	joint.Attach(FindJointByPath(mJObj, head, 5));
+	joint.SetRotationY(_CA0, 0);
+	if ((_998.mFlags & 0x100) && (player->_980.mFlags & 0x40000000)) {
+		s32 mount[2] = { 0, 3 };
+		joint.Attach(FindJointByPath(mJObj, mount, 2));
+		Mtx scaling, rotation, translation, result, matrix;
+		PSMTXCopy(joint.GetMtx(), matrix);
+		Vec scale;
+		HSD_MtxGetScale(matrix, &scale);
+		scale.x = GetStagePlacementScale(player).x / scale.x;
+		scale.y = GetStagePlacementScale(player).y / scale.y;
+		scale.z = GetStagePlacementScale(player).z / scale.z;
+		PSMTXScale(scaling, scale.x, scale.y, scale.z);
+		PSMTXConcat(matrix, scaling, result);
+		PSMTXRotRad(rotation, 'y', 0.0f);
+		PSMTXConcat(result, rotation, result);
+		PSMTXTrans(translation, 4.5f, -2.3f, 0.0f);
+		PSMTXConcat(result, translation, result);
+		HSD_JObj* root   = player->mJObj;
+		MtxPtr matrixPtr = result;
+		HSD_JObjCopyMtx(root, matrixPtr);
+	}
+}
+
+/**
  * @note Address: 0x80131AB0
  * @note Size: 0x20
  */
@@ -349,9 +402,9 @@ void XObjActorDeca::UpdateAnim(u32 frames)
  * @note Address: 0x80131AD0
  * @note Size: 0x20
  */
-void XObjActorDeca::vfA4(u32 frames)
+void XObjActorDeca::UpdateObject(u32 frames)
 {
-	vfA4__9XObjActorFUl(this, frames);
+	UpdateObject__9XObjActorFUl(this, frames);
 }
 
 /**

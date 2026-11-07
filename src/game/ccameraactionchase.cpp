@@ -57,7 +57,7 @@ void CCameraActionChase::Init()
  */
 void CCameraActionChase::vf14()
 {
-	mTarget = lbl_8025C400.GetPlayer();
+	mTarget = gGame.GetPlayer();
 	if (mTarget != NULL) {
 		mRestDistance = 105.0f;
 		Mtx mtx;
@@ -85,7 +85,7 @@ void CCameraActionChase::SetCamera(CCamera* camera)
 	SetInterest(camera->mInterest);
 	SetDistance(camera->mDistance);
 	SetFov(camera->mFov);
-	mTarget = lbl_8025C400.GetPlayer();
+	mTarget = gGame.GetPlayer();
 }
 
 /**
@@ -118,10 +118,10 @@ void CCameraActionChase::Update(u32 step)
 	mMode = 3;
 
 	CPad pad(0);
-	u32 leftButton  = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
-	u32 rightButton = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
-	u32 upButton    = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
-	u32 downButton  = (lbl_8025C400.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
+	u32 leftButton  = (gGame.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
+	u32 rightButton = (gGame.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
+	u32 upButton    = (gGame.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADUP : HSD_PAD_CSTICK_UP;
+	u32 downButton  = (gGame.mStatus.mFlags & 0x80000000) ? HSD_PAD_DPADDOWN : HSD_PAD_CSTICK_DOWN;
 
 	{
 		CVec angle = mAngle;
@@ -132,11 +132,11 @@ void CCameraActionChase::Update(u32 step)
 		} else if (pad.mPad->mButton & leftButton) {
 			yaw = -1.0f;
 		}
-		if (yaw != 0.0f) {
+		if (yaw || pitch) {
 			f32 dx = step * (pitch * 0.05235988f);
 			f32 dy = step * (yaw * 0.05235988f);
-			f32 x  = angle.x + dx;
 			f32 y  = angle.y + dy;
+			f32 x  = angle.x + dx;
 			if (x > 1.5550883f) {
 				x = 1.5550883f;
 			}

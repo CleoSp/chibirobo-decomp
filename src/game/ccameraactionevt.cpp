@@ -121,7 +121,9 @@ void CCameraActionEvt::SetEye_Interp(s32 mode, const Vec& eye, f32 time)
 void CCameraActionEvt::SetInterest_Interp(s32 mode, XObj* target, f32 time)
 {
 	if (target == NULL) {
+#if !defined(VERSION_PAL)
 		OSReport("SetInterest_Interp( unknown data )\n");
+#endif
 		return;
 	}
 	mTarget      = target;

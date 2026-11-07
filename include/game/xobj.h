@@ -1,6 +1,7 @@
 #ifndef _GAME_XOBJ_H
 #define _GAME_XOBJ_H
 
+#include "game/mapfloorhit.h"
 #include "game/cobj.h"
 #include "game/ccamera.h"
 #include "game/coordinfo.h"
@@ -50,9 +51,9 @@ typedef char XObjFloor_size_check[sizeof(XObjFloor) == 0x20 ? 1 : -1];
 
 // a floor's edge, offsets from the object's position
 struct XObjEdge {
-	Vec _00;   // _00
-	Vec mFrom; // _0C
-	Vec mTo;   // _18
+	Vec mContactOffset; // _00
+	Vec mFrom;          // _0C
+	Vec mTo;            // _18
 };
 typedef char XObjEdge_size_check[sizeof(XObjEdge) == 0x24 ? 1 : -1];
 
@@ -80,13 +81,11 @@ public:
 	s32 _274;                    // _274
 	XObjEdge mEdges[32];         // _278, one per floor
 	f32 _6F8;                    // _6F8
-	f32 _6FC[32];                // _6FC, a height per floor
+	f32 mFloorHeights[32];       // _6FC, a height per floor
 	f32 _77C;                    // _77C
-	f32 _780;                    // _780, highest _6FC under the _250[0] mask
-	s32 _784;                    // _784, the floor that is
-	s32 _788;                    // _788
-	s32 _78C;                    // _78C
-	f32 _790;                    // _790
+	f32 mSelectedFloorHeight;    // _780, highest active floor, NaN when none is active
+	s32 mSelectedFloorIndex;     // _784
+	XObjMapHit mFloorHit;        // _788
 	CVec _794;                   // _794
 	CEvt mEvt;                   // _7A4, the object's own script
 	u32 _80C;                    // _80C
@@ -104,39 +103,39 @@ public:
 	virtual ~XObj() { }     // _08
 	virtual void Release(); // _54
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
-	                     f32 blendRate);               // _80
-	virtual void ClearAnim();                          // _84
-	virtual void vf90(u32 id);                         // _90, init
-	virtual void vf94();                               // _94
-	virtual void vf98();                               // _98, resets the move state
-	virtual BOOL vf9C(const CoordInfo& info);          // _9C, called until it returns true
-	virtual BOOL vfA0(const char* path);               // _A0, reads the second archive
-	virtual void vfA4(u32 frames);                     // _A4, update
-	virtual void vfA8(u32 frames);                     // _A8, steps mColorStep
-	virtual void vfAC();                               // _AC
-	virtual void vfB0(Mtx view);                       // _B0, draw
-	virtual void vfB4(Mtx view);                       // _B4
-	virtual void vfB8();                               // _B8
-	virtual void vfBC(const Vec* origin, f32 opacity); // _BC
-	virtual void vfC0();                               // _C0
-	virtual void vfC4();                               // _C4
-	virtual void vfC8();                               // _C8
-	virtual void vfCC();                               // _CC
-	virtual void vfD0(CShadow* shadow);                // _D0
-	virtual void vfD4(CShadow* shadow);                // _D4
-	virtual void vfD8(u32* flags);                     // _D8
-	virtual void vfDC(BOOL enabled, u8 value);         // _DC
-	virtual void vfE0(f32 factor);                     // _E0
-	virtual void vfE4(f32 alpha);                      // _E4
-	virtual void vfE8();                               // _E8
-	virtual Vec GetCameraTarget();                     // _EC, where a camera looks at this object
-	virtual HSD_AnimJoint* vfF0(s32 id);               // _F0, joint anim
-	virtual HSD_MatAnimJoint* vfF4(s32 id);            // _F4, material anim
-	virtual HSD_ShapeAnimJoint* vfF8(s32 id);          // _F8, shape anim
+	                     f32 blendRate);                   // _80
+	virtual void ClearAnim();                              // _84
+	virtual void vf90(u32 id);                             // _90, init
+	virtual void vf94();                                   // _94
+	virtual void ResetObjectState();                       // _98, resets the move state
+	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C, called until it returns true
+	virtual BOOL vfA0(const char* path);                   // _A0, reads the second archive
+	virtual void UpdateObject(u32 frames);                 // _A4, update
+	virtual void vfA8(u32 frames);                         // _A8, steps mColorStep
+	virtual void vfAC();                                   // _AC
+	virtual void vfB0(Mtx view);                           // _B0, draw
+	virtual void vfB4(Mtx view);                           // _B4
+	virtual void vfB8();                                   // _B8
+	virtual void vfBC(const Vec* origin, f32 opacity);     // _BC
+	virtual void vfC0();                                   // _C0
+	virtual void vfC4();                                   // _C4
+	virtual void vfC8();                                   // _C8
+	virtual void vfCC();                                   // _CC
+	virtual void vfD0(CShadow* shadow);                    // _D0
+	virtual void vfD4(CShadow* shadow);                    // _D4
+	virtual void vfD8(u32* flags);                         // _D8
+	virtual void vfDC(BOOL enabled, u8 value);             // _DC
+	virtual void vfE0(f32 factor);                         // _E0
+	virtual void vfE4(f32 alpha);                          // _E4
+	virtual void vfE8();                                   // _E8
+	virtual Vec GetCameraTarget();                         // _EC, where a camera looks at this object
+	virtual HSD_AnimJoint* vfF0(s32 id);                   // _F0, joint anim
+	virtual HSD_MatAnimJoint* vfF4(s32 id);                // _F4, material anim
+	virtual HSD_ShapeAnimJoint* vfF8(s32 id);              // _F8, shape anim
 	virtual u32 vfFC(const Vec* from, const Vec* to, f32 radius, f32 height, Vec* push, Vec* contact, s32 arg6,
 	                 s32 arg7);                                                                 // _FC, collision test
 	virtual s32 vf100(s32 unused, s32 value);                                                   // _100
-	virtual void vf104();                                                                       // _104
+	virtual BOOL TestFloorCrossing(const Vec& start, const Vec& end);                           // _104
 	virtual f32 vf108();                                                                        // _108, shadow radius
 	virtual void vf10C(const Vec* offset, f32* x, f32* y, f32* z, CCamera* camera);             // _10C, a point near the object on screen
 	virtual f32 vf110();                                                                        // _110
@@ -148,10 +147,10 @@ public:
 	virtual const void* vf128();                                                                // _128, script passed to an object event
 	virtual void vf12C(s32 blend, u8 r, u8 g, u8 b, f32 time);                                  // _12C, interpolates a material color
 	virtual void vf130();                                                                       // _130
-	virtual BOOL vf134();                                                                       // _134
+	virtual BOOL vf134(f32 amount);                                                             // _134
 	virtual void vf138(const Vec& position, f32 strength);                                      // _138, hit from a position
-	virtual void vf13C(s32 unused, s32 value);                                                  // _13C
-	virtual BOOL vf140(s32 unused, s32 value);                                                  // _140
+	virtual void vf13C(const Vec* contact, s32 value, s32 tint);                                // _13C
+	virtual BOOL vf140(const Vec* position, s32 value);                                         // _140
 	virtual void vf144(s32 unused, s32 volume);                                                 // _144, the mic volume
 
 	// todo: cleanup
@@ -253,47 +252,49 @@ class CStatus;
 extern "C" {
 // ~XObj, the subclass dtors call it with 0
 XObj* __dt__4XObjFv(XObj* object, s32 flags);
-BOOL fn_8008A38C(CJAnim* anim, const char* path);
+BOOL LoadJointAnimationAsync(CJAnim* anim, const char* path);
 // the default vf138
 void vf138__4XObjFRC3Vecf(XObj* object, const Vec* position, f32 strength);
-CVec fn_8008C274(CXObj* object, s32 floor, const Vec* offset);
+CVec GetFloorContactPosition(XObj* object, s32 floor, const Vec* offset);
 // the default vf12C
 void vf12C__4XObjFlUcUcUcf(XObj* object, s32 blend, u8 red, u8 green, u8 blue, f32 time);
-void fn_8008C8A4(XObj* object);
+f32 GetFloorFacingAngle(XObj* object, const Vec* pos, s32 index, s32 requireSegment, Vec* contact, Vec* normalOut);
+void UpdateObjectFloorHeights(XObj* object);
 void fn_8008D220(XObj* object);
 void SetAnim__4XObjFliPvPvPvffff(XObj* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate,
                                  f32 blend, f32 blendRate);
+void vfC4__4XObjFv(XObj* object);
 void vfC8__4XObjFv(XObj* object);
 void vfBC__4XObjFPC3Vecf(XObj* object, const Vec* origin, f32 opacity);
 void vfB8__4XObjFv(XObj* object);
 void vfB0__4XObjFPA4_f(XObj* object, f32 (*view)[4]);
-void vfA4__4XObjFUl(XObj* object, u32 frames);
+void UpdateObject__4XObjFUl(XObj* object, u32 frames);
 void Release__4XObjFv(XObj* object);
 void vfDC__4XObjFiUc(CXObj* object, BOOL enabled, u8 mode);
 // walk callback, sets up each material's pe and toon flags
 void fn_80091888(HSD_JObj* joint, f32** arguments, s32 type);
-// the default vf9C, reads the object's coord info
-BOOL vf9C__4XObjFRC9CoordInfo(XObj* object, const CoordInfo* info);
-void vf98__4XObjFv(XObj* object);
+// the default LoadFromPlacement, reads the object's coord info
+BOOL LoadFromPlacement__4XObjFRC9CoordInfo(XObj* object, const CoordInfo* info);
+void ResetObjectState__4XObjFv(XObj* object);
 void vf90__4XObjFUl(XObj* object, u32 id);
 
 // the object kinds from 0x800D4000 to 0x80108000
-void fn_800D40EC(CXObj* object);
-void fn_800EA780(void* context, u32 frames);
-void fn_800EA99C(void* context);
-void fn_8010660C(XObj* object);
+void SyncMoveFromJoint(CXObj* object);
+void UpdateSpiderCoinBounces(void* context, u32 frames);
+void ResetSpiderCoinBounces(void* context);
+void ResetSpiderBossState(XObj* object);
 void fn_8010706C(void* object);
 s32 vf124__9XObjActorFlPl(CXObj* object, s32 index, s32* out);
-void fn_801076B0(CXObj* object, s32 value, f32 rate);
-void fn_801076DC(CXObj* object, f32 value, f32 rate);
-void fn_801076FC(CXObj* object, s32 value, f32 rate);
-void fn_8010771C(CXObj* object, f32 rate);
-void vfA4__9XObjActorFUl(XObj* object, u32 frames);
+void SetActorLookAtPosition(CXObj* object, const Vec* target, f32 rate);
+void SetActorLookAngle(CXObj* object, f32 value, f32 rate);
+void SetActorLookTarget(CXObj* object, const Vec* target, f32 rate);
+void ResetActorLook(CXObj* object, f32 rate);
+void UpdateObject__9XObjActorFUl(XObj* object, u32 frames);
 
 // pools and counters the object kinds share
-extern XObj* lbl_8037E5C0[16];
-extern s32 lbl_8037E600[16];
-extern XObj* lbl_8037E910[12];
+extern XObj* gSpiderCarryModels[16];
+extern s32 gSpiderCarrySlotOwners[16];
+extern XObj* gSmallSpiderEffectObjects[12];
 extern XObj* lbl_8065B2A0;
 extern XObj* lbl_8065B2AC;
 extern CStatus lbl_8065B2B0;
@@ -318,8 +319,13 @@ inline Vec GetJObjPos(HSD_JObj* jobj)
 
 // what an object kind's objTable entry starts with, the archive its model is read from
 struct XObjSource {
-	u8 _00[0x4];           // _00
+	const char* mName;     // _00
 	CObjArchive* mArchive; // _04
+	u32 _08;
+	struct Cache {
+		u32 address;
+		u32 size;
+	} mCache;
 };
 
 // todo: cleanup, coordinfo.h has UnkObjData's first word as padding
