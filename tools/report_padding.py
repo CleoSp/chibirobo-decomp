@@ -11,9 +11,10 @@ there scores below 100 and counts as unmatched, so for the report each object is
 copied with that layout applied:
   - zero gaps get fill_padding.py's fill (US and JP only, the main DOL only)
   - each data section is padded to the size of retail's split
-  - our data symbols get dtk's size for the retail symbol, when only padding follows
   - retail labels pair with our compiler's names at the same offset (symbol_mappings)
-  - retail labels on bare padding get the same label in our copy
+  - paired data symbols get the retail symbol's size, retail labels nothing of ours
+    starts at get the same label in our copy, so objdiff compares each retail
+    symbol's bytes with ours at the same offset, however the two sides divide them
 Only zero bytes are ever filled, and objdiff still compares every byte.
 """
 import json
@@ -96,10 +97,9 @@ def pad_object(objcopy: str, ours: Path, target: Path, rule: str | None, fill: b
         value, size, entry = mine[(s, o)]
         retail_value, retail_symbol_size, _ = theirs[(s, n)]
         end = value + retail_symbol_size
-        if retail_value == value and retail_symbol_size > size and end <= retail_size.get(s, 0):
-            if not any(value < start < end for start, _ in spans(mine, s)):
-                struct.pack_into(">I", raw, entry + 8, retail_symbol_size)
-                mine[(s, o)] = (value, retail_symbol_size, entry)
+        if retail_value == value and retail_symbol_size != size and end <= retail_size.get(s, 0):
+            struct.pack_into(">I", raw, entry + 8, retail_symbol_size)
+            mine[(s, o)] = (value, retail_symbol_size, entry)
     out.write_bytes(raw)
 
     args = []
@@ -132,10 +132,7 @@ def pad_object(objcopy: str, ours: Path, target: Path, rule: str | None, fill: b
         for (s, n), (value, size, _) in theirs.items():
             if s not in DATA or (s, n) in pairs or s not in sections:
                 continue
-            layout = spans(mine, s)
-            prev_end = max((e for a, e in layout if a <= value), default=0)
-            next_start = min((a for a, _ in layout if a >= value), default=retail_size.get(s, 0))
-            if prev_end <= value and value + size <= next_start and next_start - prev_end < PAD:
+            if value + size <= retail_size.get(s, 0):
                 # global, so objcopy appends it after every existing symbol and keeps their indices
                 args += ["--add-symbol", f"{n}={s}:{value:#x},global,object"]
                 added[n] = size
