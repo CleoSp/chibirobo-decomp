@@ -1269,7 +1269,7 @@ game/xactionvtable:
 	.data       start:0x80227808 end:0x80227818 align:4
 
 game/attachmentbasetypes.c:
-	.data       start:0x80227B68 end:0x80227BF4 align:4
+	.data       start:0x80227B68 end:0x80228320 align:4
 
 game/plugbasetypes.c:
 	.data       start:0x8022832C end:0x8022838C align:4

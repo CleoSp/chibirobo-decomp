@@ -1306,7 +1306,7 @@ game/xactionvtable:
 	.data       start:0x8022EBC0 end:0x8022EBD0 align:4
 
 game/attachmentbasetypes.c:
-	.data       start:0x8022EF20 end:0x8022EFAC align:4
+	.data       start:0x8022EF20 end:0x8022F6D8 align:4
 
 game/plugbasetypes.c:
 	.data       start:0x8022F6E4 end:0x8022F744 align:4
