@@ -676,7 +676,7 @@ game/menutypeinfo.c:
 	.sdata      start:0x8065A2CC end:0x8065A334 align:4
 
 game/menucursortypeinfo.c:
-	.data       start:0x80212A2C end:0x80212AB8 align:4
+	.data       start:0x80212A2C end:0x80212CB4 align:4
 	.sdata      start:0x8065A334 end:0x8065A364 align:4
 	.sdata2     start:0x8065C88C end:0x8065C8AC align:4
 
@@ -1124,7 +1124,7 @@ game/xobjmaptypeinfo.c:
 
 game/xobjtypeinfo.c:
 	.rodata     start:0x802092D8 end:0x80209320 align:4
-	.data       start:0x80225948 end:0x80225984 align:4
+	.data       start:0x80225948 end:0x80225B90 align:4
 	.sdata      start:0x8065A440 end:0x8065A470 align:4
 
 game/xobjinitdata.c:
@@ -1296,7 +1296,7 @@ game/attachmentbasetypes.c:
 	.data       start:0x80228520 end:0x80228CD8 align:4
 
 game/plugbasetypes.c:
-	.data       start:0x80228CE4 end:0x80228D44 align:4
+	.data       start:0x80228CE4 end:0x80228FF8 align:4
 
 game/soundobjectclassinfo.c:
 	.data       start:0x80229040 end:0x802290A0 align:4
@@ -1416,7 +1416,7 @@ game/cursorclassinfo.c:
 	.sdata2     start:0x8065C1F0 end:0x8065C210 align:4
 	.rodata     start:0x801FF310 end:0x801FF31C align:4
 	.sdata      start:0x8065A248 end:0x8065A270 align:4
-	.data       start:0x80211488 end:0x802114E8 align:4
+	.data       start:0x80211488 end:0x80211630 align:4
 
 game/customwipevtable:
 	.data       start:0x80211388 end:0x802113B4 align:4
@@ -1434,7 +1434,7 @@ game/dust2vtable:
 	.data       start:0x80211464 end:0x80211488 align:4
 
 game/playerclassinfo.c:
-	.data       start:0x80227E88 end:0x80227EE8 align:4
+	.data       start:0x80227E04 end:0x80227EE8 align:4
 	.sdata      start:0x8065A4F8 end:0x8065A658 align:4
 	.sdata2     start:0x8065D664 end:0x8065D66C align:4
 
@@ -2194,7 +2194,7 @@ game/spiderbossplacementconstants.cpp:
 	.sdata2     start:0x8065E0D0 end:0x8065E0FC
 
 game/actortypeinfo.c:
-	.data       start:0x8022BF30 end:0x8022BF90 align:4
+	.data       start:0x8022BF30 end:0x8022C110 align:4
 	.sdata      start:0x8065A810 end:0x8065A838 align:4
 	.sdata2     start:0x8065E108 end:0x8065E120 align:4
 

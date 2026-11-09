@@ -1,3 +1,52 @@
+extern const void* sPlayerTypeInfoVec[];
+extern const void* sPlayerTypeInfoOctaMenu[];
+extern const void* gTypeInfoAtcMenu[];
+
+extern void ConfirmSelection__7AtcMenuFv(void);
+extern void ConfirmSelection__8OctaMenuFv(void);
+extern void GetItemColor__7AtcMenuFl(void);
+extern void GetItemColor__8OctaMenuFl(void);
+extern void GetItemIconTextureIndex__7AtcMenuFl(void);
+extern void GetItemIconTextureIndex__8OctaMenuFl(void);
+extern void GetItemLabel__7AtcMenuFl(void);
+extern void GetItemLabel__8OctaMenuFl(void);
+extern void Open__7AtcMenuFl(void);
+extern void Open__8OctaMenuFl(void);
+extern void Select__8OctaMenuFl(void);
+extern void __dt__7AtcMenuFv(void);
+extern void __dt__8OctaMenuFv(void);
+extern void vf14__8OctaMenuFv(void);
+extern void vf18__8OctaMenuFv(void);
+extern void vf2C__7AtcMenuFl(void);
+extern void vf2C__8OctaMenuFl(void);
+
+const void* sPlayerBaseTypesCVec[] = { sPlayerTypeInfoVec, 0, 0, 0, 0, 0 };
+const void* sBaseTypesAtcMenu[]    = { sPlayerTypeInfoOctaMenu, 0, 0 };
+const void* __vt__7AtcMenu[]       = { gTypeInfoAtcMenu,
+	                                   0,
+	                                   __dt__7AtcMenuFv,
+	                                   Open__7AtcMenuFl,
+	                                   Select__8OctaMenuFl,
+	                                   vf14__8OctaMenuFv,
+	                                   vf18__8OctaMenuFv,
+	                                   ConfirmSelection__7AtcMenuFv,
+	                                   GetItemIconTextureIndex__7AtcMenuFl,
+	                                   GetItemLabel__7AtcMenuFl,
+	                                   GetItemColor__7AtcMenuFl,
+	                                   vf2C__7AtcMenuFl };
+const void* __vt__8OctaMenu[]      = { sPlayerTypeInfoOctaMenu,
+	                                   0,
+	                                   __dt__8OctaMenuFv,
+	                                   Open__8OctaMenuFl,
+	                                   Select__8OctaMenuFl,
+	                                   vf14__8OctaMenuFv,
+	                                   vf18__8OctaMenuFv,
+	                                   ConfirmSelection__8OctaMenuFv,
+	                                   GetItemIconTextureIndex__8OctaMenuFl,
+	                                   GetItemLabel__8OctaMenuFl,
+	                                   GetItemColor__8OctaMenuFl,
+	                                   vf2C__8OctaMenuFl };
+
 const char sTypeNameXAction[] = "XAction";
 
 extern const char sTypeNameOctaMenu[];

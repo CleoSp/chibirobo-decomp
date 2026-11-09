@@ -690,7 +690,7 @@ game/menutypeinfo.c:
 	.sdata      start:0x806346E0 end:0x80634770 align:4
 
 game/menucursortypeinfo.c:
-	.data       start:0x802138D8 end:0x80213964 align:4
+	.data       start:0x802138D8 end:0x80213B60 align:4
 	.sdata      start:0x80634770 end:0x806347A0 align:4
 	.sdata2     start:0x80636CB8 end:0x80636CD8 align:4
 
@@ -1104,7 +1104,7 @@ game/xobjmaptypeinfo.c:
 
 game/xobjtypeinfo.c:
 	.rodata     start:0x80209FF8 end:0x8020A040 align:4
-	.data       start:0x80224FB0 end:0x80224FEC align:4
+	.data       start:0x80224FB0 end:0x802251F8 align:4
 	.sdata      start:0x80634878 end:0x806348A8 align:4
 
 game/xobjinitdata.c:
@@ -1272,7 +1272,7 @@ game/attachmentbasetypes.c:
 	.data       start:0x80227B68 end:0x80228320 align:4
 
 game/plugbasetypes.c:
-	.data       start:0x8022832C end:0x8022838C align:4
+	.data       start:0x8022832C end:0x80228640 align:4
 
 game/soundobjectclassinfo.c:
 	.data       start:0x80228688 end:0x802286E8 align:4
@@ -1392,7 +1392,7 @@ game/cursorclassinfo.c:
 	.sdata2     start:0x80636608 end:0x80636628 align:4
 	.rodata     start:0x80200BC8 end:0x80200BD4 align:4
 	.sdata      start:0x80634668 end:0x80634690 align:4
-	.data       start:0x80212188 end:0x802121E8 align:4
+	.data       start:0x80212188 end:0x80212330 align:4
 
 game/customwipevtable:
 	.data       start:0x80212088 end:0x802120B4 align:4
@@ -1410,7 +1410,7 @@ game/dust2vtable:
 	.data       start:0x80212164 end:0x80212188 align:4
 
 game/playerclassinfo.c:
-	.data       start:0x802274D0 end:0x80227530 align:4
+	.data       start:0x8022744C end:0x80227530 align:4
 	.sdata      start:0x80634928 end:0x80634A88 align:4
 	.sdata2     start:0x8063792C end:0x80637934 align:4
 
@@ -2167,7 +2167,7 @@ game/spiderbossplacementconstants.cpp:
 	.sdata2     start:0x80638398 end:0x806383C4
 
 game/actortypeinfo.c:
-	.data       start:0x8022B578 end:0x8022B5D8 align:4
+	.data       start:0x8022B578 end:0x8022B758 align:4
 	.sdata      start:0x80634C40 end:0x80634C68 align:4
 	.sdata2     start:0x806383D0 end:0x806383E8 align:4
 
