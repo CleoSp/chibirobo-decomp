@@ -4677,7 +4677,7 @@ extern "C" __declspec(section ".text.eventpresentation") s32 CEvt__cmd_POS(CEvt*
 		u8* player = (u8*)gGame.GetPlayer();
 		if (obj == (XObj*)player) {
 			ResetPlayerHeadOffset((XObjChr*)player);
-			fn_8009FCC4((XObjChr*)player);
+			ResetPlayerPlug((XObjChr*)player);
 			carry = (u8*)&((XObjChr*)player)->mLift;
 			if (*(XObj**)(carry + 0x20) != NULL) {
 				UpdateHeldObject((XActLift*)carry, 1);
@@ -4858,7 +4858,7 @@ extern "C" __declspec(section ".text.eventpresentation") s32 CEvt__cmd_POS(CEvt*
     mr       r3, r30
     bl       ResetPlayerHeadOffset
     mr       r3, r30
-    bl       fn_8009FCC4
+    bl       ResetPlayerPlug
     addi     r29, r30, 0xa44
     lwz      r0, 0xa64(r30)
     cmplwi   r0, 0x0

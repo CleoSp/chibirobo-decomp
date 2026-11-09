@@ -21,7 +21,7 @@ extern "C" {
 void HandleOXMenuInput(OXMenu* menu, CPad* pad);
 s32 GetAttachmentCountById(AttachmentValues* values, s32 id);
 void UpdateAttachmentAvailability(AttachmentValues* values);
-void fn_8009FCC4(XObjChr* chr);
+void ResetPlayerPlug(XObjChr* chr);
 BOOL IsPlayerBlockingEvents(const XObjChr* player);
 CVec CJObj_GetJointLocalTranslationByPath(const CJObj* object, s32 depth, s32* path);
 CVec GetPlayerCarryJointLocalTranslation(CJObj* object);

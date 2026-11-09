@@ -67,7 +67,7 @@ extern "C" void UpdateObjectFloorHeights(XObj* object)
 		return;
 	object->mStatus.mFlags &= ~0x0010000000000000ULL;
 	for (s32 i = 0; object->mFloors[i].mId != -1; ++i) {
-		Vec center = object->mMoveScale * (object->_794 + ReadFloorCoordinates(object->mFloors[i].mCenterOffset, lbl_8037813C));
+		Vec center = object->mMoveScale * (object->_794 + ReadFloorCoordinates(object->mFloors[i].mCenterOffset, gObjectFloorOffsetTemplate));
 		Vec extent = object->mMoveScale * ReadFloorCoordinates(object->mFloors[i].mExtent, lbl_80378148);
 		f32 yaw    = FloorYaw(object, i);
 		switch (object->mFloors[i].mId) {
@@ -96,7 +96,7 @@ extern "C" void UpdateObjectFloorHeights(XObj* object)
 		case 5: {
 			Vec corners[4];
 			for (s32 j = 0; j < 4; ++j)
-				corners[j] = object->_794 + ReadFloorCoordinates(object->mFloors[i + j].mCenterOffset, lbl_8037813C);
+				corners[j] = object->_794 + ReadFloorCoordinates(object->mFloors[i + j].mCenterOffset, gObjectFloorOffsetTemplate);
 			Vec scale = object->mMoveScale * ReadFloorCoordinates(object->mFloors[i].mExtent, lbl_80378148);
 			f32 angle = FloorYaw(object, i);
 			Mtx translate, rotate, scaling, transform;

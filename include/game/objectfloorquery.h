@@ -4,7 +4,7 @@
 #include "game/xobjmap.h"
 #include "game/cgame.h"
 
-extern "C" Vec lbl_8037813C;
+extern "C" Vec gObjectFloorOffsetTemplate;
 extern "C" Vec lbl_80378148;
 
 static inline Vec ReadFloorCoordinates(const s32* coordinates, const Vec& initial)
@@ -18,7 +18,7 @@ static inline Vec ReadFloorCoordinates(const s32* coordinates, const Vec& initia
 
 static inline Vec ReadObjectFloorOffset(const XObjFloor& floor)
 {
-	return ReadFloorCoordinates(floor.mCenterOffset, lbl_8037813C);
+	return ReadFloorCoordinates(floor.mCenterOffset, gObjectFloorOffsetTemplate);
 }
 
 static inline Vec ReadObjectFloorExtent(const XObjFloor& floor)
@@ -28,7 +28,7 @@ static inline Vec ReadObjectFloorExtent(const XObjFloor& floor)
 
 static inline Vec ReadObjectFloorOffset(const XObj* object, s32 index)
 {
-	Vec value = lbl_8037813C;
+	Vec value = gObjectFloorOffsetTemplate;
 	value.x   = object->mFloors[index].mCenterOffset[0] / 100.0f;
 	value.y   = object->mFloors[index].mCenterOffset[1] / 100.0f;
 	value.z   = object->mFloors[index].mCenterOffset[2] / 100.0f;

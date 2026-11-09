@@ -335,7 +335,7 @@ BOOL XObj::TestFloorCrossing(const Vec& start, const Vec& end)
 
 	f32 rotation = mMoveRotate.y;
 	for (s32 i = 0; floors[i].mId != -1; ++i) {
-		CVec center  = mMoveScale * (_794 + ReadFloorCoordinates(floors[i].mCenterOffset, lbl_8037813C));
+		CVec center  = mMoveScale * (_794 + ReadFloorCoordinates(floors[i].mCenterOffset, gObjectFloorOffsetTemplate));
 		extent       = mMoveScale * ReadFloorCoordinates(floors[i].mExtent, lbl_80378148);
 		f32 localYaw = FloorRotationRadians(floors[i].mYawDegrees);
 		f32 yaw      = rotation + localYaw;
@@ -395,7 +395,7 @@ BOOL XObj::TestFloorCrossing(const Vec& start, const Vec& end)
 			XObjFloor* polygon = mFloors;
 			Vec corners[4];
 			for (s32 j = 0; j < 4; ++j)
-				corners[j] = _794 + ReadFloorCoordinates(polygon[i + j].mCenterOffset, lbl_8037813C);
+				corners[j] = _794 + ReadFloorCoordinates(polygon[i + j].mCenterOffset, gObjectFloorOffsetTemplate);
 			Vec size  = mMoveScale * ReadFloorCoordinates(polygon[i].mExtent, lbl_80378148);
 			f32 angle = mMoveRotate.y + FloorRotationRadians(polygon[i].mYawDegrees);
 			Mtx translate, rotate, scale, transform;
@@ -434,7 +434,7 @@ CVec CVec::operator*(Vec other) const
 	return result;
 }
 
-extern "C" const Vec lbl_8020928C;
+extern "C" const Vec gDefaultFloorContactOffset;
 
 /**
  * @note Address: 0x8008C274
@@ -445,7 +445,7 @@ extern "C" CVec GetFloorContactPosition(XObj* __restrict object, volatile s32 in
 	if (!(object->mStatus.mFlags & 0x0200000000000000ULL))
 		return object->mMoveTranslate;
 
-	Vec displacement       = offset ? Vec(*offset) : Vec(lbl_8020928C);
+	Vec displacement       = offset ? Vec(*offset) : Vec(gDefaultFloorContactOffset);
 	Vec position           = object->mMoveTranslate + displacement;
 	Vec center             = object->mMoveScale * (object->_794 + ReadObjectFloorOffset(object->mFloors[index]));
 	Vec extent             = object->mMoveScale * ReadObjectFloorExtent(object->mFloors[index]);

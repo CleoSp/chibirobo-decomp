@@ -18,7 +18,7 @@ extern "C" void RestoreSavedPlayerAndCamera(Memcard* card)
 	player->SetPos(save->mPos, 0);
 	gGame.GetPlayer()->SetRotationY(save->mRotY, 0);
 	ResetPlayerHeadOffset(gGame.GetPlayer());
-	fn_8009FCC4(gGame.GetPlayer());
+	ResetPlayerPlug(gGame.GetPlayer());
 	if (save->mHeader.mVersion <= 0x10100 || (save->mHeader.mVersion & 2)) {
 		CCamera* camera              = &gGame.mMotionControlCamera.mCamera;
 		CMotionControlCamera* motion = &gGame.mMotionControlCamera;

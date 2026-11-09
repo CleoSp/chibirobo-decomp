@@ -4537,7 +4537,7 @@ extern "C" s32 GetCharacterObjectApproachResult(const XObjChr* chr, const XObj* 
  * @note Address: 0x8009FCC4
  * @note Size: 0x120
  */
-extern "C" void fn_8009FCC4(XObjChr* chr)
+extern "C" void ResetPlayerPlug(XObjChr* chr)
 {
 	if (chr->mPlug.mStatus.mFlags & 0x0400000000000000ULL) {
 		Vec rotation = (Vec&)chr->mPlug.mMoveRotate;

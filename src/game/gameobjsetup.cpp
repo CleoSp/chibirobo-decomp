@@ -38,7 +38,7 @@ static inline HSD_JObj* GetLeaf(HSD_JObj* jobj)
 // NONMATCHING: the stage's camera mode and the second loop's registers rotate
 // the step after the objects are read: points the camera and its actions at them, lists them
 // and sets up a mirror for each object that has one, at most five
-extern "C" BOOL fn_80011638(CGame* game)
+extern "C" BOOL FinalizeStageObjectSetup(CGame* game)
 {
 	FbMirrorEx* mirror;
 	s32 mirrors;
@@ -362,7 +362,7 @@ BOOL CGame::BeforeUpdate()
 			mStatus.mFlags |= 0x40;
 		++_3338;
 	case 26:
-		if (!fn_80011638(this))
+		if (!FinalizeStageObjectSetup(this))
 			break;
 		mStatus.mFlags &= ~0x40ULL;
 		if (mStatus.mFlags & 0x2000)
