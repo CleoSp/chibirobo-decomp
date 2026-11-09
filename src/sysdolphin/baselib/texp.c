@@ -176,11 +176,12 @@ static inline bool IsThroughAlpha(HSD_TExp* texp)
 	    && texp->tev.a_scale == 0;
 }
 
+#pragma section RX ".text.texpbuild"
 /**
  * @note Address: 0x801D65E0
  * @note Size: 0x3C
  */
-HSD_TExpType HSD_TExpGetType(HSD_TExp* texp)
+__declspec(section ".text.texpbuild") HSD_TExpType HSD_TExpGetType(HSD_TExp* texp)
 {
 	if (texp == NULL) {
 		return HSD_TE_ZERO;
@@ -212,7 +213,7 @@ static HSD_TExp* CnstAlloc(void)
  * @note Address: 0x801D661C
  * @note Size: 0x88
  */
-void HSD_TExpRef(HSD_TExp* texp, u8 sel)
+__declspec(section ".text.texpbuild") void HSD_TExpRef(HSD_TExp* texp, u8 sel)
 {
 	HSD_TExpType type = HSD_TExpGetType(texp);
 	switch (type) {
@@ -238,7 +239,7 @@ void HSD_TExpRef(HSD_TExp* texp, u8 sel)
  * @note Address: 0x801D66A4
  * @note Size: 0x57C
  */
-void HSD_TExpUnref(HSD_TExp* texp, u8 sel)
+__declspec(section ".text.texpbuild") void HSD_TExpUnref(HSD_TExp* texp, u8 sel)
 {
 	s32 i;
 
@@ -272,7 +273,7 @@ void HSD_TExpUnref(HSD_TExp* texp, u8 sel)
  * @note Address: 0x801D6C20
  * @note Size: 0x320
  */
-HSD_TExp* HSD_TExpFreeList(HSD_TExp* texp_list, HSD_TExpType type, s32 all)
+__declspec(section ".text.texpbuild") HSD_TExp* HSD_TExpFreeList(HSD_TExp* texp_list, HSD_TExpType type, s32 all)
 {
 	HSD_TExp** handle;
 	HSD_TExp* ptr;
@@ -376,7 +377,7 @@ HSD_TExp* HSD_TExpFreeList(HSD_TExp* texp_list, HSD_TExpType type, s32 all)
  * @note Address: 0x801D6F40
  * @note Size: 0xC0
  */
-HSD_TExp* HSD_TExpTev(HSD_TExp** texp_list)
+__declspec(section ".text.texpbuild") HSD_TExp* HSD_TExpTev(HSD_TExp** texp_list)
 {
 	s32 i;
 	HSD_TExp* texp;
@@ -401,7 +402,7 @@ HSD_TExp* HSD_TExpTev(HSD_TExp** texp_list)
  * @note Address: 0x801D7000
  * @note Size: 0x120
  */
-HSD_TExp* HSD_TExpCnst(void* val, HSD_TEInput comp, HSD_TEType type, HSD_TExp** texp_list)
+__declspec(section ".text.texpbuild") HSD_TExp* HSD_TExpCnst(void* val, HSD_TEInput comp, HSD_TEType type, HSD_TExp** texp_list)
 {
 	HSD_TExp* texp;
 
@@ -441,7 +442,7 @@ HSD_TExp* HSD_TExpCnst(void* val, HSD_TEInput comp, HSD_TEType type, HSD_TExp** 
  * @note Address: 0x801D7120
  * @note Size: 0xE8
  */
-void HSD_TExpColorOp(HSD_TExp* texp, s32 op, u32 bias, u32 scale, u8 clamp)
+__declspec(section ".text.texpbuild") void HSD_TExpColorOp(HSD_TExp* texp, s32 op, u32 bias, u32 scale, u8 clamp)
 {
 	TEXP_ASSERT(410, texp);
 	TEXP_ASSERT(411, HSD_TExpGetType(texp) == HSD_TE_TEV);
@@ -461,7 +462,7 @@ void HSD_TExpColorOp(HSD_TExp* texp, s32 op, u32 bias, u32 scale, u8 clamp)
  * @note Address: 0x801D7208
  * @note Size: 0xE8
  */
-void HSD_TExpAlphaOp(HSD_TExp* texp, s32 op, u32 bias, u32 scale, u8 clamp)
+__declspec(section ".text.texpbuild") void HSD_TExpAlphaOp(HSD_TExp* texp, s32 op, u32 bias, u32 scale, u8 clamp)
 {
 	TEXP_ASSERT(436, texp);
 	TEXP_ASSERT(437, HSD_TExpGetType(texp) == HSD_TE_TEV);
@@ -1670,11 +1671,12 @@ void HSD_TExpSetReg(HSD_TExp* clist)
 	}
 }
 
+#pragma section RX ".text.texpsetup"
 /**
  * @note Address: 0x801D9444
  * @note Size: 0x6C
  */
-void HSD_TExpSetupTev(HSD_TExpTevDesc* tevdesc, HSD_TExp* texp)
+__declspec(section ".text.texpsetup") void HSD_TExpSetupTev(HSD_TExpTevDesc* tevdesc, HSD_TExp* texp)
 {
 	HSD_TExpSetReg(texp);
 	for (; tevdesc != NULL; tevdesc = (HSD_TExpTevDesc*)tevdesc->desc.next) {
@@ -1691,7 +1693,7 @@ void HSD_TExpSetupTev(HSD_TExpTevDesc* tevdesc, HSD_TExp* texp)
  * @note Address: 0x801D94B0
  * @note Size: 0x2A8
  */
-int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc, HSD_TExp** texp_list)
+__declspec(section ".text.texpsetup") int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc, HSD_TExp** texp_list)
 {
 	int num, i, val;
 	HSD_TExpRes res;
@@ -1740,7 +1742,7 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc, HSD_TExp** texp_l
  * @note Address: 0x801D9758
  * @note Size: 0x40
  */
-void HSD_TExpFreeTevDesc(HSD_TExpTevDesc* tdesc)
+__declspec(section ".text.texpsetup") void HSD_TExpFreeTevDesc(HSD_TExpTevDesc* tdesc)
 {
 	HSD_TExpTevDesc* next = tdesc;
 	while (next != NULL) {

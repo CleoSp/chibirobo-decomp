@@ -4309,7 +4309,10 @@ sysdolphin/baselib/video_bss:
 	.sbss       start:0x80635E58 end:0x80635E60
 
 sysdolphin/baselib/video.c:
-	.text       start:0x801CCBDC end:0x801CD950
+	.text       start:0x801CCBDC end:0x801CD5B4
+
+sysdolphin/baselib/videoinit:
+	.text       start:0x801CD5B4 end:0x801CD950
 
 sysdolphin/baselib/videoframebufferasserts:
 	.data       start:0x80238EE8 end:0x80238F70
@@ -4440,8 +4443,14 @@ sysdolphin/baselib/hash.c:
 	.data       start:0x80239650 end:0x80239668
 	.sdata      start:0x80635460 end:0x80635468
 
+sysdolphin/baselib/texpbuild:
+	.text       start:0x801D7E90 end:0x801D8BA0
+
 sysdolphin/baselib/texp.c:
-	.text       start:0x801D7E90 end:0x801DB048
+	.text       start:0x801D8BA0 end:0x801DACF4
+
+sysdolphin/baselib/texpsetup:
+	.text       start:0x801DACF4 end:0x801DB048
 
 sysdolphin/baselib/texpinputvalidation:
 	.data       start:0x80239668 end:0x80239884 align:4

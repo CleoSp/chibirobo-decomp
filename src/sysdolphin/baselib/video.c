@@ -431,11 +431,12 @@ void HSD_VICopyXFBAsync(HSD_RenderPass rpass)
 	HSD_VIGXSetDrawDone(idx);
 }
 
+#pragma section RX ".text.videoinit"
 /**
  * @note Address: 0x801CBD04
  * @note Size: 0xD4
  */
-void HSD_VIDrawDoneXFB(s32 idx)
+__declspec(section ".text.videoinit") void HSD_VIDrawDoneXFB(s32 idx)
 {
 	HSD_VIXFBDrawDispStatus* status;
 	bool intr;
@@ -527,7 +528,7 @@ s32 HSD_VIGetXFBLastDrawDone(void)
  * @note Address: 0x801CBDD8
  * @note Size: 0x88
  */
-void HSD_VISetConfigure(GXRenderModeObj* rmode)
+__declspec(section ".text.videoinit") void HSD_VISetConfigure(GXRenderModeObj* rmode)
 {
 	_p->current.vi.rmode = *rmode;
 	_p->current.chg_flag = 1;
@@ -537,7 +538,7 @@ void HSD_VISetConfigure(GXRenderModeObj* rmode)
  * @note Address: 0x801CBE60
  * @note Size: 0x18
  */
-void HSD_VISetBlack(bool black)
+__declspec(section ".text.videoinit") void HSD_VISetBlack(bool black)
 {
 	_p->current.vi.black = black;
 	_p->current.chg_flag = 1;
@@ -547,7 +548,7 @@ void HSD_VISetBlack(bool black)
  * @note Address: 0x801CBE78
  * @note Size: 0x228
  */
-void HSD_VIInit(HSD_VIStatus* vi, void* xfb0, void* xfb1, void* xfb2)
+__declspec(section ".text.videoinit") void HSD_VIInit(HSD_VIStatus* vi, void* xfb0, void* xfb1, void* xfb2)
 {
 	s32 i, fbnum, idx;
 
