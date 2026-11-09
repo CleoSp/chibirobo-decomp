@@ -1467,6 +1467,9 @@ game/spidershadowrotation:
 game/spiderjointpaths:
 	.rodata     start:0x8020B964 end:0x8020BA10 align:4
 
+game/playereffectsdata.cpp:
+	.bss        start:0x803568EC end:0x8035A810
+
 game/xobjchrsuitjoints.cpp:
 	.text       start:0x800B9BFC end:0x800BAD6C
 

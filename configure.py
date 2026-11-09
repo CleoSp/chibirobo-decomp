@@ -958,7 +958,8 @@ config.libs = [
                                     "4330000080000000": "sPlayerSignedIntToDoubleBias", "beb2b8c2": "lbl_806645A0" if config.version == PAL else "lbl_8065D470"}),
             *([Object(Matching, "game/xobjmatcolor.cpp", cflags=with_hsd_headers(cflags_game))]
               if config.version != JP else []),
-            Object(MatchingFor(US, PAL), "game/playereffectsdata.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(Matching, "game/playereffectsdata.cpp", cflags=with_hsd_headers(cflags_game), word_aligned_data=True,
+                   discard_sections=(".rodata", ".sdata2", ".sbss2")),
             Object(Matching, "game/equipmentringclose", source="game/obja_chr.cpp", source_text=".text.equipmentringclose"),
             Object(NonMatching, "game/equipmentringdraw", source="game/obja_chr.cpp", source_text=".text.equipmentringdraw", keep_rodata=True,
                    source_literals={"00000000": "lbl_8065D35C", "3f800000": "lbl_8065D380", "3f333333": {US: "lbl_8065D440", JP: "lbl_806376F8", PAL: "lbl_80664574"}[config.version],
