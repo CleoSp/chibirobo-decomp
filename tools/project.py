@@ -1519,15 +1519,22 @@ def generate_build_ninja(
         # Generate progress report
         ###
         n.comment("Generate progress report")
+        # against our objects with retail's linker padding, see report_padding.py
+        report_padding = config.tools_dir / "report_padding.py"
+        report_fill = "1" if getattr(config, "fill_padding", True) else "0"
         n.rule(
             name="report",
-            command=f"{objdiff} report generate $objdiff_report_args -o $out",
+            command=f"$python {report_padding} {objdiff} {objcopy} {build_path} {report_fill} $out $objdiff_report_args",
             description="REPORT",
         )
+        report_implicit = [objdiff, "objdiff.json", "all_source", report_padding,
+                           config.tools_dir / "fill_padding.py", build_path / "source_compilers.json"]
+        if binutils_implicit:
+            report_implicit.append(binutils_implicit)
         n.build(
             outputs=report_path,
             rule="report",
-            implicit=[objdiff, "objdiff.json", "all_source"],
+            implicit=report_implicit,
             order_only="post-build",
         )
 
@@ -1554,7 +1561,7 @@ def generate_build_ninja(
         n.build(
             outputs=report_baseline_path,
             rule="report",
-            implicit=[objdiff, "all_source", "always"],
+            implicit=[*report_implicit, "always"],
             order_only="post-build",
         )
         n.build(
