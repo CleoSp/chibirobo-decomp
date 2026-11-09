@@ -160,7 +160,16 @@ __declspec(section ".text.readthreads") void XObjRead::RunRequestLoop()
 #pragma section RX ".text.readqueue"
 __declspec(section ".text.readqueue") BOOL XObjRead::QueueRead(void* object, void* info)
 {
-	return ReadStart(object, info);
+	for (s32 i = 0; i < 8; i++) {
+		if (mReqs[i].mObj == NULL) {
+			mReqs[i].mObj  = object;
+			mReqs[i].mInfo = info;
+			OSSendMessage(&mQueue.mQueue, &mReqs[i], OS_MESSAGE_BLOCK);
+			return TRUE;
+		}
+	}
+	OSPanic(sPathXobjsCpp, 356, sObjectReaderErrorFormat, sObjectReaderFullMessage, sObjectReadStartName);
+	return FALSE;
 }
 
 // XObjRead::QueueRead

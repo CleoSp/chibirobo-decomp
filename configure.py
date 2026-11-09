@@ -1850,7 +1850,7 @@ config.libs = [
             Object(Matching, "game/readerobjectbases.cpp", cflags=cflags_game, word_aligned_data=True),
             Object(Matching, "game/objectreaderdiagnostics.cpp", cflags=cflags_game, word_aligned_data=True, padding="small_data"),
             Object(Matching, "game/stageobjectloading.cpp", source="game/xobjs.cpp", source_text=".text.objectloading"),
-            Object(NonMatching, "game/xobjreadqueue.cpp", source="game/xobjs.cpp", source_text=".text.readqueue"),
+            Object(Matching, "game/xobjreadqueue.cpp", source="game/xobjs.cpp", source_text=".text.readqueue"),
             Object(Matching, "game/xobjreadsupport.cpp", source="game/xobjs.cpp", source_text=".text.readsupport"),
             Object(Matching, "game/xobjreadthreads.cpp", source="game/xobjs.cpp", source_text=".text.readthreads"),
             Object(Matching, "game/xobjreadwait.cpp", source="game/xobjreadinit.cpp", source_text=".text.readwait",
