@@ -29,9 +29,10 @@ extern "C" BOOL ReadValidatedSaveIntoCardBuffer(Memcard* card)
 			}
 			continue;
 		}
-		u32 checksum = 0;
+		u32 checksum   = 0;
+		const u8* data = reinterpret_cast<const u8*>(save);
 		for (u32 i = 0; i < sizeof(SaveData); ++i)
-			checksum += ((u8*)save)[i];
+			checksum += *data++;
 		if (checksum != card->mFile.mChecksum) {
 			if (copy == 1) {
 				card->mCard.mResult = -128;

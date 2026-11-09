@@ -5296,16 +5296,23 @@ static inline void SelectPlayerAnimation(XObjChr* chr, s32& id)
 		FindPlayerAnimVariant(id, AttachmentAnim);
 }
 
+// 1.135 times faster in lift state 4, like SetAnimRate
+static inline f32 PlayerAnimRateMultiplier(XObjChr* chr)
+{
+	if (chr->mLift.mState == 4 && IsLiftTargetPlug(&chr->mLift)) {
+		return 1.135f;
+	}
+	return 1.0f;
+}
+
+// the anims not given come from the archive
 static inline void ApplyPlayerAnimation(XObjChr* chr, CJAnim* archive, s32 localId, s32 id, BOOL force, void* jointAnim, void* matAnim,
                                         void* shapeAnim, f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
-	if (archive != NULL) {
-		jointAnim = jointAnim ? jointAnim : archive->GetAnimJoint(localId);
-		matAnim   = matAnim ? matAnim : archive->GetMatAnimJoint(localId);
-		shapeAnim = shapeAnim ? shapeAnim : archive->GetShapeAnimJoint(localId);
-	}
-	f32 multiplier = chr->mLift.mState == 4 && IsLiftTargetPlug(&chr->mLift) ? 1.135f : 1.0f;
-	chr->XObj::SetAnim(id, force, jointAnim, matAnim, shapeAnim, frame, rate * multiplier, blend, blendRate);
+	void* joint = jointAnim != NULL ? jointAnim : archive->GetAnimJoint(localId);
+	void* mat   = matAnim != NULL ? matAnim : archive->GetMatAnimJoint(localId);
+	void* shape = shapeAnim != NULL ? shapeAnim : archive->GetShapeAnimJoint(localId);
+	chr->XObj::SetAnim(id, force, joint, mat, shape, frame, rate * PlayerAnimRateMultiplier(chr), blend, blendRate);
 }
 
 /**
@@ -5320,7 +5327,7 @@ void XObjChr::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* 
 	} else if (AtcAnimGroup(this, id) == 1) {
 		ApplyPlayerAnimation(this, &mAttachmentAnim, id % 2000, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	} else {
-		ApplyPlayerAnimation(this, NULL, 0, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+		XObj::SetAnim(id, force, jointAnim, matAnim, shapeAnim, frame, rate * PlayerAnimRateMultiplier(this), blend, blendRate);
 	}
 }
 

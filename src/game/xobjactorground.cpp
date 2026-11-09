@@ -9,6 +9,14 @@ static inline void SetGroundPosition(CObjVec& position, const CVec& next)
 	position.SetTarget(next);
 }
 
+// the actor's position, by way of a zeroed copy
+static inline void GetGroundPosition(XObj* object, Vec* out)
+{
+	Vec position = { 0.0f, 0.0f, 0.0f };
+	position     = object->mMoveTranslate;
+	*out         = position;
+}
+
 /**
  * @note Address: 0x80106CA4
  * @note Size: 0x3C8
@@ -54,9 +62,7 @@ void XObjActor::vf154(u32 frames)
 		mMoveTranslate.y = offset;
 		_998.mFlags |= 0x20;
 	}
-	Vec position = { 0, 0, 0 };
-	position     = mMoveTranslate;
-	pos          = position;
+	GetGroundPosition(this, &pos);
 	SetPos(pos, 0);
 	SetRotateY(_988, 0.0f);
 }

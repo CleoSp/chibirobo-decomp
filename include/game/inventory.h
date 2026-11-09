@@ -7,6 +7,9 @@
 struct InventoryItem {
 	s16 mId;    // _00
 	s16 mCount; // _02, 0 is a free slot
+
+	s16 GetId() const { return mId; }
+	s16 GetCount() const { return mCount; }
 };
 
 // the player's items, the tail of Params. ten of a kind at most

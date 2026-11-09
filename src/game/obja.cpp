@@ -685,24 +685,18 @@ extern "C" void DrawGroundShadowAt__4XObjFPC3Vecf(XObj* object, const Vec* origi
 	u32 center = (u32)(160.0f * opacity);
 	DrawGsCircle(&gGame.mGs, 12, center, edge, position.x, position.y, position.z, size.x, size.z, rotation.x, rotation.y, rotation.z);
 	PrimVertex vertices[26];
-	f32 halfWidth      = size.x * 0.5f;
-	f32 halfHeight     = size.z * 0.5f;
-	PrimVertex* vertex = vertices;
-	for (s32 i = 0; i < 13; ++i, vertex += 2) {
-		f32 angle       = (PI / 6.0f) * i;
-		vertex[0].pos.x = __fnmsubs(halfWidth, (f32)sin(angle), position.x);
-		vertex[0].pos.z = __fmadds(halfHeight, (f32)cos(angle), position.z);
-		vertex[0].pos.y = position.y;
-		vertex[0].color = edge;
-		// retail reads the scale again here
-		f32 sine        = sin(angle);
-		f32 outerWidth  = __fmadds(1.5f, object->mMoveScale.x, halfWidth);
-		vertex[1].pos.x = __fnmsubs(outerWidth, sine, position.x);
-		f32 cosine      = cos(angle);
-		f32 outerHeight = __fmadds(1.5f, object->mMoveScale.z, halfHeight);
-		vertex[1].pos.z = __fmadds(outerHeight, cosine, position.z);
-		vertex[1].pos.y = position.y;
-		vertex[1].color = 0;
+	f32 halfWidth  = size.x * 0.5f;
+	f32 halfHeight = size.z * 0.5f;
+	for (s32 i = 0; i < 13; i++) {
+		f32 angle                 = (PI / 6.0f) * i;
+		vertices[i * 2].pos.x     = position.x - halfWidth * (f32)sin(angle);
+		vertices[i * 2].pos.z     = position.z + halfHeight * (f32)cos(angle);
+		vertices[i * 2].pos.y     = position.y;
+		vertices[i * 2].color     = edge;
+		vertices[i * 2 + 1].pos.x = position.x - (1.5f * object->mMoveScale.x + halfWidth) * (f32)sin(angle);
+		vertices[i * 2 + 1].pos.z = position.z + (1.5f * object->mMoveScale.z + halfHeight) * (f32)cos(angle);
+		vertices[i * 2 + 1].pos.y = position.y;
+		vertices[i * 2 + 1].color = 0;
 	}
 	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLESTRIP, gGame.mGs.mCamera->mViewMtx, vertices, 26);
 }
@@ -996,12 +990,13 @@ extern "C" void vfDC__4XObjFiUc(CXObj* object, BOOL enabled, u8 value)
 extern "C" void fn_80091888(HSD_JObj* joint, f32** arguments, s32 type)
 {
 	const XObjPEPresets* presets = &gObjectPixelEnginePresets;
-	u32 reset                    = (u32)arguments[0];
-	u32 firstPreset              = (u32)arguments[1];
-	u32 secondPreset             = (u32)arguments[2];
-	u32 thirdPreset              = (u32)arguments[3];
-	u32 toon                     = (u32)arguments[4];
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
+	HSD_DObj* draw;
+	u32 reset        = (u32)arguments[0];
+	u32 firstPreset  = (u32)arguments[1];
+	u32 secondPreset = (u32)arguments[2];
+	u32 thirdPreset  = (u32)arguments[3];
+	u32 toon         = (u32)arguments[4];
+	for (draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
 		HSD_MObj* material = HSD_DObjGetMObj(draw);
 		if (material != NULL) {
 			if (reset) {

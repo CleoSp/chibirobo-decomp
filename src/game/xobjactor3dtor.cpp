@@ -63,7 +63,7 @@ extern "C" s32 HandleEventCommand__10XObjActor3FlPl(XObjActor3* actor, s32 argc,
 				if (argv[1] >= 10000) {
 					actor->mParts[i].mObj = FindObj(argv[1]);
 				} else {
-					actor->mParts[i].mObj = gGame.GetObject(argv[1]);
+					actor->mParts[i].mObj = gGame.GetObject((s16)argv[1]);
 				}
 #if !defined(VERSION_PAL)
 				if (actor->mParts[i].mObj == NULL) {
@@ -72,7 +72,7 @@ extern "C" s32 HandleEventCommand__10XObjActor3FlPl(XObjActor3* actor, s32 argc,
 #endif
 				s32 path[8];
 				s32 depth = argv[2];
-				for (int j = 0; j < depth; j++) {
+				for (s32 j = 0; j < depth; j++) {
 					path[j] = argv[3 + j];
 				}
 				actor->mParts[i].mJoint = GetJointByPath(actor->mJObj, path, depth);

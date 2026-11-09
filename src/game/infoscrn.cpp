@@ -472,6 +472,286 @@ extern "C" void DrawHudPauseLabel(InfoScrn* scrn)
 	}
 }
 
+static inline bool FadeHudIn(f32& alpha, u32 frames)
+{
+	alpha += 0.08f * frames;
+	bool done = alpha >= 1;
+	if (done)
+		alpha = 1;
+	return done;
+}
+
+static inline bool FadeHudOut(f32& alpha, u32 frames)
+{
+	alpha -= 0.08f * frames;
+	bool done = alpha < 0;
+	if (done)
+		alpha = 0;
+	return done;
+}
+
+static inline void StepHudVisibility(s32& state, f32& alpha, u32 frames)
+{
+	switch (state) {
+	case 0:
+		state = 4;
+		alpha = 0;
+		break;
+	case 1:
+		alpha = 1;
+		break;
+	case 2:
+		alpha = 0;
+		break;
+	case 3:
+		FadeHudIn(alpha, frames);
+		break;
+	case 4:
+		FadeHudOut(alpha, frames);
+		break;
+	}
+}
+
+static inline s32 HighlightedAttachment()
+{
+	const AtcMenu& menu = gGame.GetPlayer()->mMenu.mAtc;
+	return menu.mCursorIndex >= 0 ? menu.mItems[menu.mCursorIndex].mType : 0;
+}
+
+static inline void AdvanceHudIcon(InfoScrn* h)
+{
+	if (++h->_17C > 1) {
+		if (++h->_180 >= 9)
+			h->_180 = 9;
+		h->_17C = 0;
+	}
+}
+
+static inline void ApproachHudScale(f32& current, f32 target)
+{
+	f32 step = (target - current) / 10;
+	if (step < 0)
+		step = -step;
+	Approach(&current, &target, step);
+}
+
+static inline void ProjectJointPosition(InfoScrn* h, CVec& position)
+{
+	Vec offset = { position.x - h->_19C->GetTranslateX(), position.y - h->_19C->GetTranslateY(), position.z - h->_19C->GetTranslateZ() };
+	h->_19C->ProjectOffsetToScreen(&offset, &position.x, &position.y, NULL, NULL);
+	position.z = 0;
+	h->_190    = position;
+}
+
+/**
+ * @note Address: 0x8006AF34
+ * @note Size: 0x1B5C
+ */
+extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
+{
+	if (!IsHudOn() && !(gGame.mStatus.mFlags & 0x200000000000ULL))
+		return;
+	UpdateHudPointValue(&gHudHappyPointCounter, frames);
+	UpdateHudPointValue(&gHudMoneyCounter, frames);
+	UpdateHudPointValue(&gHudScrapCounter, frames);
+	++h->_B4;
+	switch (h->_9C) {
+	case 0:
+		++h->_9C;
+		break;
+	case 1:
+		if (FadeHudIn(h->_A8, frames))
+			++h->_9C;
+		break;
+	case 2:
+		if (gGame.mEvt.mData.mScript)
+			++h->_9C;
+		break;
+	case 3:
+		if (FadeHudOut(h->_A8, frames))
+			++h->_9C;
+		break;
+	case 4:
+		if (!gGame.mEvt.mData.mScript)
+			h->_9C = 1;
+		break;
+	}
+	h->_A8 = 1;
+	CPad pad(0);
+	switch (h->_A0) {
+	case 0:
+		if (gGame.GetPlayer()->GetAttachment()) {
+			h->_B8 = -1;
+			++h->_A0;
+		}
+		break;
+	case 1:
+		if (FadeHudIn(h->_AC, frames))
+			++h->_A0;
+		break;
+	case 2:
+		if (h->_B8 != -1 || !gGame.GetPlayer()->GetAttachment())
+			++h->_A0;
+		break;
+	case 3:
+		if (FadeHudOut(h->_AC, frames))
+			h->_A0 = 0;
+		break;
+	}
+	static s32 previousAttachment = HighlightedAttachment();
+	switch (h->_A4) {
+	case 0:
+		if (gGame.mStatus.mFlags & 0x400) {
+			++h->_A4;
+			previousAttachment = HighlightedAttachment();
+			h->_17C            = 0;
+			h->_180            = 0;
+		}
+		break;
+	case 1:
+		if (FadeHudIn(h->_B0, frames))
+			++h->_A4;
+		AdvanceHudIcon(h);
+		break;
+	case 2:
+		if (previousAttachment != HighlightedAttachment()) {
+			h->_17C = 0;
+			h->_180 = 0;
+		}
+		previousAttachment = HighlightedAttachment();
+		AdvanceHudIcon(h);
+		if (!(gGame.mStatus.mFlags & 0x400))
+			++h->_A4;
+		break;
+	case 3:
+		if (FadeHudOut(h->_B0, frames))
+			h->_A4 = 0;
+		break;
+	}
+	switch (h->_BC) {
+	case 0:
+		h->_BC = 3;
+		h->_C0 = 0;
+		h->_DC = 1.4f;
+		break;
+	case 1:
+		h->_C0 = 1;
+		break;
+	case 2:
+		h->_C0 = 0;
+		break;
+	case 3:
+		FadeHudIn(h->_C0, frames);
+		break;
+	case 4:
+		FadeHudOut(h->_C0, frames);
+		break;
+	case 5:
+		ApproachHudScale(h->_DC, 1.4f + 0.25f * (f32)sin(0.017453292f * ((s32)((u32)h->_B4 * 16) % 360)));
+		break;
+	case 6:
+		ApproachHudScale(h->_DC, 1.4f);
+		break;
+	}
+	f32 step = (h->_C8 - h->_C4) * 0.25f;
+	if (step < 0)
+		step = -step;
+	Approach(&h->_C4, &h->_C8, step);
+	Approach(&h->_140, &h->_144, 0.08f * frames);
+	switch (h->_148) {
+	case 0:
+		h->_148          = 3;
+		h->_14C          = 0;
+		h->mItemMaxAlpha = h->_14C;
+		h->mItemMax      = ItemMax();
+		h->_16C          = 1;
+		break;
+	case 1:
+		h->_14C          = 1;
+		h->mItemMaxAlpha = h->_14C;
+		break;
+	case 2:
+		h->_14C          = 0;
+		h->mItemMaxAlpha = h->_14C;
+		break;
+	case 3:
+		FadeHudIn(h->_14C, frames);
+		h->mItemMaxAlpha = h->_14C;
+		break;
+	case 4:
+		FadeHudOut(h->_14C, frames);
+		h->mItemMaxAlpha = h->_14C;
+		break;
+	case 5:
+		if (FadeHudOut(h->mItemMaxAlpha, frames)) {
+			h->mItemMax = h->mNextItemMax;
+			PlayGameSound(&gGame.mSound, 0xb6, 255);
+			++h->_148;
+		}
+		break;
+	case 6:
+		FadeHudIn(h->mItemMaxAlpha, frames);
+		break;
+	case 7:
+		ApproachHudScale(h->_16C, 1.0f + 0.125f * (f32)sin(0.017453292f * ((s32)((u32)h->_B4 * 16) % 360)));
+		break;
+	case 8:
+		ApproachHudScale(h->_16C, 1);
+		break;
+	}
+	if ((IsHudOn() && !gGame.mEvt.mData.mScript && !gGame.mMenu.mActive && !(gGame.mStatus.mFlags & 0xc00) && gGame.mTimeState.mDuration > 0
+	     && !gGame.mTimeState.mRunning)
+	    || gGame.mTimeState.mTime >= 1)
+		++h->_154;
+	CJObj joint;
+	CVec position;
+	switch (h->_188) {
+	case 0:
+		h->_188 = 4;
+		h->_18C = 0;
+		break;
+	case 1:
+		h->_18C = 1;
+		if (h->_19C && (h->_19C->mStatus.mFlags & 1)) {
+			s32 path[] = { 0, 0 };
+			joint.Attach(FindJointByPath(h->_19C->mJObj, path, 2));
+			position = CVec(joint.GetPos());
+			ProjectJointPosition(h, position);
+		}
+		break;
+	case 2:
+		h->_18C = 0;
+		break;
+	case 3:
+		FadeHudIn(h->_18C, frames);
+		if (h->_19C && (h->_19C->mStatus.mFlags & 1)) {
+			s32 path[] = { 0, 0 };
+			joint.Attach(FindJointByPath(h->_19C->mJObj, path, 2));
+			position = CVec(joint.GetPos());
+			ProjectJointPosition(h, position);
+		}
+		break;
+	case 4:
+		FadeHudOut(h->_18C, frames);
+		break;
+	}
+	StepHudVisibility(h->_1A0, h->_1A4, frames);
+	StepHudVisibility(h->_1B4, h->_1B8, frames);
+	if (h->mTimerShown) {
+		h->mTimer += frames;
+		if (h->mTimer >= TIMER_MAX) {
+			h->mTimer      = TIMER_MAX;
+			h->mTimerShown = FALSE;
+		}
+	}
+	StepHudVisibility(h->mScanlineVisibilityState, h->mScanlineAlpha, frames);
+	if (gGame.mStatus.mFlags & 0x400) {
+		if (gHudOpacityScale > 0 && (gHudOpacityScale -= 0.08f * frames) < 0)
+			gHudOpacityScale = 0;
+	} else if (gHudOpacityScale < 1 && (gHudOpacityScale += 0.08f * frames) > 1)
+		gHudOpacityScale = 1;
+}
+
 /**
  * @note Address: 0x8006AB00
  * @note Size: 0x434
@@ -1688,278 +1968,3 @@ extern "C" void DrawHudClock(InfoScrn* scrn)
 	DrawClockQuad(tex, 0xffffff00 | (u32)(255 * badgeAlpha), 80 - 22 * scale, 80 - 22 * scale, 0, 1.1f * (scale * tw), 1.1f * (scale * th));
 }
 #pragma pop
-
-static inline bool FadeHudIn(f32& alpha, u32 frames)
-{
-	alpha += 0.08f * frames;
-	bool done = alpha >= 1;
-	if (done)
-		alpha = 1;
-	return done;
-}
-
-static inline bool FadeHudOut(f32& alpha, u32 frames)
-{
-	alpha -= 0.08f * frames;
-	bool done = alpha < 0;
-	if (done)
-		alpha = 0;
-	return done;
-}
-
-static inline void StepHudVisibility(s32& state, f32& alpha, u32 frames)
-{
-	switch (state) {
-	case 0:
-		state = 4;
-		alpha = 0;
-		break;
-	case 1:
-		alpha = 1;
-		break;
-	case 2:
-		alpha = 0;
-		break;
-	case 3:
-		FadeHudIn(alpha, frames);
-		break;
-	case 4:
-		FadeHudOut(alpha, frames);
-		break;
-	}
-}
-
-static inline s32 HighlightedAttachment()
-{
-	const AtcMenu& menu = gGame.GetPlayer()->mMenu.mAtc;
-	return menu.mCursorIndex >= 0 ? menu.mItems[menu.mCursorIndex].mType : 0;
-}
-
-static inline void AdvanceHudIcon(InfoScrn* h)
-{
-	if (++h->_17C > 1) {
-		if (++h->_180 >= 9)
-			h->_180 = 9;
-		h->_17C = 0;
-	}
-}
-
-static inline void ApproachHudScale(f32& current, f32 target)
-{
-	f32 step = (target - current) / 10;
-	if (step < 0)
-		step = -step;
-	Approach(&current, &target, step);
-}
-
-static inline void ProjectJointPosition(InfoScrn* h, CVec& position)
-{
-	Vec offset = { position.x - h->_19C->GetTranslateX(), position.y - h->_19C->GetTranslateY(), position.z - h->_19C->GetTranslateZ() };
-	h->_19C->ProjectOffsetToScreen(&offset, &position.x, &position.y, NULL, NULL);
-	position.z = 0;
-	h->_190    = position;
-}
-extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
-{
-	if (!IsHudOn() && !(gGame.mStatus.mFlags & 0x200000000000ULL))
-		return;
-	UpdateHudPointValue(&gHudHappyPointCounter, frames);
-	UpdateHudPointValue(&gHudMoneyCounter, frames);
-	UpdateHudPointValue(&gHudScrapCounter, frames);
-	++h->_B4;
-	switch (h->_9C) {
-	case 0:
-		++h->_9C;
-		break;
-	case 1:
-		if (FadeHudIn(h->_A8, frames))
-			++h->_9C;
-		break;
-	case 2:
-		if (gGame.mEvt.mData.mScript)
-			++h->_9C;
-		break;
-	case 3:
-		if (FadeHudOut(h->_A8, frames))
-			++h->_9C;
-		break;
-	case 4:
-		if (!gGame.mEvt.mData.mScript)
-			h->_9C = 1;
-		break;
-	}
-	h->_A8 = 1;
-	CPad pad(0);
-	switch (h->_A0) {
-	case 0:
-		if (gGame.GetPlayer()->GetAttachment()) {
-			h->_B8 = -1;
-			++h->_A0;
-		}
-		break;
-	case 1:
-		if (FadeHudIn(h->_AC, frames))
-			++h->_A0;
-		break;
-	case 2:
-		if (h->_B8 != -1 || !gGame.GetPlayer()->GetAttachment())
-			++h->_A0;
-		break;
-	case 3:
-		if (FadeHudOut(h->_AC, frames))
-			h->_A0 = 0;
-		break;
-	}
-	static s32 previousAttachment = HighlightedAttachment();
-	switch (h->_A4) {
-	case 0:
-		if (gGame.mStatus.mFlags & 0x400) {
-			++h->_A4;
-			previousAttachment = HighlightedAttachment();
-			h->_17C            = 0;
-			h->_180            = 0;
-		}
-		break;
-	case 1:
-		if (FadeHudIn(h->_B0, frames))
-			++h->_A4;
-		AdvanceHudIcon(h);
-		break;
-	case 2:
-		if (previousAttachment != HighlightedAttachment()) {
-			h->_17C = 0;
-			h->_180 = 0;
-		}
-		previousAttachment = HighlightedAttachment();
-		AdvanceHudIcon(h);
-		if (!(gGame.mStatus.mFlags & 0x400))
-			++h->_A4;
-		break;
-	case 3:
-		if (FadeHudOut(h->_B0, frames))
-			h->_A4 = 0;
-		break;
-	}
-	switch (h->_BC) {
-	case 0:
-		h->_BC = 3;
-		h->_C0 = 0;
-		h->_DC = 1.4f;
-		break;
-	case 1:
-		h->_C0 = 1;
-		break;
-	case 2:
-		h->_C0 = 0;
-		break;
-	case 3:
-		FadeHudIn(h->_C0, frames);
-		break;
-	case 4:
-		FadeHudOut(h->_C0, frames);
-		break;
-	case 5:
-		ApproachHudScale(h->_DC, 1.4f + 0.25f * (f32)sin(0.017453292f * ((s32)((u32)h->_B4 * 16) % 360)));
-		break;
-	case 6:
-		ApproachHudScale(h->_DC, 1.4f);
-		break;
-	}
-	f32 step = (h->_C8 - h->_C4) * 0.25f;
-	if (step < 0)
-		step = -step;
-	Approach(&h->_C4, &h->_C8, step);
-	Approach(&h->_140, &h->_144, 0.08f * frames);
-	switch (h->_148) {
-	case 0:
-		h->_148          = 3;
-		h->_14C          = 0;
-		h->mItemMaxAlpha = h->_14C;
-		h->mItemMax      = ItemMax();
-		h->_16C          = 1;
-		break;
-	case 1:
-		h->_14C          = 1;
-		h->mItemMaxAlpha = h->_14C;
-		break;
-	case 2:
-		h->_14C          = 0;
-		h->mItemMaxAlpha = h->_14C;
-		break;
-	case 3:
-		FadeHudIn(h->_14C, frames);
-		h->mItemMaxAlpha = h->_14C;
-		break;
-	case 4:
-		FadeHudOut(h->_14C, frames);
-		h->mItemMaxAlpha = h->_14C;
-		break;
-	case 5:
-		if (FadeHudOut(h->mItemMaxAlpha, frames)) {
-			h->mItemMax = h->mNextItemMax;
-			PlayGameSound(&gGame.mSound, 0xb6, 255);
-			++h->_148;
-		}
-		break;
-	case 6:
-		FadeHudIn(h->mItemMaxAlpha, frames);
-		break;
-	case 7:
-		ApproachHudScale(h->_16C, 1.0f + 0.125f * (f32)sin(0.017453292f * ((s32)((u32)h->_B4 * 16) % 360)));
-		break;
-	case 8:
-		ApproachHudScale(h->_16C, 1);
-		break;
-	}
-	if ((IsHudOn() && !gGame.mEvt.mData.mScript && !gGame.mMenu.mActive && !(gGame.mStatus.mFlags & 0xc00) && gGame.mTimeState.mDuration > 0
-	     && !gGame.mTimeState.mRunning)
-	    || gGame.mTimeState.mTime >= 1)
-		++h->_154;
-	CJObj joint;
-	CVec position;
-	switch (h->_188) {
-	case 0:
-		h->_188 = 4;
-		h->_18C = 0;
-		break;
-	case 1:
-		h->_18C = 1;
-		if (h->_19C && (h->_19C->mStatus.mFlags & 1)) {
-			s32 path[] = { 0, 0 };
-			joint.Attach(FindJointByPath(h->_19C->mJObj, path, 2));
-			position = CVec(joint.GetPos());
-			ProjectJointPosition(h, position);
-		}
-		break;
-	case 2:
-		h->_18C = 0;
-		break;
-	case 3:
-		FadeHudIn(h->_18C, frames);
-		if (h->_19C && (h->_19C->mStatus.mFlags & 1)) {
-			s32 path[] = { 0, 0 };
-			joint.Attach(FindJointByPath(h->_19C->mJObj, path, 2));
-			position = CVec(joint.GetPos());
-			ProjectJointPosition(h, position);
-		}
-		break;
-	case 4:
-		FadeHudOut(h->_18C, frames);
-		break;
-	}
-	StepHudVisibility(h->_1A0, h->_1A4, frames);
-	StepHudVisibility(h->_1B4, h->_1B8, frames);
-	if (h->mTimerShown) {
-		h->mTimer += frames;
-		if (h->mTimer >= TIMER_MAX) {
-			h->mTimer      = TIMER_MAX;
-			h->mTimerShown = FALSE;
-		}
-	}
-	StepHudVisibility(h->mScanlineVisibilityState, h->mScanlineAlpha, frames);
-	if (gGame.mStatus.mFlags & 0x400) {
-		if (gHudOpacityScale > 0 && (gHudOpacityScale -= 0.08f * frames) < 0)
-			gHudOpacityScale = 0;
-	} else if (gHudOpacityScale < 1 && (gHudOpacityScale += 0.08f * frames) > 1)
-		gHudOpacityScale = 1;
-}

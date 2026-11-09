@@ -281,6 +281,7 @@ public:
 	void ResetNewGameState();
 
 	XObj* GetObject(s32 index) const { return mXObjs.mObjects[index]; }
+	CMsg* GetMsg(s32 index) { return &mCMsgs[index]; }
 	// chibi robo, pool 2's one object
 	XObjChr* GetPlayer() const { return (XObjChr*)mXObjs.mPools[2].mObjects; }
 

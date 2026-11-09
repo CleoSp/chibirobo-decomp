@@ -15,27 +15,21 @@ extern "C" {
  */
 extern "C" void DrawPlugCordNodes(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY, f32 scaleZ)
 {
-	f32(*selectedView)[4];
-	if (view == NULL)
-		selectedView = gGame.mGs.mCamera->mViewMtx;
-	else
-		selectedView = view;
+	Mtx combined;
+	Mtx local;
+	MtxPtr selectedView = view == NULL ? gGame.mGs.mCamera->mViewMtx : view;
 	SetGsChannelEnabled(&gGame.mGs, 0, 0);
 	SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
 	SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
 	if (cord->mNodes.mEnabled == 1) {
 		XObjPlugCordNode* node = cord->mNodes.mNode;
-		for (s32 i = 0; (u32)i < cord->mNodes.mCount; ++i, ++node) {
+		for (s32 i = 0; i < cord->mNodes.mCount; i++, node++) {
 			if (cord->mNodes.mNode[i].mState != 0) {
-				Mtx combined;
-				Vec rotation = CVec(0.0f, 0.0f, 0.0f);
 				Vec scale    = CVec(0.7f, 0.7f, 0.7f);
-				Mtx local;
+				Vec rotation = CVec(0.0f, 0.0f, 0.0f);
 				HSD_MtxSRT(local, &scale, &rotation, &node->mPos, NULL);
 				PSMTXConcat(selectedView, local, combined);
-				s32 alpha = (s32)(300.0 / pow(2.0, (f64)i));
-				u32 color = (cord->mNodes.mColor & 0xFFFFFF00) | alpha;
-				DrawGsSphereWithMatrix(&gGame.mGs, combined, color, 8, 8);
+				DrawGsSphereWithMatrix(&gGame.mGs, combined, (cord->mNodes.mColor & 0xFFFFFF00) | (s32)(300.0 / pow(2.0, i)), 8, 8);
 			}
 		}
 	}

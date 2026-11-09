@@ -2467,6 +2467,7 @@ config.libs = [
             Object(Matching, "game/cpad.cpp", cflags=cflags_hsd_game),
             Object(Matching, "game/cpadconstants.cpp", cflags=cflags_hsd_game),
             *([Object(Matching, "game/fontmetrics.cpp")] if config.version != JP else []),
+            *([Object(Matching, "game/fontatlas.c")] if config.version != JP else []),
             Object(Matching, "game/fontcache.cpp"),
             Object(Matching, "game/fontinitdata", source="game/cfont.cpp", source_data=".rodata", data_range=(0, 0x174),
                    rodata_objects=[("sFontGlyphImageHeader", 36), ("sFontSheetImageHeader", 36),

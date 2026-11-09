@@ -11,7 +11,6 @@ void InitializeEventScriptContext(CEvt* event, u8* context, void* owner);
  */
 void XObj::InitializeObject(u32 id)
 {
-	// NONMATCHING: the dol adds the event data's offset and its index apart
 	CXObj::Init(id);
 	mStatus.mFlags = 0;
 	mCoord._00     = NULL;
@@ -20,7 +19,7 @@ void XObj::InitializeObject(u32 id)
 	mFloors        = NULL;
 	mPoolIndex     = 0;
 	ResetObjectState();
-	InitializeEventScriptContext(&mEvt, (u8*)&gGame.mCMsgs[1], this);
+	InitializeEventScriptContext(&mEvt, (u8*)gGame.GetMsg(1), this);
 	mAnmQueue.Clear();
 	mAnim.Clear();
 }

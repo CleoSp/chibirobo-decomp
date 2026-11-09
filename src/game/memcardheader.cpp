@@ -30,7 +30,7 @@ extern "C" BOOL ReadValidatedSaveFileCopy(Memcard* card, SaveFile* file)
 			continue;
 		}
 		u32 checksum   = 0;
-		const u8* data = reinterpret_cast<const u8*>(&file->mData);
+		const u8* data = reinterpret_cast<const u8*>(save);
 		for (u32 i = 0; i < sizeof(SaveData); ++i)
 			checksum += *data++;
 		if (checksum != file->mChecksum)

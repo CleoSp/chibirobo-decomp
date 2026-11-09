@@ -19,6 +19,12 @@ block_relocations:
 - source: .text:0x801E78C0
 - source: .text:0x801E78D0
 
+# Pulled from your disc at build time so the font texture never lands in the repository.
+extract:
+- symbol: gSingleByteFontAtlas
+  header: assets/fontatlas.inc
+  header_type: raw
+
 # All RELs live inside files/qp.bin, a U8 archive.
 modules:
 - object: files/qp.bin:rel/ahk.rel

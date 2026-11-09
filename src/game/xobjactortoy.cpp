@@ -1453,7 +1453,6 @@ extern "C" void HandleToyKind110Command(XObjActorToy* object)
  * @note Address: 0x8011EE8C
  * @note Size: 0x410
  */
-// NONMATCHING: regalloc
 extern "C" void HandleToyKind0FCommand(XObjActorToy* object)
 {
 	s32 count;
@@ -1525,8 +1524,8 @@ extern "C" void HandleToyKind0FCommand(XObjActorToy* object)
 		count = 0;
 		for (s32 i = 0; i < 0x100; i++) {
 			InventoryItem* items = gGame.GetPlayer()->mParams.mInventory.mItems;
-			s16 num              = items[i].mCount;
-			s16 id               = items[i].mId;
+			s16 num              = items[i].GetCount();
+			s16 id               = items[i].GetId();
 			if (GetItemFlagsMasked(id, 4) && id >= 0 && num > 0) {
 				count++;
 			}

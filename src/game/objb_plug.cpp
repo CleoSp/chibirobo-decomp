@@ -114,16 +114,16 @@ CVec GetPlugCordPointPosition(const XObjPlugCord* cord, s32 index)
  * @note Address: 0x800D909C
  * @note Size: 0x32C
  */
-// NONMATCHING: temporary-vector lifetime and stack layout.
 void GetPlayerPlugCordAnchorTransform(void*, Vec* position, Vec* rotation, Vec* scale)
 {
-	s32 path[] = { 0, 1, 0, 1, 1 };
-	CJObj joint(GetJointByPath(gGame.GetPlayer()->mJObj, path, 5));
 	Mtx matrix;
+	s32 path[] = { 0, 1, 0, 1, 1 };
+	CJObj joint(FindJointByPath(gGame.GetPlayer()->mJObj, path, 5));
 	if (joint.mJObj != NULL) {
 		PSMTXCopy(joint.GetMtx(), matrix);
 	}
 
+	CVec unused; // never read, the dol still constructs it
 	static CVec offset(0.0f, 0.0f, -0.4f);
 	if (position != NULL) {
 		PSMTXMultVec(matrix, &offset, position);

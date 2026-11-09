@@ -3967,7 +3967,7 @@ game/cpadconstants.cpp:
 game/fontmetrics.cpp:
 	.data       start:0x8023E5C0 end:0x8023F200
 
-game/fontatlas:
+game/fontatlas.c:
 	.data       start:0x8023F200 end:0x8025F200 align:32
 
 game/fontcache.cpp:

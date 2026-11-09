@@ -4574,11 +4574,19 @@ static inline void SetScissor(u32 top, u32 height)
 #endif
 }
 
+// looks up flag 4 of every carried item, the results go unused
+static inline void CheckPlayerInventoryFlags()
+{
+	for (s32 i = 255; i >= 0; --i) {
+		InventoryItem* items = (InventoryItem*)&gGame.GetPlayer()->mParams.mInventory;
+		GetItemFlagsMasked(items[i].mId, 4);
+	}
+}
+
 /**
  * @note Address: 0x8005773C
  * @note Size: 0x1F8
  */
-// NONMATCHING: the item table address is formed differently
 extern "C" BOOL Draw__10MenuStatusFv(MenuStatus* menu)
 {
 	if (menu->CMenu::Draw()) {
@@ -4591,10 +4599,7 @@ extern "C" BOOL Draw__10MenuStatusFv(MenuStatus* menu)
 			s32 item = menu->mPhase == 100 ? -1 : menu->mItem;
 			DrawInventoryGrid(item, x, y, menu->mAlpha, 1.0f, menu->_694);
 			DrawStatusItemDetails(sStatusItemTable.mItems[menu->mItem].mItem, 320.0f, 224.0f, menu->mAlpha, menu->_66C);
-			for (s32 i = 255; i >= 0; --i) {
-				s16 id = gGame.GetPlayer()->mParams.mInventory.mItems[i].mId;
-				GetItemFlagsMasked(id, 4);
-			}
+			CheckPlayerInventoryFlags();
 			DrawDiscardCountPanel(menu);
 			SetScissor(0, 448);
 		}

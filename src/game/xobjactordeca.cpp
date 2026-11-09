@@ -12,12 +12,12 @@ void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
  * @note Address: 0x8012F940
  * @note Size: 0x8B8
  */
-// NONMATCHING: scheduling
+// NONMATCHING: regalloc
 s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 {
 	XObjChr* player = gGame.GetPlayer();
 	CJObj jobj;
-	CVec target;
+	CVec unused; // never read, the dol still constructs it
 	HandleEventCommand__9XObjActorFlPl(this, count, command);
 	switch (command[0]) {
 	case 1:
@@ -118,7 +118,9 @@ s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 				_998.mFlags &= ~0x100;
 				s32 path[5] = { 0, 6, 0, 0, 1 };
 				jobj.Attach(FindJointByPath(mJObj, path, 5));
-				target   = GetJointPosition(jobj.mJObj);
+				Vec position;
+				position = GetJointPosition(jobj.mJObj);
+				CVec target(position);
 				target.y = 0.0f;
 				player->SetPos(target, 0);
 				player->_980.mFlags = 0;

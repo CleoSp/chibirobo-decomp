@@ -20,25 +20,24 @@ extern "C" void RestoreSavedPlayerAndCamera(Memcard* card)
 	ResetPlayerHeadOffset(gGame.GetPlayer());
 	fn_8009FCC4(gGame.GetPlayer());
 	if (save->mHeader.mVersion <= 0x10100 || (save->mHeader.mVersion & 2)) {
-		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
-		s32 action                   = save->mCameraAction;
-		if (action >= 0 && action < CAMACTION_NUM) {
-			camera->ChangeAction(action);
-			camera->mCamera.SetEye(save->mCameraEye);
-			camera->mCamera.SetInterest(save->mCameraInterest);
-			camera->mCamera.SetAngle(save->mCameraAngle);
-			camera->mCamera.SetDistance(save->mCameraDistance);
-			camera->mCamera.SetFov(save->mCameraFov);
+		CCamera* camera              = &gGame.mMotionControlCamera.mCamera;
+		CMotionControlCamera* motion = &gGame.mMotionControlCamera;
+		if (save->mCameraAction >= 0 && save->mCameraAction < CAMACTION_NUM) {
+			motion->ChangeAction(save->mCameraAction);
+			camera->SetEye(save->mCameraEye);
+			camera->SetInterest(save->mCameraInterest);
+			camera->SetAngle(save->mCameraAngle);
+			camera->SetDistance(save->mCameraDistance);
+			camera->SetFov(save->mCameraFov);
 			CCameraMemento memento;
-			CInterfaceCameraAction* map = gGame.mCameraActions.mTable[CAMACTION_MAP];
 			memento.SetEye(save->mCameraEye);
 			memento.SetInterest(save->mCameraInterest);
 			memento.SetAngle(save->mCameraAngle);
 			memento.mDistance = save->mCameraDistance;
 			memento.mFov      = save->mCameraFov;
 			memento.mAction   = gGame.mCameraActions.mTable[save->mCameraAction];
-			fn_8014127C(map);
-			camera->SetMemento(&memento);
+			fn_8014127C(gGame.mCameraActions.mTable[CAMACTION_MAP]);
+			motion->SetMemento(&memento);
 		}
 	}
 }
