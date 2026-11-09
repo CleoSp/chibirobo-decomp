@@ -9,8 +9,8 @@ extern "C" void BuildSaveBanner(Memcard*, s32);
 static inline BOOL WriteSaveCopies(Memcard* card)
 {
 	card->mState = 13;
-	for (s32 copy = 0; copy < 2; ++copy) {
-		card->mCard.Write(card->mBuffer, sizeof(SaveFile), copy * sizeof(SaveFile));
+	for (s32 copy = 0, offset = 0; copy < 2; ++copy, offset += sizeof(SaveFile)) {
+		card->mCard.Write(card->mBuffer, sizeof(SaveFile), offset);
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY) {
 			card->mCard.Close();
@@ -19,7 +19,8 @@ static inline BOOL WriteSaveCopies(Memcard* card)
 		}
 		if (copy == 1) {
 			CARDStat stat;
-			if (card->mCard.GetStatus(&stat) < 0 || !HasSaveFileLayout(stat)) {
+			card->mCard.GetStatus(&stat);
+			if (!HasSaveFileLayout(stat)) {
 				card->mState = 11;
 				card->mCard.SetStatus(&card->mStat);
 				card->LogResult();

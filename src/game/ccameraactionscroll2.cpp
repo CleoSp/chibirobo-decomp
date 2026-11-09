@@ -80,7 +80,7 @@ void CCameraActionScroll2::HideObjs()
 		if (*id == -1) {
 			return;
 		}
-		XObj* obj = gGame.mXObjs.mObjects[*id];
+		XObj* obj = gGame.GetObject(*id);
 		if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 			if (obj->mStatus.mFlags & 0x10000) {
 				*state = 1;

@@ -1740,11 +1740,20 @@ extern "C" __declspec(section ".text.spiderevent") void HandleSmallSpiderEventCo
 	}
 }
 
+// takes amount off the robot's battery, not below empty
+static inline void DrainPlayerBattery(f32 amount)
+{
+	f32 battery = gGame.GetPlayer()->mParams.mBattery - amount;
+	if (battery < 0.0f) {
+		battery = 0.0f;
+	}
+	gGame.GetPlayer()->mParams.SetBattery(battery);
+}
+
 /**
  * @note Address: 0x800FD5E0
  * @note Size: 0x40C
  */
-// NONMATCHING: the battery clamp recomputes its address in other places
 // caught in the web: drains the robot's battery and tints the screen red
 extern "C" __declspec(section ".text.spidercaught") void UpdatePlayerCaughtInSpiderWeb(XObjSpiderSmall* spider, u32 frames)
 {
@@ -1770,7 +1779,7 @@ extern "C" __declspec(section ".text.spidercaught") void UpdatePlayerCaughtInSpi
 		if ((spider->mSpiderStatus.mFlags & 0x800000) && gGame.mEvt.mData.mScript == NULL
 		    && GetPlayerCollisionRadius(gGame.GetPlayer()) < 2.0f) {
 			if (--spider->_A94 <= 0) {
-				DrainSpiderBattery(gGame.GetPlayer()->mParams, 3.0f);
+				DrainPlayerBattery(3.0f);
 				spider->_A94 = 30;
 				if (gSpiderDrainFlashClaimed == 0) {
 					spider->mSpiderStatus.mFlags |= 0x1000000;

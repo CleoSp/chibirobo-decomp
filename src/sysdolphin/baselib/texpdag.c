@@ -171,16 +171,12 @@ void HSD_TExpUnref(HSD_TExp* texp, u8 sel);
  */
 void CalcDistance(HSD_TExp** tevs, int* dist, HSD_TExp* tev, int num, int depth)
 {
-	int idx;
-	HSD_TExp** p;
 	int i;
 
-	p   = tevs;
-	idx = 0;
 	for (i = 0; i < num; i++) {
-		if (*p == tev) {
-			if (dist[idx] < depth) {
-				dist[idx] = depth;
+		if (tevs[i] == tev) {
+			if (dist[i] < depth) {
+				dist[i] = depth;
 				for (i = 0; i < 4; i++) {
 					if (tev->tev.c_in[i].type == 1) {
 						CalcDistance(tevs, dist, tev->tev.c_in[i].exp, num, depth + 1);
@@ -192,8 +188,6 @@ void CalcDistance(HSD_TExp** tevs, int* dist, HSD_TExp* tev, int num, int depth)
 			}
 			return;
 		}
-		p++;
-		idx++;
 	}
 }
 

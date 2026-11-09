@@ -55,8 +55,8 @@ void UpdateSpiderCoinBounces(void* unused, u32 frames);
 void ResetSpiderCoinBounces(void* unused);
 void PlaySpiderVariantSound(XObjSpider* spider);
 s32 FindNearbyDroppedSpider(XObjSpider* spider);
-BOOL HasNearbyDroppedSpider(XObjSpider* spider);
-BOOL IsSpiderInsideMovementArea(XObjSpider* spider);
+bool HasNearbyDroppedSpider(XObjSpider* spider);
+bool IsSpiderInsideMovementArea(XObjSpider* spider);
 void UpdateSpiderCarryModel(CarryInfo* carry, u8 slot, u32 frames, s32 mode);
 f32 GetSpiderDistanceXZ(Vec* first, Vec* second);
 void UpdateSpiderShot(XObjSpider* spider, u32 frames);
@@ -1225,7 +1225,7 @@ __declspec(section ".text.spiderstate3") void XObjSpider::State3(u32 frames)
 extern "C" f32 GetJointAnimationCurrentFrame(CJObj* obj);
 extern "C" f32 GetJointAnimationEndFrame(CJObj* obj);
 extern "C" void ApproachHudValue(f32* value, f32* target, f32 step);
-extern "C" u8 IsPlayerFlashingFromHit(XObjChr* chr);
+extern "C" BOOL IsPlayerFlashingFromHit(XObjChr* chr);
 
 static inline void CombatAnim(XObjSpider* spider, s32 anim, BOOL restart = FALSE, f32 rate = 1.0f)
 {
@@ -1238,34 +1238,32 @@ static inline bool CombatAnimDone(XObjSpider* spider, u32 frames)
 	return GetJointAnimationEndFrame(spider) - frames <= now;
 }
 
-static inline bool SpiderAtFrame(XObjSpider* spider, f32 mark)
-{
 #if defined(VERSION_PAL)
-	return (mark <= GetJointAnimationCurrentFrame(spider) && mark >= spider->mAnimStartFrame)
-	    || (mark <= GetJointAnimationCurrentFrame(spider) && spider->mAnimStartFrame > GetJointAnimationCurrentFrame(spider));
+#define SPIDER_AT_FRAME(spider, mark)                                                         \
+	(((mark) <= GetJointAnimationCurrentFrame(spider) && (mark) >= (spider)->mAnimStartFrame) \
+	 || ((mark) <= GetJointAnimationCurrentFrame(spider) && (spider)->mAnimStartFrame > GetJointAnimationCurrentFrame(spider)))
 #else
-	return mark <= GetJointAnimationCurrentFrame(spider) && mark >= GetJointAnimationCurrentFrame(spider);
+#define SPIDER_AT_FRAME(spider, mark) ((mark) <= GetJointAnimationCurrentFrame(spider) && (mark) >= GetJointAnimationCurrentFrame(spider))
 #endif
-}
 
 static inline void CombatFootsteps(XObjSpider* spider)
 {
-	if (SpiderAtFrame(spider, 1.0f))
+	if (SPIDER_AT_FRAME(spider, 1.0f))
 		PlaySpiderVariantSound(spider);
-	else if (SpiderAtFrame(spider, 15.0f))
+	else if (SPIDER_AT_FRAME(spider, 15.0f))
 		PlaySpiderVariantSound(spider);
 }
 
 static inline bool SpiderInView(XObjSpider* spider)
 {
-	f32 radius = spider->GetFloorXZExtent() * 0.5f;
+	f32 radius = spider->GetFloorXZExtent() / 2;
 	if (radius < 1.0f)
 		radius = 1.0f;
 	f32 height = spider->GetCollisionHeight();
 	if (height < 1.0f)
 		height = 1.0f;
 	f32 width, screenHeight;
-	return spider->ProjectVisibleBounds(&width, &screenHeight, NULL, radius, height) != 0;
+	return spider->ProjectVisibleBounds(&width, &screenHeight, NULL, radius, height) ? true : false;
 }
 
 static inline f32 CombatHeading(XObjSpider* spider, const Vec& pos)
@@ -1300,14 +1298,15 @@ static inline void TurnSpiderInCombat(XObjSpider* spider, u32 frames, f32 turn)
  */
 __declspec(section ".text.spiderstate4") void XObjSpider::State4(u32 frames)
 {
-	Vec pos = GetChrPos();
+	Vec pos = gGame.GetPlayer()->mMoveTranslate;
 	CVec chr(pos);
-	f32 dist = GetSpiderDistanceXZ(&chr, &mMoveTranslate);
-	if (gGame.mEvt.mData.mScript != NULL) {
+	f32 dist   = GetSpiderDistanceXZ(&chr, &mMoveTranslate);
+	BOOL event = gGame.mEvt.mData.mScript != NULL;
+	if (event) {
 		SetState(7);
 		return;
 	}
-	if (((mFlags.mFlags & 0x400) || gGame.mEvt.mData.mScript != NULL) && !IsSpiderInsideMovementArea(this)) {
+	if (((mFlags.mFlags & 0x400) || event) && !IsSpiderInsideMovementArea(this)) {
 		SetState(7);
 		return;
 	}
@@ -1329,9 +1328,9 @@ __declspec(section ".text.spiderstate4") void XObjSpider::State4(u32 frames)
 		}
 		mDir = CombatHeading(this, chr);
 		if (_988 - mDir > PI)
-			mDir += TWO_PI;
+			mDir = mDir + TWO_PI;
 		else if (_988 - mDir < -PI)
-			mDir -= TWO_PI;
+			mDir = mDir - TWO_PI;
 		ApproachHudValue(&_988, &mDir, 0.018f);
 		if (mDir > _988) {
 			if (CombatAnimDone(this, frames))
@@ -1380,7 +1379,9 @@ __declspec(section ".text.spiderstate4") void XObjSpider::State4(u32 frames)
 			mPhase = 20;
 			return;
 		}
-		if (dist <= 48.0f && SpiderInView(this)) {
+		if (dist <= 48.0f) {
+			if (!SpiderInView(this))
+				return;
 			CombatAnim(this, 26);
 			mTarget = pos;
 			mDir    = CombatHeading(this, mTarget);
@@ -1461,7 +1462,7 @@ __declspec(section ".text.spiderstate4") void XObjSpider::State4(u32 frames)
 		if ((30.0f <= GetJointAnimationCurrentFrame(this) && 30.0f > mAnimStartFrame)
 		    || (30.0f <= GetJointAnimationCurrentFrame(this) && mAnimStartFrame > GetJointAnimationCurrentFrame(this)))
 #else
-		if (SpiderAtFrame(this, 30) || SpiderAtFrame(this, 31) || SpiderAtFrame(this, 32))
+		if (SPIDER_AT_FRAME(this, 30) || SPIDER_AT_FRAME(this, 31) || SPIDER_AT_FRAME(this, 32))
 #endif
 		{
 			LaunchSpiderShot(this);
@@ -2061,10 +2062,11 @@ extern "C" __declspec(section ".text.spidercoinupdate") void SpawnSpiderBounceCo
  * @note Address: 0x800EA780
  * @note Size: 0x21C
  */
-// NONMATCHING: regalloc
 // moves the coins, shown, hopping, then falling to where they land
 extern "C" __declspec(section ".text.spidercoinupdate") void UpdateSpiderCoinBounces(void* unused, u32 frames)
 {
+	f32 x, y, z;
+	f32 lift = 0.2f; // how far the coins float above their spot
 	f32 fall = 0.8f * (f32)frames;
 	for (s32 i = 0; i < 11; ++i) {
 		CoinBounce* entry = &gSpiderCoinBounces[i];
@@ -2073,9 +2075,9 @@ extern "C" __declspec(section ".text.spidercoinupdate") void UpdateSpiderCoinBou
 			s32 phase   = entry->mPhase;
 			s32 counter = entry->mCount;
 			f32 targetY = entry->mTarget.y;
-			f32 x       = entry->mPos.x;
-			f32 y       = entry->mPos.y;
-			f32 z       = entry->mPos.z;
+			x           = entry->mPos.x;
+			y           = entry->mPos.y;
+			z           = entry->mPos.z;
 			switch (phase) {
 			case 0:
 				coin->mStatus.mFlags |= 0x10000ULL;
@@ -2083,9 +2085,9 @@ extern "C" __declspec(section ".text.spidercoinupdate") void UpdateSpiderCoinBou
 				break;
 			case 1: {
 				++counter;
-				f32 height = 10.0f * (f32)sin(DEG2RAD * (f32)((counter * 16) % 360)) + 0.2f;
-				if (height < 0.2f) {
-					coin->SetTranslateY(y + 0.2f, 0);
+				f32 height = 10.0f * (f32)sin(DEG2RAD * (f32)((counter * 16) % 360)) + lift;
+				if (height < lift) {
+					coin->SetTranslateY(y + lift, 0);
 					++phase;
 				} else {
 					coin->SetTranslateY(y + height, 0);
@@ -2099,7 +2101,7 @@ extern "C" __declspec(section ".text.spidercoinupdate") void UpdateSpiderCoinBou
 					y = targetY;
 					++phase;
 				}
-				coin->SetTranslateY(y + 0.2f, 0);
+				coin->SetTranslateY(y + lift, 0);
 				break;
 			case 3:
 				break;

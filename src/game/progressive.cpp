@@ -41,7 +41,6 @@ extern "C" void LoadBootConfig()
 	file.mPos  = 0;
 	s32 result = file.Read(sBootConfigPath, 0, 0);
 	if (result == 0) {
-		const BootConfigEntry* entry;
 		char line[256];
 		BOOL restricted = FALSE;
 		while (file.GetLine(line) == TRUE) {
@@ -58,7 +57,8 @@ extern "C" void LoadBootConfig()
 			char* text = strtok(NULL, sBootConfigDelimiters);
 			if (!text)
 				continue;
-			for (entry = gBootConfigEntries; entry->name; ++entry) {
+			for (s32 i = 0; gBootConfigEntries[i].name; ++i) {
+				const BootConfigEntry* entry = &gBootConfigEntries[i];
 				if (strcmp(key, entry->name) != 0)
 					continue;
 				switch (entry->kind) {
@@ -75,13 +75,11 @@ extern "C" void LoadBootConfig()
 					if (!restricted) {
 						s32 stage = gCmdLineArgs.mStage >= 0 ? gCmdLineArgs.mStage : atoi(text);
 						if (stage >= 100)
-							stage = GetStageNum() + stage - 99;
+							stage += GetStageNum() - 99;
 						gCmdLineArgs.mStage = stage;
 						gGame.SetStage(stage);
 						GetStageFileName(stage);
 					}
-					break;
-				case BootEventLog:
 					break;
 				case BootCrosshair: {
 					flags |= entry->value;
@@ -94,6 +92,11 @@ extern "C" void LoadBootConfig()
 					}
 					break;
 				}
+				// restricted like the settings, but nothing is left of it in this build
+				case BootEventLog:
+					if (restricted)
+						break;
+					break;
 				case BootSetting:
 					if (restricted)
 						break;

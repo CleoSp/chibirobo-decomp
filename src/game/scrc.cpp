@@ -998,16 +998,18 @@ void XObjActor3::Kind11(u32 frames)
  * @note Address: 0x8010FE68
  * @note Size: 0x12C
  */
-// NONMATCHING: register allocation
 extern "C" void EnableSpiderBossPartByIndex(s32 n)
 {
-	s32 count = 0;
+	XObjActor3* obj;
+	s32 offset;
 	u8* data;
 	s32 size;
+	s32 count = 0;
+	s32 i;
 	size = gGame.mXObjs.mPools[5].mStride;
 	data = gGame.mXObjs.mPools[5].mObjects;
-	for (s32 i = 0; i < 48; i++) {
-		XObjActor3* obj = (XObjActor3*)(data + i * size);
+	for (i = 0, offset = 0; i < 48; ++i, offset += size) {
+		obj = (XObjActor3*)(data + offset);
 		if (XObj::GetDataItem(obj->mAttr._00) == 0xB) {
 			if (count == n && (obj->mStatus.mFlags & 1)) {
 				if (obj->_B80 == 0) {
@@ -1161,15 +1163,16 @@ extern "C" void LaunchSpiderBossPart(XObjActor3* actor)
  * @note Address: 0x8010F208
  * @note Size: 0x110
  */
-// NONMATCHING: register allocation
 extern "C" void EnableSpiderBossCenterPart(void)
 {
 	XObjActor3* obj;
+	s32 offset;
 	u8* data;
 	s32 size;
+	s32 i;
 	size = gGame.mXObjs.mPools[5].mStride;
 	data = gGame.mXObjs.mPools[5].mObjects;
-	for (s32 offset = 0, i = 0; i < 48; ++i, offset += size) {
+	for (i = 0, offset = 0; i < 48; ++i, offset += size) {
 		obj = (XObjActor3*)(data + offset);
 		if (XObj::GetDataItem(obj->mAttr._00) == 0xC && (obj->mStatus.mFlags & 1)) {
 			if (obj->_B80 == 0) {
@@ -1427,7 +1430,6 @@ void XObjActor3::Kind13(u32 frames)
  * @note Address: 0x8010D390
  * @note Size: 0x2CC
  */
-// NONMATCHING: register allocation
 #pragma push
 #pragma opt_propagation off
 extern "C" void CommandSpiderBossProjectiles(s32 mode)
@@ -1452,19 +1454,23 @@ extern "C" void CommandSpiderBossProjectiles(s32 mode)
 			}
 		}
 	} else {
+		XObjActor3* obj;
+		s32 offset;
 		u8* data;
 		s32 size;
+		s32 i;
 		size = gGame.mXObjs.mPools[5].mStride;
 		data = gGame.mXObjs.mPools[5].mObjects;
-		for (s32 i = 0; i < 48; i++) {
-			XObjActor3* obj = (XObjActor3*)(data + i * size);
+		for (i = 0, offset = 0; i < 48; ++i, offset += size) {
+			obj = (XObjActor3*)(data + offset);
 			if (obj->GetKind() == 0x3E0) {
-				if (!(obj->mStatus.mFlags & 1)) {
-					return;
-				}
-				if (obj->_B8C.Check(4)) {
-					obj->_B8C.mFlags &= ~4;
-					obj->_B80 = 10;
+				if (obj->mStatus.mFlags & 1) {
+					if (obj->_B8C.Check(4)) {
+						obj->_B8C.mFlags &= ~4;
+						obj->_B80 = 10;
+						return;
+					}
+				} else {
 					return;
 				}
 			}

@@ -2902,18 +2902,13 @@ extern "C" s32 IndexOfLargestOfThree(s64 a, s64 b, s64 c)
  * @note Address: 0x800345A8
  * @note Size: 0xC4
  */
-// NONMATCHING: regalloc
 extern "C" s32 CountShopCatalogEntries(const MenuPCPage*)
 {
 	s32 count = 0;
-	s16 x;
-	s16 y;
-	MenuPCItem* table = sShopCatalogEntries;
-	int i             = 0;
-	for (; i < 20; table++, i++) {
-		x = table->mItem;
-		y = table->mCount;
-		if (x >= 0 && y >= 0)
+	for (int i = 0; i < 20; i++) {
+		const MenuPCItem* entry = sShopCatalogEntries + i;
+		s16 stock               = entry->mCount;
+		if (entry->mItem >= 0 && stock >= 0)
 			count++;
 	}
 	return count;
@@ -2923,18 +2918,14 @@ extern "C" s32 CountShopCatalogEntries(const MenuPCPage*)
  * @note Address: 0x800349A8
  * @note Size: 0xC4
  */
-// NONMATCHING: regalloc
 extern "C" s32 CountShopHistoryEntries(const MenuPCPage*)
 {
-	s16 x;
-	s16 y;
 	s32 count = 0;
 	for (int i = 0; i < 20; i++) {
-		x = sShopHistoryEntries[i].mItem;
-		y = sShopHistoryEntries[i].mCount;
-		if (x >= 0 && y >= 0) {
+		const MenuPCItem* entry = sShopHistoryEntries + i;
+		s16 stock               = entry->mCount;
+		if (entry->mItem >= 0 && stock >= 0)
 			count++;
-		}
 	}
 	return count;
 }
