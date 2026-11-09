@@ -1524,13 +1524,11 @@ def generate_build_ninja(
         report_fill = "1" if getattr(config, "fill_padding", True) else "0"
         n.rule(
             name="report",
-            command=f"$python {report_padding} {objdiff} {objcopy} {build_path} {report_fill} $out $objdiff_report_args",
+            command=f"$python {report_padding} {objdiff} {build_path} {report_fill} $out $objdiff_report_args",
             description="REPORT",
         )
         report_implicit = [objdiff, "objdiff.json", "all_source", report_padding,
                            config.tools_dir / "fill_padding.py", build_path / "source_compilers.json"]
-        if binutils_implicit:
-            report_implicit.append(binutils_implicit)
         n.build(
             outputs=report_path,
             rule="report",

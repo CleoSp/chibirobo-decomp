@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the objdiff report against our objects as retail's linker laid them out.
 
-python3 tools/report_padding.py <objdiff-cli> <objcopy> <build dir> <fill 0|1> <report.json> [report args...]
+python3 tools/report_padding.py <objdiff-cli> <build dir> <fill 0|1> <report.json> [report args...]
 
 A unit linked from source is byte for byte retail in the DOL, but objdiff compares
 objects, and ours lack what the linker adds: fill_padding.py's '0' bytes in gaps,
@@ -21,7 +21,6 @@ import json
 import struct
 import subprocess
 import sys
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -54,27 +53,11 @@ def parse(path: Path):
     return sections, symbols, data
 
 
-def symbol_entries(data: bytes) -> dict:
-    """every symbol name -> its symtab entry offset, size 0 included"""
-    shoff = struct.unpack_from(">I", data, 32)[0]
-    stride, count, _ = struct.unpack_from(">HHH", data, 46)
-    headers = [struct.unpack_from(">10I", data, shoff + i * stride) for i in range(count)]
-    out = {}
-    for h in headers:
-        if h[1] != 2:
-            continue
-        strtab = headers[h[6]][4]
-        for entry in range(h[4], h[4] + h[5], h[9]):
-            name = struct.unpack_from(">I", data, entry)[0]
-            out[data[strtab + name:data.index(0, strtab + name)].decode(errors="replace")] = entry
-    return out
-
-
 def spans(symbols, section):
     return sorted((v[0], v[0] + v[1]) for (s, _), v in symbols.items() if s == section)
 
 
-def pad_object(objcopy: str, ours: Path, target: Path, rule: str | None, fill: bool, out: Path) -> dict:
+def pad_object(ours: Path, target: Path, rule: str | None, fill: bool, out: Path) -> dict:
     """Write the padded copy of ours to out, return the retail -> ours symbol mapping."""
     sections, mine, raw = parse(ours)
     retail_sections, theirs, _ = parse(target)
@@ -92,26 +75,45 @@ def pad_object(objcopy: str, ours: Path, target: Path, rule: str | None, fill: b
         elif n not in our_names and (s, v[0]) in by_offset:
             pairs[(s, n)] = mapping[n] = by_offset[(s, v[0])]
 
-    raw = bytearray(raw)
+    elf = bytearray(raw)
     for (s, n), o in pairs.items():
         value, size, entry = mine[(s, o)]
         retail_value, retail_symbol_size, _ = theirs[(s, n)]
         end = value + retail_symbol_size
         if retail_value == value and retail_symbol_size != size and end <= retail_size.get(s, 0):
-            struct.pack_into(">I", raw, entry + 8, retail_symbol_size)
+            struct.pack_into(">I", elf, entry + 8, retail_symbol_size)
             mine[(s, o)] = (value, retail_symbol_size, entry)
-    out.write_bytes(raw)
 
-    args = []
-    temp = Path(tempfile.mkdtemp())
-    for name in SECTIONS - {".text"}:
-        if name not in sections or name not in retail_sections or sections[name][1] is None:
+    # objcopy drops a section's relocations when it resizes it, so new contents go to the
+    # end of the file and only the section header moves
+    shoff = struct.unpack_from(">I", elf, 32)[0]
+    stride = struct.unpack_from(">H", elf, 46)[0]
+    index = {n: i for i, n in enumerate(sections)}
+
+    def header(name):
+        return struct.unpack_from(">10I", elf, shoff + index[name] * stride)
+
+    def place(name, content=None, size=None):
+        at = shoff + index[name] * stride
+        if content is not None:
+            elf.extend(bytes(-len(elf) % 8))
+            struct.pack_into(">I", elf, at + 16, len(elf))
+            elf.extend(content)
+            size = len(content)
+        struct.pack_into(">I", elf, at + 20, size)
+
+    for name in DATA:
+        if name not in sections or name not in retail_sections:
+            continue
+        want = retail_size[name]
+        if sections[name][1] is None:
+            if want > sections[name][0][5]:
+                place(name, size=want)
             continue
         content = bytearray(sections[name][1])
-        want = retail_size[name]
         layout = spans(compiled, name)
         last = max((e for _, e in layout), default=0)
-        if fill and rule and fills_inside(rule, name, len(content)):
+        if fill and rule and name in SECTIONS and fills_inside(rule, name, len(content)):
             for (_, a_end), (b_start, _) in zip(layout, layout[1:]):
                 if 0 < b_start - a_end < PAD and not any(content[a_end:b_start]):
                     content[a_end:b_start] = bytes([FILL]) * (b_start - a_end)
@@ -120,40 +122,32 @@ def pad_object(objcopy: str, ours: Path, target: Path, rule: str | None, fill: b
             last = (last + 3) & ~3
         if want > len(content):
             content += bytes(want - len(content))
-        if fill and 0 < want - last < PAD and not any(content[last:want]):
+        if fill and name in SECTIONS and 0 < want - last < PAD and not any(content[last:want]):
             content[last:want] = bytes([FILL]) * (want - last)
         if content != sections[name][1]:
-            path = temp / name.strip(".")
-            path.write_bytes(content)
-            args += ["--update-section", f"{name}={path}"]
+            place(name, content)
 
-    added = {}
-    if ".comment" in sections:
-        for (s, n), (value, size, _) in theirs.items():
-            if s not in DATA or (s, n) in pairs or s not in sections:
-                continue
-            if value + size <= retail_size.get(s, 0):
-                # global, so objcopy appends it after every existing symbol and keeps their indices
-                args += ["--add-symbol", f"{n}={s}:{value:#x},global,object"]
-                added[n] = size
-    if added:
+    added = [(s, n, value, size) for (s, n), (value, size, _) in theirs.items()
+             if s in DATA and (s, n) not in pairs and s in sections and value + size <= retail_size.get(s, 0)]
+    if added and ".comment" in sections:
+        symtab = next(n for n, (h, _) in sections.items() if h[1] == 2)
+        strtab = list(sections)[header(symtab)[6]]
+        h, sh = header(symtab), header(strtab)
+        table, strings = bytearray(elf[h[4]:h[4] + h[5]]), bytearray(elf[sh[4]:sh[4] + sh[5]])
+        # global and appended, so every existing symbol keeps its index
+        for s, n, value, size in added:
+            table += struct.pack(">IIIBBH", len(strings), value, size, 0x11, 0, index[s])
+            strings += n.encode() + b"\0"
+        place(strtab, strings)
+        place(symtab, table)
         # MWCC's .comment has one 8-byte entry per symbol, add ours (alignment 1)
-        path = temp / "comment"
-        path.write_bytes(sections[".comment"][1] + b"\0\0\0\1\0\0\0\0" * len(added))
-        args += ["--update-section", f".comment={path}"]
-    if args:
-        subprocess.run([objcopy, *args, str(out)], check=True)
-    if added:
-        data = bytearray(out.read_bytes())
-        entries = symbol_entries(data)
-        for n, size in added.items():
-            struct.pack_into(">I", data, entries[n] + 8, size)
-        out.write_bytes(data)
+        place(".comment", sections[".comment"][1] + b"\0\0\0\1\0\0\0\0" * len(added))
+    out.write_bytes(elf)
     return mapping
 
 
 def main() -> None:
-    objdiff, objcopy, build_dir, fill, report = sys.argv[1:6]
+    objdiff, build_dir, fill, report = sys.argv[1:5]
     root = Path.cwd()
     build = root / build_dir
     project = json.loads((root / "objdiff.json").read_text())
@@ -178,7 +172,7 @@ def main() -> None:
         out = copies / f"{unit['name']}.o"
         out.parent.mkdir(parents=True, exist_ok=True)
         dol = unit["name"].startswith("main/")
-        mapping = pad_object(objcopy, root / base, root / target, rule_for(Path(base)) if dol else None,
+        mapping = pad_object(root / base, root / target, rule_for(Path(base)) if dol else None,
                              fill == "1" and dol, out)
         unit["base_path"] = str(out)
         if mapping:
@@ -189,7 +183,7 @@ def main() -> None:
     project_dir = build / "report_project"
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "objdiff.json").write_text(json.dumps(project))
-    subprocess.run([objdiff, "report", "generate", "-p", str(project_dir), *sys.argv[6:], "-o", report], check=True)
+    subprocess.run([objdiff, "report", "generate", "-p", str(project_dir), *sys.argv[5:], "-o", report], check=True)
 
 
 if __name__ == "__main__":
