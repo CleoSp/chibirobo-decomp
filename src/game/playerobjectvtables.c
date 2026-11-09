@@ -1,0 +1,25 @@
+extern void Clear__7CPadOneFv(void);
+extern void Init__7CPadOneFUc(void);
+extern void Update__7CPadOneFl(void);
+extern const void* __RTTI__9CJointRot[];
+extern void __dt__4XPadFv(void);
+extern void __dt__5CPtclFv(void);
+extern void __dt__6OXMenuFv(void);
+extern void __dt__6ParamsFv(void);
+extern void __dt__9CJointRotFv(void);
+extern const void* gTypeInfoCPtcl[];
+extern const void* gTypeInfoOXMenu[];
+extern const void* gTypeInfoParams[];
+extern const void* gTypeInfoXPad[];
+extern const void* sPlayerParameterTypeInfo[];
+extern const void* sPlayerTypeInfoCPadOne[];
+extern const void* sPlayerTypeInfoCVec[];
+extern const void* sPlayerTypeInfoVec[];
+
+const void* __vt__9CJointRot[] = { __RTTI__9CJointRot, 0, __dt__9CJointRotFv, sPlayerTypeInfoVec, 0, sPlayerTypeInfoCVec, 0, 0, 0, 0, 0 };
+const void* sBaseTypesParams[] = { sPlayerParameterTypeInfo, 0, 0 };
+const void* __vt__6Params[]    = { gTypeInfoParams, 0, __dt__6ParamsFv };
+const void* sBaseTypesXPad[]   = { sPlayerTypeInfoCPadOne, 0, 0 };
+const void* __vt__4XPad[]      = { gTypeInfoXPad, 0, __dt__4XPadFv, Init__7CPadOneFUc, Clear__7CPadOneFv, Update__7CPadOneFl };
+const void* __vt__6OXMenu[]    = { gTypeInfoOXMenu, 0, __dt__6OXMenuFv };
+const void* __vt__5CPtcl[]     = { gTypeInfoCPtcl, 0, __dt__5CPtclFv };

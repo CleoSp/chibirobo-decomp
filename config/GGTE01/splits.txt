@@ -208,6 +208,9 @@ game/micdata.cpp:
 	.data       start:0x8020FC30 end:0x8020FC74
 	.sbss       start:0x8065B148 end:0x8065B178
 
+game/gamevtable.c:
+	.data       start:0x8020FC74 end:0x8020FCCC align:4
+
 game/gxa.cpp:
 	.sbss       start:0x8065B178 end:0x8065B180 align:4
 
@@ -1368,6 +1371,12 @@ game/statusandtexturetables:
 game/screenandeventtables:
 	.data       start:0x80210360 end:0x80210408 align:4
 
+game/framebufferthreadvtables.c:
+	.data       start:0x80210408 end:0x802104B4 align:4
+
+game/areacameraexvtables.c:
+	.data       start:0x8020FD40 end:0x8020FE28 align:4
+
 game/gamevectorinterpolationtables:
 	.data       start:0x8020FE28 end:0x8020FEBC align:4
 
@@ -1440,6 +1449,9 @@ game/playerclassinfo.c:
 
 game/radaractionvtable:
 	.data       start:0x802281D0 end:0x802281EC align:4
+
+game/playerobjectvtables.c:
+	.data       start:0x802281EC end:0x80228270 align:4
 
 game/playertypenames.c:
 	.rodata     start:0x8020A470 end:0x8020A588 align:4
@@ -2178,6 +2190,9 @@ game/spiderbosstypeinfo.cpp:
 	.data       start:0x8022BBB8 end:0x8022BC18 align:4
 	.sdata      start:0x8065A7D8 end:0x8065A800 align:4
 	.sdata2     start:0x8065E010 end:0x8065E028 align:4
+
+game/spiderbossvtable.c:
+	.data       start:0x8022BC18 end:0x8022BD64 align:4
 
 game/spiderbossconstants.cpp:
 	.rodata     start:0x8020AF90 end:0x8020B02C align:4
