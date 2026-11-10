@@ -67,7 +67,8 @@ extern "C" void UpdateObjectFloorHeights(XObj* object)
 		return;
 	object->mStatus.mFlags &= ~0x0010000000000000ULL;
 	for (s32 i = 0; object->mFloors[i].mId != -1; ++i) {
-		Vec center = object->mMoveScale * (object->_794 + ReadFloorCoordinates(object->mFloors[i].mCenterOffset, gObjectFloorOffsetTemplate));
+		Vec center
+		    = object->mMoveScale * (object->_794 + ReadFloorCoordinates(object->mFloors[i].mCenterOffset, gObjectFloorOffsetTemplate));
 		Vec extent = object->mMoveScale * ReadFloorCoordinates(object->mFloors[i].mExtent, lbl_80378148);
 		f32 yaw    = FloorYaw(object, i);
 		switch (object->mFloors[i].mId) {
@@ -125,7 +126,6 @@ static inline void ExpandRadius(f32 x, f32 z, f32& maxX, f32& maxZ)
 		maxZ = ABS(z);
 }
 
-extern "C" u32 OSGetStackPointer();
 #pragma push
 #pragma opt_pointer_analysis on
 extern "C" void UpdateObjectFloorXZExtent(XObj* object)
@@ -213,12 +213,9 @@ extern "C" void UpdateObjectFloorXZExtent(XObj* object)
 			PSMTXConcat(geometry.segment, geometry.segmentScale, geometry.segment);
 			static Vec ends[2] = { { -.5f, 0, 0 }, { .5f, 0, 0 } };
 			PSMTXMultVecArray(geometry.segment, ends, geometry.samples, 2);
-			// Retail scans four vectors from entry SP - 0x56c after transforming two.
-			// The last two vectors share storage with polygon corners and can predate this call.
-			const u32 entrySP          = *reinterpret_cast<const u32*>(OSGetStackPointer());
-			const volatile Vec* points = reinterpret_cast<const volatile Vec*>(entrySP - 0x56c);
+			// Retail scans four samples after transforming two; the last two are the type-5 corners.
 			for (int j = 0; j < 4; ++j)
-				ExpandRadius(points[j].x, points[j].z, maxX, maxZ);
+				ExpandRadius(geometry.samples[j].x, geometry.samples[j].z, maxX, maxZ);
 			break;
 		}
 		case 5: {
