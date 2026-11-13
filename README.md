@@ -15,6 +15,8 @@ Supported versions:
 - `GGTJ01_01`: Japan rev 1
 - `GGTP01`: Europe rev 0
 
+The Japanese Wii release, [Wiiであそぶ ちびロボ！](https://www.nintendo.co.jp/wii/r24j/index.html) (`R24J01`, rev 0), has a separate [Wii build and setup guide](https://github.com/LabDennis/chibirobo-decomp/tree/wii-jp#building). The Wii disc has its own executable and keeps its stage code in the DOL. Its disc image belongs in `orig/R24J01/` on that branch.
+
 This repository contains no game assets. You need your own copy of the game to build it.
 
 ## Dependencies
