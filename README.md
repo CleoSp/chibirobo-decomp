@@ -4,6 +4,7 @@ A work in progress decompilation of Chibi-Robo! for the GameCube and Wii.
 
 [![Linked](https://cleosp.com/chibirobo-decomp/badges/linked.svg)](https://cleosp.com/chibirobo-decomp/)
 [![Data](https://cleosp.com/chibirobo-decomp/badges/data.svg)](https://cleosp.com/chibirobo-decomp/)
+[![Wii JP linked](https://cleosp.com/chibirobo-decomp/badges/wii-linked.svg)](https://cleosp.com/chibirobo-decomp/#v=R24J01)
 
 [![Decompilation progress](https://cleosp.com/chibirobo-decomp/progress.svg)](https://cleosp.com/chibirobo-decomp/)
 
