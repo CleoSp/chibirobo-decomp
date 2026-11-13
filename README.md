@@ -14,8 +14,7 @@ Supported versions:
 - `GGTE01`: USA rev 0
 - `GGTJ01_01`: Japan rev 1
 - `GGTP01`: Europe rev 0
-
-The Japanese Wii release, [Wiiであそぶ ちびロボ！](https://www.nintendo.co.jp/wii/r24j/index.html) (`R24J01`, rev 0), has a separate [Wii build and setup guide](https://github.com/LabDennis/chibirobo-decomp/tree/wii-jp#building). The Wii disc has its own executable and keeps its stage code in the DOL. Its disc image belongs in `orig/R24J01/` on that branch.
+- `R24J01`: Japan rev 0 (Wii, [wii-jp branch](https://github.com/LabDennis/chibirobo-decomp/tree/wii-jp#building))
 
 This repository contains no game assets. You need your own copy of the game to build it.
 
@@ -46,6 +45,12 @@ git clone https://github.com/CleoSp/chibirobo-decomp.git
 cd chibirobo-decomp
 ```
 
+For Wii, use the following clone command and place the disc in `orig/R24J01/`:
+
+```sh
+git clone --branch wii-jp https://github.com/LabDennis/chibirobo-decomp.git
+```
+
 Put an ISO, RVZ or CISO of your game in the folder for its version: `orig/GGTE01/`, `orig/GGTJ01_01/` or `orig/GGTP01/`.
 
 Configure and build:
@@ -66,6 +71,8 @@ then publishes the interactive page and README badges to
 [cleosp.com/chibirobo-decomp](https://cleosp.com/chibirobo-decomp/). It runs when
 source, config, or tools change on the default branch, and can also be run from
 the Actions tab. Failed builds leave the last published page in place.
+
+The [Wii progress map](https://labdennis.github.io/chibirobo-decomp/#v=R24J01) uses the same measures.
 
 The runner needs `CHIBIROBO_ORIG` set to its local `orig/` folder. Only the
 progress report goes to GitHub; the discs stay on the runner. In the repo’s
