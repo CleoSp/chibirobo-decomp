@@ -22,18 +22,21 @@ extern "C" {
 #include <sysdolphin/aobj.h>
 }
 
-extern u32 msgColorTable[];
+// the colours a message can switch its text to
+u32 msgColorTable[] = {
+	0xFFFFFFFF, 0x808080FF, 0x101010FF, 0x00FFFFFF, 0x00E000FF, 0x0000E0FF, 0xFF00FFFF, 0xE00000FF, 0xFFFF00FF, 0xFF8000FF,
+};
 
 extern "C" {
 void CMsg_ResetPos(CMsg* msg);
 void CMsgFont_Draw(void* p, f32 t);
-void fn_8001DC10(void* sound, s32 id);
+void ClearGameSoundQueue(void* sound, s32 id);
 }
 
 #if defined(VERSION_JP)
 #define MsgHasSjisLead(c) IsSjisLead(c)
 #else
-#define MsgHasSjisLead(c) (lbl_8025C400.mLanguage == 6 && IsSjisLead(c))
+#define MsgHasSjisLead(c) (gGame.mLanguage == 6 && IsSjisLead(c))
 #endif
 
 // read before stepping, the script can point into the message's own bytes
@@ -116,7 +119,7 @@ extern "C" s32 CMsg__cmd_SETFONT(CMsg* msg, u8 command)
 #else
 		const s32 line = 2097;
 #endif
-		OSPanic("msg.cpp", line, "%s%s", fn_801911B4("Unknown msg-setfont cmd - %d\n", command), "_cmd_SETFONT");
+		OSPanic("msg.cpp", line, "%s%s", FormatToStaticBuffer("Unknown msg-setfont cmd - %d\n", command), "_cmd_SETFONT");
 		break;
 	}
 	return 0;
@@ -296,16 +299,16 @@ extern "C" s32 CMsg__cmd_SETFONT(CMsg* msg, u8 command)
     stfs     f0, 0x4584(r4)
     b        .L_80080270
 .L_80080240:
-    lis      r3, lbl_80209150@ha
-    addi     r3, r3, lbl_80209150@l
+    lis      r3, sMessageUnknownFontCommand@ha
+    addi     r3, r3, sMessageUnknownFontCommand@l
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_80225478@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sMessageSetFontCommandName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_80225478@l
+    addi     r7, r4, sMessageSetFontCommandName@l
     li       r3, lbl_8065D038@sda21
     li       r4, 0x831
-    li       r5, lbl_8065D040@sda21
+    li       r5, lbl_80664158@sda21
     crclr    cr1eq
     bl       OSPanic
 .L_80080270:
@@ -330,52 +333,53 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
 	switch (command) {
 	case 0:
 		if (sfx == -2) {
-			fn_8001E630(&lbl_8025C400.mSound, -1);
+			KeyOffGameSoundTrack(&gGame.mSound, -1);
 		} else {
-			fn_8001E660(&lbl_8025C400.mSound, sfx);
+			StopGameSfx(&gGame.mSound, sfx);
 		}
 		break;
 	case 1:
-		fn_8001E904(&lbl_8025C400.mSound, sfx, 255);
+		PlayGameSound(&gGame.mSound, sfx, 255);
 		break;
 	case 2: {
 		u16 frames = ReadMsgS16(msg);
-		fn_8001E1A4(&lbl_8025C400.mSound, sfx, frames);
+		FadeOutGameSfx(&gGame.mSound, sfx, frames);
 		break;
 	}
 	case 3: {
 		u16 frames = ReadMsgS16(msg);
-		fn_8001E2CC(&lbl_8025C400.mSound, sfx, frames);
+		FadeInGameSfx(&gGame.mSound, sfx, frames);
 		break;
 	}
 	case 4: {
 		u16 frames = ReadMsgS16(msg);
 		u8 volume  = ReadMsgU8(msg);
-		if (!fn_8001E6C8(&lbl_8025C400.mSound, sfx)) {
-			fn_8001E904(&lbl_8025C400.mSound, sfx, volume);
+		if (!IsGameSoundPlaying(&gGame.mSound, sfx)) {
+			PlayGameSound(&gGame.mSound, sfx, volume);
 		} else {
-			fn_8001E468(&lbl_8025C400.mSound, sfx, volume, frames);
+			SetGameSfxVolume(&gGame.mSound, sfx, volume, frames);
 		}
 		break;
 	}
 	case 5:
 		if (sfx == -2) {
-			fn_8001E590(&lbl_8025C400.mSound, -1);
+			PauseGameSoundTrack(&gGame.mSound, -1);
 		} else if ((sfx & 0xFFFF0000) == 0xFFFF0000) {
-			fn_8001E5C0(&lbl_8025C400.mSound, sfx, 0);
+			PauseGameMusic(&gGame.mSound, sfx, 0);
 		} else {
-			fn_801E94E4(sfx);
+			AXDriverPauseSfx(sfx);
 		}
 		break;
 	case 6:
 		if (sfx == -2) {
-			fn_8001E4D4(&lbl_8025C400.mSound, -1);
+			ResumeGameSoundTrack(&gGame.mSound, -1);
 		} else {
-			fn_8001E504(&lbl_8025C400.mSound, sfx);
+			ResumeGameSfx(&gGame.mSound, sfx);
 		}
 		break;
-	case -1:
-		if (fn_8001E6C8(&lbl_8025C400.mSound, sfx)) {
+	case MSG_SFX_WAIT:
+		if (IsGameSoundPlaying(&gGame.mSound, sfx)) {
+			// back onto the code byte to run it again: code, u32 id and type are 6 bytes, so the US and JP 3 lands inside the id
 #if defined(VERSION_PAL)
 			msg->mData.mCursor -= 6;
 #else
@@ -431,34 +435,34 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
 .L_80080324:
     cmpwi    r31, -0x2
     bne      .L_80080348
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E630
+    bl       KeyOffGameSoundTrack
     b        .L_80080568
 .L_80080348:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E660
+    bl       StopGameSfx
     b        .L_80080568
 .L_80080364:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0xff
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_80080568
 .L_80080384:
     lwz      r5, 0x804(r30)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     mr       r4, r31
     lbz      r7, 0x0(r5)
     addi     r0, r5, 0x1
@@ -471,12 +475,12 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
     rlwimi   r7, r5, 8, 16, 23
     stw      r0, 0x804(r30)
     clrlwi   r5, r7, 16
-    bl       fn_8001E1A4
+    bl       FadeOutGameSfx
     b        .L_80080568
 .L_800803C8:
     lwz      r5, 0x804(r30)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     mr       r4, r31
     lbz      r7, 0x0(r5)
     addi     r0, r5, 0x1
@@ -489,12 +493,12 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
     rlwimi   r7, r5, 8, 16, 23
     stw      r0, 0x804(r30)
     clrlwi   r5, r7, 16
-    bl       fn_8001E2CC
+    bl       FadeInGameSfx
     b        .L_80080568
 .L_8008040C:
     lwz      r5, 0x804(r30)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     mr       r4, r31
     lbz      r7, 0x0(r5)
     addi     r0, r5, 0x1
@@ -512,73 +516,73 @@ extern "C" s32 CMsg__cmd_SFX(CMsg* msg)
     lbz      r29, 0x0(r5)
     addi     r0, r5, 0x1
     stw      r0, 0x804(r30)
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     bne      .L_8008047C
     mr       r3, r28
     mr       r4, r31
     mr       r5, r29
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_80080568
 .L_8008047C:
     mr       r3, r28
     mr       r4, r31
     mr       r5, r29
     mr       r6, r27
-    bl       fn_8001E468
+    bl       SetGameSfxVolume
     b        .L_80080568
 .L_80080494:
     cmpwi    r31, -0x2
     bne      .L_800804B8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E590
+    bl       PauseGameSoundTrack
     b        .L_80080568
 .L_800804B8:
     clrrwi   r3, r31, 16
     addis    r0, r3, 0x1
     cmplwi   r0, 0x0
     bne      .L_800804E8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x0
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E5C0
+    bl       PauseGameMusic
     b        .L_80080568
 .L_800804E8:
     mr       r3, r31
-    bl       fn_801E94E4
+    bl       AXDriverPauseSfx
     b        .L_80080568
 .L_800804F4:
     cmpwi    r31, -0x2
     bne      .L_80080518
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E4D4
+    bl       ResumeGameSoundTrack
     b        .L_80080568
 .L_80080518:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E504
+    bl       ResumeGameSfx
     b        .L_80080568
 .L_80080534:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r4, r31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x7e24
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     beq      .L_80080568
     lwz      r4, 0x804(r30)
@@ -608,11 +612,11 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 	anim |= ReadMsgU8(msg) << 8;
 	anim |= ReadMsgU8(msg) << 16;
 	anim |= ReadMsgU8(msg) << 24;
-	if (flags & 1) {
-		anim = lbl_80367A2C[anim];
+	if (flags & MSG_ANIM_VARIABLE) {
+		anim = gEventVars.mVars[anim];
 	}
-	void* state = &lbl_8025C400.mEvt.mData;
-	XObj* obj   = *(void**)state != NULL ? fn_8007F570(state, id) : NULL;
+	void* state = &gGame.mEvt.mData;
+	XObj* obj   = *(void**)state != NULL ? ResolveEventObjectId(state, id) : NULL;
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		if (anim == -1) {
 			HSD_AObj* aobj = GetAObj(obj->mJObj);
@@ -620,14 +624,14 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 				msg->mData.mCursor -= 8;
 				return 1;
 			}
-		} else if (!(flags & 0x10)) {
+		} else if (!(flags & MSG_ANIM_QUEUE)) {
 			obj->mAnmQueue.Clear();
 			if (anim & 0xFFFF0000) {
 				s32 jointId     = anim & 0xFFFF;
 				s32 matId       = anim >> 16;
-				void* jointAnim = obj->vfF0(jointId);
-				void* matAnim   = obj->vfF4(matId);
-				void* shapeAnim = obj->vfF8(jointId);
+				void* jointAnim = obj->GetJointAnimation(jointId);
+				void* matAnim   = obj->GetMaterialAnimation(matId);
+				void* shapeAnim = obj->GetShapeAnimation(jointId);
 				obj->SetAnim(0, TRUE, jointAnim, matAnim, shapeAnim, 0.0f, 1.0f, 0.0f, 10.0f);
 				if (jointId >= 1000 || matId >= 1000) {
 					obj->mStatus.mFlags |= 0x0008000000000000;
@@ -693,18 +697,18 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
     stw      r3, 0x804(r28)
     or       r29, r29, r0
     beq      .L_80080638
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEventVars@ha
     slwi     r0, r29, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEventVars@l
     lwzx     r29, r3, r0
 .L_80080638:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x6
     lwzu     r0, -0x2f80(r3)
     cmplwi   r0, 0x0
     beq      .L_8008065C
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     mr       r30, r3
     b        .L_80080660
 .L_8008065C:
@@ -728,19 +732,19 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
     cmplwi   r29, 0x0
     beq      .L_800806E0
     mr       r3, r29
-    bl       fn_801908F8
+    bl       FindJointAnimationInTree
     cmplwi   r3, 0x0
     beq      .L_800806B8
     b        .L_800806E4
 .L_800806B8:
     mr       r3, r29
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_800806CC
     b        .L_800806E4
 .L_800806CC:
     mr       r3, r29
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     beq      .L_800806E0
     b        .L_800806E4
@@ -892,44 +896,43 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
  */
 extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 {
-	// NONMATCHING: retail tests the four codes one by one
 	s32 command = ReadMsgU8(msg);
 	// 252 to 255 wait for a button instead of a time
-	if (command == 255 || command == 254 || command == 253 || command == 252) {
-		if (msg->_00 == 0x23) {
+	if (!(command != 255 && command != 254 && command != 253 && command != 252)) {
+		if (msg->mCommand == EVT_CMD_MSG) {
 			if (!msg->mFont.mBlink) {
-				s32 mode = -1;
+				s32 icon = -1;
 				if (command == 255) {
-					mode = 0;
+					icon = 0;
 				}
 				if (command == 254) {
-					mode = 1;
+					icon = 1;
 				}
 				if (command == 253 || command == 252) {
-					mode = 0;
+					icon = 0;
 				}
 				msg->mFont.mBlink      = 1;
-				msg->mFont._43C6C      = mode;
+				msg->mFont.mBlinkIcon  = icon;
 				msg->mFont.mBlinkPhase = 0.0f;
 				msg->mData.mCursor -= 2;
 			} else {
 				BOOL done = FALSE;
 				CPad pad(0);
 				if (command == 253 || command == 252) {
-					if ((pad.mPad->mTrigger & 0x400) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
+					if ((pad.mPad->mTrigger & PAD_BUTTON_X) && !(gGame.mStatus.mFlags & 0x20)) {
 						done = TRUE;
 						if (command == 253) {
-							fn_800B54A4(lbl_8025C400.GetPlayer(), 0);
+							SelectPlayerEquipmentRing(gGame.GetPlayer(), 0);
 						} else if (command == 252) {
-							fn_800B54A4(lbl_8025C400.GetPlayer(), 1);
+							SelectPlayerEquipmentRing(gGame.GetPlayer(), 1);
 						}
 					}
-				} else if (((pad.mPad->mTrigger & 0x100) || (pad.mPad->mTrigger & 0x200)) && !(lbl_8025C400.mStatus.mFlags & 0x20)) {
+				} else if (((pad.mPad->mTrigger & PAD_BUTTON_A) || (pad.mPad->mTrigger & PAD_BUTTON_B)) && !(gGame.mStatus.mFlags & 0x20)) {
 					done = TRUE;
 				}
 				if (done) {
 					msg->mFont.mBlink = 0;
-					fn_8001DC10(&lbl_8025C400.mSound, msg->_445FC);
+					ClearGameSoundQueue(&gGame.mSound, msg->mGlyphSoundGroup);
 				} else {
 					msg->mData.mCursor -= 2;
 				}
@@ -940,7 +943,7 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
 	// tenths of a second
 	f32 frames = (command / 10) * FRAME_RATE;
 	frames += (command % 10) * FRAME_RATE / 10.0f;
-	msg->_445CC = frames;
+	msg->mWaitTimer = frames;
 	return 0;
 }
 /*
@@ -1012,9 +1015,9 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
     lwz      r0, 0x14(r3)
     rlwinm.  r0, r0, 0, 21, 21
     beq      .L_80080A90
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x20
-    addi     r6, r4, lbl_8025C400@l
+    addi     r6, r4, gGame@l
     lwz      r5, 0x1b14(r6)
     li       r4, 0x0
     lwz      r0, 0x1b10(r6)
@@ -1030,7 +1033,7 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
     addis    r3, r6, 0x1
     li       r4, 0x0
     lwz      r3, -0x6944(r3)
-    bl       fn_800B54A4
+    bl       SelectPlayerEquipmentRing
     b        .L_80080A90
 .L_80080A28:
     cmpwi    r31, 0xfc
@@ -1038,7 +1041,7 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
     addis    r3, r6, 0x1
     li       r4, 0x1
     lwz      r3, -0x6944(r3)
-    bl       fn_800B54A4
+    bl       SelectPlayerEquipmentRing
     b        .L_80080A90
 .L_80080A44:
     lwz      r3, 0x8(r1)
@@ -1048,9 +1051,9 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
     rlwinm.  r0, r3, 0, 22, 22
     beq      .L_80080A90
 .L_80080A5C:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x20
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     lwz      r0, 0x1b10(r5)
     li       r4, 0x0
     lwz      r5, 0x1b14(r5)
@@ -1067,14 +1070,14 @@ extern "C" s32 CMsg__cmd_WAIT(CMsg* msg)
     lbz      r0, 0x8a4(r29)
     li       r3, 0x0
     rlwimi   r0, r3, 4, 27, 27
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stb      r0, 0x8a4(r29)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r4, r29, 0x4
     addis    r3, r3, 0xe
     lwz      r4, 0x45fc(r4)
     addi     r3, r3, 0x7e24
-    bl       fn_8001DC10
+    bl       ClearGameSoundQueue
     b        .L_80080AD4
 .L_80080AC8:
     lwz      r3, 0x804(r29)
@@ -1151,97 +1154,98 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
 {
 	if (msg->mFont.mActive) {
 		if (!msg->mFont.mFadeOut) {
-			if (msg->_00 == 0x2B) {
-				if (msg->_445D0 < 0) {
-					msg->_445D0              = msg->_445D8;
-					msg->mFont.mSelectedLine = msg->_445D0;
+			if (msg->mCommand == EVT_CMD_SELECT) {
+				if (msg->mSelectedLine < 0) {
+					msg->mSelectedLine       = msg->mDefaultLine;
+					msg->mFont.mSelectedLine = msg->mSelectedLine;
 					msg->mFont.mCurLineY     = msg->mFont.mLineY[msg->mFont.mSelectedLine];
 					msg->mFont.mCurLineWidth = 0.0f;
-				} else if (!(lbl_8025C400.mStatus.mFlags & 0x20)) {
+				} else if (!(gGame.mStatus.mFlags & 0x20)) {
 					CPad pad(0);
-					u32 up   = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x10000 : 0x10008;
-					u32 down = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x20000 : 0x20004;
+					u32 up   = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_UP : (HSD_PAD_STICK_UP | HSD_PAD_DPADUP);
+					u32 down = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_DOWN : (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN);
 					if (pad.mPad->mRepeat & up) {
-						if (--msg->_445D0 < 0) {
-							msg->_445D0 = msg->mData.mLineCount - 1;
+						if (--msg->mSelectedLine < 0) {
+							msg->mSelectedLine = msg->mData.mLineCount - 1;
 						}
-						msg->mFont.mSelectedLine = msg->_445D0;
-						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
+						msg->mFont.mSelectedLine = msg->mSelectedLine;
+						PlayGameSound(&gGame.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & down) {
-						if (++msg->_445D0 >= msg->mData.mLineCount) {
-							msg->_445D0 = 0;
+						if (++msg->mSelectedLine >= msg->mData.mLineCount) {
+							msg->mSelectedLine = 0;
 						}
-						msg->mFont.mSelectedLine = msg->_445D0;
-						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
-					} else if (pad.mPad->mTrigger & 0x100) {
-						msg->_445D4              = msg->_445D0;
-						msg->_445D0              = -1;
+						msg->mFont.mSelectedLine = msg->mSelectedLine;
+						PlayGameSound(&gGame.mSound, 0x87, 255);
+					} else if (pad.mPad->mTrigger & PAD_BUTTON_A) {
+						msg->mSelectResult       = msg->mSelectedLine;
+						msg->mSelectedLine       = -1;
 						msg->mFont.mFadeOut      = 1;
 						msg->mFont.mSelectedLine = -1;
-						fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
-					} else if (pad.mPad->mTrigger & 0x200) {
-						msg->_445D4              = -1;
-						msg->_445D0              = -1;
+						PlayGameSound(&gGame.mSound, 0x88, 255);
+					} else if (pad.mPad->mTrigger & PAD_BUTTON_B) {
+						msg->mSelectResult       = -1;
+						msg->mSelectedLine       = -1;
 						msg->mFont.mFadeOut      = 1;
 						msg->mFont.mSelectedLine = -1;
-						fn_8001E904(&lbl_8025C400.mSound, 0x86, 255);
+						PlayGameSound(&gGame.mSound, 0x86, 255);
 					}
 				}
-			} else if (msg->_445E8 > 0) {
+			} else if (msg->mDigitCount > 0) {
 				if (msg->mFont.mOtherSelection < 0) {
-					MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
+					MsgSetDigits(msg, msg->mDigits, msg->mDigitCount, msg->mFirstEditDigit, msg->mSelectedDigit);
 				} else {
 					CPad pad(0);
-					u32 up       = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x10000 : 0x10008;
-					u32 down     = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x20000 : 0x20004;
-					u32 next     = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x40000 : 0x40001;
-					u32 previous = lbl_8025C400.mStatus.mFlags & 0x80000000 ? 0x80000 : 0x80002;
+					// mDigits[0] is the ones digit (A reads them from [9] down), so left moves to the next higher digit
+					u32 up       = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_UP : (HSD_PAD_STICK_UP | HSD_PAD_DPADUP);
+					u32 down     = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_DOWN : (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN);
+					u32 next     = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_LEFT : (HSD_PAD_STICK_LEFT | HSD_PAD_DPADLEFT);
+					u32 previous = gGame.mStatus.mFlags & 0x80000000 ? HSD_PAD_STICK_RIGHT : (HSD_PAD_STICK_RIGHT | HSD_PAD_DPADRIGHT);
 					if (pad.mPad->mRepeat & up) {
-						if (++msg->_445DC[msg->_445F0] > 9) {
-							msg->_445DC[msg->_445F0] = 0;
+						if (++msg->mDigits[msg->mSelectedDigit] > 9) {
+							msg->mDigits[msg->mSelectedDigit] = 0;
 						}
-						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
+						MsgSetDigits(msg, msg->mDigits, msg->mDigitCount, msg->mFirstEditDigit, msg->mSelectedDigit);
+						PlayGameSound(&gGame.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & down) {
-						if (--msg->_445DC[msg->_445F0] < 0) {
-							msg->_445DC[msg->_445F0] = 9;
+						if (--msg->mDigits[msg->mSelectedDigit] < 0) {
+							msg->mDigits[msg->mSelectedDigit] = 9;
 						}
-						MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-						fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
+						MsgSetDigits(msg, msg->mDigits, msg->mDigitCount, msg->mFirstEditDigit, msg->mSelectedDigit);
+						PlayGameSound(&gGame.mSound, 0x87, 255);
 					} else if (pad.mPad->mRepeat & next) {
-						if (++msg->_445F0 > msg->_445E8 - 1) {
-							msg->_445F0 = msg->_445E8 - 1;
+						if (++msg->mSelectedDigit > msg->mDigitCount - 1) {
+							msg->mSelectedDigit = msg->mDigitCount - 1;
 						} else {
-							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-							fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
+							MsgSetDigits(msg, msg->mDigits, msg->mDigitCount, msg->mFirstEditDigit, msg->mSelectedDigit);
+							PlayGameSound(&gGame.mSound, 0x87, 255);
 						}
 					} else if (pad.mPad->mRepeat & previous) {
-						if (--msg->_445F0 < msg->_445EC) {
-							msg->_445F0 = msg->_445EC;
+						if (--msg->mSelectedDigit < msg->mFirstEditDigit) {
+							msg->mSelectedDigit = msg->mFirstEditDigit;
 						} else {
-							MsgSetDigits(msg, msg->_445DC, msg->_445E8, msg->_445EC, msg->_445F0);
-							fn_8001E904(&lbl_8025C400.mSound, 0x87, 255);
+							MsgSetDigits(msg, msg->mDigits, msg->mDigitCount, msg->mFirstEditDigit, msg->mSelectedDigit);
+							PlayGameSound(&gGame.mSound, 0x87, 255);
 						}
-					} else if (pad.mPad->mTrigger & 0x100) {
+					} else if (pad.mPad->mTrigger & PAD_BUTTON_A) {
 						msg->mFont.mFadeOut        = 1;
 						msg->mFont.mOtherSelection = -1;
-						fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
+						PlayGameSound(&gGame.mSound, 0x88, 255);
 						s32 result = 0;
 						for (s32 i = 9; i >= 0; i--) {
-							result = result * 10 + msg->_445DC[i];
+							result = result * 10 + msg->mDigits[i];
 						}
-						lbl_8025C400.mEvt._10 = result;
-					} else if (pad.mPad->mTrigger & 0x200) {
+						gGame.mEvt.mSelectResult = result;
+					} else if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 						msg->mFont.mFadeOut        = 1;
 						msg->mFont.mOtherSelection = -1;
-						fn_8001E904(&lbl_8025C400.mSound, 0x86, 255);
-						lbl_8025C400.mEvt._10 = -1;
+						PlayGameSound(&gGame.mSound, 0x86, 255);
+						gGame.mEvt.mSelectResult = -1;
 					}
 				}
-			} else if (msg->_445F8 != 0) {
-				if (msg->_445F8 == 1) {
-					if (lbl_8025C400.GetPlayer()->mOXMenu.mStarted < 0) {
-						msg->_445F8++;
+			} else if (msg->mStay != 0) {
+				if (msg->mStay == 1) {
+					if (gGame.GetPlayer()->mOXMenu.mStarted < 0) {
+						msg->mStay++;
 					}
 				} else {
 					msg->mFont.mFadeOut = 1;
@@ -1250,6 +1254,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
 				msg->mFont.mFadeOut = 1;
 			}
 		}
+		// stay on END while the window is up, CMsgFont_Update clears mActive once the fade out ends
 		msg->mData.mCursor--;
 	} else {
 		msg->mData.mCursor = NULL;
@@ -1291,9 +1296,9 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stfs     f0, 0x4594(r4)
     b        .L_80081494
 .L_80080C00:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, 0x20
-    addi     r30, r4, lbl_8025C400@l
+    addi     r30, r4, gGame@l
     lwz      r5, 0x1b14(r30)
     li       r4, 0x0
     lwz      r0, 0x1b10(r30)
@@ -1347,15 +1352,15 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r0, 0x45d0(r4)
 .L_80080CC8:
     addis    r5, r31, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x45d0(r5)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     li       r4, 0x87
     stw      r0, 0x458c(r5)
     li       r5, 0xff
     addi     r3, r3, 0x7e24
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_80080DE8
 .L_80080CF4:
     and.     r0, r3, r6
@@ -1371,24 +1376,24 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r0, 0x45d0(r4)
 .L_80080D20:
     addis    r5, r31, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x45d0(r5)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     li       r4, 0x87
     stw      r0, 0x458c(r5)
     li       r5, 0xff
     addi     r3, r3, 0x7e24
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_80080DE8
 .L_80080D4C:
     lwz      r3, 0x14(r5)
     rlwinm.  r0, r3, 0, 23, 23
     beq      .L_80080DA0
     addis    r8, r31, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r0, 0x45d0(r8)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     li       r7, -0x1
     stw      r0, 0x45d4(r8)
@@ -1401,7 +1406,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     rlwimi   r0, r6, 5, 26, 26
     stb      r0, 0x8a4(r31)
     stw      r7, 0x458c(r8)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_80080DE8
 .L_80080DA0:
     rlwinm.  r0, r3, 0, 22, 22
@@ -1409,8 +1414,8 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     addis    r6, r31, 0x4
     li       r7, -0x1
     stw      r7, 0x45d4(r6)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     li       r5, 0x1
     stw      r7, 0x45d0(r6)
     addis    r3, r3, 0xe
@@ -1421,7 +1426,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     addi     r3, r3, 0x7e24
     stb      r0, 0x8a4(r31)
     stw      r7, 0x458c(r6)
-    bl       fn_8001E904
+    bl       PlayGameSound
 .L_80080DE8:
     lis      r3, __vt__4CPad@ha
     addi     r0, r3, __vt__4CPad@l
@@ -1467,9 +1472,9 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     addi     r3, r1, 0x8
     li       r4, 0x0
     bl       __ct__4CPadFUc
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0x8000
-    addi     r5, r4, lbl_8025C400@l
+    addi     r5, r4, gGame@l
     li       r0, 0x0
     lwz      r4, 0x1b10(r5)
     lwz      r5, 0x1b14(r5)
@@ -1541,9 +1546,9 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     lwz      r9, 0x45f0(r6)
     addis    r11, r10, 0x4
     lwz      r8, 0x45ec(r6)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r7, 0x45e8(r6)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lbz      r0, 0x45dc(r6)
     addis    r3, r3, 0xe
     addi     r10, r31, 0x6
@@ -1571,7 +1576,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r7, 0x45a4(r6)
     stw      r8, 0x45a8(r6)
     stw      r9, 0x45ac(r6)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_8008141C
 .L_80081014:
     and.     r0, r3, r7
@@ -1594,9 +1599,9 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     lwz      r9, 0x45f0(r6)
     addis    r11, r10, 0x4
     lwz      r8, 0x45ec(r6)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r7, 0x45e8(r6)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lbz      r0, 0x45dc(r6)
     addis    r3, r3, 0xe
     addi     r10, r31, 0x6
@@ -1624,7 +1629,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r7, 0x45a4(r6)
     stw      r8, 0x45a8(r6)
     stw      r9, 0x45ac(r6)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_8008141C
 .L_800810E0:
     and.     r0, r3, r8
@@ -1645,8 +1650,8 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     lwz      r8, 0x45ec(r7)
     addis    r11, r10, 0x4
     lbz      r0, 0x45dc(r7)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addi     r10, r31, 0x6
     stb      r0, 0x4598(r7)
     addis    r3, r3, 0xe
@@ -1673,7 +1678,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r6, 0x45a4(r7)
     stw      r8, 0x45a8(r7)
     stw      r9, 0x45ac(r7)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_8008141C
 .L_8008119C:
     and.     r0, r3, r6
@@ -1693,8 +1698,8 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     lwz      r8, 0x45e8(r7)
     addis    r11, r10, 0x4
     lbz      r0, 0x45dc(r7)
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addi     r10, r31, 0x6
     stb      r0, 0x4598(r7)
     addis    r3, r3, 0xe
@@ -1721,7 +1726,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     stw      r8, 0x45a4(r7)
     stw      r6, 0x45a8(r7)
     stw      r9, 0x45ac(r7)
-    bl       fn_8001E904
+    bl       PlayGameSound
     b        .L_8008141C
 .L_80081254:
     lwz      r3, 0x14(r5)
@@ -1731,20 +1736,20 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     li       r3, 0x1
     rlwimi   r0, r3, 5, 26, 26
     addis    r4, r31, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stb      r0, 0x8a4(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, -0x1
     addis    r3, r3, 0xe
     stw      r0, 0x45ac(r4)
     li       r4, 0x88
     li       r5, 0xff
     addi     r3, r3, 0x7e24
-    bl       fn_8001E904
+    bl       PlayGameSound
     li       r7, 0x9
     li       r0, 0x0
     addis    r6, r7, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r6, r6, 0x45dc
     li       r7, 0x8
     lbzx     r5, r31, r6
@@ -1758,7 +1763,7 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     li       r7, 0x7
     extsb    r4, r5
     addis    r6, r7, 0x4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     add      r0, r4, r0
     li       r7, 0x6
     addi     r6, r6, 0x45dc
@@ -1824,19 +1829,19 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     li       r3, 0x1
     rlwimi   r0, r3, 5, 26, 26
     addis    r4, r31, 0x4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stb      r0, 0x8a4(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r0, -0x1
     addis    r3, r3, 0xe
     stw      r0, 0x45ac(r4)
     li       r4, 0x86
     li       r5, 0xff
     addi     r3, r3, 0x7e24
-    bl       fn_8001E904
-    lis      r3, lbl_8025C400@ha
+    bl       PlayGameSound
+    lis      r3, gGame@ha
     li       r0, -0x1
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x6
     stw      r0, -0x2f74(r3)
 .L_8008141C:
@@ -1850,8 +1855,8 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
     beq      .L_80081484
     cmpwi    r4, 0x1
     bne      .L_80081470
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0x1
     lwz      r3, -0x6944(r3)
     addis    r3, r3, 0x1
@@ -1898,13 +1903,13 @@ extern "C" s32 CMsg__cmd_END(CMsg* msg)
  */
 extern "C" void CMsg_Draw(CMsg* msg)
 {
-	fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
-	fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-	fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 3, 0);
-	if (msg->_445C8 == 0.0f) {
+	SetGsChannelEnabled(&gGame.mGs, 0, 0);
+	SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 3, 0);
+	if (msg->mCharDelay == 0.0f) {
 		CMsgFont_Draw(&msg->mFont, 1.0f);
 	} else {
-		f32 t = (msg->_445C8 - msg->_445C4) / msg->_445C8;
+		f32 t = (msg->mCharDelay - msg->mCharTimer) / msg->mCharDelay;
 		if (t > 1.0f) {
 			t = 1.0f;
 		}
@@ -1946,26 +1951,26 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 			waiting = TRUE;
 			continue;
 		}
-		if (msg->_445CC > 0.0f) {
-			f32 time    = msg->_445CC - step;
-			msg->_445CC = time;
+		if (msg->mWaitTimer > 0.0f) {
+			f32 time        = msg->mWaitTimer - step;
+			msg->mWaitTimer = time;
 			if (time < 0.0f) {
-				msg->_445CC = 0.0f;
+				msg->mWaitTimer = 0.0f;
 			} else {
 				waiting = TRUE;
 			}
 			continue;
 		}
-		if (msg->_445C4 < 0.0f) {
+		if (msg->mCharTimer < 0.0f) {
 			waiting = TRUE;
 			continue;
 		}
-		if (msg->_445C4 > 0.0f) {
-			f32 time    = msg->_445C4 - step;
-			msg->_445C4 = time;
+		if (msg->mCharTimer > 0.0f) {
+			f32 time        = msg->mCharTimer - step;
+			msg->mCharTimer = time;
 			if (time < 0.0f) {
-				msg->_445C4 = 0.0f;
-				if (msg->_445C8 > 0.0f && msg->_445C8 - step < 0.0f) {
+				msg->mCharTimer = 0.0f;
+				if (msg->mCharDelay > 0.0f && msg->mCharDelay - step < 0.0f) {
 					waiting = TRUE;
 				}
 			} else {
@@ -1975,56 +1980,56 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 		}
 		u8 command = ReadMsgU8(msg);
 		switch (command) {
-		case 10:
+		case MSG_CODE_NEWLINE:
 			MsgNextLine(msg);
 			waiting = FALSE;
 			break;
-		case 11:
+		case MSG_CODE_NEWLINE_VT:
 			MsgNextLine(msg);
 			waiting = FALSE;
 			break;
-		case 0:
+		case MSG_CODE_END:
 			waiting = CMsg__cmd_END(msg);
 			break;
-		case 1: {
-			s32 time = ReadMsgU8(msg);
-			if (time == 255) {
-				if (msg->_00 == 0x23) {
-					time = 2;
+		case MSG_CODE_SPEED: {
+			s32 delay = ReadMsgU8(msg);
+			if (delay == 255) {
+				if (msg->mCommand == EVT_CMD_MSG) {
+					delay = 2;
 				} else {
-					time = 0;
+					delay = 0;
 				}
 			}
-			msg->_445C8 = time;
-			waiting     = FALSE;
+			msg->mCharDelay = delay;
+			waiting         = FALSE;
 			break;
 		}
-		case 2:
+		case MSG_CODE_WAIT:
 			waiting = CMsg__cmd_WAIT(msg);
 			break;
-		case 3:
+		case MSG_CODE_ANIM:
 			waiting = CMsg__cmd_ANIM(msg);
 			break;
-		case 6: {
+		case MSG_CODE_DEFAULT: {
 			u8 flags  = ReadMsgU8(msg);
 			s32 value = ReadMsgU8(msg);
 			value |= ReadMsgU8(msg) << 8;
 			value |= ReadMsgU8(msg) << 16;
 			value |= ReadMsgU8(msg) << 24;
 			if (flags & 1) {
-				value = lbl_80367A2C[value];
+				value = gEventVars.mVars[value];
 			}
-			msg->_445D8 = value;
-			waiting     = FALSE;
+			msg->mDefaultLine = value;
+			waiting           = FALSE;
 			break;
 		}
-		case 4:
+		case MSG_CODE_SFX:
 			waiting = CMsg__cmd_SFX(msg);
 			break;
-		case 5:
-			msg->_445FC = ReadMsgU8(msg);
-			if (msg->_445FC == 255) {
-				msg->_445FC = -1;
+		case MSG_CODE_VOICE:
+			msg->mGlyphSoundGroup = ReadMsgU8(msg);
+			if (msg->mGlyphSoundGroup == 255) {
+				msg->mGlyphSoundGroup = -1;
 			}
 			waiting = FALSE;
 			break;
@@ -2052,31 +2057,31 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 		case 21:
 			waiting = CMsg__cmd_SETFONT(msg, command);
 			break;
-		case 22:
-			msg->_445E8 = ReadMsgU8(msg);
-			msg->_445EC = ReadMsgU8(msg);
-			msg->_445EC = msg->_445E8 - msg->_445EC;
-			msg->_445F0 = ReadMsgU8(msg) - 1;
-			if (msg->_445F0 > msg->_445E8 - 1) {
-				msg->_445F0 = msg->_445E8 - 1;
-			} else if (msg->_445F0 < msg->_445EC) {
-				msg->_445F0 = msg->_445EC;
+		case MSG_CODE_NUM_INPUT:
+			msg->mDigitCount     = ReadMsgU8(msg);
+			msg->mFirstEditDigit = ReadMsgU8(msg);
+			msg->mFirstEditDigit = msg->mDigitCount - msg->mFirstEditDigit;
+			msg->mSelectedDigit  = ReadMsgU8(msg) - 1;
+			if (msg->mSelectedDigit > msg->mDigitCount - 1) {
+				msg->mSelectedDigit = msg->mDigitCount - 1;
+			} else if (msg->mSelectedDigit < msg->mFirstEditDigit) {
+				msg->mSelectedDigit = msg->mFirstEditDigit;
 			}
 			waiting = FALSE;
 			break;
-		case 23: {
-			u32 arg1 = ReadMsgU8(msg);
-			u32 arg2 = ReadMsgU8(msg);
-			if (lbl_8025C400.GetPlayer()->mOXMenu.mStarted == 0) {
-				fn_800B51FC(lbl_8025C400.GetPlayer(), arg1, arg2);
+		case MSG_CODE_QUESTION: {
+			u32 crossMask     = ReadMsgU8(msg);
+			u32 selectedIndex = ReadMsgU8(msg);
+			if (gGame.GetPlayer()->mOXMenu.mStarted == 0) {
+				OpenPlayerYesNoMenu(gGame.GetPlayer(), crossMask, selectedIndex);
 				msg->mData.mCursor -= 3;
 				waiting = TRUE;
 			} else {
 				CPad pad(0);
-				fn_80096E38(&lbl_8025C400.GetPlayer()->mOXMenu, &pad);
-				if (pad.mPad->mTrigger & 0x100) {
-					lbl_8025C400.mEvt._10 = lbl_8025C400.GetPlayer()->mOXMenu._1340;
-					waiting               = FALSE;
+				HandleOXMenuInput(&gGame.GetPlayer()->mOXMenu, &pad);
+				if (pad.mPad->mTrigger & PAD_BUTTON_A) {
+					gGame.mEvt.mSelectResult = gGame.GetPlayer()->mOXMenu.mConfirmedIndex;
+					waiting                  = FALSE;
 				} else {
 					msg->mData.mCursor -= 3;
 					waiting = TRUE;
@@ -2084,9 +2089,9 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 			}
 			break;
 		}
-		case 24:
-			msg->_445F8 = 1;
-			waiting     = FALSE;
+		case MSG_CODE_STAY:
+			msg->mStay = 1;
+			waiting    = FALSE;
 			break;
 		default: {
 			char text[3];
@@ -2094,7 +2099,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 				text[0] = command;
 				text[1] = ReadMsgU8(msg);
 				text[2] = 0;
-			} else if (command == 17) {
+			} else if (command == MSG_CODE_ICON) {
 				text[0] = command;
 				text[1] = ReadMsgU8(msg);
 				text[2] = 0;
@@ -2103,9 +2108,9 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 				text[1] = 0;
 			}
 			CMsgFont_AddChar(&msg->mFont, text);
-			msg->_445C4 = msg->_445C8;
-			if (msg->_445FC >= 0) {
-				fn_8001DC20(&lbl_8025C400.mSound, msg->_445FC, msg->mFont.mSize / 22.0f, text[0], text[1]);
+			msg->mCharTimer = msg->mCharDelay;
+			if (msg->mGlyphSoundGroup >= 0) {
+				PlayMessageGlyphSound(&gGame.mSound, msg->mGlyphSoundGroup, msg->mFont.mSize / 22.0f, text[0], text[1]);
 			}
 			break;
 		}
@@ -2123,9 +2128,9 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     lwz      r0, 0x804(r3)
     cmplwi   r0, 0x0
     beq      .L_80081C60
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r25, 0x0
-    addi     r28, r3, lbl_8025C400@l
+    addi     r28, r3, gGame@l
     addis    r27, r28, 0xe
     addis    r29, r28, 0x1
     addis    r26, r28, 0x6
@@ -2362,9 +2367,9 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     stw      r3, 0x804(r31)
     or       r5, r5, r0
     beq      .L_8008193C
-    lis      r3, lbl_80367A2C@ha
+    lis      r3, gEventVars@ha
     slwi     r0, r5, 2
-    addi     r3, r3, lbl_80367A2C@l
+    addi     r3, r3, gEventVars@l
     lwzx     r5, r3, r0
 .L_8008193C:
     addis    r3, r31, 0x4
@@ -2480,7 +2485,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     lwz      r0, 0x3394(r6)
     cmpwi    r0, 0x0
     bne      .L_80081ADC
-    bl       fn_800B51FC
+    bl       OpenPlayerYesNoMenu
     lwz      r3, 0x804(r31)
     li       r5, 0x1
     subi     r0, r3, 0x3
@@ -2494,7 +2499,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     addi     r4, r1, 0xc
     addis    r3, r3, 0x1
     addi     r3, r3, 0x3390
-    bl       fn_80096E38
+    bl       HandleOXMenuInput
     lwz      r3, 0xc(r1)
     lwz      r0, 0x14(r3)
     rlwinm.  r0, r0, 0, 23, 23
@@ -2589,7 +2594,7 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
     lbz      r5, 0x8(r1)
     fdivs    f1, f1, f0
     lbz      r6, 0x9(r1)
-    bl       fn_8001DC20
+    bl       PlayMessageGlyphSound
 .L_80081C4C:
     cmpwi    r25, 0x0
     beq      .L_800815E0
@@ -2621,10 +2626,10 @@ static inline void ResetMsgState(CMsg* msg)
 	msg->mFont.mPlacement = 0;
 	Vec zero              = { 0.0f, 0.0f, 0.0f };
 	msg->mFont.mPosition  = zero;
-	msg->mFont.mSize      = 22.0f;
 #if defined(VERSION_JP)
-	msg->mFont.mPrevSize = 22.0f;
+	msg->mFont.mSize = msg->mFont.mPrevSize = 22.0f;
 #else
+	msg->mFont.mSize     = 22.0f;
 	msg->mFont.mPrevSize = NAN;
 #endif
 	msg->mFont.mGlyphColor     = msgColorTable[0];
@@ -2637,33 +2642,33 @@ static inline void ResetMsgState(CMsg* msg)
 	msg->mFont.mAlpha          = 0.0f;
 	msg->mFont.mTextAlpha      = 1.0f;
 	msg->mFont.mHighlightAlpha = 0.0f;
-	msg->mFont._43C6C          = 0;
+	msg->mFont.mBlinkIcon      = 0;
 	msg->mFont.mBlinkPhase     = 0.0f;
 	msg->mFont.mTexOffset      = 0.0f;
 	for (int i = 0; i < 400; i++) {
 		msg->mFont.mGlyphs[i].mPhaseX = msg->mFont.mGlyphs[i].mPhaseY = (i * 75) % 360;
 	}
-	msg->_445C0 = 1;
-	msg->_445C8 = 0.0f;
-	msg->_445C4 = 0.0f;
-	msg->_445D4 = -1;
-	msg->_445D0 = -1;
-	msg->_445D8 = 0;
+	msg->mIdle         = 1;
+	msg->mCharDelay    = 0.0f;
+	msg->mCharTimer    = 0.0f;
+	msg->mSelectResult = -1;
+	msg->mSelectedLine = -1;
+	msg->mDefaultLine  = 0;
 	for (int i = 0; i < 9; i += 3) {
 		for (int j = 0; j < 3; j++) {
-			msg->_445DC[i + j] = 0;
+			msg->mDigits[i + j] = 0;
 		}
 	}
-	msg->_445F0 = 0;
-	msg->_445EC = 0;
-	msg->_445E8 = 0;
-	msg->_445F8 = 0;
-	msg->_445FC = -1;
+	msg->mSelectedDigit   = 0;
+	msg->mFirstEditDigit  = 0;
+	msg->mDigitCount      = 0;
+	msg->mStay            = 0;
+	msg->mGlyphSoundGroup = -1;
 }
 
 extern "C" void CMsgData_Format(u8* data, u8* script, MsgFormatArgs* args);
 extern "C" void CMsgData_Measure(CMsgData* data);
-extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, s32 mode, s32 style, s32 align);
+extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, s32 placement, s32 fitLine, s32 mode);
 
 /**
  * @note Address: 0x80081C74
@@ -2672,7 +2677,7 @@ extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, s32 mode, 
 extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
 {
 	ResetMsgState(msg);
-	msg->_00       = command;
+	msg->mCommand  = command;
 	s32 savedCount = args->count;
 	CMsgData_Format(msg->mData.mText, script, args);
 	CMsgData_Measure(&msg->mData);
@@ -2680,18 +2685,19 @@ extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
 	msg->mData.mCursor = msg->mData.mText;
 #if !defined(VERSION_JP)
 	if (msg->mData.mIconColumns == 0) {
-		TPLPalette* palette     = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture        = &(&lbl_8025C400.mTpl)->mTex;
+		// how many 24 pixel icons the icon strip holds, CMsgFont_AddChar clamps MSG_CODE_ICON's index to it
+		TPLPalette* palette     = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+		CTexObj* texture        = &(&gGame.mTpl)->mTex;
 		CTexObj icon            = texture->Init(&palette->descriptorArray[119], 0);
 		msg->mData.mIconColumns = (s32)GXGetTexObjWidth(&icon) / 24;
 	}
 #endif
 	u8* cursor = msg->mData.mCursor;
-	CMsgFont_Init(&msg->mFont, msg->mData.mText, msg->_44600, msg->_44604, msg->_44608, msg->mData.mAlignment, msg->mData.mStyle);
-	msg->SetFontPosition(msg->_4460C.x, msg->_4460C.y, msg->_4460C.z);
-	msg->_445C4 = 0.0f;
-	msg->_445C8 = msg->_00 == 35 ? 2 : 0;
-	msg->_445CC = 0.0f;
+	CMsgFont_Init(&msg->mFont, msg->mData.mText, msg->mWindowX, msg->mWindowY, msg->mPlacement, msg->mData.mAlignment, msg->mData.mStyle);
+	msg->SetFontPosition(msg->mFontPosition.x, msg->mFontPosition.y, msg->mFontPosition.z);
+	msg->mCharTimer = 0.0f;
+	msg->mCharDelay = msg->mCommand == EVT_CMD_MSG ? 2 : 0;
+	msg->mWaitTimer = 0.0f;
 	return cursor;
 }
 /*
@@ -2701,11 +2707,11 @@ extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
     li       r7, 0x0
     stw      r0, 0x154(r1)
     addi     r12, r8, msgColorTable@l
-    lis      r10, lbl_80208ED0@ha
+    lis      r10, sMessageFontOrigin@ha
     lfs      f2, lbl_8065D06C@sda21(r0)
     stmw     r23, 0x12c(r1)
     mr       r30, r3
-    addi     r24, r10, lbl_80208ED0@l
+    addi     r24, r10, sMessageFontOrigin@l
     lis      r9, __float_nan@ha
     addi     r23, r9, __float_nan@l
     mr       r10, r5
@@ -2914,9 +2920,9 @@ extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
     lwz      r0, 0x898(r30)
     cmpwi    r0, 0x0
     bne      .L_800820D8
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r5, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r4, 0x3d4c(r3)
     addi     r3, r3, 0x3d6c
     lwz      r4, 0x8(r4)
@@ -3028,20 +3034,20 @@ extern "C" u8* CMsg_Open(CMsg* msg, u8 command, u8* script, MsgFormatArgs* args)
  */
 extern "C" void CMsg_ResetPos(CMsg* msg)
 {
-	msg->_44600   = 320.0f;
-	msg->_44604   = 344.0f;
-	msg->_44608   = 0;
-	Vec zero      = { 0.0f, 0.0f, 0.0f };
-	msg->_4460C.x = zero.x;
-	msg->_4460C.y = zero.y;
-	msg->_4460C.z = zero.z;
+	msg->mWindowX        = 320.0f;
+	msg->mWindowY        = 344.0f;
+	msg->mPlacement      = 0;
+	Vec zero             = { 0.0f, 0.0f, 0.0f };
+	msg->mFontPosition.x = zero.x;
+	msg->mFontPosition.y = zero.y;
+	msg->mFontPosition.z = zero.z;
 }
 
 /**
  * @note Address: 0x800821DC
  * @note Size: 0x32C
  */
-extern "C" void fn_800821DC(CMsg* msg)
+extern "C" void ResetMessageState(CMsg* msg)
 {
 	// NONMATCHING: regalloc
 	ResetMsgState(msg);
@@ -3054,9 +3060,9 @@ extern "C" void fn_800821DC(CMsg* msg)
     lis      r5, msgColorTable@ha
     stmw     r26, 0x18(r1)
     li       r4, 0x0
-    lis      r7, lbl_80208ED0@ha
+    lis      r7, sMessageFontOrigin@ha
     addi     r10, r5, msgColorTable@l
-    addi     r26, r7, lbl_80208ED0@l
+    addi     r26, r7, sMessageFontOrigin@l
     lis      r8, 0xb60b
     li       r12, 0x1
     addis    r27, r3, 0x4
@@ -3258,33 +3264,35 @@ extern "C" void fn_800821DC(CMsg* msg)
  * @note Address: 0x80082508
  * @note Size: 0xA0
  */
-extern "C" BOOL fn_80082508(CMsg* msg)
+extern "C" BOOL LoadMessageCursorObject(CMsg* msg)
 {
 	void* spawn = GetSpawnData(13);
 	XObj* obj   = &msg->mFont.mCursor[0].mCursor;
-	if (obj->vf9C(CoordInfo(spawn))) {
+	if (obj->LoadFromPlacement(CoordInfo(spawn))) {
 		obj->SetScale(3.0f, 3.0f, 3.0f, 0);
 		return TRUE;
 	}
 	return FALSE;
 }
 
-extern "C" GXColor lbl_8065A428;
+extern "C" {
+GXColor gMessageWindowDefaultColor = { 0, 0, 0, 0x80 };
+}
 
 /**
  * @note Address: 0x800825A8
  * @note Size: 0x3C8
  */
-extern "C" void fn_800825A8(CMsg* msg)
+extern "C" void InitMessageWindow(CMsg* msg)
 {
-	ResetMsgState(msg);
+	ResetMessageState(msg);
 	CMsg_ResetPos(msg);
-	GXColor color       = lbl_8065A428;
+	GXColor color       = gMessageWindowDefaultColor;
 	msg->mFont.mColor.r = color.r;
 	msg->mFont.mColor.g = color.g;
 	msg->mFont.mColor.b = color.b;
 	msg->mFont.mColor.a = color.a;
-	msg->mFont.mCursor[0].mCursor.vf90(0);
+	msg->mFont.mCursor[0].mCursor.InitializeObject(0);
 }
 /*
     stwu     r1, -0x40(r1)
@@ -3296,8 +3304,8 @@ extern "C" void fn_800825A8(CMsg* msg)
     lis      r4, msgColorTable@ha
     li       r3, 0x0
     stmw     r26, 0x28(r1)
-    lis      r7, lbl_80208ED0@ha
-    addi     r26, r7, lbl_80208ED0@l
+    lis      r7, sMessageFontOrigin@ha
+    addi     r26, r7, sMessageFontOrigin@l
     addi     r10, r4, msgColorTable@l
     lis      r8, 0xb60b
     li       r12, 0x1
@@ -3461,9 +3469,9 @@ extern "C" void fn_800825A8(CMsg* msg)
     lfs      f0, lbl_8065D058@sda21(r0)
     addis    r10, r5, 0x4
     addi     r10, r10, 0x45dc
-    lis      r3, lbl_80209144@ha
+    lis      r3, sMessageDefaultFontPosition@ha
     stfs     f0, 0x45c8(r8)
-    addi     r7, r3, lbl_80209144@l
+    addi     r7, r3, sMessageDefaultFontPosition@l
     li       r0, -0x1
     add      r10, r6, r10
     stfs     f0, 0x45c4(r8)
@@ -3511,7 +3519,7 @@ extern "C" void fn_800825A8(CMsg* msg)
     lfs      f0, 0x20(r1)
     stfs     f1, 0x4610(r8)
     stfs     f0, 0x4614(r8)
-    lwz      r0, lbl_8065A428@sda21(r0)
+    lwz      r0, gMessageWindowDefaultColor@sda21(r0)
     stw      r0, 0x8(r1)
     lbz      r5, 0x8(r1)
     lbz      r0, 0x9(r1)
@@ -3538,10 +3546,8 @@ void SetScale__5CJObjFfffl(CJObj* object, f32 x, f32 y, f32 z, s32 force);
 void SetRotationY__5CJObjFfl(CJObj* object, f32 yaw, s32 force);
 void SetTranslate__5CJObjFRC3Vecl(CJObj* object, const Vec& position, s32 force);
 void SetScale__5CJObjFRC3Vecl(CJObj* object, const Vec& scale, s32 force);
-#if defined(VERSION_JP)
-void fn_80086BC4(u8* game);
-#elif defined(VERSION_PAL)
-void fn_800869E8(u8* game);
+#if defined(VERSION_JP) || defined(VERSION_PAL)
+void InvalidateMessageDrawState(CGs* gs);
 #endif
 }
 
@@ -3554,7 +3560,7 @@ void fn_800869E8(u8* game);
 #if defined(VERSION_PAL)
 static inline void MsgRestoreScissor(u32 x, u32 y, u32 width, u32 height)
 {
-	f32 displayScale = lbl_8025C400.mGs.mScreen._40;
+	f32 displayScale = gGame.mGs.mScreen.mHeightScale;
 	u32 scaledHeight = (u32)(height * displayScale);
 	u32 scaledY      = (u32)(y * displayScale);
 	GXSetScissor(x, scaledY, width, scaledHeight);
@@ -3582,7 +3588,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 	CMsgFont* font = (CMsgFont*)p;
 	XObj* anchor   = (XObj*)font->mPlacement;
 	if (anchor != NULL && (anchor->mStatus.mFlags & 1) && (anchor->mStatus.mFlags & 0x10000)) {
-		anchor->vf10C(&font->mPosition, &font->mWindowX, &font->mWindowY, NULL, 0);
+		anchor->ProjectOffsetToScreen(&font->mPosition, &font->mWindowX, &font->mWindowY, NULL, 0);
 		font->mWindowY -= font->mHeight;
 	}
 	if (font->mWindowX - font->mWidth * 0.5f < 16.0f)
@@ -3594,7 +3600,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 	if (font->mWindowY + font->mHeight > 414.0f)
 		font->mWindowY = 414.0f - font->mHeight;
 	f32 portraitScale;
-	if (lbl_8025C400.mWipeTile1.mActive != 0)
+	if (gGame.mWipeTile1.mActive != 0)
 		portraitScale = 0.846153855f;
 	else
 		portraitScale = font->mHeight / 52.0f;
@@ -3602,116 +3608,67 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 		portraitScale = 1.1f;
 	if (portraitScale < 0.5f)
 		portraitScale = 0.5f;
+	// only mode 0 has the portrait, and the text moves right by half its width
 	f32 portraitWidth = (font->mMode >= 0 && font->mMode < 1) ? 40.0f * portraitScale : 0.0f;
 	f32 textOffset    = portraitWidth;
-	f32 expandX       = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
-	f32 expandY       = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
+	// 4.712389 is 3 pi / 2: as mAlpha rises from 0 to 1 the frame starts 4 pixels in, swells 4 out, then settles
+	f32 expandX = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
+	f32 expandY = 4.0f * (f32)sin(4.712389f * (1.0f - font->mAlpha));
 
 	if (font->mAlpha > 0.0f) {
-		fn_8019B34C(lbl_8025C400.mGs.mCurRenderMode, 12, 5);
+		SetGsLineWidth(gGame.mGs.mCurRenderMode, 12, 5);
 		f32 halfPortrait = portraitWidth * 0.5f;
 		f32 left         = ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - expandX) - halfPortrait;
 		f32 right        = halfPortrait + (expandX + (40.0f + (font->mWindowX + font->mWidth * 0.5f)));
 		f32 top          = (font->mWindowY - 8.0f) - expandY;
 		f32 bottom       = expandY + (8.0f + (font->mWindowY + font->mHeight));
 		f32 windowAlpha  = font->mColor.a != 0 ? font->mAlpha : 0.0f;
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 1);
 		f32 outerRight  = 9.0f + (8.0f + right);
 		f32 outerBottom = 9.0f + (8.0f + bottom);
-		fn_80198614(&lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
-		            outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+		DrawGsVertexQuad(&gGame.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
+		                 outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
 
-		Vec fan[10]   = { { 0 } };
 		f32 innerLeft = 1.0f + left, innerRight = right - 1.0f;
 		f32 innerTop = 1.0f + top, innerBottom = bottom - 1.0f;
 		f32 roundLeft = 8.0f + innerLeft, roundRight = innerRight - 8.0f;
 		f32 roundTop = 8.0f + innerTop, roundBottom = innerBottom - 8.0f;
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = font->mWindowX;
-			point.y   = font->mWindowY;
-			fan[0]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = innerLeft;
-			point.y   = roundTop;
-			fan[1]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = roundLeft;
-			point.y   = innerTop;
-			fan[2]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = roundRight;
-			point.y   = innerTop;
-			fan[3]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = innerRight;
-			point.y   = roundTop;
-			fan[4]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = innerRight;
-			point.y   = roundBottom;
-			fan[5]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = roundRight;
-			point.y   = innerBottom;
-			fan[6]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = roundLeft;
-			point.y   = innerBottom;
-			fan[7]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = innerLeft;
-			point.y   = roundBottom;
-			fan[8]    = point;
-		}
-		{
-			Vec point = { 0.0f, 0.0f, 0.0f };
-			point.x   = innerLeft;
-			point.y   = roundTop;
-			fan[9]    = point;
-		}
+		Vec fan[10] = { (Vec) { font->mWindowX, font->mWindowY, 0.0f },
+			            (Vec) { innerLeft, roundTop, 0.0f },
+			            (Vec) { roundLeft, innerTop, 0.0f },
+			            (Vec) { roundRight, innerTop, 0.0f },
+			            (Vec) { innerRight, roundTop, 0.0f },
+			            (Vec) { innerRight, roundBottom, 0.0f },
+			            (Vec) { roundRight, innerBottom, 0.0f },
+			            (Vec) { roundLeft, innerBottom, 0.0f },
+			            (Vec) { innerLeft, roundBottom, 0.0f },
+			            (Vec) { innerLeft, roundTop, 0.0f } };
 		u32 color
 		    = ((u32)font->mColor.r << 24) | ((u32)font->mColor.g << 16) | ((u32)font->mColor.b << 8) | (u32)(font->mColor.a * font->mAlpha);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
-		fn_80198D08(&lbl_8025C400.mGs, GX_TRIANGLEFAN, lbl_8025C400.mGs.mCamera->mViewMtx, fan, color, 10);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 1, 1);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundLeft, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundRight, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundLeft, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, roundRight, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 1);
+		DrawGsTrianglePrimitive(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, fan, color, 10);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 1, 1);
+		DrawGsCircle(&gGame.mGs, 16, color, color, roundLeft, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, roundRight, roundTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, roundLeft, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, roundRight, roundBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		color = (u32)(64.0f * windowAlpha);
-		for (s32 i = 0; i < 10; i++) {
+		for (u32 i = 0; i < 10; i++) {
 			fan[i].x += 9.0f;
 			fan[i].y += 9.0f;
 		}
-		fn_80198D08(&lbl_8025C400.mGs, GX_TRIANGLEFAN, lbl_8025C400.mGs.mCamera->mViewMtx, fan, color, 10);
+		DrawGsTrianglePrimitive(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, fan, color, 10);
 		f32 shadowLeft = 8.0f + (1.0f + (9.0f + left));
 		f32 shadowTop  = 8.0f + (1.0f + (9.0f + top));
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, shadowLeft, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		f32 shadowRight = ((9.0f + right) - 1.0f) - 8.0f;
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowRight, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, shadowRight, shadowTop, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 		f32 shadowBottom = ((9.0f + bottom) - 1.0f) - 8.0f;
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowLeft, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
-		fn_80198258(&lbl_8025C400.mGs, 16, color, color, shadowRight, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, shadowLeft, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, color, shadowRight, shadowBottom, 0.0f, 16.0f, 16.0f, 0.0f, 0.0f, 0.0f);
 
-		TPLPalette* palette    = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* sharedTexture = &(&lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette    = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+		CTexObj* sharedTexture = &(&gGame.mTpl)->mTex;
 #if defined(VERSION_JP)
 		CTexObj border = sharedTexture->Init(&palette->descriptorArray[112], 0);
 #else
@@ -3756,26 +3713,26 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 		slices[7].x      = edgeRight;
 		slices[7].y      = edgeBottom;
 		color            = 0xFFFFFF00 | (u32)(255.0f * windowAlpha);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 1, 1);
-		for (s32 i = 0; i < 8; i++) {
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 1, 1);
+		for (u32 i = 0; i < 8; i++) {
 			PSMTXTrans(border.mMtx[0], slices[i].u, slices[i].v, 0.0f);
 			border.mMtxDirty = TRUE;
 			PSMTXScale(border.mMtx[1], slices[i].scaleU, slices[i].scaleV, 1.0f);
 			border.mMtxDirty = TRUE;
-			fn_80197800(&lbl_8025C400.mGs, &border, color, color, color, color, slices[i].x, slices[i].y, 1.0f, slices[i].width,
-			            slices[i].height, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, &border, color, color, color, color, slices[i].x, slices[i].y, 1.0f, slices[i].width,
+			                   slices[i].height, 0.0f, 0.0f, 0.0f);
 		}
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 1);
-		fn_80198614(&lbl_8025C400.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
-		            outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 1);
+		DrawGsVertexQuad(&gGame.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, outerRight, top - 8.0f, -1.0f, 0xFF000000, outerRight,
+		                 outerBottom, -1.0f, 0xFF000000, left - 8.0f, outerBottom, -1.0f, 0xFF000000);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
 
 		if (font->mMode >= 0 && font->mMode < 1) {
 			if (font->mColor.a != 0) {
 #if defined(VERSION_PAL)
-				f32 displayScale = lbl_8025C400.mGs.mScreen._40;
+				f32 displayScale = gGame.mGs.mScreen.mHeightScale;
 				u32 clipHeight   = (u32)(displayScale * (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight));
 #else
 				u32 clipHeight = (u32)(2.0f * ((8.0f + expandY) - 1.0f) + font->mHeight);
@@ -3792,13 +3749,13 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			f32 portraitX   = 44.0f * portraitScale + ((font->mWindowX - font->mWidth * 0.5f) - 40.0f - halfPortrait);
 			f32 portraitY   = 12.0f * portraitScale + (font->mHeight * 0.5f + font->mWindowY);
 			XObj* portrait  = NULL;
-			s32 objectCount = lbl_8025C400.mXObjs.mPools[10].mUsed;
-			s32 stride      = lbl_8025C400.mXObjs.mPools[10].mStride;
-			u8* objects     = lbl_8025C400.mXObjs.mPools[10].mObjects;
+			s32 objectCount = gGame.mXObjs.mPools[10].mUsed;
+			s32 stride      = gGame.mXObjs.mPools[10].mStride;
+			u8* objects     = gGame.mXObjs.mPools[10].mObjects;
 			for (s32 i = 0; i < objectCount; i++) {
 				XObj* obj = (XObj*)(objects + i * stride);
 				if (obj->mStatus.mFlags & 1) {
-					UnkObjData* kind = *(UnkObjData**)((u8*)obj + MSG_OBJECT_OFFSET(0x240));
+					UnkObjData* kind = obj->mAttr.mObjData;
 					if ((s16)(kind != NULL ? kind->GetItem() : -1) == 10)
 						portrait = obj;
 				}
@@ -3820,7 +3777,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
 					HSD_JObjSetupMatrix(joint.mJObj);
 					s32 path[6] = { 0, 3, 0, 0, 0, 0 };
-					f32 height  = fn_8007E7F4((CJObj*)portrait, 6, path).y;
+					f32 height  = CJObj_GetJointWorldPositionByPath((CJObj*)portrait, 6, path).y;
 					SetTranslate__5CJObjFfffl(&joint, portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
 					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
 					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
@@ -3829,7 +3786,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					s32 oldMode                                       = *(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164));
 					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = 0xFFFFFF00;
 					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = 0;
-					portrait->vfAC();
+					portrait->DrawObject();
 #if defined(VERSION_US)
 					joint.CJObj::SetTranslate(oldPosition, 1);
 					joint.CJObj::SetScale(oldScale, 1);
@@ -3847,20 +3804,18 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			} else {
 				font->mCursor[0].mCursor.SetPos(portraitX, portraitY, 80.0f * portraitScale, 0);
 				font->mCursor[0].mCursor.SetScale((9.0f * portraitScale) * font->mAlpha, 0);
-				font->mCursor[0].mCursor.vfAC();
+				font->mCursor[0].mCursor.DrawObject();
 			}
-#if defined(VERSION_JP)
-			fn_80086BC4((u8*)&lbl_8025C400);
-#elif defined(VERSION_PAL)
-			fn_800869E8((u8*)&lbl_8025C400);
+#if defined(VERSION_JP) || defined(VERSION_PAL)
+			InvalidateMessageDrawState(&gGame.mGs);
 #else
 			HSD_StateInvalidate(-1);
-			if (lbl_8025C400.mGs.mCurRenderMode != NULL)
-				lbl_8025C400.mGs.mCurRenderMode->Invalidate();
-			if (lbl_8025C400.mGs.mCurTevStage != NULL)
-				lbl_8025C400.mGs.mCurTevStage->Invalidate();
-			if (lbl_8025C400.mGs.mCurChannel != NULL && !lbl_8025C400.mGs.mCurChannel->mDirty)
-				lbl_8025C400.mGs.mCurChannel->mDirty = TRUE;
+			if (gGame.mGs.mCurRenderMode != NULL)
+				gGame.mGs.mCurRenderMode->Invalidate();
+			if (gGame.mGs.mCurTevStage != NULL)
+				gGame.mGs.mCurTevStage->Invalidate();
+			if (gGame.mGs.mCurChannel != NULL && !gGame.mGs.mCurChannel->mDirty)
+				gGame.mGs.mCurChannel->mDirty = TRUE;
 #endif
 			if (font->mColor.a != 0) {
 #if defined(VERSION_PAL)
@@ -3876,64 +3831,41 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			f32 width  = 24.0f + font->mCurLineWidth;
 			f32 height = font->mData->mHeights[font->mSelectedLine];
 			u32 color  = 0xC87F1600 | (u32)(200.0f * font->mHighlightAlpha);
-			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 			CTexObj* highlight = &font->mTexs.mTex[MSG_TEX_ARROW];
 			PSMTXScale(highlight->mMtx[1], 0.25f, 1.0f, 1.0f);
 			highlight->mMtxDirty = TRUE;
 			PSMTXTrans(highlight->mMtx[0], 0.25f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
 			y                    = 2.0f + y;
-			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, highlight, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
 			PSMTXTrans(highlight->mMtx[0], 0.0f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
 			f32 halfWidth        = width * 0.5f;
-			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, (x - halfWidth) - 4.0f, y, 0.0f, 8.0f, height, 0.0f, 0.0f,
-			            0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, highlight, color, color, color, color, (x - halfWidth) - 4.0f, y, 0.0f, 8.0f, height, 0.0f, 0.0f,
+			                   0.0f);
 			PSMTXTrans(highlight->mMtx[0], 0.5f, 0.0f, 0.0f);
 			highlight->mMtxDirty = TRUE;
-			fn_80197800(&lbl_8025C400.mGs, highlight, color, color, color, color, 4.0f + (x + halfWidth), y, 0.0f, 8.0f, height, 0.0f, 0.0f,
-			            0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, highlight, color, color, color, color, 4.0f + (x + halfWidth), y, 0.0f, 8.0f, height, 0.0f, 0.0f,
+			                   0.0f);
 			CTexObj* line = &font->mTexs.mTex[MSG_TEX_LINE];
 			f32 lineWidth = GXGetTexObjWidth(line);
 			PSMTXScale(line->mMtx[1], 0.5f * (width / lineWidth), 0.5f, 1.0f);
 			line->mMtxDirty = TRUE;
 			color           = 0xFFFFFF00 | (u32)(40.0f * font->mHighlightAlpha);
-			fn_80197800(&lbl_8025C400.mGs, line, color, color, color, color, 2.0f + x, y, 0.0f, width, height - 4.0f, 0.0f, 0.0f, 0.0f);
-			fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+			DrawGsTexturedQuad(&gGame.mGs, line, color, color, color, color, 2.0f + x, y, 0.0f, width, height - 4.0f, 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 		}
 		if (font->mOtherSelection >= 0) {
 			s32 line    = font->mGlyphs[font->mCharCount - 1].mLine;
 			f32 center  = textOffset * 0.5f + font->mWindowX;
 			f32 x       = ((font->mDigitCount * font->mSize) * 0.5f + center) - (font->mOtherSelection + 1) * font->mSize;
 			f32 y       = 3.0f + ((font->mLineY[line] + (8.0f + font->mWindowY)) - font->mData->mHeights[line] * 0.5f);
-			Vec quad[4] = { { 0 } };
-			{
-				Vec point = { 0.0f, 0.0f, 0.0f };
-				point.x   = x;
-				point.y   = y;
-				quad[0]   = point;
-			}
-			{
-				Vec point = { 0.0f, 0.0f, 0.0f };
-				point.x   = x + font->mSize;
-				point.y   = y;
-				quad[1]   = point;
-			}
-			{
-				Vec point = { 0.0f, 0.0f, 0.0f };
-				point.x   = x + font->mSize;
-				point.y   = y + font->mSize;
-				quad[2]   = point;
-			}
-			{
-				Vec point = { 0.0f, 0.0f, 0.0f };
-				point.x   = x;
-				point.y   = y + font->mSize;
-				quad[3]   = point;
-			}
-			u32 color = 0xFF00 | (u32)(200.0f * font->mHighlightAlpha);
-			fn_80198614(&lbl_8025C400.mGs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x,
-			            quad[2].y, quad[2].z, color, quad[3].x, quad[3].y, quad[3].z, color);
+			Vec quad[4] = { (Vec) { x, y, 0.0f }, (Vec) { x + font->mSize, y, 0.0f }, (Vec) { x + font->mSize, y + font->mSize, 0.0f },
+				            (Vec) { x, y + font->mSize, 0.0f } };
+			u32 color   = 0xFF00 | (u32)(200.0f * font->mHighlightAlpha);
+			DrawGsVertexQuad(&gGame.mGs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x,
+			                 quad[2].y, quad[2].z, color, quad[3].x, quad[3].y, quad[3].z, color);
 			for (s32 i = 0; i < font->mDigitCount; i++) {
 				f32 digitX = ((font->mDigitCount * font->mSize) * 0.5f + center) - (i + 1) * font->mSize;
 				u32 color;
@@ -3943,35 +3875,35 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					color = 0x64FF6400 | (u32)(255.0f * font->mTextAlpha);
 				char text[4];
 #if defined(VERSION_JP)
-				fn_80191268(fn_801911B4("%d", font->mDigits[i]), text);
+				ConvertHalfWidthToFullWidthSJIS(FormatToStaticBuffer("%d", font->mDigits[i]), text);
 #else
 				sprintf(text, "%d", font->mDigits[i]);
 #endif
-				f32 width = fn_801968BC(&lbl_8025C400.mGs, text, TRUE, font->mSize);
+				f32 width = MeasureGameTextWidth(&gGame.mGs, text, TRUE, font->mSize);
 				digitX += (font->mSize - width) * 0.5f;
-				fn_80196610(&lbl_8025C400, color, text, digitX, y, 0.0f, font->mSize, font->mSize);
+				DrawGsProportionalTextFormat(&gGame.mGs, color, text, digitX, y, 0.0f, font->mSize, font->mSize);
 			}
 		}
-		fn_8019B34C(lbl_8025C400.mGs.mCurRenderMode, 12, 5);
+		SetGsLineWidth(gGame.mGs.mCurRenderMode, 12, 5);
 	}
 
 	if (font->mTextAlpha > 0.0f) {
-		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 0, 0, 4);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
-		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(1);
-		lbl_8025C400.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
-		if (lbl_8025C400.mGs.mCurRenderMode != NULL)
-			fn_8019B278(lbl_8025C400.mGs.mCurRenderMode, FALSE);
-		if (lbl_8025C400.mGs.mCurTevStage != NULL)
-			fn_8019AED0(lbl_8025C400.mGs.mCurTevStage, FALSE);
-		if (lbl_8025C400.mGs.mCurChannel != NULL)
-			fn_8019AE94(lbl_8025C400.mGs.mCurChannel, FALSE);
+		SetGsTevOrder(gGame.mGs.mCurTevStage, 0, 0, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+		gGame.mGs.mCurTevStage->SetNumTexGens(1);
+		gGame.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
+		if (gGame.mGs.mCurRenderMode != NULL)
+			ApplyGsRenderMode(gGame.mGs.mCurRenderMode, FALSE);
+		if (gGame.mGs.mCurTevStage != NULL)
+			ApplyGsTevStage(gGame.mGs.mCurTevStage, FALSE);
+		if (gGame.mGs.mCurChannel != NULL)
+			ApplyGsChannel(gGame.mGs.mCurChannel, FALSE);
 		f32 halfOffset = textOffset * 0.5f;
 		f32 alpha      = font->mTextAlpha;
 		f32 last       = alpha * lastAlpha;
 		Mtx translation, view;
 		PSMTXTrans(translation, 2.0f + (font->mWindowX + halfOffset), 1.0f + font->mWindowY, 0.0f);
-		PSMTXConcat(lbl_8025C400.mGs.mCamera->mViewMtx, translation, view);
+		PSMTXConcat(gGame.mGs.mCamera->mViewMtx, translation, view);
 		for (s32 i = 0; i < font->mCharCount; i++) {
 			MsgFontGlyph& glyph = font->mGlyphs[i];
 			if (glyph.mLine == font->mSelectedLine) {
@@ -3981,7 +3913,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			}
 		}
 		PSMTXTrans(translation, font->mWindowX + halfOffset, font->mWindowY, 0.0f);
-		PSMTXConcat(lbl_8025C400.mGs.mCamera->mViewMtx, translation, view);
+		PSMTXConcat(gGame.mGs.mCamera->mViewMtx, translation, view);
 		for (s32 i = 0; i < font->mCharCount; i++) {
 			MsgFontGlyph& glyph = font->mGlyphs[i];
 			f32 opacity         = i == font->mCharCount - 1 ? last : alpha;
@@ -3991,15 +3923,15 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			case 0x10:
 			case 0x20: {
 				f32 angle       = glyph.mAngle;
-				f32 a           = (glyph.mEffect & 1) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseY) : 0.0f;
-				f32 b           = (glyph.mEffect & 2) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseX) : 0.0f;
+				f32 shakeY      = (glyph.mEffect & 1) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseY) : 0.0f;
+				f32 shakeX      = (glyph.mEffect & 2) ? glyph.mAmount * (f32)sin(DEG2RAD * glyph.mPhaseX) : 0.0f;
 				f32 quarterTurn = HALF_PI + angle;
 				f32 sideSin     = sin(quarterTurn);
 				f32 forwardSin  = sin(angle);
-				f32 dx          = a * forwardSin + b * sideSin;
+				f32 dx          = shakeY * forwardSin + shakeX * sideSin;
 				f32 sideCos     = cos(quarterTurn);
 				f32 forwardCos  = cos(angle);
-				f32 dy          = a * forwardCos + b * sideCos;
+				f32 dy          = shakeY * forwardCos + shakeX * sideCos;
 				f32 scaleX = glyph.mScaleX, scaleY = glyph.mScaleY;
 				if (glyph.mEffect & 4) {
 					f32 wave  = sin(DEG2RAD * glyph.mPhaseW);
@@ -4007,6 +3939,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					glyph.mSprite.SetScale(scaleX * scale, scaleY * scale, 1.0f);
 				}
 				if (glyph.mEffect & 8) {
+					// 0.52359879 is 30 degrees and SetRot gets angle + wave / 2, so the glyph rocks up to 15 degrees either way
 					f32 wave = 0.52359879f * (f32)sin(DEG2RAD * glyph.mPhaseZ);
 					glyph.mSprite.SetRot(0.0f, 0.0f, wave + (angle - wave * 0.5f));
 				}
@@ -4031,26 +3964,26 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 				break;
 			}
 		}
-		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 255, 255, 4);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
-		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(0);
+		SetGsTevOrder(gGame.mGs.mCurTevStage, 255, 255, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		gGame.mGs.mCurTevStage->SetNumTexGens(0);
 	}
-	if (font->mBlink && (s32)font->_43C6C >= 0) {
-		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 0, 0, 4);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
-		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(1);
-		lbl_8025C400.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
-		s32 index = font->_43C6C;
+	if (font->mBlink && (s32)font->mBlinkIcon >= 0) {
+		SetGsTevOrder(gGame.mGs.mCurTevStage, 0, 0, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+		gGame.mGs.mCurTevStage->SetNumTexGens(1);
+		gGame.mGs.mCurTevStage->SetTexGen(0, 1, 4, 30);
+		s32 index = font->mBlinkIcon;
 		if (index >= 2)
 			index = 2;
 		CTexObj* cursor = &font->mTexs.mTex[MSG_TEX_CURSOR] + index;
 		f32 width       = GXGetTexObjWidth(cursor);
 		f32 height      = GXGetTexObjHeight(cursor);
-		if ((s32)font->_43C6C >= 2) {
+		if ((s32)font->mBlinkIcon >= 2) {
 			width = (s32)GXGetTexObjWidth(cursor) / 11;
 			PSMTXScale(cursor->mMtx[1], 1.0f / 11.0f, 1.0f, 1.0f);
 			cursor->mMtxDirty = TRUE;
-			PSMTXTrans(cursor->mMtx[0], (1.0f / 11.0f) * ((s32)font->_43C6C - 2), 0.0f, 0.0f);
+			PSMTXTrans(cursor->mMtx[0], (1.0f / 11.0f) * ((s32)font->mBlinkIcon - 2), 0.0f, 0.0f);
 			cursor->mMtxDirty = TRUE;
 		}
 		s32 line = font->mGlyphs[font->mCharCount - 1].mLine;
@@ -4061,11 +3994,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			wave = 0.0f;
 		u32 shadow = (u32)(200.0f * wave);
 		u32 color  = 0xFFFFFF00 | shadow;
-		fn_80197800(&lbl_8025C400.mGs, cursor, shadow, shadow, shadow, shadow, 2.0f + x, 2.0f + y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
-		fn_80197800(&lbl_8025C400.mGs, cursor, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
-		fn_8019B040(lbl_8025C400.mGs.mCurTevStage, 255, 255, 4);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
-		lbl_8025C400.mGs.mCurTevStage->SetNumTexGens(0);
+		DrawGsTexturedQuad(&gGame.mGs, cursor, shadow, shadow, shadow, shadow, 2.0f + x, 2.0f + y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+		DrawGsTexturedQuad(&gGame.mGs, cursor, color, color, color, color, x, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+		SetGsTevOrder(gGame.mGs.mCurTevStage, 255, 255, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		gGame.mGs.mCurTevStage->SetNumTexGens(0);
 	}
 }
 /*
@@ -4186,8 +4119,8 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fsubs    f0, f0, f2
     stfs     f0, 0x3ca0(r29)
 .L_80082B30:
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     lwz      r0, 0x4168(r3)
     cmpwi    r0, 0x0
     beq      .L_80082B4C
@@ -4250,12 +4183,12 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmuls    f23, f2, f3
     fcmpo    cr0, f1, f0
     ble      .L_80084378
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0xc
-    addi     r28, r3, lbl_8025C400@l
+    addi     r28, r3, gGame@l
     li       r5, 0x5
     lwz      r3, 0x290(r28)
-    bl       fn_8019B34C
+    bl       SetGsLineWidth
     lfs      f0, lbl_8065D068@sda21(r0)
     lfs      f1, 0x3c98(r29)
     lbz      r0, 0x11b(r30)
@@ -4291,11 +4224,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     li       r4, 0x1
     li       r5, 0x7
     li       r6, 0x1
-    bl       fn_8019B464
+    bl       SetGsDepthMode
     lfs      f4, lbl_8065D0BC@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f3, lbl_8065D0C4@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fadds    f2, f4, f19
     lfs      f5, lbl_8065D0C0@sda21(r0)
     fadds    f0, f4, f21
@@ -4316,7 +4249,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     stfs     f3, 0x14(r1)
     fmr      f7, f27
     fmr      f8, f28
-    bl       fn_80198614
+    bl       DrawGsVertexQuad
     li       r0, 0xf
     addi     r5, r1, 0x288
     addi     r4, r31, 0xc8
@@ -4491,28 +4424,28 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     rlwimi   r0, r7, 8, 16, 23
     or       r21, r0, r3
     lwz      r3, 0x290(r28)
-    bl       fn_8019B464
-    lis      r3, lbl_8025C400@ha
+    bl       SetGsDepthMode
+    lis      r3, gGame@ha
     mr       r7, r21
-    addi     r22, r3, lbl_8025C400@l
+    addi     r22, r3, gGame@l
     addi     r6, r1, 0x28c
     lwz      r5, 0x44(r22)
     mr       r3, r22
     li       r4, 0xa0
     li       r8, 0xa
     addi     r5, r5, 0xe8
-    bl       fn_80198D08
+    bl       DrawGsTrianglePrimitive
     lwz      r3, 0x290(r28)
     li       r4, 0x1
     li       r5, 0x1
     li       r6, 0x1
-    bl       fn_8019B464
+    bl       SetGsDepthMode
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D094@sda21(r0)
     fmr      f1, f16
     fmr      f2, f18
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f5, f4
     mr       r5, r21
     fmr      f6, f3
@@ -4520,13 +4453,13 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f8, f3
     mr       r6, r21
     li       r4, 0x10
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D094@sda21(r0)
     fmr      f1, f17
     fmr      f2, f18
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f5, f4
     mr       r5, r21
     fmr      f6, f3
@@ -4534,13 +4467,13 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f8, f3
     mr       r6, r21
     li       r4, 0x10
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D094@sda21(r0)
     fmr      f1, f16
     fmr      f2, f15
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f5, f4
     mr       r5, r21
     fmr      f6, f3
@@ -4548,13 +4481,13 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f8, f3
     mr       r6, r21
     li       r4, 0x10
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D094@sda21(r0)
     fmr      f1, f17
     fmr      f2, f15
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f5, f4
     mr       r5, r21
     fmr      f6, f3
@@ -4562,16 +4495,16 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f8, f3
     mr       r6, r21
     li       r4, 0x10
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f0, lbl_8065D0C8@sda21(r0)
     fmuls    f1, f0, f30
     bl       __cvt_fp2unsigned
     lfs      f1, lbl_8065D0C0@sda21(r0)
     mr       r21, r3
     lfs      f5, 0x28c(r1)
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lfs      f3, 0x290(r1)
-    addi     r3, r5, lbl_8025C400@l
+    addi     r3, r5, gGame@l
     fadds    f0, f5, f1
     lfs      f5, 0x298(r1)
     fadds    f12, f3, f1
@@ -4636,11 +4569,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     stfs     f6, 0x2f0(r1)
     stfs     f4, 0x2f8(r1)
     stfs     f2, 0x2fc(r1)
-    bl       fn_80198D08
+    bl       DrawGsTrianglePrimitive
     lfs      f0, lbl_8065D0C0@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f3, lbl_8065D058@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fadds    f1, f0, f22
     lfs      f2, lbl_8065D05C@sda21(r0)
     fadds    f0, f0, f20
@@ -4659,9 +4592,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f1, f15
     fmr      f2, f16
     fmr      f8, f3
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f0, lbl_8065D0C0@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f3, lbl_8065D058@sda21(r0)
     fmr      f2, f16
     fadds    f5, f0, f21
@@ -4671,7 +4604,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f4, lbl_8065D094@sda21(r0)
     fsubs    f1, f5, f1
     fmr      f5, f4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f7, f3
     mr       r5, r21
     fsubs    f16, f1, f0
@@ -4679,9 +4612,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r6, r21
     li       r4, 0x10
     fmr      f1, f16
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f0, lbl_8065D0C0@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f3, lbl_8065D058@sda21(r0)
     fmr      f1, f15
     fadds    f5, f0, f19
@@ -4691,7 +4624,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f4, lbl_8065D094@sda21(r0)
     fsubs    f2, f5, f2
     fmr      f5, f4
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f7, f3
     mr       r5, r21
     fsubs    f15, f2, f0
@@ -4699,13 +4632,13 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r6, r21
     li       r4, 0x10
     fmr      f2, f15
-    bl       fn_80198258
+    bl       DrawGsCircle
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D094@sda21(r0)
     fmr      f1, f16
     fmr      f2, f15
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f5, f4
     mr       r5, r21
     fmr      f6, f3
@@ -4713,10 +4646,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f8, f3
     mr       r6, r21
     li       r4, 0x10
-    bl       fn_80198258
-    lis      r3, lbl_8025C400@ha
+    bl       DrawGsCircle
+    lis      r3, gGame@ha
     li       r5, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r4, 0x3d4c(r3)
     addi     r3, r3, 0x3d6c
     lwz      r4, 0x8(r4)
@@ -4866,23 +4799,23 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     stfs     f15, 0x3f4(r1)
     stfs     f10, 0x3f8(r1)
     bl       __cvt_fp2unsigned
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r0, -0x100
-    addi     r27, r4, lbl_8025C400@l
+    addi     r27, r4, gGame@l
     li       r4, 0x0
     or       r24, r3, r0
     lwz      r3, 0x294(r27)
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r3, 0x290(r28)
     li       r4, 0x1
     li       r5, 0x1
     li       r6, 0x1
-    bl       fn_8019B464
-    lis      r3, lbl_8025C400@ha
+    bl       SetGsDepthMode
+    lis      r3, gGame@ha
     addi     r21, r1, 0x304
     addi     r23, r1, 0x470
     li       r26, 0x0
-    addi     r22, r3, lbl_8025C400@l
+    addi     r22, r3, gGame@l
 .L_800835DC:
     lfs      f1, 0x0(r21)
     mr       r3, r25
@@ -4912,25 +4845,25 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r7, r24
     mr       r8, r24
     addi     r4, r1, 0x404
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     addi     r26, r26, 0x1
     addi     r21, r21, 0x20
     cmpwi    r26, 0x8
     blt      .L_800835DC
     lwz      r3, 0x294(r27)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r3, 0x290(r28)
     li       r4, 0x1
     li       r5, 0x7
     li       r6, 0x1
-    bl       fn_8019B464
+    bl       SetGsDepthMode
     lfs      f0, lbl_8065D0BC@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f3, lbl_8065D0C4@sda21(r0)
     fmr      f4, f27
     fsubs    f1, f22, f0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     stfs     f3, 0x8(r1)
     fsubs    f2, f20, f0
     fmr      f6, f3
@@ -4944,12 +4877,12 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     stfs     f3, 0x14(r1)
     lis      r6, 0xff00
     lis      r7, 0xff00
-    bl       fn_80198614
+    bl       DrawGsVertexQuad
     lwz      r3, 0x290(r28)
     li       r4, 0x1
     li       r5, 0x3
     li       r6, 0x0
-    bl       fn_8019B464
+    bl       SetGsDepthMode
     lwz      r0, 0xaa8(r30)
     cmpwi    r0, 0x0
     blt      .L_80083D80
@@ -5000,9 +4933,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     bl       GXSetScissor
 .L_800837A4:
     lfs      f1, 0x3c98(r29)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f4, lbl_8065D068@sda21(r0)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f0, 0x3c94(r29)
     addis    r3, r3, 0x1
     lfs      f2, lbl_8065D0B0@sda21(r0)
@@ -5139,7 +5072,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     stw      r8, 0xf8(r1)
     stw      r7, 0xfc(r1)
     stw      r0, 0x100(r1)
-    bl       fn_8007E7F4
+    bl       CJObj_GetJointWorldPositionByPath
     lfs      f1, 0x50(r1)
     lis      r3, __vt__4CVec@ha
     addi     r0, r3, __vt__4CVec@l
@@ -5334,9 +5267,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mtctr    r12
     bctrl
 .L_80083C88:
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     li       r3, -0x1
-    addi     r26, r4, lbl_8025C400@l
+    addi     r26, r4, gGame@l
     bl       HSD_StateInvalidate
     lwz      r0, 0x290(r28)
     cmplwi   r0, 0x0
@@ -5432,7 +5365,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lwz      r3, 0x294(r27)
     ori      r21, r21, 0x1600
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lfs      f2, lbl_8065D05C@sda21(r0)
     addis    r22, r30, 0x4
     addi     r3, r22, 0x3ad8
@@ -5450,11 +5383,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f0, lbl_8065D0E0@sda21(r0)
     li       r0, 0x1
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fadds    f15, f0, f15
     stw      r0, 0x38(r22)
     fmr      f1, f16
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f4, f17
     mr       r4, r22
     fmr      f2, f15
@@ -5466,7 +5399,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f7, f3
     mr       r8, r21
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lfs      f1, lbl_8065D058@sda21(r0)
     addi     r3, r22, 0x3c
     fmr      f2, f1
@@ -5475,7 +5408,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f0, lbl_8065D068@sda21(r0)
     li       r0, 0x1
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmuls    f18, f17, f0
     lfs      f0, lbl_8065D0B8@sda21(r0)
     fmr      f2, f15
@@ -5483,7 +5416,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f5, f19
     lfs      f4, lbl_8065D0BC@sda21(r0)
     fsubs    f1, f16, f18
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     mr       r4, r22
     fmr      f7, f3
@@ -5493,7 +5426,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fsubs    f1, f1, f0
     mr       r7, r21
     mr       r8, r21
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lfs      f2, lbl_8065D058@sda21(r0)
     addi     r3, r22, 0x3c
     lfs      f1, lbl_8065D068@sda21(r0)
@@ -5503,14 +5436,14 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f3, lbl_8065D058@sda21(r0)
     lfs      f1, lbl_8065D0B8@sda21(r0)
     li       r0, 0x1
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f2, f15
     fmr      f5, f19
     stw      r0, 0x38(r22)
     fmr      f6, f3
     lfs      f4, lbl_8065D0BC@sda21(r0)
     fmr      f7, f3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f8, f3
     mr       r4, r22
     fadds    f1, f1, f0
@@ -5518,7 +5451,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r6, r21
     mr       r7, r21
     mr       r8, r21
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     addis    r21, r30, 0x4
     addi     r21, r21, 0x3b6c
     mr       r3, r21
@@ -5549,10 +5482,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     or       r5, r3, r0
     lfs      f0, lbl_8065D0B8@sda21(r0)
     fmr      f2, f15
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f4, f17
     fmr      f6, f3
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f7, f3
     fmr      f8, f3
     mr       r4, r21
@@ -5561,10 +5494,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r6, r5
     mr       r7, r5
     mr       r8, r5
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r27)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
 .L_80084000:
     addis    r3, r30, 0x4
     lwz      r4, 0x3d0c(r3)
@@ -5692,10 +5625,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     bl       __cvt_fp2unsigned
     lfs      f1, 0x244(r1)
     ori      r4, r3, 0xff00
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lfs      f0, 0x248(r1)
     stfs     f1, 0x8(r1)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lfs      f1, 0x24c(r1)
     mr       r5, r4
     stfs     f0, 0xc(r1)
@@ -5712,11 +5645,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f6, 0x238(r1)
     lfs      f7, 0x23c(r1)
     lfs      f8, 0x240(r1)
-    bl       fn_80198614
-    lis      r3, lbl_8025C400@ha
+    bl       DrawGsVertexQuad
+    lis      r3, gGame@ha
     lfd      f19, lbl_8065D050@sda21(r0)
     lfs      f17, lbl_8065D068@sda21(r0)
-    addi     r22, r3, lbl_8025C400@l
+    addi     r22, r3, gGame@l
     addis    r25, r30, 0x4
     li       r21, 0x0
     lis      r24, 0x4330
@@ -5767,7 +5700,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r3, r22
     addi     r4, r1, 0x18
     li       r5, 0x1
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lfs      f4, 0x3cd0(r25)
     fmr      f2, f15
     lfs      f3, lbl_8065D058@sda21(r0)
@@ -5779,7 +5712,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmadds   f18, f0, f17, f18
     fmr      f1, f18
     crset    cr1eq
-    bl       fn_80196610
+    bl       DrawGsProportionalTextFormat
     addi     r21, r21, 0x1
 .L_80084350:
     lwz      r0, 0x3d04(r25)
@@ -5789,7 +5722,7 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lwz      r3, 0x290(r28)
     li       r4, 0xc
     li       r5, 0x5
-    bl       fn_8019B34C
+    bl       SetGsLineWidth
     lis      r3, __vt__7CTexObj@ha
     addi     r0, r3, __vt__7CTexObj@l
     stw      r0, 0x500(r1)
@@ -5799,24 +5732,24 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f1, 0x3d14(r3)
     fcmpo    cr0, f1, f0
     ble      .L_800848FC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r28, r3, lbl_8025C400@l
+    addi     r28, r3, gGame@l
     li       r5, 0x0
     lwz      r3, 0x294(r28)
     li       r6, 0x4
-    bl       fn_8019B040
+    bl       SetGsTevOrder
     lwz      r3, 0x294(r28)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r7, 0x294(r28)
     li       r6, 0x1
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r5, 0x0
     stb      r6, 0x80(r7)
     li       r4, 0x4
     li       r0, 0x1e
-    addi     r22, r3, lbl_8025C400@l
+    addi     r22, r3, gGame@l
     stw      r6, 0x78(r7)
     lwz      r3, 0x294(r28)
     stw      r5, 0x84(r3)
@@ -5828,19 +5761,19 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     cmplwi   r3, 0x0
     beq      .L_80084404
     li       r4, 0x0
-    bl       fn_8019B278
+    bl       ApplyGsRenderMode
 .L_80084404:
     lwz      r3, 0x294(r22)
     cmplwi   r3, 0x0
     beq      .L_80084418
     li       r4, 0x0
-    bl       fn_8019AED0
+    bl       ApplyGsTevStage
 .L_80084418:
     lwz      r3, 0x298(r22)
     cmplwi   r3, 0x0
     beq      .L_8008442C
     li       r4, 0x0
-    bl       fn_8019AE94
+    bl       ApplyGsChannel
 .L_8008442C:
     lfs      f0, lbl_8065D068@sda21(r0)
     addis    r3, r30, 0x4
@@ -5858,9 +5791,9 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fadds    f2, f1, f0
     fadds    f1, f5, f4
     bl       PSMTXTrans
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r4, r1, 0x1f4
-    addi     r23, r3, lbl_8025C400@l
+    addi     r23, r3, gGame@l
     addi     r5, r1, 0x1c4
     lwz      r3, 0x44(r23)
     addi     r3, r3, 0xe8
@@ -6160,10 +6093,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     li       r4, 0xff
     li       r5, 0xff
     li       r6, 0x4
-    bl       fn_8019B040
+    bl       SetGsTevOrder
     lwz      r3, 0x294(r28)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0x294(r28)
     li       r3, 0x0
     li       r0, 0x1
@@ -6177,16 +6110,16 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lwz      r0, 0x3c6c(r3)
     cmpwi    r0, 0x0
     blt      .L_80084BDC
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r4, 0x0
-    addi     r27, r3, lbl_8025C400@l
+    addi     r27, r3, gGame@l
     li       r5, 0x0
     lwz      r3, 0x294(r27)
     li       r6, 0x4
-    bl       fn_8019B040
+    bl       SetGsTevOrder
     lwz      r3, 0x294(r27)
     li       r4, 0x0
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r7, 0x294(r27)
     li       r6, 0x1
     li       r5, 0x0
@@ -6312,11 +6245,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     lfs      f3, lbl_8065D058@sda21(r0)
     mr       r5, r3
     lfs      f0, lbl_8065D0E0@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f4, f15
     li       r0, -0x100
     fmr      f5, f16
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f6, f3
     mr       r4, r22
     fmr      f7, f3
@@ -6327,11 +6260,11 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     mr       r8, r5
     fadds    f2, f0, f18
     or       r21, r5, r0
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lfs      f3, lbl_8065D058@sda21(r0)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f1, f17
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     fmr      f2, f18
     mr       r4, r22
     fmr      f4, f15
@@ -6343,15 +6276,15 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
     fmr      f7, f3
     mr       r8, r21
     fmr      f8, f3
-    bl       fn_80197800
+    bl       DrawGsTexturedQuad
     lwz      r3, 0x294(r27)
     li       r4, 0xff
     li       r5, 0xff
     li       r6, 0x4
-    bl       fn_8019B040
+    bl       SetGsTevOrder
     lwz      r3, 0x294(r27)
     li       r4, 0x4
-    bl       fn_8019AFA0
+    bl       SetGsTevMode
     lwz      r4, 0x294(r27)
     li       r3, 0x0
     li       r0, 0x1
@@ -6404,13 +6337,17 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
  * @note Size: 0x148
  */
 // a CJObj that starts out holding a jobj's current transform
+#if defined(VERSION_JP)
+#endif
 CJObj::CJObj(HSD_JObj* jobj)
 {
 	Attach(jobj);
 }
+#if defined(VERSION_JP)
+#endif
 
 #if defined(VERSION_PAL)
-#define MSG_FADE_RATE (1.0f / (0.3f * lbl_80660D4C))
+#define MSG_FADE_RATE (1.0f / (0.3f * gVideoFramesPerSecond))
 #else
 #define MSG_FADE_RATE (1.0f / 18.0f)
 #endif
@@ -6423,6 +6360,7 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
 {
 	if (font->mActive) {
 		if (font->mFadeIn && font->mAlpha < 1.0f) {
+			// zero-alpha tint and no voice code (mMode stays -1, see CMsgData_Measure): no fade in
 			if (font->mColor.a == 0 && font->mMode < 0) {
 				font->mAlpha  = 1.0f;
 				font->mFadeIn = FALSE;
@@ -6446,6 +6384,7 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
 			}
 			font->mTextAlpha = font->mAlpha;
 		}
+		// a select() line or a number input digit is picked: fade the highlight in, else out
 		if (font->mSelectedLine >= 0 || font->mOtherSelection >= 0) {
 			if (font->mHighlightAlpha < 1.0f) {
 				f32 alpha             = font->mHighlightAlpha + MSG_FADE_RATE * step;
@@ -6470,7 +6409,8 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
 			font->mTexs.mTex[MSG_TEX_LINE].mMtxDirty = TRUE;
 		}
 		if (font->mBlink) {
-			font->mBlinkPhase += 0.104719758f * step;
+			// CMsgFont_Draw fades the button prompt with sin(mBlinkPhase): 6 degrees a frame, wrapped at PI, a pulse every 30 frames
+			font->mBlinkPhase += DEG2RAD * 6.0f * step;
 			font->mBlinkPhase = fmod(font->mBlinkPhase, (f64)PI);
 		}
 	}
@@ -6478,15 +6418,18 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
 	if (font->mActive) {
 		for (s32 i = 0; i < 400; i++) {
 			MsgFontGlyph& glyph = font->mGlyphs[i];
+			// CMsgFont_Draw: bits 1 and 2 shift the glyph, 4 pulses its scale, 8 rocks it; the high nibble sets how the phases move
 			switch (glyph.mEffect & 0xF0) {
 			case 0x10:
-				// this one wraps as an int before going to float
+				// smooth: every phase turns by its share of mSpeed degrees a frame
+				// this one adds in u32 (step is u32) before going to float, so a sum below 0 wraps
 				glyph.mPhaseY = (s16)(f32)fmod((f32)(glyph.mPhaseY + glyph.mSpeed * step), 360.0);
 				glyph.mPhaseX = (s16)(f32)fmod(glyph.mPhaseX + (0.5f * glyph.mSpeed) * step, 360.0);
 				glyph.mPhaseZ = (s16)(f32)fmod(glyph.mPhaseZ + (0.7f * glyph.mSpeed) * step, 360.0);
 				glyph.mPhaseW = (s16)(f32)fmod(glyph.mPhaseW + (0.8f * glyph.mSpeed) * step, 360.0);
 				break;
 			case 0x20:
+				// jitter: fresh random phases every mSpeed updates
 				if (--glyph.mRefresh <= 0) {
 					glyph.mPhaseY  = rand() % 360;
 					glyph.mPhaseX  = rand() % 360;
@@ -6502,8 +6445,9 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
 	font->mScrollY += 0.01f * step;
 	PSMTXTrans(font->mFrame.mTex.mMtx[0], font->mScrollX, font->mScrollY, 0.0f);
 	font->mFrame.mTex.mMtxDirty = TRUE;
+	// only mode 0 has the portrait, CMsgFont_Draw leaves 40 * scale of room for it
 	if (font->mMode >= 0 && font->mMode < 1 && (font->mCursor[0].mCursor.mStatus.mFlags & 1)) {
-		font->mCursor[0].mCursor.vfA4(step);
+		font->mCursor[0].mCursor.UpdateObject(step);
 	}
 }
 
@@ -6513,7 +6457,8 @@ extern "C" void CMsgFont_Update(CMsgFont* font, u32 step)
  */
 extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 {
-	f32 width = fn_801968BC(&lbl_8025C400.mGs, text, font->_04_04, font->mSize);
+	f32 width = MeasureGameTextWidth(&gGame.mGs, text, font->_04_04, font->mSize);
+	// half the size change since the previous glyph; outside japan mPrevSize is NAN until the first one (CMsgFont_Init)
 	f32 spacing;
 #if defined(VERSION_JP)
 	spacing = (font->mSize - font->mPrevSize) * 0.5f;
@@ -6525,10 +6470,10 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 	}
 #endif
 	s32 textureWidth;
-	if ((u8)text[0] == 17) {
+	if ((u8)text[0] == MSG_CODE_ICON) {
 #if defined(VERSION_JP)
-		TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+		CTexObj* texture    = &(&gGame.mTpl)->mTex;
 		CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
 		PSMTXScale(icon.mMtx[1], 1.0f / 14.0f, 1.0f, 1.0f);
 		icon.mMtxDirty = TRUE;
@@ -6536,8 +6481,8 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 		icon.mMtxDirty = TRUE;
 		textureWidth   = (s32)font->mGlyphs[font->mCharCount].mTexture.Set(icon) / 14;
 #else
-		TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-		CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
+		TPLPalette* palette = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+		CTexObj* texture    = &(&gGame.mTpl)->mTex;
 		CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
 		s32 index           = (u8)text[1];
 		s32 columns         = font->mData->mIconColumns;
@@ -6558,7 +6503,7 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 	f32 x = (width - textureWidth) * 0.5f + (11.0f + font->mCursorX + spacing);
 	f32 y = font->mCursorY + font->mData->mHeights[font->mLine] * 0.5f;
 #if defined(VERSION_JP)
-	if ((u8)text[0] == 17) {
+	if ((u8)text[0] == MSG_CODE_ICON) {
 		font->mGlyphs[font->mCharCount].mSprite.SetTrans(x + 0.08f * textureWidth, y, 0.0f);
 	} else {
 		font->mGlyphs[font->mCharCount].mSprite.SetTrans(x, y, 0.0f);
@@ -6571,28 +6516,30 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
 		sx = font->mGlyphScaleX;
 		sy = font->mGlyphScaleY;
 	} else {
+		// a negative MSG_CODE_SCALE: each glyph gets |x| plus a random part of the gap up to |y|
 		f32 min = 100.0f * font->mGlyphScaleX;
 		if (min < 0.0f)
 			min = -min;
 		f32 max = 100.0f * font->mGlyphScaleY;
 		if (max < 0.0f)
 			max = -max;
-		f32 value = fmod((f32)rand(), max - min);
+		f32 extra = fmod((f32)rand(), max - min);
 		f32 scale = font->mGlyphScaleX;
 		if (scale < 0.0f)
 			scale = -scale;
-		sx = sy = scale + value / 100.0f;
+		sx = sy = scale + extra / 100.0f;
 	}
 	f32 scaleX = (font->mSize * 0.5f) * sx;
 	f32 scaleY = (-font->mSize * 0.5f) * sy;
 	font->mGlyphs[font->mCharCount].mSprite.SetScale(scaleX, scaleY, 1.0f);
 	f32 angle = font->mGlyphAngle;
+	// a negative MSG_CODE_ROTATE angle: each glyph gets a random tilt between angle and -angle
 	if (!(angle >= 0.0f)) {
 		f32 range = 2.0f * angle;
 		if (range < 0.0f)
 			range = -range;
-		f32 value = fmod((f32)rand(), RAD2DEG * range);
-		angle     = DEG2RAD * value + font->mGlyphAngle;
+		f32 delta = fmod((f32)rand(), RAD2DEG * range);
+		angle     = DEG2RAD * delta + font->mGlyphAngle;
 	}
 	font->mGlyphs[font->mCharCount].mSprite.SetRot(0.0f, 0.0f, angle);
 	font->mGlyphs[font->mCharCount].mColor  = font->mGlyphColor;
@@ -6634,14 +6581,14 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
     stw      r29, 0x134(r1)
     stw      r28, 0x130(r1)
     mr       r29, r3
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addis    r5, r29, 0x4
     lbz      r0, 0x4(r29)
     lfs      f1, 0x3cd0(r5)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     mr       r30, r4
     extrwi   r5, r0, 1, 29
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     addis    r3, r29, 0x4
     lis      r0, 0x7f80
     lfs      f0, 0x3cd4(r3)
@@ -6689,9 +6636,9 @@ extern "C" void CMsgFont_AddChar(CMsgFont* font, const char* text)
     lbz      r0, 0x0(r30)
     cmplwi   r0, 0x11
     bne      .L_80085700
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r5, 0x0
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     lwz      r4, 0x3d4c(r3)
     addi     r3, r3, 0x3d6c
     lwz      r4, 0x8(r4)
@@ -7122,10 +7069,10 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
 	font->mAlpha                            = 0.0f;
 	font->mTextAlpha                        = 1.0f;
 	font->mHighlightAlpha                   = 0.0f;
-	font->_43C6C                            = 0;
+	font->mBlinkIcon                        = 0;
 	font->mBlinkPhase                       = 0.0f;
 	font->mTexOffset                        = 0.0f;
-	for (s32 i = 0; i < 400; i++) {
+	for (int i = 0; i < 400; i++) {
 		font->mGlyphs[i].mPhaseX = font->mGlyphs[i].mPhaseY = (i * 75) % 360;
 	}
 	font->mActive  = TRUE;
@@ -7137,13 +7084,13 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
 	f32 width      = font->mData->mMaxWidth;
 	f32 height     = font->mData->mTotalHeight;
 #if defined(VERSION_JP)
-	CTexObj* texture = &(&lbl_8025C400.mTpl)->mTex;
+	CTexObj* texture = &(&gGame.mTpl)->mTex;
 #define MSG_INIT_DESCRIPTOR(i) ((i) - 2)
 #else
-	CTexObj* texture = &(&lbl_8025C400.mTpl)->mTex;
+	CTexObj* texture = &(&gGame.mTpl)->mTex;
 #define MSG_INIT_DESCRIPTOR(i) (i)
 #endif
-	font->mFrame.mTex = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(138)], 0);
+	font->mFrame.mTex = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(138)], 0);
 	font->mScrollX = font->mScrollY = 0.0f;
 	PSMTXTrans(font->mFrame.mTex.mMtx[0], font->mScrollX, font->mScrollY, 0.0f);
 	font->mFrame.mTex.mMtxDirty = TRUE;
@@ -7158,24 +7105,19 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
 		font->mGlyphs[i].mColor       = msgColorTable[0];
 		font->mGlyphs[i].mLine        = 0;
 	}
-	font->mPlacement          = placement;
-	font->mCursorX            = -((font->mFitLine ? font->mData->mWidths[font->mLine] : width) * 0.5f);
-	font->mWindowX            = x;
-	font->mWidth              = width;
-	font->mCursorY            = 0.0f;
-	font->mWindowY            = y;
-	font->mHeight             = height;
-	font->mLineY[font->mLine] = font->mCursorY + (font->mData->mHeights[0] - 22.0f) * 0.5f;
-	font->mTexs.mTex[MSG_TEX_CURSOR]
-	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
-	font->mTexs.mTex[MSG_TEX_DIGIT]
-	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
-	font->mTexs.mTex[MSG_TEX_ICON]
-	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
-	font->mTexs.mTex[MSG_TEX_ARROW]
-	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(117)], 0);
-	font->mTexs.mTex[MSG_TEX_LINE]
-	    = texture->Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(118)], 0);
+	font->mPlacement                 = placement;
+	font->mCursorX                   = -((font->mFitLine ? font->mData->mWidths[font->mLine] : width) * 0.5f);
+	font->mWindowX                   = x;
+	font->mWidth                     = width;
+	font->mCursorY                   = 0.0f;
+	font->mWindowY                   = y;
+	font->mHeight                    = height;
+	font->mLineY[font->mLine]        = font->mCursorY + (font->mData->mHeights[0] - 22.0f) * 0.5f;
+	font->mTexs.mTex[MSG_TEX_CURSOR] = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
+	font->mTexs.mTex[MSG_TEX_DIGIT]  = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
+	font->mTexs.mTex[MSG_TEX_ICON]   = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
+	font->mTexs.mTex[MSG_TEX_ARROW]  = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(117)], 0);
+	font->mTexs.mTex[MSG_TEX_LINE]   = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(118)], 0);
 #undef MSG_INIT_DESCRIPTOR
 }
 /*
@@ -7195,7 +7137,7 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
     stmw     r23, 0x3c(r1)
     stw      r4, 0x0(r3)
     mr       r27, r3
-    lis      r10, lbl_80208ED0@ha
+    lis      r10, sMessageFontOrigin@ha
     lis      r9, __float_nan@ha
     lbz      r0, 0x4(r3)
     li       r8, 0x0
@@ -7210,7 +7152,7 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
     li       r12, 0x1
     addis    r24, r27, 0x4
     stb      r0, 0x4(r27)
-    addi     r23, r10, lbl_80208ED0@l
+    addi     r23, r10, sMessageFontOrigin@l
     lis      r4, msgColorTable@ha
     fmr      f28, f1
     lbz      r0, 0x4(r27)
@@ -7362,9 +7304,9 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
     lbz      r0, 0x4(r27)
     li       r8, 0x1
     rlwimi   r0, r8, 7, 24, 24
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     stb      r0, 0x4(r27)
-    addi     r31, r3, lbl_8025C400@l
+    addi     r31, r3, gGame@l
     addi     r30, r31, 0x3d6c
     li       r7, 0x0
     lbz      r0, 0x4(r27)
@@ -7787,43 +7729,44 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 plac
     blr
 */
 
-static inline s32 MsgCommandLength(const u8* p)
+// bytes a code with its arguments, or a plain character, takes: how far CMsgData_Measure steps past it
+static inline s32 MsgCommandLength(u8* p)
 {
 	switch (*p) {
-	case 0:
-	case 10:
-	case 11:
-	case 24:
+	case MSG_CODE_END:
+	case MSG_CODE_NEWLINE:
+	case MSG_CODE_NEWLINE_VT:
+	case MSG_CODE_STAY:
 		return 1;
-	case 1:
-	case 2:
+	case MSG_CODE_SPEED:
+	case MSG_CODE_WAIT:
+	case MSG_CODE_VOICE:
 		return 2;
-	case 6:
+	case MSG_CODE_DEFAULT:
 		return 6;
-	case 3:
+	case MSG_CODE_ANIM:
 		return 8;
-	case 4:
-		if (p[5] == 2 || p[5] == 3) {
+	case MSG_CODE_SFX:
+		if (p[5] == MSG_SFX_FADE_OUT || p[5] == MSG_SFX_FADE_IN) {
 			return 8;
-		} else if (p[5] == 4) {
+		} else if (p[5] == MSG_SFX_FADE) {
 			return 9;
 		}
 		return 6;
-	case 5:
-	case 13:
-	case 14:
-	case 16:
-	case 17:
-	case 19:
+	case MSG_CODE_SIZE:
+	case MSG_CODE_COLOR:
+	case MSG_CODE_LAYOUT:
+	case MSG_CODE_ICON:
+	case MSG_CODE_CENTER:
 		return 2;
-	case 20:
-	case 23:
+	case MSG_CODE_ROTATE:
+	case MSG_CODE_QUESTION:
 		return 3;
-	case 18:
-	case 22:
+	case MSG_CODE_SHAKE:
+	case MSG_CODE_NUM_INPUT:
 		return 4;
-	case 15:
-	case 21:
+	case MSG_CODE_RGBA:
+	case MSG_CODE_SCALE:
 		return 5;
 	default:
 		if (MsgHasSjisLead(*p)) {
@@ -7846,13 +7789,13 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 	data->mStyle                     = -1;
 	data->mAlignment                 = 1;
 	f32 size                         = 22.0f;
+	u8* p                            = data->mText;
 	BOOL proportional                = TRUE;
 	s32 done                         = 0;
-	u8* p                            = data->mText;
 	while (!done) {
 		switch (*p) {
-		case 10:
-		case 11:
+		case MSG_CODE_NEWLINE:
+		case MSG_CODE_NEWLINE_VT:
 			if (data->mHeights[data->mLineCount] == 0.0f) {
 				data->mHeights[data->mLineCount] = size;
 			}
@@ -7861,14 +7804,14 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 			data->mWidths[data->mLineCount]  = 0.0f;
 			data->mHeights[data->mLineCount] = size;
 			break;
-		case 0:
+		case MSG_CODE_END:
 			if (data->mHeights[data->mLineCount] == 0.0f) {
 				data->mHeights[data->mLineCount] = 22.0f;
 			}
 			data->mLineCount++;
 			done = 1;
 			break;
-		case 13:
+		case MSG_CODE_SIZE:
 			size = (s32)p[1];
 			if (size == 255.0f) {
 				size = 22.0f;
@@ -7877,28 +7820,29 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 				data->mHeights[data->mLineCount] = size;
 			}
 			break;
-		case 16:
+		case MSG_CODE_LAYOUT:
 			proportional = p[1];
 			break;
-		case 19:
+		case MSG_CODE_CENTER:
 			data->mAlignment = p[1];
 			break;
-		case 5:
+		case MSG_CODE_VOICE:
+			// the voice byte doubles as the window's mode, CMsg_Open passes mStyle to CMsgFont_Init
 			data->mStyle = p[1];
 			break;
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 6:
-		case 14:
-		case 15:
-		case 18:
-		case 20:
-		case 21:
-		case 22:
-		case 23:
-		case 24:
+		case MSG_CODE_SPEED:
+		case MSG_CODE_WAIT:
+		case MSG_CODE_ANIM:
+		case MSG_CODE_SFX:
+		case MSG_CODE_DEFAULT:
+		case MSG_CODE_COLOR:
+		case MSG_CODE_RGBA:
+		case MSG_CODE_SHAKE:
+		case MSG_CODE_ROTATE:
+		case MSG_CODE_SCALE:
+		case MSG_CODE_NUM_INPUT:
+		case MSG_CODE_QUESTION:
+		case MSG_CODE_STAY:
 			break;
 		default:
 			if (MsgHasSjisLead(*p)) {
@@ -7906,24 +7850,25 @@ extern "C" void CMsgData_Measure(CMsgData* data)
 				char text[3] = "";
 				text[0]      = p[0];
 				text[1]      = p[1];
-				data->mWidths[data->mLineCount] += fn_801968BC(&lbl_8025C400.mGs, text, proportional, size);
-			} else if (*p == 17) {
+				data->mWidths[data->mLineCount] += MeasureGameTextWidth(&gGame.mGs, text, proportional, size);
+			} else if (*p == MSG_CODE_ICON) {
 #if defined(VERSION_JP)
-				TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
+				TPLPalette* palette = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+				CTexObj* texture    = &(&gGame.mTpl)->mTex;
 				CTexObj icon        = texture->Init(&palette->descriptorArray[117], 0);
 				data->mWidths[data->mLineCount] += (size / 22.0f) * (GXGetTexObjWidth(&icon) / 14);
 #else
-				TPLPalette* palette = (TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer;
-				CTexObj* texture    = &(&lbl_8025C400.mTpl)->mTex;
+				TPLPalette* palette = (TPLPalette*)(&gGame.mTpl)->mBuffer;
+				CTexObj* texture    = &(&gGame.mTpl)->mTex;
 				CTexObj icon        = texture->Init(&palette->descriptorArray[119], 0);
+				// a 24 pixel cell, the width CMsg_Open divides the icon strip by for mIconColumns
 				data->mWidths[data->mLineCount] += 24.0f * (size / 22.0f);
 #endif
 			} else {
 				data->mCounts[data->mLineCount]++;
 				char text[2] = "";
 				text[0]      = p[0];
-				data->mWidths[data->mLineCount] += fn_801968BC(&lbl_8025C400.mGs, text, proportional, size);
+				data->mWidths[data->mLineCount] += MeasureGameTextWidth(&gGame.mGs, text, proportional, size);
 			}
 			break;
 		}
@@ -7952,8 +7897,8 @@ extern "C" void CMsgData_Measure(CMsgData* data)
     mr       r26, r3
     li       r5, 0x0
     stw      r5, 0x804(r3)
-    lis      r3, lbl_8025C400@ha
-    addi     r31, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r31, r3, gGame@l
     lfs      f0, lbl_8065D058@sda21(r0)
     lwz      r4, 0x804(r26)
     li       r3, -0x1
@@ -8084,9 +8029,9 @@ extern "C" void CMsgData_Measure(CMsgData* data)
     clrlwi.  r0, r0, 24
     beq      .L_800866E8
     lwz      r0, 0x804(r26)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f1, f31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     slwi     r4, r0, 2
     mr       r5, r28
     addi     r7, r4, 0x808
@@ -8102,7 +8047,7 @@ extern "C" void CMsgData_Measure(CMsgData* data)
     stb      r0, 0xc(r1)
     lbz      r0, 0x1(r29)
     stb      r0, 0xd(r1)
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lwz      r0, 0x804(r26)
     slwi     r3, r0, 2
     addi     r0, r3, 0x830
@@ -8177,9 +8122,9 @@ extern "C" void CMsgData_Measure(CMsgData* data)
     b        .L_8008683C
 .L_800867E4:
     lwz      r0, 0x804(r26)
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     fmr      f1, f31
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     slwi     r4, r0, 2
     mr       r5, r28
     addi     r7, r4, 0x808
@@ -8191,7 +8136,7 @@ extern "C" void CMsgData_Measure(CMsgData* data)
     sth      r0, 0x8(r1)
     lbz      r0, 0x0(r29)
     stb      r0, 0x8(r1)
-    bl       fn_801968BC
+    bl       MeasureGameTextWidth
     lwz      r0, 0x804(r26)
     slwi     r3, r0, 2
     addi     r0, r3, 0x830
@@ -8322,30 +8267,16 @@ extern "C" void CMsgData_Measure(CMsgData* data)
  * @note Size: ?
  */
 // japan and europe only, the graphics state reset usa inlines into Draw
-#if defined(VERSION_JP)
-extern "C" void fn_80086BC4(u8* game)
-#else
-extern "C" void fn_800869E8(u8* game)
-#endif
+extern "C" void InvalidateMessageDrawState(CGs* gs)
 {
 	HSD_StateInvalidate(-1);
-#if defined(VERSION_PAL)
-	CGsRenderMode* mode = *(CGsRenderMode**)(game + 0x294);
+	CGsRenderMode* mode = gs->mCurRenderMode;
 	if (mode != NULL)
 		mode->Invalidate();
-	CGsTevStage* stage = *(CGsTevStage**)(game + 0x298);
+	CGsTevStage* stage = gs->mCurTevStage;
 	if (stage != NULL)
 		stage->Invalidate();
-	CGsChannel* channel = *(CGsChannel**)(game + 0x29C);
-#else
-	CGsRenderMode* mode = *(CGsRenderMode**)(game + 0x290);
-	if (mode != NULL)
-		mode->Invalidate();
-	CGsTevStage* stage = *(CGsTevStage**)(game + 0x294);
-	if (stage != NULL)
-		stage->Invalidate();
-	CGsChannel* channel = *(CGsChannel**)(game + 0x298);
-#endif
+	CGsChannel* channel = gs->mCurChannel;
 	if (channel != NULL && !channel->mDirty)
 		channel->mDirty = TRUE;
 }

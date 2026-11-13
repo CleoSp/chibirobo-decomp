@@ -12,6 +12,7 @@ extern void* __vt__9CXObjIntp[];
 extern void* __vt__5CXObj[];
 extern void* __vt__8XObjDemo[];
 extern void* __vt__7CTexObj[];
+// the title-screen classes' deleting destructors, emitted here as weak copies
 CLight* __dt__6CLightFv(CLight* light, s32 flags);
 void* __dt__7CTexObjFv(void* tex, s32 flags);
 XObjDemo* __dt__8XObjDemoFv(XObjDemo* demo, s32 flags);
@@ -71,8 +72,8 @@ extern "C" XObj* __dt__4XObjFv(XObj* object, s32 flags)
 		object->mAnim.CJAnim::~CJAnim();
 		object->mAnmQueue.CAnmQueue::~CAnmQueue();
 		object->mEvt.CEvt::~CEvt();
-		object->_794.CVec::~CVec();
-		object->_264.CVec::~CVec();
+		object->mToppleOffset.CVec::~CVec();
+		object->mLastPos.CVec::~CVec();
 		object->mAttr.AttrInfo::~AttrInfo();
 		object->mCoord.CoordInfo::~CoordInfo();
 		object->mStatus.CStatus64::~CStatus64();

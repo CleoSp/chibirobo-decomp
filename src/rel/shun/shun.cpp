@@ -1,5 +1,6 @@
 #include "game/cjobj.h"
 #include "game/cjobjset.h"
+#include "game/video.h"
 #include "Version.h"
 extern "C" {
 #include <sysdolphin/aobj.h>
@@ -7,15 +8,15 @@ extern "C" {
 }
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
 struct ShunObj {
 #if defined(VERSION_GGTJ01_01)
-	u8 _00[0x220]; // _00
+	u8 _00[0x220]; // _00, set to half a minute in frames (FRAMES_PER_SECOND * 30) by CmdResetOnOff; never read, shun's UpdateStage is empty
 #else
 	u8 _00[0x228]; // _00
 #endif
-	u64 _228; // _228, JP _220
+	u64 mFlags; // _228, JP _220
 };
 #if defined(VERSION_GGTJ01_01)
 typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x228 ? 1 : -1];
@@ -24,12 +25,13 @@ typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x230 ? 1 : -1];
 #endif
 
 struct ShunObjList {
-	void* _00; // _00
+	void* mScript; // _00, CEvtData::mScript of gGame.mEvt (CGame + 0x5D080 = mEvt _5D07C + mData _04); objects are looked up only while a
+	               // script is loaded
 };
 
 struct SavedObjFlag {
 	s32 mId;  // _00
-	u8 mFlag; // _04
+	u8 mFlag; // _04, bit 0: the object's drawn flag (0x10000) was set
 };
 
 struct SavedObjFlagList {
@@ -39,28 +41,30 @@ struct SavedObjFlagList {
 	s32 mCount;                   // _800
 };
 
-extern "C" void fn_800F53F8(s32);
-extern "C" ShunObj* fn_8007F570(ShunObjList* list, s16 id);
-extern "C" void fn_80066B9C(void* obj, s32 arg);
-extern "C" s32 fn_80066A84(void* obj);
-extern "C" void fn_80066BFC(void* obj);
-extern "C" void fn_80066BF0(void* obj);
-extern "C" void fn_8006613C(void* obj, s32, s32);
+extern "C" void SetJunkUnkoFlag(s32);
+extern "C" ShunObj* ResolveEventObjectId(ShunObjList* list, s16 id);
+extern "C" void InfoScrn_SetTimerHundredths(void* obj, s32 arg);
+extern "C" s32 InfoScrn_GetTimerHundredths(void* obj);
+extern "C" void InfoScrn_ShowTimer(void* obj);
+extern "C" void InfoScrn_HideTimer(void* obj);
+extern "C" void InfoScrn_ApplyTimerHudCommand(void* obj, s32, s32);
 extern "C" void SetFafaPartVisibility(s32 arg);
 
-#if defined(VERSION_GGTJ01_01)
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D038))
+// an offset into CGame: japan lays it out differently from the others
+#if defined(VERSION_JP)
+#define GAME_OFS(other, japan) (japan)
 #else
-#define SHUN_OBJ_LIST() ((ShunObjList*)(lbl_8025C400 + 0x5D080))
+#define GAME_OFS(other, japan) (other)
 #endif
-#define SHUN_8F38() ((void*)(lbl_8025C400 + 0x8F38))
-#define SHUN_96BC() (*(RoboView**)(lbl_8025C400 + 0x96BC))
+#define SHUN_OBJ_LIST()  ((ShunObjList*)(gGame + GAME_OFS(0x5D080, 0x5D038)))
+#define SHUN_INFO_SCRN() ((void*)(gGame + GAME_OFS(0x8F38, 0x8EF0))) // CGame::mInfoScrn, the HUD that owns the timer
+#define SHUN_PLAYER()    (*(RoboView**)(gGame + GAME_OFS(0x96BC, 0x9674)))
 
 inline ShunObj* ShunFindObj(s16 id)
 {
 	ShunObjList* list = SHUN_OBJ_LIST();
-	if (list->_00 != NULL) {
-		return fn_8007F570(list, id);
+	if (list->mScript != NULL) {
+		return ResolveEventObjectId(list, id);
 	}
 	return NULL;
 }
@@ -75,33 +79,42 @@ public:
 	virtual void vf_5C();
 	virtual void vf_60();
 	virtual void vf_64();
-	virtual void vf_68();
+	virtual void SetPos(f32 x, f32 y, f32 z, s32 force);
 	virtual void vf_6C();
 	virtual void vf_70();
 	virtual void vf_74();
-	virtual void vf_78();
+	virtual void SetMoveDir(const Vec* dir, f32 speed);
 	virtual void vf_7C();
-	virtual void vf_80(s32, s32, s32, s32, s32, f32, f32, f32, f32);
+	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
+	                     f32 blendRate);
 
-	u8 _38[0x980 - 0x38];     // _38
-	u32 _980;                 // _980
+#if defined(VERSION_JP)
+	u8 _38[0x970 - 0x38];     // _38, three CVecs, no access in any edition
+	u32 mPlayerStatus;        // _970
+	u8 _984[0x12CF4 - 0x974]; // _974
+	s32 mPadReset;            // _12CF4
+#else
+	u8 _38[0x980 - 0x38]; // _38
+	u32 mPlayerStatus; // _980, XObjChr::mPlayerStatus.mFlags (JP _970); 0x40000000 hands him to a script, 0x20000000 | 7 gives control back
 	u8 _984[0x12DF4 - 0x984]; // _984
-	s32 _12DF4;               // _12DF4
+	s32 mPadReset; // _12DF4, XObjChr::mPad.mReset (XPad at _12DA0, mReset at +0x54; JP _12CF4); 1 with the give-back flags, 0 with the
+	               // script flags
+#endif
 };
 
 struct OnOffWork {
-	s32 _00;      // _00
-	u8 _04[0x4];  // _04
-	s32 _08;      // _08
-	u8 _0C[0x2C]; // _0C
-	CVec _38[3];  // _38
-	s32 _68;      // _68
-	u8 _6C[0xC];  // _6C
-	s32 _78;      // _78
-	s32 _7C;      // _7C
-	u8 _80[0x4];  // _80
-	s32 _84;      // _84
-	CStatus _88;  // _88
+	s32 _00;         // _00, half a minute in frames, written by CmdResetOnOff and never read
+	u8 _04[0x4];     // _04
+	s32 _08;         // _08, zeroed by CmdResetOnOff, never read
+	u8 _0C[0x2C];    // _0C
+	CVec _38[3];     // _38
+	s32 _68;         // _68, zeroed by each CmdStartOnOff0/1/2, never read
+	u8 _6C[0xC];     // _6C
+	s32 _78;         // _78, zeroed by CmdResetOnOff, never read
+	s32 _7C;         // _7C, zeroed by CmdResetOnOff, never read
+	u8 _80[0x4];     // _80
+	s32 _84;         // _84, which start command ran: 0, 1 or 2 from CmdStartOnOff0/1/2; never read
+	CStatus mStatus; // _88, CStatus; bit 1 is what CmdCheckOnOffFlag reports, cleared by CmdResetOnOff
 };
 
 static SavedObjFlagList savedObjFlags;
@@ -122,7 +135,7 @@ s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args);
 s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args);
 s32 CmdResetOnOff(s32 cmd, s32 count, s32* args);
 s32 CmdPrintArgs(s32 cmd, s32 count, s32* args);
-void fn_3_7F0(void* arg);
+void ShunNoOpSlot5(void* arg);
 void DrawStageHud(void* arg);
 void UpdateStage(void* arg);
 void InitStage(void* arg);
@@ -130,7 +143,7 @@ void InitStage(void* arg);
 typedef void (*RelSlotFunc)(void* arg);
 typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
 
-RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, fn_3_7F0, NULL };
+RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, ShunNoOpSlot5, NULL };
 RelCmdFunc _prolog_cmds[]    = {
     CmdPrintArgs,          CmdResetOnOff,      CmdStartOnOff0,           CmdStartOnOff1,
     CmdStartOnOff2,        CmdCheckOnOffFlag,  CmdSetFafaPartVisibility, CmdShowTimer,
@@ -149,27 +162,28 @@ inline void SavedObjFlagList::Apply(s32 mode)
 	s32 i;
 	ShunObj* obj;
 
+	// mode 0 clears the drawn bit, anything else restores the bits CmdSaveObjFlag saw
 	if (mode != 0) {
 		if (mCount > 0) {
 			s32 j;
 			for (j = 0; j < mCount; j++) {
-				if (mEntries[j].mId == -1) {
+				if (mEntries[j].mId == -1) { // -1 ends the list
 					break;
 				}
 				obj = ShunFindObj(mEntries[j].mId);
-				if (mEntries[j].mFlag & 1) {
-					obj->_228 |= 0x10000;
+				if (mEntries[j].mFlag & 1) { // its drawn bit was saved
+					obj->mFlags |= 0x10000;
 				}
 			}
 		}
 	} else {
 		if (mCount > 0) {
 			for (i = 0; i < mCount; i++) {
-				if (mEntries[i].mId == -1) {
+				if (mEntries[i].mId == -1) { // -1 ends the list
 					break;
 				}
 				obj = ShunFindObj(mEntries[i].mId);
-				obj->_228 &= ~0x10000ULL;
+				obj->mFlags &= ~0x10000ULL;
 			}
 		}
 	}
@@ -182,9 +196,9 @@ inline void SavedObjFlagList::Apply(s32 mode)
 extern "C" s32 CmdSetJunkUnkoFlag(s32 cmd, s32 count, s32* args)
 {
 	if (args[0] != 0) {
-		fn_800F53F8(1);
+		SetJunkUnkoFlag(1);
 	} else {
-		fn_800F53F8(0);
+		SetJunkUnkoFlag(0);
 	}
 	return 0;
 }
@@ -212,9 +226,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     lwz      r0, 0x800(r30)
     cmpwi    r0, 0x0
     ble      .L_00000180
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     mr       r29, r30
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r31, 0x0
     addis    r28, r3, 0x6
     subi     r28, r28, 0x2f80
@@ -228,7 +242,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     cmplwi   r0, 0x0
     beq      .L_000000B4
     mr       r3, r28
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_000000B8
 .L_000000B4:
     li       r3, 0x0
@@ -254,9 +268,9 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     lwz      r0, 0x800(r30)
     cmpwi    r0, 0x0
     ble      .L_00000180
-    lis      r4, lbl_8025C400@ha
+    lis      r4, gGame@ha
     lis      r3, 0xffff
-    addi     r4, r4, lbl_8025C400@l
+    addi     r4, r4, gGame@l
     mr       r28, r30
     addis    r27, r4, 0x6
     subi     r31, r3, 0x1
@@ -272,7 +286,7 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
     cmplwi   r0, 0x0
     beq      .L_0000014C
     mr       r3, r27
-    bl       fn_8007F570
+    bl       ResolveEventObjectId
     b        .L_00000150
 .L_0000014C:
     li       r3, 0x0
@@ -311,8 +325,8 @@ extern "C" s32 CmdSaveObjFlag(s32 cmd, s32 count, s32* args)
 	if (savedObjFlags.mCount < 0x100) {
 		savedObjFlags.mEntries[savedObjFlags.mCount].mId = id;
 		obj                                              = ShunFindObj(savedObjFlags.mEntries[savedObjFlags.mCount].mId);
-		if (obj != NULL && (obj->_228 & 1)) {
-			if (obj->_228 & 0x10000) {
+		if (obj != NULL && (obj->mFlags & 1)) { // objects without flag 1 are skipped
+			if (obj->mFlags & 0x10000) {        // drawn now: remember it
 				savedObjFlags.mEntries[savedObjFlags.mCount].mFlag |= 1;
 			}
 			savedObjFlags.mCount++;
@@ -369,10 +383,11 @@ extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
 {
 	s32 ret = 0;
 
+	// args[0] != 0 writes args[1] hundredths, 0 reads them
 	if (args[0] != 0) {
-		fn_80066B9C(SHUN_8F38(), args[1]);
+		InfoScrn_SetTimerHundredths(SHUN_INFO_SCRN(), args[1]);
 	} else {
-		ret = fn_80066A84(SHUN_8F38());
+		ret = InfoScrn_GetTimerHundredths(SHUN_INFO_SCRN());
 	}
 	return ret;
 }
@@ -383,10 +398,11 @@ extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
 {
+	// starts or stops the timer counting (InfoScrn::mTimerShown gates mTimer += frames)
 	if (args[0] != 0) {
-		fn_80066BFC(SHUN_8F38());
+		InfoScrn_ShowTimer(SHUN_INFO_SCRN());
 	} else {
-		fn_80066BF0(SHUN_8F38());
+		InfoScrn_HideTimer(SHUN_INFO_SCRN());
 	}
 	return 0;
 }
@@ -397,10 +413,11 @@ extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdShowTimer(s32 cmd, s32 count, s32* args)
 {
+	// args[0] becomes the hud command's first arg
 	if (args[0] != 0) {
-		fn_8006613C(SHUN_8F38(), 1, 1);
+		InfoScrn_ApplyTimerHudCommand(SHUN_INFO_SCRN(), 1, 1);
 	} else {
-		fn_8006613C(SHUN_8F38(), 0, 1);
+		InfoScrn_ApplyTimerHudCommand(SHUN_INFO_SCRN(), 0, 1);
 	}
 	return 0;
 }
@@ -421,7 +438,7 @@ extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
 {
-	if (onOffWork._88.Check(1)) {
+	if (onOffWork.mStatus.Check(1)) {
 		return 1;
 	}
 	return 0;
@@ -433,12 +450,12 @@ extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* player = SHUN_PLAYER();
 
-	obj->_980 = 0;
-	obj->_980 |= 0x40000000;
-	obj->_12DF4 = 0;
-	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
+	player->mPlayerStatus = 0;
+	player->mPlayerStatus |= 0x40000000; // hand him to the script
+	player->mPadReset = 0;
+	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 2;
 	return 0;
@@ -450,12 +467,12 @@ extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* player = SHUN_PLAYER();
 
-	obj->_980 = 0;
-	obj->_980 |= 0x40000000;
-	obj->_12DF4 = 0;
-	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
+	player->mPlayerStatus = 0;
+	player->mPlayerStatus |= 0x40000000; // hand him to the script
+	player->mPadReset = 0;
+	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 1;
 	return 0;
@@ -467,12 +484,12 @@ extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
 {
-	RoboView* obj = SHUN_96BC();
+	RoboView* player = SHUN_PLAYER();
 
-	obj->_980 = 0;
-	obj->_980 |= 0x40000000;
-	obj->_12DF4 = 0;
-	obj->vf_80(0x3E, 0, 0, 0, 0, 0.0f, 2.0f, 0.0f, 10.0f);
+	player->mPlayerStatus = 0;
+	player->mPlayerStatus |= 0x40000000; // hand him to the script
+	player->mPadReset = 0;
+	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 0;
 	return 0;
@@ -484,11 +501,11 @@ extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
 {
-	onOffWork._00        = 0x708;
-	onOffWork._08        = 0;
-	onOffWork._78        = 0;
-	onOffWork._7C        = 0;
-	onOffWork._88.mFlags = 0;
+	onOffWork._00            = (FRAMES_PER_SECOND * 60) / 2; // half a minute
+	onOffWork._08            = 0;
+	onOffWork._78            = 0;
+	onOffWork._7C            = 0;
+	onOffWork.mStatus.mFlags = 0;
 	return 0;
 }
 
@@ -509,7 +526,7 @@ extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7F0
  * @note Size: 0x4
  */
-extern "C" void fn_3_7F0(void* arg)
+extern "C" void ShunNoOpSlot5(void* arg)
 {
 }
 
@@ -596,9 +613,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     bne      .L_00000D3C
     lfs      f0, 0x14(r29)
     fcmpu    cr0, f31, f0
@@ -721,9 +738,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     bne      .L_00000EE4
     lfs      f0, 0x18(r29)
     fcmpu    cr0, f31, f0
@@ -846,9 +863,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     bne      .L_0000108C
     lfs      f0, 0x1c(r29)
     fcmpu    cr0, f31, f0
@@ -964,17 +981,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
     bne      .L_000012A0
-    lis      r3, lbl_3_bss_0@ha
+    lis      r3, gJointTranslateZero@ha
     lfs      f4, 0x4(r29)
-    addi     r4, r3, lbl_3_bss_0@l
+    addi     r4, r3, gJointTranslateZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)
@@ -1075,10 +1092,10 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r5, 0x0
-    lis      r5, lbl_3_rodata_0@ha
+    lis      r5, sShunVectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r5, lbl_3_rodata_0@l
+    addi     r31, r5, sShunVectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
@@ -1178,17 +1195,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
     bne      .L_00001570
-    lis      r3, lbl_3_bss_C@ha
+    lis      r3, gJointScaleZero@ha
     lfs      f4, 0x24(r29)
-    addi     r4, r3, lbl_3_bss_C@l
+    addi     r4, r3, gJointScaleZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)
@@ -1289,10 +1306,10 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r5, 0x0
-    lis      r5, lbl_3_rodata_0@ha
+    lis      r5, sShunVectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r5, lbl_3_rodata_0@l
+    addi     r31, r5, sShunVectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
@@ -1392,17 +1409,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x40(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_3_rodata_0@ha
+    lis      r4, sShunVectorTemplates@ha
     stw      r0, 0x44(r1)
     stw      r31, 0x3c(r1)
-    addi     r31, r4, lbl_3_rodata_0@l
+    addi     r31, r4, sShunVectorTemplates@l
     stw      r30, 0x38(r1)
     stw      r29, 0x34(r1)
     mr       r29, r3
     bne      .L_00001840
-    lis      r3, lbl_3_bss_18@ha
+    lis      r3, gJointRotationZero@ha
     lfs      f4, 0x4(r29)
-    addi     r4, r3, lbl_3_bss_18@l
+    addi     r4, r3, gJointRotationZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)

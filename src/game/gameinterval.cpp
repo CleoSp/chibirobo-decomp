@@ -28,9 +28,9 @@ static inline u8 IntroActive(CGame* game)
  * @note Size: 0x68
  */
 // CGame's FrameInterval, the logo and title run at 60, the game at 30
-extern "C" s32 FrameInterval__5CGameFv(CGame* game)
+s32 CGame::FrameInterval()
 {
-	return IntroActive(game) ? 1 : 2;
+	return IntroActive(this) ? 1 : 2;
 }
 
 /**
@@ -38,61 +38,61 @@ extern "C" s32 FrameInterval__5CGameFv(CGame* game)
  * @note Size: 0xC
  */
 // CGame's GetCamera
-extern "C" void* GetCamera__5CGameFv(CGame* game)
+CCamera* CGame::GetCamera()
 {
-	return &game->mMotionControlCamera;
+	return &mMotionControlCamera.mCamera;
 }
 
 /**
  * @note Address: 0x8000A52C
  * @note Size: 0xC
  */
-extern "C" CLight* GetLight__5CGameFv(CGame* game)
+CLight* CGame::GetLight()
 {
-	return game->mLightList;
+	return mLightList;
 }
 
 /**
  * @note Address: 0x8000A538
  * @note Size: 0x8
  */
-extern "C" u32 vf2C__5CBaseFv(CBase* base)
+u32 CBase::GetRetraceStep()
 {
-	return base->mRetraceStep;
+	return mRetraceStep;
 }
 
 /**
  * @note Address: 0x8000A540
  * @note Size: 0x8
  */
-extern "C" void* vf30__5CBaseFv(CBase* base)
+CCamera* CBase::GetPerspectiveCamera()
 {
-	return &base->mCameras[0];
+	return &mCameras[0];
 }
 
 /**
  * @note Address: 0x8000A548
  * @note Size: 0x8
  */
-extern "C" void* vf34__5CBaseFv(CBase* base)
+CCamera* CBase::GetScreenCamera()
 {
-	return &base->mCameras[1];
+	return &mCameras[1];
 }
 
 /**
  * @note Address: 0x8000A550
  * @note Size: 0x8
  */
-extern "C" void* vf3C__5CBaseFv(CBase* base)
+CLight* CBase::GetDefaultLight()
 {
-	return &base->mLights[0];
+	return &mLights[0];
 }
 
 /**
  * @note Address: 0x8000A558
  * @note Size: 0x8
  */
-extern "C" void* vf40__5CBaseFv(CBase* base)
+CLight* CBase::GetScreenLight()
 {
-	return &base->mLights[4];
+	return &mLights[4];
 }

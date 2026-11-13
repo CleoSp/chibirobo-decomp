@@ -5,12 +5,12 @@
 
 extern "C" f64 atan2(f64 y, f64 x);
 
-extern "C" s32 CmdNop(s32 cmd, void* arg, void* arg2);
+extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
 extern "C" void UpdateStage(void* arg);
 extern "C" void InitStage(void* arg);
 
 typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, void* arg, void* arg2);
+typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage };
@@ -23,7 +23,7 @@ static XObj* gameBotan2;
  * @note Address: stage16 .text 0x0
  * @note Size: 0x8
  */
-extern "C" s32 CmdNop(s32 cmd, void* arg, void* arg2)
+extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -35,14 +35,14 @@ extern "C" s32 CmdNop(s32 cmd, void* arg, void* arg2)
 extern "C" void UpdateStage(void* arg)
 {
 	if (gameBotan2 != NULL) {
-		XObj* other = lbl_8025C400.GetPlayer();
+		XObj* other = gGame.GetPlayer();
 		f32 angle   = atan2(other->mMoveTranslate.x - gameBotan2->mMoveTranslate.x, other->mMoveTranslate.z - gameBotan2->mMoveTranslate.z);
 		gameBotan2->SetRotateY(angle, 0.0f);
 	} else {
 		XObj* obj;
 		s32 i;
-		for (i = 0; i < lbl_8025C400.mXObjs.mObjectCount && gameBotan2 == NULL; i++) {
-			obj = lbl_8025C400.GetObject(i);
+		for (i = 0; i < gGame.mXObjs.mObjectCount && gameBotan2 == NULL; i++) {
+			obj = gGame.GetObject(i);
 			if ((obj->mStatus.mFlags & 1) != 0 && obj->GetKind() == 0x2E9) {
 				gameBotan2 = obj;
 			}

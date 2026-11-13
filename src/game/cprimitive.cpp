@@ -10,8 +10,10 @@ void GXDrawSphere(u8 numMajor, u8 numMinor);
 void GXDrawCube(void);
 }
 
+// tev_state.h's value; that is an HSD header and this file builds with the Dolphin ones
 #define HSD_STATE_VTX_ATTR 2
 
+// normals take the inverse transpose of the position matrix, so a non-uniform scale doesn't skew them
 static inline void LoadNrmMtx(MtxP mtx)
 {
 	Mtx inv;
@@ -23,8 +25,8 @@ static inline void LoadNrmMtx(MtxP mtx)
 }
 
 // position and color, both direct. every caller shares one copy of these arrays, so
-// it's an inline. retail's tile and circle draws use their own format with no null test,
-// this check still costs them a compare. default first then an if beats a ternary
+// it's an inline. retail's tile draws and lit circle pass their own format with no null
+// test, this check still costs them a compare. default first then an if beats a ternary
 static inline void SetVtxPosClr(GXVtxAttrFmtList* fmt = NULL)
 {
 	GXVtxAttrFmtList defFmt[] = {
@@ -103,9 +105,12 @@ MtxP CPrimitive::LoadMtx(Mtx view)
 {
 	MtxP mtx;
 
+	// a fixed matrix goes to GX as the whole model view: view and the transform are skipped
 	if (mFixedMtx != NULL) {
 		mtx = mFixedMtx;
 	} else {
+		// view only goes in on a rebuild: until something sets mDirty again, the cached
+		// mModelView keeps the view it was built with
 		if (mDirty) {
 			Mtx rot;
 			MtxP trans = mTrans;
@@ -114,6 +119,8 @@ MtxP CPrimitive::LoadMtx(Mtx view)
 			MtxP rotY  = mRotY;
 			MtxP rotZ  = mRotZ;
 
+			// order the rotations follow the translation: 0 x y z, 1 x z y, 2 y x z, 3 y z x,
+			// 4 z x y (what Set gives), 5 z y x (what CGs gives its shapes)
 			switch (mRotOrder) {
 			case 0:
 				PSMTXConcat(trans, rotX, rot);
@@ -149,9 +156,9 @@ MtxP CPrimitive::LoadMtx(Mtx view)
 			PSMTXConcat(rot, scale, mModel);
 			PSMTXConcat(view, mModel, mModelView);
 			if (mBillboard == 1) {
-				fn_80190E60(mModelView, mModelView);
+				BuildBillboardMatrixFromUp(mModelView, mModelView);
 			} else if (mBillboard == 2) {
-				fn_80190AF0(mModelView, mModelView, mBillboardZ);
+				BuildBillboardMatrixWithZRotation(mModelView, mModelView, mBillboardZ);
 			}
 		}
 		mDirty = FALSE;
@@ -188,10 +195,10 @@ void CLine::Draw(Mtx view, Vec* pos, u32 color, u16 count)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r21, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r21, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r22, 0x4(r4)
     lwz      r23, 0x8(r4)
     lwz      r24, 0xc(r4)
@@ -362,10 +369,10 @@ void CLine::Draw(Mtx view, Vec* pos, u32* color, u16 count)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r21, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r21, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r22, 0x4(r4)
     lwz      r23, 0x8(r4)
     lwz      r24, 0xc(r4)
@@ -535,8 +542,9 @@ void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
 	SetVtxPosClr();
 	GXBegin(GX_LINESTRIP, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
-		GXColor1u32(vtx[i].color);
+		PrimVertex* v = vtx + i;
+		GXPosition3f32(v->pos.x, v->pos.y, v->pos.z);
+		GXColor1u32(v->color);
 	}
 }
 /*
@@ -549,10 +557,10 @@ void CLine::Draw(Mtx view, PrimVertex* vtx, u16 count)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r22, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r22, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r23, 0x4(r4)
     lwz      r24, 0x8(r4)
     lwz      r25, 0xc(r4)
@@ -733,10 +741,10 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive type)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r20, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r20, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r21, 0x4(r4)
     lwz      r22, 0x8(r4)
     lwz      r23, 0xc(r4)
@@ -892,7 +900,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
 		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
@@ -920,10 +928,10 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
     bl       GXLoadNrmMtxImm
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB58@ha
-    lwzu     r15, lbl_8020EB58@l(r4)
-    lis      r3, lbl_8020EB98@ha
-    addi     r9, r3, lbl_8020EB98@l
+    lis      r4, sPrimitivePosNormalColorFormat@ha
+    lwzu     r15, sPrimitivePosNormalColorFormat@l(r4)
+    lis      r3, sPrimitivePosNormalColorDesc@ha
+    addi     r9, r3, sPrimitivePosNormalColorDesc@l
     lwz      r16, 0x4(r4)
     lwz      r17, 0x8(r4)
     lwz      r18, 0xc(r4)
@@ -981,7 +989,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32 color, u16 count, GXPrimitive ty
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1095,10 +1103,10 @@ void CTriangle::Draw(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive type
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r20, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r20, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r21, 0x4(r4)
     lwz      r22, 0x8(r4)
     lwz      r23, 0xc(r4)
@@ -1268,7 +1276,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&pos[0], &pos[1], &pos[2], &normal);
+	CalcTriangleNormal(&pos[0], &pos[1], &pos[2], &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
 		GXPosition3f32(pos[i].x, pos[i].y, pos[i].z);
@@ -1296,10 +1304,10 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
     bl       GXLoadNrmMtxImm
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB58@ha
-    lwzu     r15, lbl_8020EB58@l(r4)
-    lis      r3, lbl_8020EB98@ha
-    addi     r9, r3, lbl_8020EB98@l
+    lis      r4, sPrimitivePosNormalColorFormat@ha
+    lwzu     r15, sPrimitivePosNormalColorFormat@l(r4)
+    lis      r3, sPrimitivePosNormalColorDesc@ha
+    addi     r9, r3, sPrimitivePosNormalColorDesc@l
     lwz      r16, 0x4(r4)
     lwz      r17, 0x8(r4)
     lwz      r18, 0xc(r4)
@@ -1357,7 +1365,7 @@ void CTriangle::DrawLit(Mtx view, Vec* pos, u32* color, u16 count, GXPrimitive t
     addi     r4, r28, 0xc
     addi     r5, r28, 0x18
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1463,8 +1471,9 @@ void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
 	SetVtxPosClr();
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
-		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
-		GXColor1u32(vtx[i].color);
+		PrimVertex* v = vtx + i;
+		GXPosition3f32(v->pos.x, v->pos.y, v->pos.z);
+		GXColor1u32(v->color);
 	}
 }
 /*
@@ -1478,10 +1487,10 @@ void CTriangle::Draw(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r21, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r21, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r22, 0x4(r4)
     lwz      r23, 0x8(r4)
     lwz      r24, 0xc(r4)
@@ -1646,7 +1655,7 @@ void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr();
-	fn_8018EE60(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
+	CalcTriangleNormal(&vtx[0].pos, &vtx[1].pos, &vtx[2].pos, &normal);
 	GXBegin(type, GX_VTXFMT0, count);
 	for (int i = 0; i < count; i++) {
 		GXPosition3f32(vtx[i].pos.x, vtx[i].pos.y, vtx[i].pos.z);
@@ -1673,10 +1682,10 @@ void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
     bl       GXLoadNrmMtxImm
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB58@ha
-    lwzu     r15, lbl_8020EB58@l(r4)
-    lis      r3, lbl_8020EB98@ha
-    addi     r10, r3, lbl_8020EB98@l
+    lis      r4, sPrimitivePosNormalColorFormat@ha
+    lwzu     r15, sPrimitivePosNormalColorFormat@l(r4)
+    lis      r3, sPrimitivePosNormalColorDesc@ha
+    addi     r10, r3, sPrimitivePosNormalColorDesc@l
     lwz      r16, 0x4(r4)
     lwz      r17, 0x8(r4)
     lwz      r18, 0xc(r4)
@@ -1734,7 +1743,7 @@ void CTriangle::DrawLit(Mtx view, PrimVertex* vtx, u16 count, GXPrimitive type)
     addi     r4, r29, 0x10
     addi     r5, r29, 0x20
     addi     r6, r1, 0x8
-    bl       fn_8018EE60
+    bl       CalcTriangleNormal
     mr       r3, r31
     mr       r5, r30
     li       r4, 0x0
@@ -1846,8 +1855,11 @@ void CCircle::Draw(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr();
+	// the hub at the origin, then segments + 1 rim points around mCenter: the last one
+	// lands on the first again and closes the fan
 	GXBegin(GX_TRIANGLEFAN, GX_VTXFMT0, segments + 2);
-	GXPosition3f32(0.0f, 0.0f, 0.0f);
+	f32 zero = 0.0f;
+	GXPosition3f32(zero, zero, zero);
 	GXColor1u32(centerColor);
 	for (int i = 1; i <= segments + 1; i++) {
 		f32 angle = (TWO_PI / segments) * i;
@@ -1877,10 +1889,10 @@ void CCircle::Draw(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
     bl       fn_8019DF5C
     li       r3, 0x2
     bl       HSD_StateInvalidate
-    lis      r4, lbl_8020EB10@ha
-    lwzu     r20, lbl_8020EB10@l(r4)
-    lis      r3, lbl_8020EB40@ha
-    addi     r8, r3, lbl_8020EB40@l
+    lis      r4, sPrimitivePosColorFormat@ha
+    lwzu     r20, sPrimitivePosColorFormat@l(r4)
+    lis      r3, sPrimitivePosColorDesc@ha
+    addi     r8, r3, sPrimitivePosColorDesc@l
     lwz      r21, 0x4(r4)
     lwz      r22, 0x8(r4)
     lwz      r23, 0xc(r4)
@@ -1994,6 +2006,7 @@ void CCircle::Draw(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
  */
 void CCircle::DrawLit(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
 {
+	// SetVtxPosNrmClr's default with s8 normals, enough for the fixed (0, 0, 1) every vertex sends
 	GXVtxAttrFmtList fmt[] = {
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
 		{ GX_VA_NRM, GX_NRM_XYZ, GX_S8, 0 },
@@ -2005,7 +2018,8 @@ void CCircle::DrawLit(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosNrmClr(fmt);
 	GXBegin(GX_TRIANGLEFAN, GX_VTXFMT0, segments + 2);
-	GXPosition3f32(0.0f, 0.0f, 0.0f);
+	f32 zero = 0.0f;
+	GXPosition3f32(zero, zero, zero);
 	GXNormal3s8(0, 0, 1);
 	GXColor1u32(centerColor);
 	for (int i = 1; i <= segments + 1; i++) {
@@ -2226,6 +2240,7 @@ void CTile::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry,
  */
 void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
 {
+	// the same entries as SetVtxPosClr's default, but retail's tile copies and passes its own table
 	GXVtxAttrFmtList fmt[] = {
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
 		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
@@ -2235,6 +2250,8 @@ void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
 	SetVtxPosClr(fmt);
+	// a strip, so the corners zigzag: color0 and color1 on the +y edge, color2 and color3
+	// on the -y edge, each pair -x first
 	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
 	GXPosition3f32(mCenter.x - 1.0f, 1.0f + mCenter.y, mCenter.z);
 	GXColor1u32(color0);
@@ -2381,6 +2398,7 @@ void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
  */
 void CTile::DrawLit(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
 {
+	// SetVtxPosNrmClr's default with s8 normals, enough for the fixed (0, 0, 1) every vertex sends
 	GXVtxAttrFmtList fmt[] = {
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
 		{ GX_VA_NRM, GX_NRM_XYZ, GX_S8, 0 },

@@ -7,9 +7,9 @@
  * @note Address: 0x801051A0
  * @note Size: 0x14
  */
-extern "C" s32 vf100__14XObjSpiderBossFll(XObjSpiderBoss* spider, s32 unused, s32 value)
+s32 XObjSpiderBoss::OnPlayerContact(s32 unused, s32 value)
 {
-	spider->mSpiderStatus.mFlags |= 1;
+	mSpiderStatus.mFlags |= 1;
 	return value;
 }
 
@@ -18,9 +18,9 @@ extern "C" s32 vf100__14XObjSpiderBossFll(XObjSpiderBoss* spider, s32 unused, s3
  * @note Size: 0x1A8
  */
 // hit from pos, only once chibi robo has the item that does it
-extern "C" void vf138__14XObjSpiderBossFRC3Vecf(XObjSpiderBoss* spider, const Vec* pos, f32 strength)
+void XObjSpiderBoss::OnHitFromPosition(const Vec& pos, f32 strength)
 {
-	u32 flags = spider->mSpiderStatus.mFlags;
+	u32 flags = mSpiderStatus.mFlags;
 	if (flags & 2) {
 		return;
 	}
@@ -30,29 +30,25 @@ extern "C" void vf138__14XObjSpiderBossFRC3Vecf(XObjSpiderBoss* spider, const Ve
 	if (flags & 0x8000) {
 		return;
 	}
-	XObjChr* player = lbl_8025C400.GetPlayer();
-	if (fn_8009C1BC(&player->mAttachments, 2) < 2) {
+	XObjChr* player = gGame.GetPlayer();
+	if (GetAttachmentCountById(&player->mAttachments, 2) < 2) {
 		return;
 	}
-	vf138__4XObjFRC3Vecf(spider, pos, strength);
-	spider->mSpiderStatus.mFlags |= 2;
-	f32 x                = pos->x;
-	f32 y                = pos->y;
-	f32 z                = pos->z;
-	Vec hit              = { 0.0f, 0.0f, 0.0f };
-	hit.x                = x;
-	hit.y                = y;
-	hit.z                = z;
-	spider->mHitPos      = hit;
-	spider->mHitStrength = strength;
-	CParticle* particle  = &lbl_8025C400.mParticle;
+	OnHitFromPosition__4XObjFRC3Vecf(this, &pos, strength);
+	mSpiderStatus.mFlags |= 2;
+	Vec hit             = { pos.x, pos.y, pos.z };
+	mHitPos             = hit;
+	mHitStrength        = strength;
+	CParticle* particle = &gGame.mParticle;
 	particle->Kill(0xB3);
-	Vec rot   = { 0.0f, 0.0f, 0.0f };
-	rot.y     = spider->mTargetRotY;
+	// NONMATCHING: retail builds rot straight in CreateSRT's by-value argument slot, this compiler
+	// builds the local and copies it (same in states34, mamahide, scrc and evt); the literal pool is
+	// also another unit's in retail
 	Vec scale = { 1.0f, 1.0f, 1.0f };
-	particle->CreateSRT(0xB3, 1, *pos, scale, rot, TRUE);
-	XSound* sound = &lbl_8025C400.mSound;
-	if (!fn_8001E6C8(sound, 0x127)) {
-		fn_8001E904(sound, 0x127, 255); // npc_spider_bakuhatsu
+	Vec rot   = { 0.0f, mTargetRotY, 0.0f };
+	particle->CreateSRT(0xB3, 1, pos, scale, rot, TRUE);
+	XSound* sound = &gGame.mSound;
+	if (!IsGameSoundPlaying(sound, 0x127)) {
+		PlayGameSound(sound, 0x127, 255); // npc_spider_bakuhatsu
 	}
 }

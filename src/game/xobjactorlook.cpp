@@ -1,47 +1,35 @@
 #include "game/xobjactor.h"
-#include "game/gmath.h"
-
-extern "C" {
-// a zero vec in the tu's rodata
-extern Vec lbl_8020B2F0;
-}
 
 /**
  * @note Address: 0x8010753C
  * @note Size: 0xC
  */
-extern "C" bool vf160__9XObjActorFv(XObjActor* actor)
+extern "C" bool IsHitPending__9XObjActorFv(XObjActor* actor)
 {
-	return (actor->_998.mFlags & 2) != 0;
+	return (actor->mActorStatus.mFlags & 2) != 0;
 }
 
 /**
  * @note Address: 0x80107548
  * @note Size: 0xA0
  */
-// vf138, knocked from pos
-extern "C" void vf138__9XObjActorFRC3Vecf(XObjActor* actor, const Vec* pos, f32 strength)
+// OnHitFromPosition, knocked from pos
+void XObjActor::OnHitFromPosition(const Vec& pos, f32 strength)
 {
-	vf138__4XObjFRC3Vecf(actor, pos, strength);
-	actor->_998.mFlags |= 2;
-	f32 x               = pos->x;
-	f32 y               = pos->y;
-	f32 z               = pos->z;
-	Vec hit             = lbl_8020B2F0;
-	hit.x               = x;
-	hit.y               = y;
-	hit.z               = z;
-	actor->mHitPos      = hit;
-	actor->mHitStrength = strength;
+	OnHitFromPosition__4XObjFRC3Vecf(this, &pos, strength);
+	mActorStatus.mFlags |= 2;
+	Vec hit      = { pos.x, pos.y, pos.z };
+	mHitPos      = hit;
+	mHitStrength = strength;
 }
 
 /**
  * @note Address: 0x801075E8
  * @note Size: 0x14
  */
-extern "C" s32 vf100__9XObjActorFll(XObjActor* actor, s32 unused, s32 value)
+s32 XObjActor::OnPlayerContact(s32 unused, s32 value)
 {
-	actor->_998.mFlags |= 1;
+	mActorStatus.mFlags |= 1;
 	return value;
 }
 
@@ -49,7 +37,7 @@ extern "C" s32 vf100__9XObjActorFll(XObjActor* actor, s32 unused, s32 value)
  * @note Address: 0x801075FC
  * @note Size: 0x4
  */
-extern "C" void vfCC__9XObjActorFv(XObjActor* actor)
+void XObjActor::DrawDebugStatus()
 {
 }
 
@@ -57,21 +45,21 @@ extern "C" void vfCC__9XObjActorFv(XObjActor* actor)
  * @note Address: 0x80107600
  * @note Size: 0x20
  */
-extern "C" void vfC8__9XObjActorFv(XObjActor* actor)
+void XObjActor::DrawScreenOverlay()
 {
-	vfC8__4XObjFv(actor);
+	XObj::DrawScreenOverlay();
 }
 
 /**
  * @note Address: 0x80107620
  * @note Size: 0x70
  */
-extern "C" void vfAC__9XObjActorFv(XObjActor* actor)
+void XObjActor::DrawObject()
 {
-	if (actor->_998.mFlags & 0x80) {
-		actor->Push(actor->vf168(), 0x80, actor->_AA0);
+	if (mActorStatus.mFlags & 0x80) {
+		Push(GetHeadJoint(), 0x80, mHeadYaw);
 	}
-	actor->vfB0(NULL);
+	DrawWithView(NULL);
 }
 
 /**
@@ -79,36 +67,36 @@ extern "C" void vfAC__9XObjActorFv(XObjActor* actor)
  * @note Size: 0x8
  */
 // the head's turn limits
-extern "C" f32 vf17C__9XObjActorFv(XObjActor* actor)
+f32 XObjActor::GetMinHeadPitch()
 {
-	return -20.0f * DEG2RAD;
+	return -0.34906584f; // -20 degrees
 }
 
 /**
  * @note Address: 0x80107698
  * @note Size: 0x8
  */
-extern "C" f32 vf178__9XObjActorFv(XObjActor* actor)
+f32 XObjActor::GetMaxHeadPitch()
 {
-	return 20.0f * DEG2RAD;
+	return 0.34906584f; // +20 degrees
 }
 
 /**
  * @note Address: 0x801076A0
  * @note Size: 0x8
  */
-extern "C" f32 vf174__9XObjActorFv(XObjActor* actor)
+f32 XObjActor::GetMinHeadYaw()
 {
-	return -80.0f * DEG2RAD;
+	return -1.3962634f; // -80 degrees
 }
 
 /**
  * @note Address: 0x801076A8
  * @note Size: 0x8
  */
-extern "C" f32 vf170__9XObjActorFv(XObjActor* actor)
+f32 XObjActor::GetMaxHeadYaw()
 {
-	return 80.0f * DEG2RAD;
+	return 1.3962634f; // +80 degrees
 }
 
 /**
@@ -116,25 +104,25 @@ extern "C" f32 vf170__9XObjActorFv(XObjActor* actor)
  * @note Size: 0x2C
  */
 // look at a Vec*
-extern "C" void fn_801076B0(CXObj* object, s32 target, f32 rate)
+extern "C" void SetActorLookAtPosition(CXObj* object, const Vec* target, f32 rate)
 {
 	XObjActor* actor = (XObjActor*)object;
-	actor->_998.mFlags |= 0x80;
+	actor->mActorStatus.mFlags |= 0x80; // flag 0x80: the head tracks
 	actor->mLookMode   = 1;
 	actor->mLookRate   = rate;
 	actor->mLookTarget = target;
-	actor->_998.mFlags |= 0x400;
+	actor->mActorStatus.mFlags |= 0x400; // 0x400: also pitch the head toward the player
 }
 
 /**
  * @note Address: 0x801076DC
  * @note Size: 0x20
  */
-extern "C" void fn_801076DC(CXObj* object, f32 angle, f32 rate)
+extern "C" void SetActorLookAngle(CXObj* object, f32 angle, f32 rate)
 {
 	XObjActor* actor = (XObjActor*)object;
-	actor->_998.mFlags |= 0x80;
-	actor->mLookMode  = 3;
+	actor->mActorStatus.mFlags |= 0x80;
+	actor->mLookMode  = 3; // at an angle
 	actor->mLookAngle = angle;
 	actor->mLookRate  = rate;
 }
@@ -143,10 +131,10 @@ extern "C" void fn_801076DC(CXObj* object, f32 angle, f32 rate)
  * @note Address: 0x801076FC
  * @note Size: 0x20
  */
-extern "C" void fn_801076FC(CXObj* object, s32 target, f32 rate)
+extern "C" void SetActorLookTarget(CXObj* object, const Vec* target, f32 rate)
 {
 	XObjActor* actor = (XObjActor*)object;
-	actor->_998.mFlags |= 0x80;
+	actor->mActorStatus.mFlags |= 0x80;
 	actor->mLookMode   = 1;
 	actor->mLookRate   = rate;
 	actor->mLookTarget = target;
@@ -157,13 +145,13 @@ extern "C" void fn_801076FC(CXObj* object, s32 target, f32 rate)
  * @note Size: 0x34
  */
 // look ahead again
-extern "C" void fn_8010771C(CXObj* object, f32 rate)
+extern "C" void ResetActorLook(CXObj* object, f32 rate)
 {
 	XObjActor* actor = (XObjActor*)object;
-	actor->_998.mFlags |= 0x80;
-	actor->mLookMode  = 0;
+	actor->mActorStatus.mFlags |= 0x80;
+	actor->mLookMode  = 0; // back to forward
 	actor->mLookRate  = rate;
 	actor->mLookAngle = 0.0f;
-	actor->_998.mFlags &= ~0x400;
-	actor->_AB0 = 0.0f;
+	actor->mActorStatus.mFlags &= ~0x400;
+	actor->mHeadPitch = 0.0f;
 }

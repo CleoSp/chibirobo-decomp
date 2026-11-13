@@ -20,7 +20,7 @@ public:
 	CVec mTranslate; // _04
 	CVec mRotate;    // _14
 	CVec mScale;     // _24
-	// _34 vtable
+	                 // _34 vtable
 
 	CJObj()
 	{

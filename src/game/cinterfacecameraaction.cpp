@@ -4,7 +4,7 @@
  * @note Address: 0x80015EF0
  * @note Size: 0x8
  */
-f32 CInterfaceCameraAction::vf58()
+f32 CInterfaceCameraAction::GetFollowDivisor()
 {
 	return 12.0f;
 }
@@ -30,7 +30,7 @@ bool CVectorLinearInterpolation::Start(Vec from, Vec to, f32 time)
  */
 bool CInterpolationLinear::Start(f32 from, f32 to, f32 time)
 {
-	if (time < 0.0f) {
+	if (time < 0.0f) { // a negative time means no interp
 		return false;
 	}
 	mTime  = time;
@@ -114,7 +114,7 @@ bool CVectorEaseInOutInterpolation::Update(u32 step, f32 dt)
 	bool x = mAxes[0].Update(step, dt);
 	bool y = mAxes[1].Update(step, dt);
 	bool z = mAxes[2].Update(step, dt);
-	if (x && z) {
+	if (x && z) { // x and z have both arrived
 		mXZDone = TRUE;
 	}
 	return x && y && z;
@@ -193,9 +193,9 @@ Vec CVectorEaseOutInterpolation::Get()
  * @note Address: 0x80015CC8
  * @note Size: 0x64
  */
-BOOL CCameraActionAreaExM::vf78(s32 index)
+BOOL CCameraActionAreaExM::IsCameraArea(s32 index)
 {
-	bool set = CamAreaInfo(&lbl_805A054C._24[index]).IsCameraArea();
+	bool set = CamAreaInfo(&gCameraAreaState.mAreaRecords[index]).IsCameraArea();
 	if (set) {
 		return TRUE;
 	}
@@ -206,9 +206,9 @@ BOOL CCameraActionAreaExM::vf78(s32 index)
  * @note Address: 0x80015D74
  * @note Size: 0x64
  */
-BOOL CCameraActionAreaExM::vf7C(s32 index)
+BOOL CCameraActionAreaExM::IsAreaEnabled(s32 index)
 {
-	bool set = CamAreaInfo(&lbl_805A054C._1C[index]).IsDisabled();
+	bool set = CamAreaInfo(&gCameraAreaState.mAreaExRecords[index]).IsDisabled();
 	if (set) {
 		return FALSE;
 	}

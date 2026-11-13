@@ -362,7 +362,7 @@ typedef struct {
 extern HSD_PSFormGroup** psFormGroupArray[64];
 
 // billboard texcoords, two bytes each, picked by GX_INDEX8
-u8 lbl_802590E0[32] __attribute__((aligned(32)))
+u8 sParticleBillboardTexCoords[32] __attribute__((aligned(32)))
 = { 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0 };
 
 static Mtx psdisp_view;
@@ -385,9 +385,9 @@ s32 lbl_8065B918;
 u32 lbl_8065B914;
 GXColor lbl_8065B910;
 GXColor lbl_8065B90C;
-GXColor lbl_8065B908;
-GXColor lbl_8065B904;
-GXColor lbl_8065B900;
+GXColor psdispTevReg0Color;
+GXColor psdispTevReg1Color;
+GXColor psdispTevReg2Color;
 s32 lbl_8065B8FC;
 HSD_Fog* particleFog;
 
@@ -556,46 +556,38 @@ static inline void psdisp_getColorMatAmb(HSD_Particle* pp, GXColor* mat, GXColor
 // where a tornado particle sits, it orbits its generator
 static inline void psdisp_tornadoPos(HSD_Particle* pp, f32* x, f32* y, f32* z)
 {
-	HSD_Generator* gen = pp->gen;
-	f32 sG;
-	f32 sF;
-	f32 cG;
-	f32 cF;
 	f32 radius;
-	f32 h;
-	f32 rc;
-	f32 angle;
-	f32 rs;
+	f32 px, py, pz;
+	f32 sina, sinb, cosa, cosb;
+	f32 vx0, vz0;
+	HSD_Generator* gp;
 
-	if (gen == NULL) {
+	gp = pp->gen;
+	if (gp == NULL) {
 		*x = pp->pos.x;
 		*y = pp->pos.y;
 		*z = pp->pos.z;
 		return;
 	}
-	sG     = psdisp_sinf(pp->grav);
-	sF     = psdisp_sinf(pp->fric);
-	cG     = psdisp_cosf(pp->grav);
-	cF     = psdisp_cosf(pp->fric);
-	h      = pp->vel.z - gen->aux.line.x2;
-	angle  = pp->vel.x - gen->grav;
-	radius = gen->radius;
-	if (radius < 0.0F) {
-		radius = -radius;
-	}
-	{
-		f32 spread = gen->angle;
-		if (spread < 0.0F) {
-			spread = -spread;
-		}
-		radius += h * psdisp_tanf(spread);
-	}
+
+	sina = psdisp_sinf(pp->grav);
+	sinb = psdisp_sinf(pp->fric);
+	cosa = psdisp_cosf(pp->grav);
+	cosb = psdisp_cosf(pp->fric);
+
+	vz0 = pp->vel.z - gp->aux.line.x2;
+	vx0 = pp->vel.x - gp->grav;
+
+	radius = (gp->radius < 0.0F) ? -gp->radius : gp->radius;
+	radius += vz0 * psdisp_tanf((gp->angle < 0.0F) ? -gp->angle : gp->angle);
 	radius *= pp->vel.y;
-	rc = radius * psdisp_cosf(angle);
-	rs = radius * psdisp_sinf(angle);
-	*x = gen->pos.x + (rc * cF + h * sF);
-	*y = gen->pos.y + (h * sG * cF + (-rc * sG * sF + rs * cG));
-	*z = gen->pos.z + (h * cG * cF + (-rc * cG * sF - rs * sG));
+	px = radius * psdisp_cosf(vx0);
+	py = radius * psdisp_sinf(vx0);
+	pz = vz0;
+
+	*x = gp->pos.x + (px * cosb + pz * sinb);
+	*y = gp->pos.y + (pz * sina * cosb + (-px * sina * sinb + py * cosa));
+	*z = gp->pos.z + (pz * cosa * cosb + (-px * cosa * sinb - py * sina));
 }
 
 // same, then pushed through the particle's appsrt
@@ -667,32 +659,32 @@ void setupTevReg(HSD_Particle* pp)
 
 	psdisp_getColorPrimEnv(pp, &prim, &env);
 	if ((pp->kind & 0x80) || (!(pp->kind & 0x80000000) && !(pp->kind & 0x100000))) {
-		if (lbl_8065B908.r != prim.r || lbl_8065B908.g != prim.g || lbl_8065B908.b != prim.b || lbl_8065B908.a != prim.a) {
-			lbl_8065B908 = prim;
-			GXSetTevColor(GX_TEVREG0, lbl_8065B908);
+		if (psdispTevReg0Color.r != prim.r || psdispTevReg0Color.g != prim.g || psdispTevReg0Color.b != prim.b || psdispTevReg0Color.a != prim.a) {
+			psdispTevReg0Color = prim;
+			GXSetTevColor(GX_TEVREG0, psdispTevReg0Color);
 		}
 		if (pp->kind & 0x80) {
-			if (lbl_8065B904.r != env.r || lbl_8065B904.g != env.g || lbl_8065B904.b != env.b || lbl_8065B904.a != env.a) {
-				lbl_8065B904 = env;
-				GXSetTevColor(GX_TEVREG1, lbl_8065B904);
+			if (psdispTevReg1Color.r != env.r || psdispTevReg1Color.g != env.g || psdispTevReg1Color.b != env.b || psdispTevReg1Color.a != env.a) {
+				psdispTevReg1Color = env;
+				GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
 			}
-		} else if (lbl_8065B904.r != 0 || lbl_8065B904.g != 0 || lbl_8065B904.b != 0 || lbl_8065B904.a != 0) {
-			lbl_8065B904.r = lbl_8065B904.g = lbl_8065B904.b = lbl_8065B904.a = 0;
-			GXSetTevColor(GX_TEVREG1, lbl_8065B904);
+		} else if (psdispTevReg1Color.r != 0 || psdispTevReg1Color.g != 0 || psdispTevReg1Color.b != 0 || psdispTevReg1Color.a != 0) {
+			psdispTevReg1Color.r = psdispTevReg1Color.g = psdispTevReg1Color.b = psdispTevReg1Color.a = 0;
+			GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
 		}
 	}
 	if (pp->kind & 0x80000000) {
 		psdisp_getColorMatAmb(pp, &mat, &amb);
 		if (pp->kind & 0x80) {
-			if (lbl_8065B900.r != mat.r || lbl_8065B900.g != mat.g || lbl_8065B900.b != mat.b || lbl_8065B900.a != mat.a) {
-				lbl_8065B900 = mat;
-				GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+			if (psdispTevReg2Color.r != mat.r || psdispTevReg2Color.g != mat.g || psdispTevReg2Color.b != mat.b || psdispTevReg2Color.a != mat.a) {
+				psdispTevReg2Color = mat;
+				GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 			}
 		} else {
 			mat.a = (mat.a * prim.a) >> 8;
-			if (lbl_8065B900.r != mat.r || lbl_8065B900.g != mat.g || lbl_8065B900.b != mat.b || lbl_8065B900.a != mat.a) {
-				lbl_8065B900 = mat;
-				GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+			if (psdispTevReg2Color.r != mat.r || psdispTevReg2Color.g != mat.g || psdispTevReg2Color.b != mat.b || psdispTevReg2Color.a != mat.a) {
+				psdispTevReg2Color = mat;
+				GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 			}
 		}
 	}
@@ -1577,8 +1569,9 @@ void psDispSubAppSRT(HSD_Particle* pp, u32* cmdList)
 void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f32 prevX, f32 prevY, f32 prevZ, f32 rightX, f32 rightY,
                           f32 rightZ, f32 upX, f32 upY, f32 upZ)
 {
+	// NONMATCHING: retail gives the fourth quad vertex's trail-alpha conversion its own stack temps (frame 0x1A0, ours 0x190);
+	// MWCC reuses the first vertex's temps across the texcoord branches. Also dx/dy/dz get f3/f2/f4 in retail, f2/f4/f5 here.
 	GXColor color;
-	u8* it = (u8*)cmdList;
 
 	if (lbl_8065B8FC != 0) {
 		lbl_8065B8FC = 0;
@@ -1597,7 +1590,7 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 			prevZ = z - prevZ;
 		}
 		psdisp_getTrailColor(pp, &color);
-		if (it == NULL) {
+		if (cmdList == NULL) {
 			if (pp->kind & 0x400) {
 				GXClearVtxDesc();
 				GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
@@ -1634,9 +1627,8 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 			f32 trailAlpha;
 			f32 upLen;
 
-			upLen      = upX * upX + upY * upY + upZ * upZ;
 			trailAlpha = 255.0F * (1.0F - pp->trail);
-			upLen      = psdisp_sqrtf(upLen);
+			upLen      = psdisp_sqrtf(upX * upX + upY * upY + upZ * upZ);
 
 			if (!(__fabs(upLen) < __float_min[0])) {
 				f32 dx    = x - prevX;
@@ -1654,14 +1646,13 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 				upX *= ratio;
 				upY *= ratio;
 				upZ *= ratio;
-				primCount = *(u32*)it;
-				it += 4;
+				primCount = *cmdList++;
 				for (; primCount != 0; primCount--) {
-					u8 prim  = it[0];
-					u8 count = it[1];
+					u8 prim  = ((u8*)cmdList)[0];
+					u8 count = ((u8*)cmdList)[1];
 					s32 i;
 
-					it += 4;
+					cmdList++;
 					if (pp->kind & 0x400) {
 						GXClearVtxDesc();
 						GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
@@ -1675,17 +1666,17 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 						GXBegin(prim, GX_VTXFMT3, count);
 					}
 					for (i = 0; i < count; i++) {
-						f32 s  = *(f32*)&it[0];
-						f32 sx = 2.0F * (s - 0.5F);
+						f32 s = ((f32*)cmdList)[0];
 						f32 t;
+						f32 sx = 2.0F * (s - 0.5F);
 						f32 tx;
 						s32 alpha;
 
 						if (pp->kind & 0x40000) {
 							s = 1.0F - s;
 						}
-						t = *(f32*)&it[4];
-						it += 8;
+						t = ((f32*)cmdList)[1];
+						cmdList += 2;
 						alpha = 255.0F - t * trailAlpha;
 						if (alpha < 0) {
 							alpha = 0;
@@ -1706,7 +1697,7 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 				}
 			}
 		}
-	} else if (it == NULL) {
+	} else if (cmdList == NULL) {
 		if (pp->kind & 0x400) {
 			GXClearVtxDesc();
 			GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
@@ -1734,15 +1725,14 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 			GXTexCoord1x8(((pp->kind >> 16) & 0xC) + 3);
 		}
 	} else {
-		u32 primCount = *(u32*)it;
+		u32 primCount = *cmdList++;
 
-		it += 4;
 		for (; primCount != 0; primCount--) {
-			u8 prim  = it[0];
-			u8 count = it[1];
+			u8 prim  = ((u8*)cmdList)[0];
+			u8 count = ((u8*)cmdList)[1];
 			s32 i;
 
-			it += 4;
+			cmdList++;
 			if (pp->kind & 0x400) {
 				GXClearVtxDesc();
 				GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
@@ -1754,16 +1744,16 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
 				GXBegin(prim, GX_VTXFMT1, count);
 			}
 			for (i = 0; i < count; i++) {
-				f32 s  = *(f32*)&it[0];
-				f32 sx = 2.0F * (s - 0.5F);
+				f32 s = ((f32*)cmdList)[0];
 				f32 t;
+				f32 sx = 2.0F * (s - 0.5F);
 				f32 tx;
 
 				if (pp->kind & 0x40000) {
 					s = 1.0F - s;
 				}
-				t = *(f32*)&it[4];
-				it += 8;
+				t = ((f32*)cmdList)[1];
+				cmdList += 2;
 				tx = 2.0F * (t - 0.5F);
 				if (pp->kind & 0x80000) {
 					t = 1.0F - t;
@@ -2677,7 +2667,6 @@ void psDispSubMakePolygon(HSD_Particle* pp, u32* cmdList, f32 x, f32 y, f32 z, f
  */
 void psDispSub(HSD_Particle* pp, u32* cmdList)
 {
-	// NONMATCHING: regalloc
 	f32 x;
 	f32 y;
 	f32 z;
@@ -3275,6 +3264,8 @@ void psDispSub(HSD_Particle* pp, u32* cmdList)
  */
 void _psDispParticlesSub(s32 bankMask, s32 kind)
 {
+	// NONMATCHING: retail .rodata starts with a 0x50-byte block of six default Vecs from a header, so the offsets from the
+	// rodata base (psdisp_ident, the blend-mode message, "psdisp.c") are 0x50 higher there
 	s32 i;
 	void* opaHead;
 	void* xluHead;
@@ -3366,21 +3357,21 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 							psSetupTevInvalidState();
 							psSetupTevCommon();
 
-							lbl_8065B908.r = 0xFF;
-							lbl_8065B908.g = 0xFF;
-							lbl_8065B908.b = 0xFF;
-							lbl_8065B908.a = 0xFF;
-							lbl_8065B904.r = 0;
-							lbl_8065B904.g = 0;
-							lbl_8065B904.b = 0;
-							lbl_8065B904.a = 0;
-							lbl_8065B900.r = 0xFF;
-							lbl_8065B900.g = 0xFF;
-							lbl_8065B900.b = 0xFF;
-							lbl_8065B900.a = 0xFF;
-							GXSetTevColor(GX_TEVREG0, lbl_8065B908);
-							GXSetTevColor(GX_TEVREG1, lbl_8065B904);
-							GXSetTevColor(GX_TEVREG2, lbl_8065B900);
+							psdispTevReg0Color.r = 0xFF;
+							psdispTevReg0Color.g = 0xFF;
+							psdispTevReg0Color.b = 0xFF;
+							psdispTevReg0Color.a = 0xFF;
+							psdispTevReg1Color.r = 0;
+							psdispTevReg1Color.g = 0;
+							psdispTevReg1Color.b = 0;
+							psdispTevReg1Color.a = 0;
+							psdispTevReg2Color.r = 0xFF;
+							psdispTevReg2Color.g = 0xFF;
+							psdispTevReg2Color.b = 0xFF;
+							psdispTevReg2Color.a = 0xFF;
+							GXSetTevColor(GX_TEVREG0, psdispTevReg0Color);
+							GXSetTevColor(GX_TEVREG1, psdispTevReg1Color);
+							GXSetTevColor(GX_TEVREG2, psdispTevReg2Color);
 
 							lbl_8065B918 = -1;
 							GXSetZCompLoc(GX_DISABLE);
@@ -3436,7 +3427,7 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 							GXEnableTexOffsets(0, 1, 1);
 							HSD_MtxGetRotationMtx(psdisp_cam, rvmtxRot, 'z', 'x');
 							GXSetCullMode(GX_CULL_BACK);
-							GXSetArray(0xD, (void*)lbl_802590E0, 2);
+							GXSetArray(0xD, (void*)sParticleBillboardTexCoords, 2);
 
 							GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 							GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_U8, 0);
@@ -3638,8 +3629,8 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
 									break;
 								}
 								prevNear = pp->kind & 0x200;
-								GXInitTexObjLOD(&texObj, (prevNear != 0) ? GX_NEAR : GX_LINEAR, ((pp->kind >> 9) & 1) ^ 1, 0.0F, 0.0F, 0.0F,
-								                GX_DISABLE, GX_DISABLE, 0);
+								GXInitTexObjLOD(&texObj, (prevNear != 0) ? GX_NEAR : GX_LINEAR, ((pp->kind >> 9) & 1) ? GX_NEAR : GX_LINEAR,
+								                0.0F, 0.0F, 0.0F, GX_DISABLE, GX_DISABLE, 0);
 								GXLoadTexObj(&texObj, GX_TEXMAP0);
 							}
 							if (prevNear != (pp->kind & 0x200)) {
@@ -3824,39 +3815,39 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
     bl       psSetupTevInvalidState
     bl       psSetupTevCommon
     li       r7, 0xff
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     stb      r7, 0x1(r5)
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     li       r6, 0x0
     addi     r4, r1, 0x20
     stb      r7, 0x2(r5)
-    li       r5, lbl_8065B908@sda21
+    li       r5, psdispTevReg0Color@sda21
     li       r3, 0x1
     stb      r7, 0x3(r5)
-    li       r5, lbl_8065B904@sda21
+    li       r5, psdispTevReg1Color@sda21
     stb      r6, 0x1(r5)
-    li       r5, lbl_8065B904@sda21
-    stb      r7, lbl_8065B908@sda21(r0)
+    li       r5, psdispTevReg1Color@sda21
+    stb      r7, psdispTevReg0Color@sda21(r0)
     stb      r6, 0x2(r5)
-    li       r5, lbl_8065B904@sda21
-    lwz      r0, lbl_8065B908@sda21(r0)
+    li       r5, psdispTevReg1Color@sda21
+    lwz      r0, psdispTevReg0Color@sda21(r0)
     stb      r6, 0x3(r5)
-    li       r5, lbl_8065B900@sda21
+    li       r5, psdispTevReg2Color@sda21
     stb      r7, 0x1(r5)
-    li       r5, lbl_8065B900@sda21
+    li       r5, psdispTevReg2Color@sda21
     stb      r7, 0x2(r5)
-    li       r5, lbl_8065B900@sda21
-    stb      r6, lbl_8065B904@sda21(r0)
-    stb      r7, lbl_8065B900@sda21(r0)
+    li       r5, psdispTevReg2Color@sda21
+    stb      r6, psdispTevReg1Color@sda21(r0)
+    stb      r7, psdispTevReg2Color@sda21(r0)
     stb      r7, 0x3(r5)
     stw      r0, 0x20(r1)
     bl       GXSetTevColor
-    lwz      r0, lbl_8065B904@sda21(r0)
+    lwz      r0, psdispTevReg1Color@sda21(r0)
     addi     r4, r1, 0x1c
     li       r3, 0x2
     stw      r0, 0x1c(r1)
     bl       GXSetTevColor
-    lwz      r0, lbl_8065B900@sda21(r0)
+    lwz      r0, psdispTevReg2Color@sda21(r0)
     addi     r4, r1, 0x18
     li       r3, 0x3
     stw      r0, 0x18(r1)
@@ -4016,9 +4007,9 @@ void _psDispParticlesSub(s32 bankMask, s32 kind)
     bl       fn_801CF3C8
     li       r3, 0x2
     bl       GXSetCullMode
-    lis      r4, lbl_802590E0@ha
+    lis      r4, sParticleBillboardTexCoords@ha
     li       r3, 0xd
-    addi     r4, r4, lbl_802590E0@l
+    addi     r4, r4, sParticleBillboardTexCoords@l
     li       r5, 0x2
     bl       fn_80187110
     li       r3, 0x0

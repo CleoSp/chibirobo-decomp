@@ -8,7 +8,7 @@
 static inline HSD_AnimJoint* Joint(CJArchive* archive, s32 id)
 {
 	if (id >= 0) {
-		s32 index = id % 1000;
+		s32 index = id % 1000; // ids index the archive in 1000-entry banks
 		if (index < archive->mNum[0]) {
 			return archive->mAnimJoint != NULL ? archive->mAnimJoint[index] : NULL;
 		}
@@ -43,79 +43,79 @@ static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
  * @note Address: 0x800DE7F4
  * @note Size: 0x2AC
  */
-extern "C" void SetAnim__8XObjDustFliPvPvPvffff(XObjDust* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
-                                                f32 frame, f32 rate, f32 blend, f32 blendRate)
+void XObjDust::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
-	if (object->mStatus.mFlags & 0x1000ULL) {
-		if (force || id != object->mAnimId) {
-			object->mAnimId = id;
-			void* joint     = jointAnim != NULL ? jointAnim : Joint(&object->mArchive, id);
-			void* shape     = shapeAnim != NULL ? shapeAnim : Shape(&object->mArchive, id);
+	if (mStatus.mFlags & 0x1000ULL) {
+		if (force || id != mAnimId) {
+			mAnimId     = id;
+			void* joint = jointAnim != NULL ? jointAnim : Joint(&mArchive, id);
+			void* shape = shapeAnim != NULL ? shapeAnim : Shape(&mArchive, id);
 			f32 materialFrame;
-			if (object->mMatAnim != NULL) {
-				HSD_AObj* animation = fn_801905D4(object->mJObj);
+			if (mMatAnim != NULL) { // keep the material animation's frame
+				HSD_AObj* animation = FindMaterialOrTextureAnimationInJointTree(mJObj);
 				materialFrame       = animation != NULL ? HSD_AObjGetCurrentFrame(animation) : 0.0f;
 			} else {
-				materialFrame    = 0.0f;
-				object->mMatAnim = Material(&object->mArchive, 0);
+				materialFrame = 0.0f;
+				mMatAnim      = Material(&mArchive, 0); // the default material animation
 			}
-			if (joint != NULL || object->mMatAnim != NULL || shape != NULL) {
-				HSD_JObjRemoveAnimAll(object->mJObj);
-				HSD_JObjAddAnimAll(object->mJObj, (HSD_AnimJoint*)joint, object->mMatAnim, (HSD_ShapeAnimJoint*)shape);
-				HSD_ForeachAnim(object->mJObj, (HSD_Type)6, (HSD_TypeMask)0x484, HSD_AObjSetFlags, (AObj_Arg_Type)3, 0x20000000);
-				HSD_JObjReqAnimAllByFlags(object->mJObj, 0x189, frame);
-				HSD_JObjReqAnimAllByFlags(object->mJObj, 0x16, materialFrame);
+			if (joint != NULL || mMatAnim != NULL || shape != NULL) {
+				HSD_JObjRemoveAnimAll(mJObj);
+				HSD_JObjAddAnimAll(mJObj, (HSD_AnimJoint*)joint, mMatAnim, (HSD_ShapeAnimJoint*)shape);
+				HSD_ForeachAnim(mJObj, (HSD_Type)6, (HSD_TypeMask)0x484, HSD_AObjSetFlags, (AObj_Arg_Type)3, 0x20000000);
+				HSD_JObjReqAnimAllByFlags(mJObj, 0x189, frame);
+				HSD_JObjReqAnimAllByFlags(mJObj, 0x16, materialFrame);
 			}
 			force = TRUE;
 		}
-		if (rate != object->mAnimRate || force) {
-			object->mAnimRate     = rate;
-			object->mLastAnimRate = 0.01f + rate;
+		if (rate != mAnimRate || force) {
+			mAnimRate     = rate;
+			mLastAnimRate = 0.01f + rate;
 		}
 	} else {
-		SetAnim__4XObjFliPvPvPvffff(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+		XObj::SetAnim(id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
 	}
 }
 
-// XObjDust::vfC0
+// XObjDust::DrawObjectEffects
 /**
  * @note Address: 0x800DEAA0
  * @note Size: 0x208
  */
-extern "C" void vfC0__8XObjDustFv(XObjDust* object)
+void XObjDust::DrawObjectEffects()
 {
-	if (object->GetObjFlags() & 1) {
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
-		lbl_8025C400.mGs._29C = 1;
-		f32 width             = 8.0f * object->mMoveScale.x;
-		f32 height            = 8.0f * object->mMoveScale.y;
+	if (GetObjFlags() & 1) {
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
+		gGame.mGs.mBillboardEnabled = 1;
+		f32 height;
+		f32 width = 8.0f * mMoveScale.x; // the billboard's base size
+		height    = 8.0f * mMoveScale.y;
 		u32 color;
-		if (__fpclassifyf(object->mHeading) != FP_NAN) {
+		if (__fpclassifyf(mHeading) != FP_NAN) {
 			color = 0xC8C8C800;
-		} else if (object->mStatus.mFlags & 0x4000000000000000ULL) {
+		} else if (mStatus.mFlags & 0x4000000000000000ULL) { // a different tint while the hit flag is set
 			color = 0xC8646400;
 		} else {
 			color = 0xC8C8C800;
 		}
-		s32 alpha = (s32)(255.0f * object->mFade);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
+		s32 alpha = (s32)(255.0f * mFade);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
 		Vec rotation = { 0.0f, 0.0f, 0.0f };
-		fn_80198258(&lbl_8025C400.mGs, 16, color | (u8)alpha, color, object->mMoveTranslate.x, object->mMoveTranslate.y,
-		            object->mMoveTranslate.z, width, height, rotation.x, rotation.y, rotation.z);
-		lbl_8025C400.mGs._29C = 0;
+		DrawGsCircle(&gGame.mGs, 16, color | (u8)alpha, color, mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z, width, height,
+		             rotation.x, rotation.y, rotation.z);
+		gGame.mGs.mBillboardEnabled = 0;
 	}
 }
 
-// XObjDust::vfB0
+// XObjDust::DrawWithView
 /**
  * @note Address: 0x800DECA8
  * @note Size: 0x7C
  */
-extern "C" void vfB0__8XObjDustFPA4_f(XObjDust* object, Mtx view)
+void XObjDust::DrawWithView(Mtx view)
 {
-	if (object->GetObjFlags() & 2) {
-		vfB0__4XObjFPA4_f(object, view);
-	} else if (object->GetObjFlags() & 4) {
-		vfB0__4XObjFPA4_f(object, view);
+	if (GetObjFlags() & 2) { // flags 2 and 4 draw normally
+		DrawWithView__4XObjFPA4_f(this, view);
+	} else if (GetObjFlags() & 4) {
+		DrawWithView__4XObjFPA4_f(this, view);
 	}
 }

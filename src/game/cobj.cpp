@@ -1,4 +1,5 @@
 #include "game/cobj.h"
+
 #include "game/cjobjset.h"
 #include "game/gmath.h"
 #include "game/hsd_dobj.h"
@@ -31,9 +32,9 @@ void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags);
 // the same with a formatted message
 #define HALTF(line, ...)        \
 	OSReport("\n!!!HALT!!!\n"); \
-	OSPanic(__FILE__, line, "%s%s", fn_801911B4(__VA_ARGS__), __FUNCTION__)
+	OSPanic(__FILE__, line, "%s%s", FormatToStaticBuffer(__VA_ARGS__), __FUNCTION__)
 
-// a material with two extra colors added on top of its tev result
+// a material whose tev result is multiplied by one color and has another added, see XCObjMakeTExp
 struct XCObj {
 	HSD_MObj parent; // _00
 	u32* mColors;    // _20
@@ -43,9 +44,9 @@ struct XCObj {
 void XCObjInfoInit();
 HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list);
 void XCObjSetColors(HSD_JObj* jobj, u32* colors, s32);
-HSD_MObjInfo xCObj = { XCObjInfoInit };
+HSD_MObjInfo xCObj = { { { XCObjInfoInit } } };
 
-static void ReadDone(s32, s32* state);
+void ObjectArchiveReadDone(s32, s32* state);
 
 // todo: cleanup
 static inline void ReleaseJObj(CJObj* obj)
@@ -166,7 +167,7 @@ void CJArchive::Clear()
  * @note Size: 0x10
  */
 // the DevCom callback, moves ReadCheck on to parsing
-static void ReadDone(s32, s32* state)
+void ObjectArchiveReadDone(s32, s32* state)
 {
 	(*state)++;
 }
@@ -185,11 +186,13 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
 	if (mState != 0) {
 		return FALSE;
 	}
+	// the archive is already in memory, nothing to read
 	if (mArchive->mFile.mBuffer != NULL) {
 		return TRUE;
 	}
 
 	s32 result;
+	// 4: read the copy kept in aram at aramAddr instead of the file on disc
 	if (flags & 4) {
 		result = aramAddr != 0 ? mArchive->mFile.ReadAsync(path, aramAddr, size, TRUE) : mArchive->mFile.ReadAsync(path, 0, 0, FALSE);
 	} else {
@@ -199,13 +202,18 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
 		mState++;
 	} else {
 		mResult = result;
+		// 0x100: give up and return FALSE instead of halting
 		if (mFlags & 0x100) {
 			if (mArchive->mRefCount <= 0) {
 				mArchive->mFile.Close();
 			}
 			return FALSE;
 		}
+#if defined(VERSION_JP)
+		HALTF(273, "%s(%d)\n", path, result);
+#else
 		HALTF(285, "%s(%d)\n", path, result);
+#endif
 	}
 	return TRUE;
 }
@@ -301,21 +309,21 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
     li       r3, 0x0
     b        .L_801A42EC
 .L_801A42A0:
-    lis      r3, lbl_8020F094@ha
-    addi     r3, r3, lbl_8020F094@l
+    lis      r3, sObjectHaltMessage@ha
+    addi     r3, r3, sObjectHaltMessage@l
     crclr    cr1eq
     bl       OSReport
     mr       r4, r31
     mr       r5, r29
     li       r3, lbl_8065F750@sda21
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r7, lbl_8020F0A4@ha
-    lis      r5, lbl_80258800@ha
+    bl       FormatToStaticBuffer
+    lis      r7, sPathCobjCpp@ha
+    lis      r5, sObjectReadAsyncName@ha
     mr       r6, r3
     li       r4, 0x11d
-    addi     r3, r7, lbl_8020F0A4@l
-    addi     r7, r5, lbl_80258800@l
+    addi     r3, r7, sPathCobjCpp@l
+    addi     r7, r5, sObjectReadAsyncName@l
     li       r5, lbl_8065F738@sda21
     crclr    cr1eq
     bl       OSPanic
@@ -337,10 +345,11 @@ BOOL CJArchive::ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32
  */
 BOOL CJArchive::ReadCheck()
 {
+	s32 result;
 	switch (mState) {
 	case 1: {
 		CObjArchive* archive = mArchive;
-		s32 result           = archive->mFile.GetResult();
+		result               = archive->mFile.GetResult();
 		if (result == 0) {
 			archive->mFile.CloseHandle();
 		}
@@ -355,18 +364,25 @@ BOOL CJArchive::ReadCheck()
 				mState = 0;
 				break;
 			} else {
+#if defined(VERSION_JP)
+				HALTF(295, "%s(%d)\n", mArchive->mFile.mPath, result);
+#else
 				HALTF(307, "%s(%d)\n", mArchive->mFile.mPath, result);
+#endif
 			}
 		} else {
+			// still reading
 			break;
 		}
 	}
+	// read in: with flag 2, copy it out to aram at mAramAddr if it fits
 	case 2:
 		if (mFlags & 2) {
 			u32 size = ((mArchive->mFile.mSize + 31) & ~31);
 			if (mAramAddr + size < ARGetSize()) {
-				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1, ReadDone,
-				                  &mState);
+				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1,
+				                  ObjectArchiveReadDone, &mState);
+				// ObjectArchiveReadDone moves mState on to 3 once the copy is done
 				while (*(volatile s32*)&mState == 2) { }
 			} else {
 				mState++;
@@ -391,9 +407,9 @@ BOOL CJArchive::ReadCheck()
     stw      r31, 0x1c(r1)
     stw      r30, 0x18(r1)
     mr       r30, r3
-    lis      r3, lbl_8020F030@ha
+    lis      r3, sObjectRodataBase@ha
     stw      r29, 0x14(r1)
-    addi     r31, r3, lbl_8020F030@l
+    addi     r31, r3, sObjectRodataBase@l
     stw      r28, 0x10(r1)
     lwz      r0, 0x4(r30)
     cmpwi    r0, 0x2
@@ -452,10 +468,10 @@ BOOL CJArchive::ReadCheck()
     li       r3, lbl_8065F750@sda21
     addi     r4, r4, 0x80
     crclr    cr1eq
-    bl       fn_801911B4
-    lis      r4, lbl_8025880C@ha
+    bl       FormatToStaticBuffer
+    lis      r4, sObjectReadCheckName@ha
     mr       r6, r3
-    addi     r7, r4, lbl_8025880C@l
+    addi     r7, r4, sObjectReadCheckName@l
     addi     r3, r31, 0x74
     li       r4, 0x133
     li       r5, lbl_8065F738@sda21
@@ -475,8 +491,8 @@ BOOL CJArchive::ReadCheck()
     cmplw    r0, r3
     bge      .L_801A40A0
     lwz      r4, 0x0(r30)
-    lis      r3, ReadDone__FlPl@ha
-    addi     r9, r3, ReadDone__FlPl@l
+    lis      r3, ObjectArchiveReadDone__FlPl@ha
+    addi     r9, r3, ObjectArchiveReadDone__FlPl@l
     addi     r10, r30, 0x4
     lwz      r3, 0x10c(r4)
     li       r7, 0xb
@@ -513,14 +529,14 @@ BOOL CJArchive::ReadCheck()
     bl       OSReport
     addi     r3, r31, 0x90
     addi     r5, r28, 0x80
-    li       r4, lbl_8065ADB0@sda21
+    li       r4, sObjectArchiveParseName@sda21
     crclr    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     mr       r6, r3
     addi     r3, r31, 0x74
     li       r4, 0x33
     li       r5, lbl_8065F738@sda21
-    li       r7, lbl_8065ADB0@sda21
+    li       r7, sObjectArchiveParseName@sda21
     crclr    cr1eq
     bl       OSPanic
     addi     r3, r28, 0x44
@@ -590,6 +606,7 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 	scene           = GetScene(sceneIndex);
 	mShapeAnimJoint = scene != NULL ? scene->mModels[model]->mShapeAnimJoint : NULL;
 
+	// mNum[0] is the anim count, taken from the first of the three lists the model has
 	if (mAnimJoint != NULL) {
 		for (mNum[0] = 0;; mNum[0]++) {
 			if (mAnimJoint[mNum[0]] == NULL) {
@@ -613,10 +630,10 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 	}
 
 	scene    = GetScene(sceneIndex);
-	mDesc[0] = scene != NULL ? scene->_04 : NULL;
-	if (mDesc[0] != NULL && mDesc[0]->_04 != NULL) {
+	mDesc[0] = scene != NULL ? scene->mCamera : NULL;
+	if (mDesc[0] != NULL && mDesc[0]->mAnimations != NULL) {
 		for (mNum[1] = 0;; mNum[1]++) {
-			if (mDesc[0]->_04[mNum[1]] == NULL) {
+			if (mDesc[0]->mAnimations[mNum[1]] == NULL) {
 				break;
 			}
 		}
@@ -626,13 +643,13 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 
 	for (int i = 0; i < 8; i++) {
 		scene        = GetScene(sceneIndex);
-		mDesc[i + 1] = scene != NULL ? scene->_08[i] : NULL;
+		mDesc[i + 1] = scene != NULL ? scene->mLights[i] : NULL;
 		if (mDesc[i + 1] == NULL) {
 			break;
 		}
-		if (mDesc[i + 1]->_04 != NULL) {
+		if (mDesc[i + 1]->mAnimations != NULL) {
 			for (mNum[i + 2] = 0;; mNum[i + 2]++) {
-				if (mDesc[i + 1]->_04[mNum[i + 2]] == NULL) {
+				if (mDesc[i + 1]->mAnimations[mNum[i + 2]] == NULL) {
 					break;
 				}
 			}
@@ -644,10 +661,10 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
 #if !defined(VERSION_JP)
 	scene    = GetScene(sceneIndex);
 	mDesc[9] = scene != NULL ? scene->_0C : NULL;
-	if (mDesc[9] != NULL && mDesc[9]->_04 != NULL) {
+	if (mDesc[9] != NULL && mDesc[9]->mAnimations != NULL) {
 		// checks the last list but counts the first one, retail's like that
 		for (mNum[10] = 0;; mNum[10]++) {
-			if (mDesc[0]->_04[mNum[10]] == NULL) {
+			if (mDesc[0]->mAnimations[mNum[10]] == NULL) {
 				break;
 			}
 		}
@@ -924,6 +941,7 @@ void CJArchive::SetupScene(s32 model, s32 sceneIndex)
  * @note Address: 0x801A39D0
  * @note Size: 0xB4
  */
+// goes depth levels down from anim id's root, skipping path[i] siblings on level i
 HSD_AnimJoint* CJArchive::GetAnimJoint(s32 id, s32 depth, const s32* path)
 {
 	HSD_AnimJoint* joint;
@@ -993,13 +1011,15 @@ HSD_ShapeAnimJoint* CJArchive::GetShapeAnimJoint(s32 id, s32 depth, const s32* p
  * @note Address: 0x801A37E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
+// this and the next three are HSD_JObjWalkTree callbacks, the flags come in as the walk's argument
+extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjSetFlags(mobj, flags);
+			HSD_MObjSetFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1051,13 +1071,14 @@ extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3768
  * @note Size: 0x80
  */
-extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 		if (mobj != NULL) {
-			HSD_MObjClearFlags(mobj, flags);
+			HSD_MObjClearFlags(mobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1109,13 +1130,14 @@ extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A36E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjSetFlags(pobj, flags);
+			HSD_PObjSetFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1167,13 +1189,14 @@ extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, u32 flags)
  * @note Address: 0x801A3668
  * @note Size: 0x80
  */
-extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, u32 flags)
+extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32)
 {
+	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 		if (pobj != NULL) {
-			HSD_PObjClearFlags(pobj, flags);
+			HSD_PObjClearFlags(pobj, mask);
 		}
 		dobj = HSD_DObjGetNext(dobj);
 	}
@@ -1414,7 +1437,7 @@ void XCObjInfoInit()
  * @note Address: 0x801A326C
  * @note Size: 0x1A8
  */
-// the parent's tev, then the second color added and the first added on top
+// the parent's tev times the second color, then the first color added on top
 HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
 {
 	HSD_TExp* tev1;
@@ -1513,19 +1536,19 @@ void CXObj::Init(u32 id)
 	mAnimId                  = -1;
 	mLastAnimRate            = 0.0f;
 	mAnimRate                = 0.0f;
-	mColors[0]               = 0;
-	mColors[1]               = 0xFFFFFF00;
+	mColors[0]               = 0;          // nothing added
+	mColors[1]               = 0xFFFFFF00; // and times white, so the materials start untinted
 }
 
 /**
  * @note Address: 0x801A306C
  * @note Size: 0x88
  */
-BOOL CXObj::ReadAsync(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b, u32 c)
+BOOL CXObj::ReadAsync(CObjArchive* archive, const char* path, u32 model, u32 flags, u32 aramAddr, u32 aramSize)
 {
-	if (mArchive.ReadAsync(archive, path, flags, b, c)) {
+	if (mArchive.ReadAsync(archive, path, flags, aramAddr, aramSize)) {
 		mLoadState++;
-		mModel     = a;
+		mModel     = model;
 		mLoadFlags = flags;
 		return TRUE;
 	}
@@ -1536,10 +1559,11 @@ BOOL CXObj::ReadAsync(CObjArchive* archive, const char* path, u32 a, u32 flags, 
  * @note Address: 0x801A2F38
  * @note Size: 0x134
  */
+// Retail calls both Attach and the base ReadCheck out of line.
 void CXObj::Attach(HSD_JObj* jobj)
 {
 	CJObj::Attach(jobj);
-	fn_800D40EC(this);
+	SyncMoveFromJoint(this);
 }
 // CXObj::Attach(_HSD_JObj*)
 /*
@@ -1561,9 +1585,9 @@ void CXObj::Attach(HSD_JObj* jobj)
 .L_801A2F74:
     addic.   r30, r29, 0x4
     bne      .L_801A2F90
-    lis      r4, lbl_8020F088@ha
+    lis      r4, sObjectTranslationCondition@ha
     li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F088@l
+    addi     r5, r4, sObjectTranslationCondition@l
     li       r4, 0x3e5
     bl       __assert
 .L_801A2F90:
@@ -1618,7 +1642,7 @@ void CXObj::Attach(HSD_JObj* jobj)
     stfs     f0, 0x4(r30)
     lfs      f0, 0x34(r31)
     stfs     f0, 0x8(r30)
-    bl       fn_800D40EC
+    bl       SyncMoveFromJoint
     lwz      r0, 0x24(r1)
     lwz      r31, 0x1c(r1)
     lwz      r30, 0x18(r1)
@@ -1636,6 +1660,7 @@ BOOL CXObj::ReadCheck()
 {
 	if (mLoadState == 1 && mArchive.ReadCheck()) {
 		mArchive.SetupScene(mModel, 0);
+		// load the materials as x_cobj, so XCObjSetColors can tint them
 		HSD_MObjInfo* mobjClass = HSD_MObjGetDefaultClass();
 		HSD_MObjSetDefaultClass(&xCObj);
 		Attach(mArchive.LoadJObj());
@@ -1837,6 +1862,7 @@ BOOL CXObj::StepScale(u32 frames)
  * @note Address: 0x801A211C
  * @note Size: 0x188
  */
+// dir is the point to move to, not a direction; speed is the distance per frame
 void CXObj::SetMoveDir(const Vec* dir, f32 speed)
 {
 	mMoveTranslate.mTarget.x = dir->x;
@@ -1847,6 +1873,7 @@ void CXObj::SetMoveDir(const Vec* dir, f32 speed)
 		d.x = ABS(d.x);
 		d.y = ABS(d.y);
 		d.z = ABS(d.z);
+		// each axis gets its share of the distance, so all three arrive on the same frame
 		PSVECNormalize(&d, &d);
 		mMoveTranslate.mSpeed.Set(d * speed);
 		if (mMoveTranslate.mSpeed.x > 0.0f && mMoveTranslate.mSpeed.x < 0.001f) {
@@ -1990,6 +2017,7 @@ void CXObj::SetRotateY(f32 target, f32 speed)
 	if (diff >= TWO_PI) {
 		diff -= TWO_PI;
 	}
+	// go the short way round
 	if (diff > PI) {
 		if (tgt < cur) {
 			mMoveRotate.mTarget.y = TWO_PI + tgt;
@@ -2015,6 +2043,7 @@ void CXObj::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* sh
 			HSD_JObjAddAnimAll(mJObj, (HSD_AnimJoint*)joint, (HSD_MatAnimJoint*)mat, (HSD_ShapeAnimJoint*)shape);
 			HSD_JObjReqAnimAll(mJObj, frame);
 		}
+		// a new anim always takes the rate too
 		force = TRUE;
 	}
 	if (rate != mAnimRate || force) {
@@ -2059,6 +2088,7 @@ void CXObj::UpdateAnim(u32 speed)
 			if (mQueue[i].mJObj == NULL) {
 				break;
 			}
+			// rates go on before the anim step: 0x200 the joint's own anim, 0x400 every anim in its subtree
 			if (mQueue[i].mType == 0x200) {
 				if (mQueue[i].mJObj->aobj != NULL) {
 					HSD_AObjSetRate(mQueue[i].mJObj->aobj, mQueue[i].mValue * speed);
@@ -2075,6 +2105,7 @@ void CXObj::UpdateAnim(u32 speed)
 			if (mQueue[i].mJObj == NULL) {
 				break;
 			}
+			// values go on after it, over what the anim set; the rate entries are only cleared
 			HSD_JObj* jobj = mQueue[i].mJObj;
 			if (mQueue[i].mType != 0) {
 				switch (mQueue[i].mType) {
@@ -2467,9 +2498,9 @@ void CXObj::UpdateAnim(u32 speed)
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1BFC
-    lis      r4, lbl_8020F060@ha
+    lis      r4, sObjectNoQuaternionCondition@ha
     li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2a5
     bl       __assert
 .L_801A1BFC:
@@ -2510,9 +2541,9 @@ void CXObj::UpdateAnim(u32 speed)
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1C94
-    lis      r4, lbl_8020F060@ha
+    lis      r4, sObjectNoQuaternionCondition@ha
     li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2b9
     bl       __assert
 .L_801A1C94:
@@ -2553,9 +2584,9 @@ void CXObj::UpdateAnim(u32 speed)
     lwz      r0, 0x14(r30)
     rlwinm.  r0, r0, 0, 14, 14
     beq      .L_801A1D2C
-    lis      r4, lbl_8020F060@ha
+    lis      r4, sObjectNoQuaternionCondition@ha
     li       r3, lbl_8065F6F8@sda21
-    addi     r5, r4, lbl_8020F060@l
+    addi     r5, r4, sObjectNoQuaternionCondition@l
     li       r4, 0x2cd
     bl       __assert
 .L_801A1D2C:
@@ -2629,11 +2660,11 @@ void CXObj::Push(HSD_JObj* jobj, u32 type, f32 value)
  * @note Address: 0x801A163C
  * @note Size: 0x74
  */
-BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b, u32 c)
+BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 model, u32 flags, u32 aramAddr, u32 aramSize)
 {
 	switch (mLoadState) {
 	case 0:
-		ReadAsync(archive, path, a, flags, b, c);
+		ReadAsync(archive, path, model, flags, aramAddr, aramSize);
 		break;
 	case 1:
 		ReadCheck();
@@ -2648,9 +2679,13 @@ BOOL CXObj::Load(CObjArchive* archive, const char* path, u32 a, u32 flags, u32 b
  */
 BOOL CXObjIntp::ReadCheck()
 {
+	// 0x10000: load a second copy of the model to blend anims from
 	if (mLoadState == 1 && CXObj::ReadCheck() && (mLoadFlags & 0x10000)) {
 		mIntp.Attach(mArchive.LoadJObj());
-		fn_8018FD80(mIntp.mJObj);
+#if defined(VERSION_JP)
+		RemoveJointTreeDisplayObjects(mIntp.mJObj);
+#endif
+		ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		mBlend = 1.0f;
 	}
 	return mLoadState == 0;
@@ -2665,6 +2700,7 @@ void CXObjIntp::Release()
 {
 	if (mIntp.mJObj != NULL) {
 		ReleaseJObj(&mIntp);
+		// drop the archive reference mIntp's LoadJObj took, CJArchive::Release drops the model's
 		if (mArchive.mArchive != NULL && mArchive.mArchive->mRefCount > 0) {
 			mArchive.mArchive->mRefCount--;
 		}
@@ -2719,8 +2755,9 @@ void CXObjIntp::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void
 {
 	if ((force || id != mAnimId) && mIntp.mJObj != NULL) {
 		if (blend < 1.0f) {
-			fn_8018F658(mJObj, mIntp.mJObj);
-			fn_8018FD80(mIntp.mJObj);
+			// keep the pose the model has now in mIntp, UpdateAnim blends from it
+			CopyJointPoseTree(mJObj, mIntp.mJObj);
+			ConvertJointTreeRotationToQuaternion(mIntp.mJObj);
 		} else if (mBlend < 1.0f) {
 			ApplyTransform();
 		}
@@ -2743,12 +2780,13 @@ void CXObjIntp::UpdateAnim(u32 speed)
 		}
 		CXObj::UpdateAnim(speed);
 		if (mBlend < 1.0f) {
-			f32 t  = mBlend + (1.0f / mBlendRate) * speed;
-			mBlend = t;
-			if (t >= 1.0f || GetAObj(mJObj)->flags & AOBJ_NO_ANIM) {
+			// mBlendRate is the blend's length in frames
+			f32 blend = mBlend + (1.0f / mBlendRate) * speed;
+			mBlend    = blend;
+			if (blend >= 1.0f || GetAObj(mJObj)->flags & AOBJ_NO_ANIM) {
 				mBlend = 1.0f;
 			} else {
-				fn_8018EEC8(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
+				BlendJointTreePoses(mIntp.mJObj->child, mJObj->child, mJObj->child, mBlend);
 			}
 		}
 	} else {
@@ -2762,7 +2800,7 @@ void CXObjIntp::UpdateAnim(u32 speed)
  */
 void CXObjIntp::ApplyTransform()
 {
-	fn_8018F9B4(mArchive.mJoint, mJObj);
+	RestoreJointTreePose(mArchive.mJoint, mJObj);
 	mTranslate.Set(mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);
 	HSD_JObjSetTranslate(mJObj, &mTranslate);
 	mScale.Set(mMoveScale.x, mMoveScale.y, mMoveScale.z);
@@ -2788,6 +2826,7 @@ void CJointRot::Init(CXObj* obj, s32 depth, s32* path, char axis)
 			mJoint = mObj->FindJoint(depth, path);
 		}
 	}
+	// stored as CXObj's queue type for a rotation about that axis, see UpdateAnim
 	switch (axis) {
 	case 'x':
 	case 'X':
@@ -2863,6 +2902,7 @@ bool CJointRot::Update(u32 frames)
 			}
 		}
 	} else {
+		// there: mode 2 stops, other positive modes turn negative and keep pushing the angle
 		if (mMode > 0) {
 			if (mMode == 2) {
 				mMode = 0;

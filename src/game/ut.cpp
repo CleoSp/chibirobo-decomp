@@ -33,12 +33,12 @@ HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj);
 }
 
 // half width characters and their full width twins, two bytes each in shift jis
-static const char* lbl_8065AD18 = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklm"
-                                  "nopqrstuvwxyz{|}~\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF\xB0"
-                                  "\xB1\xB2\xB3\xB4\xB5\xB6\xB7\xB8\xB9\xBA\xBB\xBC\xBD\xBE\xBF\xC0\xC1\xC2\xC3\xC4"
-                                  "\xC5\xC6\xC7\xC8\xC9\xCA\xCB\xCC\xCD\xCE\xCF\xD0\xD1\xD2\xD3\xD4\xD5\xD6\xD7\xD8"
-                                  "\xD9\xDA\xDB\xDC\xDD";
-static const char* lbl_8065AD1C
+static const u8* sHalfWidthCharacters = (const u8*)" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklm"
+                                                   "nopqrstuvwxyz{|}~\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF\xB0"
+                                                   "\xB1\xB2\xB3\xB4\xB5\xB6\xB7\xB8\xB9\xBA\xBB\xBC\xBD\xBE\xBF\xC0\xC1\xC2\xC3\xC4"
+                                                   "\xC5\xC6\xC7\xC8\xC9\xCA\xCB\xCC\xCD\xCE\xCF\xD0\xD1\xD2\xD3\xD4\xD5\xD6\xD7\xD8"
+                                                   "\xD9\xDA\xDB\xDC\xDD";
+static const char* sFullWidthCharacters
     = "\x81\x40\x81\x49\x81\x68\x81\x94\x81\x90\x81\x93\x81\x95\x81\x66\x81\x69\x81\x6A\x81\x96\x81\x7B\x81\x43\x81\x7C\x81\x44\x81\x5E"
       "\x82\x4F\x82\x50\x82\x51\x82\x52\x82\x53\x82\x54\x82\x55\x82\x56\x82\x57\x82\x58\x81\x46\x81\x47\x81\x83\x81\x81\x81\x84\x81\x48"
       "\x81\x97\x82\x60\x82\x61\x82\x62\x82\x63\x82\x64\x82\x65\x82\x66\x82\x67\x82\x68\x82\x69\x82\x6A\x82\x6B\x82\x6C\x82\x6D\x82\x6E"
@@ -50,12 +50,12 @@ static const char* lbl_8065AD1C
       "\x83\x63\x83\x65\x83\x67\x83\x69\x83\x6A\x83\x6B\x83\x6C\x83\x6D\x83\x6E\x83\x71\x83\x74\x83\x77\x83\x7A\x83\x7D\x83\x7E\x83\x80"
       "\x83\x81\x83\x82\x83\x84\x83\x86\x83\x88\x83\x89\x83\x8A\x83\x8B\x83\x8C\x83\x8D\x83\x8F\x83\x93";
 
-static char lbl_805E5318[0x80];
+static char sFullWidthTextBuffer[0x80];
 // the formatted text, panics and the event debug lines all go through here
-static char lbl_805E5398[0x100];
+static char sFormattedTextBuffer[0x100];
 
 extern "C" {
-CVec fn_800901E8(const Vec* v, const Vec* normal);
+CVec ReflectVectorAboutNormal(const Vec* v, const Vec* normal);
 }
 
 // which side of the line ab p is on, looking down from above
@@ -64,11 +64,11 @@ static inline f32 LineSide(Vec& a, Vec& b, Vec& p)
 	return p.x * (a.z - b.z) + a.x * (b.z - p.z) + b.x * (p.z - a.z);
 }
 
-// how far p is from the line ab, signed
+// how far p is from the line ab. never negative, n is taken from p toward the line
 static inline f32 LineDist(Vec* p, Vec* a, Vec* b)
 {
 	Vec n;
-	fn_8018E824(p, a, b, &n);
+	GetOutwardPerpendicularToEdge(p, a, b, &n);
 	PSVECNormalize(&n, &n);
 	Vec d;
 	PSVECSubtract(a, p, &d);
@@ -90,13 +90,13 @@ static inline f32 LinePlane(Vec* p0, Vec* p1, Vec* point, Vec* normal, Vec* out)
 }
 
 extern "C" {
-void fn_8018F14C(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t);
-void fn_8018F6EC(HSD_JObj* src, HSD_JObj* dst);
+void BlendJointPose(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t);
+void CopyJointPoseAsQuaternion(HSD_JObj* src, HSD_JObj* dst);
 }
 
 extern "C" {
 // puts the joint's rotation, scale and position back on the jobj
-inline void fn_8018FCA0(HSD_Joint* joint, HSD_JObj* jobj)
+inline void RestoreJointLocalPose(HSD_Joint* joint, HSD_JObj* jobj)
 {
 	if (jobj == NULL || joint == NULL) {
 		return;
@@ -113,7 +113,7 @@ inline void fn_8018FCA0(HSD_Joint* joint, HSD_JObj* jobj)
 }
 
 // turns the euler rotation into a quaternion
-inline void fn_8019019C(HSD_JObj* jobj)
+inline void ConvertJointRotationToQuaternion(HSD_JObj* jobj)
 {
 	if (!(jobj->flags & USE_QUATERNION)) {
 		Vec euler;
@@ -131,8 +131,9 @@ inline void fn_8019019C(HSD_JObj* jobj)
  * @note Address: 0x80191310
  * @note Size: 0xC8
  */
-// reads len hex digits, or the whole string when len is 0
-extern "C" u32 fn_80191310(const char* str, s32 len)
+// reads len hex digits, or the whole string when len is 0. any other character is skipped but
+// still counts toward len
+extern "C" u32 ParseHexDigits(const char* str, s32 len)
 {
 	u32 val = 0;
 	if (len == 0) {
@@ -155,23 +156,25 @@ extern "C" u32 fn_80191310(const char* str, s32 len)
  * @note Address: 0x80191268
  * @note Size: 0xA8
  */
-extern "C" char* fn_80191268(const char* src, char* dst)
+// src with each character from sHalfWidthCharacters swapped for its full width twin, the rest copied
+// as they are, into dst or a static buffer when dst is NULL
+extern "C" char* ConvertHalfWidthToFullWidthSJIS(const char* src, char* dst)
 {
-	u8* out      = (u8*)(dst != NULL ? dst : lbl_805E5318);
+	u8* out      = (u8*)(dst != NULL ? dst : sFullWidthTextBuffer);
 	const u8* in = (const u8*)src;
 	while (*in != 0) {
 		*out = *in;
-		for (int i = 0; lbl_8065AD18[i] != 0; i++) {
-			if (*in == (u8)lbl_8065AD18[i]) {
-				*out   = lbl_8065AD1C[i * 2];
-				*++out = lbl_8065AD1C[i * 2 + 1];
+		for (int i = 0; sHalfWidthCharacters[i] != '\0'; i++) {
+			if (*in == sHalfWidthCharacters[i]) {
+				*out   = sFullWidthCharacters[i * 2];
+				*++out = sFullWidthCharacters[i * 2 + 1];
 				break;
 			}
 		}
 		in++;
 		*++out = 0;
 	}
-	return dst != NULL ? dst : lbl_805E5318;
+	return dst != NULL ? dst : sFullWidthTextBuffer;
 }
 /*
     cmplwi   r4, 0x0
@@ -179,25 +182,25 @@ extern "C" char* fn_80191268(const char* src, char* dst)
     mr       r7, r4
     b        .L_801912E8
 .L_80191278:
-    lis      r5, lbl_805E5318@ha
-    addi     r0, r5, lbl_805E5318@l
+    lis      r5, sFullWidthTextBuffer@ha
+    addi     r0, r5, sFullWidthTextBuffer@l
     mr       r7, r0
     b        .L_801912E8
 .L_80191288:
     stb      r0, 0x0(r7)
     li       r8, 0x0
-    lwz      r5, lbl_8065AD18@sda21(r0)
+    lwz      r5, sHalfWidthCharacters@sda21(r0)
     b        .L_801912D0
 .L_80191298:
     lbz      r0, 0x0(r3)
     cmplw    r0, r6
     bne      .L_801912C8
-    lwz      r5, lbl_8065AD1C@sda21(r0)
+    lwz      r5, sFullWidthCharacters@sda21(r0)
     slwi     r6, r8, 1
     addi     r0, r6, 0x1
     lbzx     r5, r5, r6
     stb      r5, 0x0(r7)
-    lwz      r5, lbl_8065AD1C@sda21(r0)
+    lwz      r5, sFullWidthCharacters@sda21(r0)
     lbzx     r0, r5, r0
     stbu     r0, 0x1(r7)
     b        .L_801912DC
@@ -221,8 +224,8 @@ extern "C" char* fn_80191268(const char* src, char* dst)
     mr       r3, r4
     blr
 .L_80191304:
-    lis      r3, lbl_805E5318@ha
-    addi     r3, r3, lbl_805E5318@l
+    lis      r3, sFullWidthTextBuffer@ha
+    addi     r3, r3, sFullWidthTextBuffer@l
     blr
 */
 
@@ -230,19 +233,20 @@ extern "C" char* fn_80191268(const char* src, char* dst)
  * @note Address: 0x801911B4
  * @note Size: 0xB4
  */
-extern "C" char* fn_801911B4(const char* fmt, ...)
+extern "C" char* FormatToStaticBuffer(const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vsprintf(lbl_805E5398, fmt, args);
-	return lbl_805E5398;
+	vsprintf(sFormattedTextBuffer, fmt, args);
+	return sFormattedTextBuffer;
 }
 
 /**
  * @note Address: 0x80190E60
  * @note Size: 0x354
  */
-void fn_80190E60(Mtx src, Mtx dst)
+// src turned so its z axis is (0, 0, 1). its y axis only loses its z part, scale and position stay
+void BuildBillboardMatrixFromUp(Mtx src, Mtx dst)
 {
 	Vec x, y;
 	Vec z  = { 0.0f, 0.0f, 1.0f };
@@ -274,7 +278,8 @@ void fn_80190E60(Mtx src, Mtx dst)
  * @note Address: 0x80190AF0
  * @note Size: 0x370
  */
-void fn_80190AF0(Mtx src, Mtx dst, f32 angle)
+// src's scale and position, its rotation replaced by angle about z
+void BuildBillboardMatrixWithZRotation(Mtx src, Mtx dst, f32 angle)
 {
 	Mtx rot, scale;
 	f32 sx = sqrtf(src[0][0] * src[0][0] + src[1][0] * src[1][0] + src[2][0] * src[2][0]);
@@ -293,7 +298,7 @@ void fn_80190AF0(Mtx src, Mtx dst, f32 angle)
  * @note Size: 0x40
  */
 // how much aram is still free, alloc a block and see where it lands
-extern "C" u32 fn_80190AB0(void)
+extern "C" u32 GetFreeARAMSize(void)
 {
 	u32 start = ARAlloc(0x20);
 	ARFree(NULL);
@@ -304,14 +309,15 @@ extern "C" u32 fn_80190AB0(void)
  * @note Address: 0x801908F8
  * @note Size: 0x1B8
  */
-extern "C" HSD_AObj* fn_801908F8(HSD_JObj* jobj)
+// the first jobj aobj in the tree: a jobj, then its later siblings' trees, then its children
+extern "C" HSD_AObj* FindJointAnimationInTree(HSD_JObj* jobj)
 {
 	HSD_AObj* aobj = NULL;
 	for (; jobj != NULL; jobj = jobj->child) {
 		if ((aobj = jobj->aobj) != NULL) {
 			break;
 		}
-		if ((aobj = fn_801908F8(jobj->next)) != NULL) {
+		if ((aobj = FindJointAnimationInTree(jobj->next)) != NULL) {
 			break;
 		}
 	}
@@ -331,12 +337,14 @@ extern "C" HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj)
  * @note Address: 0x801905D4
  * @note Size: 0x30C
  */
-extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
+// the first aobj of a material, or of its first texture when it has none, walking the tree like
+// FindJointAnimationInTree
+extern "C" HSD_AObj* FindMaterialOrTextureAnimationInJointTree(HSD_JObj* jobj)
 {
 	HSD_AObj* aobj = NULL;
 	for (; jobj != NULL; jobj = jobj->child) {
-		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext__FP9_HSD_DObj(dobj)) {
-			HSD_MObj* mobj = HSD_DObjGetMObj__FP9_HSD_DObj(dobj);
+		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
+			HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
 			if (mobj != NULL) {
 				if (mobj->aobj != NULL) {
 					return mobj->aobj;
@@ -347,7 +355,7 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
 				}
 			}
 		}
-		if ((aobj = fn_801905D4(jobj->next)) != NULL) {
+		if ((aobj = FindMaterialOrTextureAnimationInJointTree(jobj->next)) != NULL) {
 			break;
 		}
 	}
@@ -554,7 +562,7 @@ extern "C" HSD_AObj* fn_801905D4(HSD_JObj* jobj)
     cmplwi   r27, 0x0
     bne      .L_80190808
     lwz      r3, 0x8(r26)
-    bl       fn_801905D4
+    bl       FindMaterialOrTextureAnimationInJointTree
     cmplwi   r3, 0x0
     bne      .L_80190874
     lwz      r26, 0x10(r26)
@@ -623,17 +631,19 @@ extern "C" HSD_DObj* HSD_DObjGetNext__FP9_HSD_DObj(HSD_DObj* dobj)
  * @note Address: 0x801902C4
  * @note Size: 0x2E0
  */
-extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
+// the first aobj on a dobj's first pobj, walking the tree like FindJointAnimationInTree. later pobjs
+// of a dobj aren't looked at
+extern "C" HSD_AObj* FindPolygonAnimationInJointTree(HSD_JObj* jobj)
 {
 	HSD_AObj* aobj = NULL;
 	for (; jobj != NULL; jobj = jobj->child) {
-		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext__FP9_HSD_DObj(dobj)) {
-			HSD_PObj* pobj = HSD_DObjGetPObj__FP9_HSD_DObj(dobj);
+		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
+			HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
 			if (pobj != NULL && (aobj = pobj->aobj) != NULL) {
 				return aobj;
 			}
 		}
-		if ((aobj = fn_801902C4(jobj->next)) != NULL) {
+		if ((aobj = FindPolygonAnimationInJointTree(jobj->next)) != NULL) {
 			break;
 		}
 	}
@@ -825,7 +835,7 @@ extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
     cmplwi   r26, 0x0
     bne      .L_801904D4
     lwz      r3, 0x8(r25)
-    bl       fn_801902C4
+    bl       FindPolygonAnimationInJointTree
     cmplwi   r3, 0x0
     bne      .L_80190524
     lwz      r25, 0x10(r25)
@@ -884,7 +894,7 @@ extern "C" HSD_AObj* fn_801902C4(HSD_JObj* jobj)
  * @note Size: 0x40
  */
 // drops a jobj's own dobjs
-extern "C" inline void fn_801920A8_GGTJ01_01(HSD_JObj* jobj)
+extern "C" inline void RemoveJointDisplayObjectsJP(HSD_JObj* jobj)
 {
 	if (jobj->u.dobj != NULL) {
 		HSD_DObjRemoveAll(jobj->u.dobj);
@@ -897,12 +907,12 @@ extern "C" inline void fn_801920A8_GGTJ01_01(HSD_JObj* jobj)
  * @note Size: 0x218
  */
 // drops every dobj in a jobj tree, instances keep their children's
-extern "C" void fn_80191E90_GGTJ01_01(HSD_JObj* jobj)
+extern "C" void RemoveJointTreeDisplayObjects(HSD_JObj* jobj)
 {
-	fn_801920A8_GGTJ01_01(jobj);
+	RemoveJointDisplayObjectsJP(jobj);
 	if (!(jobj->flags & INSTANCE)) {
 		for (HSD_JObj* child = jobj->child; child != NULL; child = child->next) {
-			fn_80191E90_GGTJ01_01(child);
+			RemoveJointTreeDisplayObjects(child);
 		}
 	}
 }
@@ -935,16 +945,16 @@ extern "C" void fn_80191E90_GGTJ01_01(HSD_JObj* jobj)
  * @note Size: 0x2A4
  */
 // every jobj in the tree to quaternion rotation
-void fn_8018FD80(HSD_JObj* jobj)
+void ConvertJointTreeRotationToQuaternion(HSD_JObj* jobj)
 {
 	HSD_JObj* child;
 
-	fn_8019019C(jobj);
+	ConvertJointRotationToQuaternion(jobj);
 	if (jobj->flags & INSTANCE) {
 		return;
 	}
 	for (child = jobj->child; child != NULL; child = child->next) {
-		fn_8018FD80(child);
+		ConvertJointTreeRotationToQuaternion(child);
 	}
 }
 
@@ -964,7 +974,7 @@ void fn_8018FD80(HSD_JObj* jobj)
  * @note Size: 0x27C
  */
 // back to the joint's own pose, the whole tree
-void fn_8018F9B4(HSD_Joint* joint, HSD_JObj* jobj)
+void RestoreJointTreePose(HSD_Joint* joint, HSD_JObj* jobj)
 {
 	HSD_JObj* child;
 	HSD_Joint* cjoint;
@@ -972,7 +982,7 @@ void fn_8018F9B4(HSD_Joint* joint, HSD_JObj* jobj)
 	if (jobj == NULL || joint == NULL) {
 		return;
 	}
-	fn_8018FCA0(joint, jobj);
+	RestoreJointLocalPose(joint, jobj);
 	if (jobj->flags & INSTANCE) {
 		return;
 	}
@@ -981,7 +991,7 @@ void fn_8018F9B4(HSD_Joint* joint, HSD_JObj* jobj)
 		if (child == NULL || cjoint == NULL) {
 			break;
 		}
-		fn_8018F9B4(cjoint, child);
+		RestoreJointTreePose(cjoint, child);
 	}
 }
 
@@ -990,7 +1000,7 @@ void fn_8018F9B4(HSD_Joint* joint, HSD_JObj* jobj)
  * @note Size: 0x2C8
  */
 // one joint of the copy, the rotation ends up a quaternion
-void fn_8018F6EC(HSD_JObj* src, HSD_JObj* dst)
+void CopyJointPoseAsQuaternion(HSD_JObj* src, HSD_JObj* dst)
 {
 	Vec v;
 	Quaternion q;
@@ -1013,7 +1023,7 @@ void fn_8018F6EC(HSD_JObj* src, HSD_JObj* dst)
  * @note Size: 0x94
  */
 // copies the pose of a whole tree onto another
-void fn_8018F658(HSD_JObj* src, HSD_JObj* dst)
+void CopyJointPoseTree(HSD_JObj* src, HSD_JObj* dst)
 {
 	HSD_JObj* s;
 	HSD_JObj* d;
@@ -1021,7 +1031,7 @@ void fn_8018F658(HSD_JObj* src, HSD_JObj* dst)
 	if (src == NULL || dst == NULL) {
 		return;
 	}
-	fn_8018F6EC(src, dst);
+	CopyJointPoseAsQuaternion(src, dst);
 	if (src->flags & INSTANCE) {
 		return;
 	}
@@ -1029,7 +1039,7 @@ void fn_8018F658(HSD_JObj* src, HSD_JObj* dst)
 		if (s == NULL || d == NULL) {
 			break;
 		}
-		fn_8018F658(s, d);
+		CopyJointPoseTree(s, d);
 	}
 }
 
@@ -1038,7 +1048,7 @@ void fn_8018F658(HSD_JObj* src, HSD_JObj* dst)
  * @note Size: 0x50C
  */
 // one joint of the blend, translate and scale linear, rotation slerped
-void fn_8018F14C(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
+void BlendJointPose(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 {
 	f32 s = 1.0f - t;
 	Vec va;
@@ -1445,7 +1455,7 @@ void fn_8018F14C(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
  * @note Size: 0x284
  */
 // blends the poses of two trees into a third, t from a to b
-void fn_8018EEC8(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
+void BlendJointTreePoses(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 {
 	HSD_JObj* ca;
 	HSD_JObj* cb;
@@ -1454,7 +1464,7 @@ void fn_8018EEC8(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 	if (a == NULL || b == NULL || out == NULL) {
 		return;
 	}
-	fn_8018F14C(a, b, out, t);
+	BlendJointPose(a, b, out, t);
 	if (a->flags & INSTANCE) {
 		return;
 	}
@@ -1462,7 +1472,7 @@ void fn_8018EEC8(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 		if (ca == NULL || cb == NULL || cout == NULL) {
 			break;
 		}
-		fn_8018EEC8(ca, cb, cout, t);
+		BlendJointTreePoses(ca, cb, cout, t);
 	}
 }
 
@@ -1470,7 +1480,7 @@ void fn_8018EEC8(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
  * @note Address: 0x8018EE60
  * @note Size: 0x68
  */
-void fn_8018EE60(Vec* a, Vec* b, Vec* c, Vec* normal)
+void CalcTriangleNormal(Vec* a, Vec* b, Vec* c, Vec* normal)
 {
 	Vec ab, bc;
 	PSVECSubtract(a, b, &ab);
@@ -1482,7 +1492,7 @@ void fn_8018EE60(Vec* a, Vec* b, Vec* c, Vec* normal)
  * @note Address: 0x8018EE2C
  * @note Size: 0x34
  */
-f32 fn_8018EE2C(Vec* a, Vec* b, Vec* c)
+f32 SignedTriangleArea2XZ(Vec* a, Vec* b, Vec* c)
 {
 	return a->x * (b->z - c->z) + b->x * (c->z - a->z) + c->x * (a->z - b->z);
 }
@@ -1491,7 +1501,9 @@ f32 fn_8018EE2C(Vec* a, Vec* b, Vec* c)
  * @note Address: 0x8018EC6C
  * @note Size: 0x1C0
  */
-BOOL fn_8018EC6C(Vec* pos, Vec* a, Vec* b, Vec* c)
+// whether pos lies inside abc seen from above, corners wound so CalcTriangleNormal points up. pos is
+// out as soon as one edge's rel x edge points down: its dot with up, which is (0, -1, 0), goes positive
+BOOL IsPointInsideTriangleXZ(Vec* pos, Vec* a, Vec* b, Vec* c)
 {
 	f32 ex = a->x - b->x;
 	f32 ez = a->z - b->z;
@@ -1543,7 +1555,7 @@ BOOL fn_8018EC6C(Vec* pos, Vec* a, Vec* b, Vec* c)
 	return TRUE;
 }
 
-// fn_8018EC6C
+// IsPointInsideTriangleXZ
 /*
     stwu     r1, -0x50(r1)
     mflr     r0
@@ -1563,8 +1575,8 @@ BOOL fn_8018EC6C(Vec* pos, Vec* a, Vec* b, Vec* c)
     stw      r28, 0x40(r1)
     mr       r28, r3
     lfs      f0, 0x0(r28)
-    lis      r3, lbl_8020E4D8@ha
-    lwzu     r5, lbl_8020E4D8@l(r3)
+    lis      r3, sTriangleEdgeTestDown@ha
+    lwzu     r5, sTriangleEdgeTestDown@l(r3)
     fsubs    f1, f1, f0
     lfs      f0, 0x8(r28)
     lfs      f2, lbl_8065F478@sda21(r0)
@@ -1666,7 +1678,8 @@ BOOL fn_8018EC6C(Vec* pos, Vec* a, Vec* b, Vec* c)
  * @note Address: 0x8018EA50
  * @note Size: 0x21C
  */
-BOOL fn_8018EA50(Vec* pos, Vec* a, Vec* b, Vec* c, Vec* d)
+// the IsPointInsideTriangleXZ test with four corners, so the quad has to be convex and wound the same way
+BOOL IsPointInsideQuadXZ(Vec* pos, Vec* a, Vec* b, Vec* c, Vec* d)
 {
 	f32 ex = a->x - b->x;
 	f32 ez = a->z - b->z;
@@ -1733,7 +1746,7 @@ BOOL fn_8018EA50(Vec* pos, Vec* a, Vec* b, Vec* c, Vec* d)
 	return TRUE;
 }
 
-// fn_8018EA50
+// IsPointInsideQuadXZ
 /*
     stwu     r1, -0x50(r1)
     mflr     r0
@@ -1747,12 +1760,12 @@ BOOL fn_8018EA50(Vec* pos, Vec* a, Vec* b, Vec* c, Vec* d)
     fsubs    f5, f3, f1
     lfs      f0, 0x0(r27)
     mr       r28, r4
-    lis      r3, lbl_8020E4E4@ha
+    lis      r3, sQuadEdgeTestDown@ha
     fsubs    f1, f1, f0
     lfs      f3, 0x8(r28)
     lfs      f4, 0x8(r29)
     mr       r30, r6
-    lwzu     r4, lbl_8020E4E4@l(r3)
+    lwzu     r4, sQuadEdgeTestDown@l(r3)
     mr       r31, r7
     lfs      f0, 0x8(r27)
     fsubs    f3, f3, f4
@@ -1880,10 +1893,12 @@ BOOL fn_8018EA50(Vec* pos, Vec* a, Vec* b, Vec* c, Vec* d)
  * @note Address: 0x8018E8A4
  * @note Size: 0x1AC
  */
-int fn_8018E8A4(Vec* a, Vec* b, Vec* c, Vec* pos, Vec* out)
+// out gets the point of abc's plane straight above or below pos. returns 1 when it lies at y 1 or -1,
+// 2 between them and 3 beyond
+int IntersectVerticalLineWithTrianglePlane(Vec* a, Vec* b, Vec* c, Vec* pos, Vec* out)
 {
 	Vec normal;
-	fn_8018EE60(a, b, c, &normal);
+	CalcTriangleNormal(a, b, c, &normal);
 
 	Vec top    = { pos->x, 1.0f, pos->z };
 	Vec bottom = { pos->x, -1.0f, pos->z };
@@ -1898,7 +1913,7 @@ int fn_8018E8A4(Vec* a, Vec* b, Vec* c, Vec* pos, Vec* out)
 	return 3;
 }
 
-// fn_8018E8A4
+// IntersectVerticalLineWithTrianglePlane
 /*
     stwu     r1, -0x90(r1)
     mflr     r0
@@ -1921,11 +1936,11 @@ int fn_8018E8A4(Vec* a, Vec* b, Vec* c, Vec* pos, Vec* out)
     addi     r4, r1, 0x20
     addi     r5, r1, 0x50
     bl       C_VECCrossProduct
-    lis      r4, lbl_8020E4F0@ha
-    lis      r3, lbl_8020E4FC@ha
-    addi     r10, r4, lbl_8020E4F0@l
+    lis      r4, sVerticalLineTop@ha
+    lis      r3, sVerticalLineBottom@ha
+    addi     r10, r4, sVerticalLineTop@l
     lfs      f1, 0x0(r30)
-    addi     r7, r3, lbl_8020E4FC@l
+    addi     r7, r3, sVerticalLineBottom@l
     lwz      r9, 0x0(r10)
     lwz      r8, 0x8(r10)
     mr       r4, r27
@@ -2020,8 +2035,8 @@ int fn_8018E8A4(Vec* a, Vec* b, Vec* c, Vec* pos, Vec* out)
  * @note Address: 0x8018E824
  * @note Size: 0x80
  */
-// the direction from the line bc out toward a, square to bc
-extern "C" void fn_8018E824(Vec* a, Vec* b, Vec* c, Vec* out)
+// the direction square to bc pointing from a toward the line, so out of the triangle abc
+extern "C" void GetOutwardPerpendicularToEdge(Vec* a, Vec* b, Vec* c, Vec* out)
 {
 	Vec bc;
 	Vec ba;
@@ -2036,7 +2051,7 @@ extern "C" void fn_8018E824(Vec* a, Vec* b, Vec* c, Vec* out)
  * @note Address: 0x8018E640
  * @note Size: 0x1E4
  */
-extern "C" int fn_8018E640(const Vec* a, const Vec* b, const Vec* c, const Vec* d, Vec* out, int check)
+extern "C" int IntersectLinesXZ(const Vec* a, const Vec* b, const Vec* c, const Vec* d, Vec* out, int check)
 {
 	f32 abx = b->x - a->x;
 	f32 abz = b->z - a->z;
@@ -2069,9 +2084,9 @@ extern "C" int fn_8018E640(const Vec* a, const Vec* b, const Vec* c, const Vec* 
 			if (slopeAB == slopeCD) {
 				return 0;
 			}
-			f32 t  = (acz - slopeCD * acx) / (slopeAB - slopeCD);
-			f32 dz = t * slopeAB;
-			out->x = t + a->x;
+			f32 dx = (acz - slopeCD * acx) / (slopeAB - slopeCD);
+			f32 dz = dx * slopeAB;
+			out->x = dx + a->x;
 			out->z = dz + a->z;
 		}
 		out->y = 0.0f;
@@ -2221,8 +2236,8 @@ extern "C" int fn_8018E640(const Vec* a, const Vec* b, const Vec* c, const Vec* 
 // wall and push what's left of the move. returns 0 for no hit, 1 when it got stopped
 // and 3 when it bounced, then push is the move reflected off the wall times scale
 // the wall's two ends get checked like posts, corners picks the softer version of that
-extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wallA, const Vec* wallB, Vec* push, Vec* pos, Vec* contact,
-                           f32* dist, f32 radius, f32 scale, int corners)
+extern "C" int ResolveCircleWallCollisionXZ(const Vec* fromPos, const Vec* toPos, const Vec* wallA, const Vec* wallB, Vec* push, Vec* pos,
+                                            Vec* contact, f32* dist, f32 radius, f32 scale, int corners)
 {
 	CVec from(*fromPos);
 	from.y = 0.0f;
@@ -2235,16 +2250,17 @@ extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wall
 	CVec b(*wallB);
 	b.y = 0.0f;
 	CVec n;
-	fn_8018E824(&from, &a, &b, &n);
+	GetOutwardPerpendicularToEdge(&from, &a, &b, &n);
 	PSVECNormalize(&n, &n);
 	CVec fromEdge = from + n * radius; // never used, it's still computed
 	CVec toEdge   = to + n * radius;
 	int ret       = 0;
 
+	// one sided: from must be on the wall's LineSide <= 0 and the circle at to touch or cross it
 	if (LineSide(a, b, toEdge) >= 0.0f && LineSide(a, b, from) <= 0.0f) {
 		CVec v;
 		CVec hit;
-		if (fn_8018E640(&from, &toEdge, &a, &b, &hit, 1)) {
+		if (IntersectLinesXZ(&from, &toEdge, &a, &b, &hit, 1)) {
 			if (contact) {
 				*contact = hit;
 			}
@@ -2252,7 +2268,7 @@ extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wall
 				*dist = LineDist(&from, &a, &b);
 			}
 			CVec end;
-			fn_8018E640(&toEdge, &to, &a, &b, &end, 0);
+			IntersectLinesXZ(&toEdge, &to, &a, &b, &end, 0);
 			*pos   = end - n * radius;
 			pos->y = fromPos->y;
 			if (dist && ABS(*dist - LineDist(&from, &a, &b)) < 0.1f) {
@@ -2261,7 +2277,7 @@ extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wall
 				push->z = 0.0f;
 				ret     = 1;
 			} else {
-				*push = fn_800901E8(&dir, &n) * len * scale;
+				*push = ReflectVectorAboutNormal(&dir, &n) * len * scale;
 				ret   = 3;
 			}
 		} else if (corners) {
@@ -2297,14 +2313,14 @@ extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wall
 					*push = v * len * scale;
 					ret   = 3;
 				} else {
-					fn_8018E640(&from, &toEdge, &a, &b, &hit, 0);
-					CVec e = hit + dir * len;
-					CVec f = e - n;
-					CVec g;
-					fn_8018E640(&e, &f, &a, &b, &g, 0);
-					v = g - hit;
+					IntersectLinesXZ(&from, &toEdge, &a, &b, &hit, 0);
+					CVec moveEnd     = hit + dir * len;
+					CVec alongNormal = moveEnd - n;
+					CVec slideEnd;
+					IntersectLinesXZ(&moveEnd, &alongNormal, &a, &b, &slideEnd, 0);
+					v = slideEnd - hit;
 					if (v.Length() > len) {
-						*push = (g - hit).Normalize() * len;
+						*push = (slideEnd - hit).Normalize() * len;
 					} else {
 						*push = v;
 					}
@@ -2321,14 +2337,14 @@ extern "C" int fn_8018D43C(const Vec* fromPos, const Vec* toPos, const Vec* wall
 					*push = v * len * scale;
 					ret   = 3;
 				} else {
-					fn_8018E640(&from, &toEdge, &a, &b, &hit, 0);
-					CVec e = hit + dir * len;
-					CVec f = e - n;
-					CVec g;
-					fn_8018E640(&e, &f, &a, &b, &g, 0);
-					v = g - hit;
+					IntersectLinesXZ(&from, &toEdge, &a, &b, &hit, 0);
+					CVec moveEnd     = hit + dir * len;
+					CVec alongNormal = moveEnd - n;
+					CVec slideEnd;
+					IntersectLinesXZ(&moveEnd, &alongNormal, &a, &b, &slideEnd, 0);
+					v = slideEnd - hit;
 					if (v.Length() > len) {
-						*push = (g - hit).Normalize() * len;
+						*push = (slideEnd - hit).Normalize() * len;
 					} else {
 						*push = v;
 					}

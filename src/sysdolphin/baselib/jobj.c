@@ -1000,7 +1000,7 @@ static char unused2[] = "jobj_root == NULL";
  * @note Address: 0x801C6C8C
  * @note Size: 0x4C
  */
-inline void fn_801C6C8C(void* o)
+inline void IncrementHsdObjectRefCount(void* o)
 {
 	// object.h's ref_INC got a NULL check later, the one this file saw didn't have it
 	HSD_OBJ(o)->ref_count++;
@@ -1016,7 +1016,7 @@ inline void fn_801C6C8C(void* o)
 inline void HSD_JObjRef(HSD_JObj* jobj)
 {
 	if (jobj != NULL) {
-		fn_801C6C8C(jobj);
+		IncrementHsdObjectRefCount(jobj);
 	}
 }
 
@@ -1132,7 +1132,7 @@ static inline void hsdDelete(void* object)
 // HSD_IDGetData, the out of line copy of id.h's inline, emitted for
 // HSD_JObjResolveRefsAll's deepest inlined HSD_JObjResolveRefs
 
-// and fn_801C6C8C
+// and IncrementHsdObjectRefCount
 /**
  * @note Address: 0x801C6CD8
  * @note Size: 0x148

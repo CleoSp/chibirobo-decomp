@@ -5,15 +5,15 @@
 extern "C" f32 PSVECDistance(Vec* a, Vec* b);
 
 // unused, but they sit at the start of this file's rodata
-static const f32 lbl_9_rodata_0[2][9] = {
+static const f32 sStage07VectorTemplates[2][9] = {
 	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 };
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
-#define MAINGAME_AT(type, offset) (*(type*)(lbl_8025C400 + (offset)))
+#define MAINGAME_AT(type, offset) (*(type*)(gGame + (offset)))
 
 #if defined(VERSION_JP)
 #define STAGE07_FLAG_LIST   MAINGAME_AT(void*, 0xE7114)
@@ -25,20 +25,20 @@ extern "C" u8 lbl_8025C400[];
 #define STAGE07_FIELD_E5DDC (&MAINGAME_AT(Vec, 0xE5DDC))
 #endif
 
-extern "C" void fn_801469A8(void* obj, s32 value);
-extern "C" s32 fn_8001E6C8(void* obj, s32 id);
-extern "C" s32 fn_8001DF00(void* obj, Vec* pos, s32 arg);
-extern "C" void fn_8001E468(void* obj, s32 id, s32 arg, s32 arg2);
+extern "C" void AddHideObj__20CCameraActionScroll2Fl(void* obj, s32 value);
+extern "C" s32 IsGameSoundPlaying(void* obj, s32 id);
+extern "C" s32 GetSoundVolumeAtPosition(void* obj, Vec* pos, s32 arg);
+extern "C" void SetGameSfxVolume(void* obj, s32 id, s32 arg, s32 arg2);
 
 // in rel/trash.cpp and rel/fafa.cpp
 extern "C" void DrawTrashStack(void* arg);
 extern "C" void UpdateTrash(void* arg);
 extern "C" void InitTrash(void* arg);
-extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdCancelTrash(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdEndTrash(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdGetTrashResult(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdStartTrash(s32 cmd, s32 arg, s32* arg2);
+extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdCancelTrash(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdEndTrash(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdGetTrashResult(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdStartTrash(s32 cmd, s32 count, s32* args);
 extern "C" void SetFafaPartVisibility(s32 mode);
 
 // one child step then path[i] sibling steps per level
@@ -68,11 +68,11 @@ struct Stage07Actor {
 #else
 	u8 _00[0xC8]; // _00
 #endif
-	Vec _C8;       // _C8 (JP: _C0)
-	u8 _D4[0x154]; // _D4 (JP: _CC)
-	u64 _228;      // _228 (JP: _220)
-	u8 _230[0x8];  // _230 (JP: _228)
-	s32* _238;     // _238 (JP: _230)
+	Vec mMoveTranslate; // _C8 (JP: _C0)
+	u8 _D4[0x154];      // _D4 (JP: _CC)
+	u64 mStatus;        // _228 (JP: _220)
+	u8 _230[0x8];       // _230 (JP: _228)
+	s32* mCoord;        // _238 (JP: _230)
 };
 
 struct Stage07Game {
@@ -90,7 +90,7 @@ struct Stage07Game {
 	Stage07Actor* GetActor(s32 index) const { return mActors[index]; }
 };
 
-#define STAGE07_GAME ((Stage07Game*)lbl_8025C400)
+#define STAGE07_GAME ((Stage07Game*)gGame)
 
 struct Stage07PoolEntry {
 	HSD_JObj* jobj; // _00
@@ -99,23 +99,23 @@ struct Stage07PoolEntry {
 #else
 	u8 _04[0x240]; // _04
 #endif
-	s32* _244; // _244 (JP: _23C)
+	s32* mPlacement; // _244 (JP: _23C), the placement record; [0] is the object kind
 };
 
 extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values);
 extern "C" void SetObj37PartVisibility(s32 mode);
-extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2);
-extern "C" s32 CmdNop(s32 cmd, s32 arg, s32* arg2);
+extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args);
+extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
 extern "C" void DrawStage(void* arg);
 extern "C" void UpdateStage(void* arg);
 extern "C" void InitStage(void* arg);
 
 typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 arg, s32* arg2);
+typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
 
 extern "C" {
-RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage };
+RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage }; // only the first three slots are used
 RelCmdFunc _prolog_cmds[]    = {
     CmdNop,
     CmdSetFafaPartVisibility,
@@ -138,7 +138,7 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
 	s32 i;
 
 	for (i = 0; i < count; i++) {
-		fn_801469A8(STAGE07_FLAG_LIST, values[i]);
+		AddHideObj__20CCameraActionScroll2Fl(STAGE07_FLAG_LIST, values[i]); // every arg is an id for the hide list
 	}
 	return 0;
 }
@@ -156,12 +156,13 @@ extern "C" void SetObj37PartVisibility(s32 mode)
 
 	for (i = 0; i < 0x120; i++) {
 		Stage07PoolEntry* entry = (Stage07PoolEntry*)(pool + i * size);
-		s32* type               = entry->_244;
-		if ((type != NULL ? *type : -1) != 0x37) {
+		s32* type               = entry->mPlacement;
+		if ((type != NULL ? *type : -1) != 0x37) { // only kind-0x37 placements
 			continue;
 		}
+		// the mode picks which of the object's two parts shows
 		switch (mode) {
-		case 0: {
+		case 0: { // 0: both hidden
 			s32 path0[2] = { 0, 1 };
 			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
@@ -170,7 +171,7 @@ extern "C" void SetObj37PartVisibility(s32 mode)
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
-		case 1: {
+		case 1: { // 1: the first part shows
 			s32 path0[2] = { 0, 1 };
 			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
@@ -179,7 +180,7 @@ extern "C" void SetObj37PartVisibility(s32 mode)
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
-		case 2: {
+		case 2: { // 2: the second part shows
 			s32 path0[2] = { 0, 1 };
 			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
@@ -188,7 +189,7 @@ extern "C" void SetObj37PartVisibility(s32 mode)
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
-		case 3: {
+		case 3: { // 3: both show
 			s32 path0[2] = { 0, 1 };
 			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
@@ -198,7 +199,7 @@ extern "C" void SetObj37PartVisibility(s32 mode)
 			break;
 		}
 		}
-		break;
+		break; // only the first kind-0x37 entry
 	}
 }
 
@@ -218,9 +219,9 @@ extern "C" void SetObj37PartVisibility(s32 mode)
  * @note Address: stage07 .text 0x1058
  * @note Size: 0x28
  */
-extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2)
+extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 count, s32* args)
 {
-	SetObj37PartVisibility(arg2[0]);
+	SetObj37PartVisibility(args[0]);
 	return 0;
 }
 
@@ -228,9 +229,9 @@ extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage07 .text 0x1080
  * @note Size: 0x28
  */
-extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2)
+extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args)
 {
-	SetFafaPartVisibility(arg2[0]);
+	SetFafaPartVisibility(args[0]);
 	return 0;
 }
 
@@ -238,7 +239,7 @@ extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 arg, s32* arg2)
  * @note Address: stage07 .text 0x10A8
  * @note Size: 0x8
  */
-extern "C" s32 CmdNop(s32 cmd, s32 arg, s32* arg2)
+extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
 {
 	return 0;
 }
@@ -256,18 +257,21 @@ extern "C" void DrawStage(void* arg)
  * @note Address: stage07 .text 0x10D0
  * @note Size: 0x110
  */
+// NONMATCHING: retail splits the field address into a hoisted addis and an
+// in-loop addi; this build folds it into one pointer.
 extern "C" void UpdateStage(void* arg)
 {
 	Stage07Actor* actor;
 	void* obj = STAGE07_SOUND;
 	s32 i;
 
-	if (fn_8001E6C8(obj, 0x1000D)) {
+	if (IsGameSoundPlaying(obj, 0x1000D)) {
 		for (i = 0; i < STAGE07_GAME->mActorCount; i++) {
 			actor = STAGE07_GAME->GetActor(i);
-			if ((actor->_228 & 1) && (actor->_228 & 0x10000) && *actor->_238 == 0xD0) {
-				PSVECDistance(STAGE07_FIELD_E5DDC, &actor->_C8);
-				fn_8001E468(obj, 0x1000D, fn_8001DF00(obj, &actor->_C8, 1), 0);
+			// live, drawn objects of kind 0xD0 drive the loop's volume
+			if ((actor->mStatus & 1) && (actor->mStatus & 0x10000) && *actor->mCoord == 0xD0) {
+				PSVECDistance(STAGE07_FIELD_E5DDC, &actor->mMoveTranslate); // its result is unused
+				SetGameSfxVolume(obj, 0x1000D, GetSoundVolumeAtPosition(obj, &actor->mMoveTranslate, 1), 0);
 			}
 		}
 	}
@@ -277,22 +281,22 @@ extern "C" void UpdateStage(void* arg)
 /*
     stwu     r1, -0x30(r1)
     mflr     r0
-    lis      r5, lbl_8025C400@ha
+    lis      r5, gGame@ha
     lis      r4, 0x1
     stw      r0, 0x34(r1)
-    addi     r5, r5, lbl_8025C400@l
+    addi     r5, r5, gGame@l
     addi     r4, r4, 0xd
     stmw     r25, 0x14(r1)
     addis    r27, r5, 0xe
     addi     r27, r27, 0x7e24
     mr       r25, r3
     mr       r3, r27
-    bl       fn_8001E6C8
+    bl       IsGameSoundPlaying
     cmpwi    r3, 0x0
     beq      .L_000011C4
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     li       r26, 0x0
-    addi     r30, r3, lbl_8025C400@l
+    addi     r30, r3, gGame@l
     addis    r29, r30, 0xe
     addis    r28, r30, 0x1
     b        .L_000011B8
@@ -325,13 +329,13 @@ extern "C" void UpdateStage(void* arg)
     mr       r3, r27
     addi     r4, r31, 0xc8
     li       r5, 0x1
-    bl       fn_8001DF00
+    bl       GetSoundVolumeAtPosition
     lis      r4, 0x1
     mr       r5, r3
     mr       r3, r27
     li       r6, 0x0
     addi     r4, r4, 0xd
-    bl       fn_8001E468
+    bl       SetGameSfxVolume
 .L_000011B0:
     addi     r30, r30, 0x4
     addi     r26, r26, 0x1
@@ -411,9 +415,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     bne      .L_0000173C
     lfs      f0, 0x14(r29)
     fcmpu    cr0, f31, f0
@@ -536,9 +540,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     bne      .L_000018E4
     lfs      f0, 0x18(r29)
     fcmpu    cr0, f31, f0
@@ -661,9 +665,9 @@ extern "C" void InitStage(void* arg)
     stw      r29, 0x24(r1)
     fmr      f31, f1
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     mr       r29, r3
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     bne      .L_00001A8C
     lfs      f0, 0x1c(r29)
     fcmpu    cr0, f31, f0
@@ -779,17 +783,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
     bne      .L_00001CA0
-    lis      r3, lbl_9_bss_0@ha
+    lis      r3, gJointTranslateZero@ha
     lfs      f4, 0x4(r29)
-    addi     r4, r3, lbl_9_bss_0@l
+    addi     r4, r3, gJointTranslateZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)
@@ -890,10 +894,10 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r5, 0x0
-    lis      r5, lbl_9_rodata_0@ha
+    lis      r5, sStage07VectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r5, lbl_9_rodata_0@l
+    addi     r31, r5, sStage07VectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
@@ -993,17 +997,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
     bne      .L_00001F70
-    lis      r3, lbl_9_bss_C@ha
+    lis      r3, gJointScaleZero@ha
     lfs      f4, 0x24(r29)
-    addi     r4, r3, lbl_9_bss_C@l
+    addi     r4, r3, gJointScaleZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)
@@ -1104,10 +1108,10 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x30(r1)
     mflr     r0
     cmpwi    r5, 0x0
-    lis      r5, lbl_9_rodata_0@ha
+    lis      r5, sStage07VectorTemplates@ha
     stw      r0, 0x34(r1)
     stw      r31, 0x2c(r1)
-    addi     r31, r5, lbl_9_rodata_0@l
+    addi     r31, r5, sStage07VectorTemplates@l
     stw      r30, 0x28(r1)
     stw      r29, 0x24(r1)
     mr       r29, r3
@@ -1207,17 +1211,17 @@ extern "C" void InitStage(void* arg)
     stwu     r1, -0x40(r1)
     mflr     r0
     cmpwi    r4, 0x0
-    lis      r4, lbl_9_rodata_0@ha
+    lis      r4, sStage07VectorTemplates@ha
     stw      r0, 0x44(r1)
     stw      r31, 0x3c(r1)
-    addi     r31, r4, lbl_9_rodata_0@l
+    addi     r31, r4, sStage07VectorTemplates@l
     stw      r30, 0x38(r1)
     stw      r29, 0x34(r1)
     mr       r29, r3
     bne      .L_00002240
-    lis      r3, lbl_9_bss_18@ha
+    lis      r3, gJointRotationZero@ha
     lfs      f4, 0x4(r29)
-    addi     r4, r3, lbl_9_bss_18@l
+    addi     r4, r3, gJointRotationZero@l
     li       r0, 0x0
     lwz      r3, 0x0(r4)
     lwz      r5, 0x4(r4)

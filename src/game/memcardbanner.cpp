@@ -14,17 +14,6 @@ enum { BANNER_TEXTURE = 89, ICON_TEXTURE = 90 };
 enum { BANNER_TEXTURE = 88, ICON_TEXTURE = 90 };
 #endif
 
-extern "C" {
-#if defined(VERSION_JP)
-extern const char lbl_80209EC8[];
-extern const char lbl_80209ED4[];
-#elif defined(VERSION_PAL)
-extern const char lbl_8020FB48[];
-#else
-extern const char lbl_802091C0[];
-#endif
-}
-
 static inline void* SaveTextureData(const CTexObj& texture)
 {
 	return texture.mImage != NULL ? texture.mImage->data : NULL;
@@ -34,29 +23,33 @@ static inline void* SaveTextureData(const CTexObj& texture)
  * @note Address: 0x800884F0
  * @note Size: 0x358
  */
-extern "C" void fn_800884F0(Memcard* card, s32 slot)
+// NONMATCHING: America and Europe keep the play time in seconds in a scratch register until the remainder is taken,
+// the build has it in the register of the result. Japan's matches
+extern "C" void BuildSaveBanner(Memcard* card, s32 slot)
 {
 	SaveBanner* data = &card->mFile.mBanner;
 #if defined(VERSION_JP)
-	sprintf(data->mTitle, lbl_80209EC8);
-	s32 time = lbl_8025C400.mPlayTime;
-	sprintf(data->mComment, lbl_80209ED4, slot + 1, time / 216000, time / 3600 % 60, time / 60 % 60);
+	sprintf(data->mTitle, "\x82\xBF\x82\xD1\x83\x8D\x83\x7B\x81\x49");
+	s32 time = gGame.mPlayTime;
+	sprintf(data->mComment, "(%d) \x83\x76\x83\x8C\x83\x43\x8E\x9E\x8A\xD4 %2d:%02d:%02d", slot + 1, time / 216000, time / 3600 % 60,
+	        time / 60 % 60);
 #elif defined(VERSION_PAL)
-	sprintf(data->mTitle, fn_8006DBF0(0x102));
-	f32 time    = lbl_8025C400.mPlayTime;
-	s32 seconds = (s32)(time / 60.0f) % 60;
-	sprintf(data->mComment, lbl_8020FB48, slot + 1, fn_8006DBF0(0x103), (s32)(time / 216000.0f), (s32)(time / 3600.0f) % 60, seconds);
+	sprintf(data->mTitle, GetLocalizedInterfaceText(0x102));
+	f32 time    = gGame.mPlayTime;
+	s32 seconds = (s32)(time / 60.0f);
+	seconds %= 60;
+	sprintf(data->mComment, "(%d) %s %2d:%02d:%02d", slot + 1, GetLocalizedInterfaceText(0x103), (s32)(time / 216000.0f),
+	        (s32)(time / 3600.0f) % 60, seconds);
 #else
-	sprintf(data->mTitle, fn_8006DBF0(0x102));
-	s32 time    = lbl_8025C400.mPlayTime;
-	s32 seconds = time / 60 % 60;
-	sprintf(data->mComment, lbl_802091C0, slot + 1, fn_8006DBF0(0x103), time / 216000, time / 3600 % 60, seconds);
+	sprintf(data->mTitle, GetLocalizedInterfaceText(0x102));
+	s32 time    = gGame.mPlayTime;
+	s32 seconds = time / 60;
+	seconds %= 60;
+	sprintf(data->mComment, "(%d) %s %2d:%02d:%02d", slot + 1, GetLocalizedInterfaceText(0x103), time / 216000, time / 3600 % 60, seconds);
 #endif
-	CTpl* resource   = &lbl_8025C400.mTpl;
-	CTexObj* texture = &resource->mTex;
-	CTexObj banner   = texture->Init(((TPLPalette*)resource->mBuffer)->descriptorArray + BANNER_TEXTURE, 0);
+	CTexObj banner = gGame.mTpl.mTex.Init(((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray + BANNER_TEXTURE, 0);
 	memcpy(data->mBanner, SaveTextureData(banner), sizeof(data->mBanner));
-	CTexObj icon = texture->Init(((TPLPalette*)resource->mBuffer)->descriptorArray + ICON_TEXTURE, 0);
+	CTexObj icon = gGame.mTpl.mTex.Init(((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray + ICON_TEXTURE, 0);
 	memcpy(data->mIcon, SaveTextureData(icon), sizeof(data->mIcon));
 
 	CARDSetCommentAddress(&card->mStat, 0);

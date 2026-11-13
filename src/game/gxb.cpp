@@ -1,3 +1,8 @@
+#include "game/soundtracks.h"
+#include "game/vistate.h"
+#include "game/cmdline.h"
+#include "game/stagedata.h"
+#include "game/drawhelptext.h"
 #include "types.h"
 #include "Version.h"
 #include "game/hsd_jobj.h"
@@ -9,202 +14,328 @@ extern "C" {
 #include "game/cgs.h"
 #include "game/cptcl.h"
 #include "game/cscrn.h"
+#include "game/screenwipegeometry.h"
 #include "game/csound.h"
 #include "game/globals.h"
 #include "game/gmath.h"
 #include "game/logo.h"
 #include "game/memcard.h"
 #include "game/menusave.h"
+#include "game/menuselectionbar.h"
+#include "game/menupanelbackground.h"
 #include "game/title.h"
 #include "game/video.h"
 #include "game/xobjdemo.h"
 #include "game/xobjs.h"
+#include "game/xchr.h"
 #include "Dolphin/OS/OSUtil.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// game functions 0x8001F8D8-0x80031004: the end of the sound object, the screen wipes and
-// fades, the dust particles, the logos and the title screen. most names are lost, so they
-// are extern "C" under their dol address
+// Screen wipes and fades, dust particles, logos and the title screen.
 
 extern "C" {
-void InitAudio(void* owner, u32 heapSize, u32 voices, u32 groups);
-s32 HSD_SynthSFXNewBank(s32 size);
-s32 HSD_SynthSFXBankClear(s32 bank);
-s32 HSD_SynthSFXGetPendingLoadCount();
-s32 HSD_SynthSFXLoad(const char* name, s32 bank, void (*callback)(s32, s32), s32 arg);
-BOOL fn_801E8C18(void* data);
-void HSD_JObjSetJSoundCallback(void (*callback)(s32));
-void fn_8001FCBC(s32 sfx);
-extern const char* stageSfxTable[];
-void OSReport(const char* format, ...);
-void OSPanic(const char* file, int line, const char* format, ...);
-void fn_8001E00C(XSound* sound, BOOL mono);
+char* GetTitleAndSaveMenuText(s32 id);
+void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
+void SetGameSoundStereo(XSound* sound, BOOL mono);
 void HSD_PadRumbleOn(u8 no);
 void HSD_PadRumbleOffN(u8 no);
 void HSD_PadRumbleRemove(u8 no);
 // a window frame, see the menus
-void fn_800652C0(u32 color0, u32 color1, f32 x, f32 y, f32 w, f32 h, f32 sx, f32 sy, f32 sz);
-void fn_80068B98(void* info);
-s32 fn_80035184(OSTime first, OSTime second, OSTime third);
-// the shadow offsets of the title's name letters
-extern f32 lbl_8021195C[4];
-extern f32 lbl_8021196C[4];
+void DrawTexturedWindowFrame(u32 color0, u32 color1, f32 x, f32 y, f32 w, f32 h, f32 sx, f32 sy, f32 sz);
+void ResumeScrapCounterPulse(void* info);
+s32 IndexOfLargestOfThree(OSTime first, OSTime second, OSTime third);
+f32 gTitleNameOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
+f32 gTitleNameOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
+f32 gTitleHelpOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
+f32 gTitleHelpOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
 
-// Title's mode steps, the PMF table at lbl_802116D8 picks one by mMode
-void State20__5TitleFUl(Title* title);
-void fn_80030CE8(Title* title);
+// Title's mode steps, the gTitleModeUpdates table picks one by mMode
 }
 
-// drops every sfx name waiting to load and empties the stage bank
-static inline void ClearStageBank(XSound* sound)
+extern "C" s32 GetItemIconTextureIndex(s32 id);
+extern "C" void DrawHudRoundedRectangle(u32 color, f32 x, f32 y, f32 w, f32 h, f32 rx, f32 ry);
+
+static inline BOOL ProjectRoboeyesItem(XObj* object, f32* width, f32* height)
 {
-	for (u32 i = 0; i < 16; ++i) {
-		SfxLoadRequest* request = &sound->mLoadRequests[i];
-		request->mName          = NULL;
-		request->mResult        = -1;
-		request->mLoaded        = 0;
-	}
-	sound->mLoadRequestCount = 0;
-	HSD_SynthSFXBankClear(sound->mStageBank);
+	f32 r = object->GetFloorXZExtent() * .5f;
+	if (r < 1.0f)
+		r = 1.0f;
+	f32 h = object->GetCollisionHeight();
+	if (h < 1.0f)
+		h = 1.0f;
+	return object->ProjectVisibleBounds(width, height, NULL, r, h);
 }
 
-// queues a name for the stage bank unless it is already there, sound.cpp has the same
-static inline void RegisterName(XSound* sound, const char* name)
+extern "C" void DrawRoboeyesItemLabels(CScrnRoboeyes* eyes, CBase* base)
 {
-	s32 bank = sound->mStageBank;
-	if (name == NULL) {
+	if (!(gGame.mStatus.mFlags & 0x100))
 		return;
-	}
-	for (u32 i = 0; i < 16; ++i) {
-		if (sound->mLoadRequests[i].mName != NULL && strcmp(sound->mLoadRequests[i].mName, name) == 0) {
-			return;
+	struct Label {
+		XObj* object;
+		f32 distance, left, y, width;
+	};
+	struct {
+		Label entries[64];
+		u32 used, visible;
+	} work;
+	work.used = work.visible = 0;
+	XObjPool& pool           = gGame.mXObjs.mPools[8];
+	for (s32 i = 0; i < pool.mUsed; ++i) {
+		XObj* object = pool.Get(i);
+		if (!(object->mStatus.mFlags & 1) || !(object->mStatus.mFlags & 0x10000))
+			continue;
+		if (!GetItemFlagsMasked(object->GetItem(), 2) || (object->mStatus.mFlags & 0x0400000000000000ULL))
+			continue;
+		f32 radius, height;
+		if (ProjectRoboeyesItem(object, &radius, &height)) {
+			work.entries[work.visible].object = object;
+			Vec offset                        = { 0, 0, 0 };
+			f32 x, y;
+			object->ProjectOffsetToScreen(&offset, &x, &y, NULL, NULL);
+			y -= .5f * radius;
+			f32 dx = 320.0f - x, dy = 224.0f - y;
+			work.entries[work.visible++].distance = sqrtf(dx * dx + dy * dy);
 		}
 	}
-	for (u32 i = 0; i < 16; ++i) {
-		if (sound->mLoadRequests[i].mName == NULL) {
-			++sound->mLoadRequestCount;
-			sound->mLoadRequests[i].mName = name;
-			sound->mLoadRequests[i].mBank = bank;
-#if !defined(VERSION_PAL)
-			OSReport("Register:%s\n", name);
-#endif
-			return;
-		}
-	}
-#if !defined(VERSION_PAL)
-	OSReport("Ssm::Load xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-#endif
-}
-
-/**
- * @note Address: 0x8001F8D8
- * @note Size: 0xA4
- */
-// NONMATCHING: the requests are reached through an object at _2D0
-extern "C" void fn_8001F8D8(XSound* sound)
-{
-	ClearStageBank(sound);
-}
-
-/**
- * @note Address: 0x8001F97C
- * @note Size: 0x2D8
- */
-// NONMATCHING: the strings are in sound.cpp's rodata
-// a negative stage loads the shared samples a step per call, TRUE once they're in
-extern "C" BOOL fn_8001F97C(XSound* sound, s32 stage)
-{
-	if (stage < 0) {
-		switch (sound->mLoadState) {
-		case 0:
-			sound->mSampleReady = 0;
-			if (sound->mFile.ReadAsync("sfx_sample.sem", 0, 0, FALSE) >= 0) {
-				++sound->mLoadState;
-			} else {
-#if defined(VERSION_JP)
-				OSPanic("sound.cpp", 0xED, "%s%s", "", "Read");
-#else
-				OSPanic("sound.cpp", 0xF1, "%s%s", "", "Read");
-#endif
+	CGs* gs = &base->mGs;
+	SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+	SetGsLineWidth(gs->mCurRenderMode, 12, 5);
+	const u32 gold = 0xffb628ff;
+	for (s32 pass = 0; pass < 2; ++pass) {
+		for (u32 i = 0; i < work.visible; ++i) {
+			XObj* object = work.entries[i].object;
+			f32 radius, height;
+			if (!ProjectRoboeyesItem(object, &radius, &height))
+				continue;
+			if (radius < 4)
+				radius = 4;
+			if (height < 4)
+				height = 4;
+			if (radius > height)
+				radius = height;
+			Vec offset = { 0, 0, 0 };
+			f32 x, y, z;
+			object->ProjectOffsetToScreen(&offset, &x, &y, &z, NULL);
+			y -= radius * .5f;
+			const char* name = (const char*)GetItemName(object->GetItem());
+			f32 width        = 32.0f + MeasureGameTextWidth(gs, name, TRUE, 20);
+			const f32 angle  = 2.3561945f;
+			f32 startX = x + radius * (f32)sin(angle), startY = y + radius * (f32)cos(angle);
+			f32 endX = x + 1.7f * radius * (f32)sin(angle), left = endX, right = endX + width;
+			f32 endY = y + 1.7f * radius * (f32)cos(angle);
+			for (u32 j = 0; j < work.used; ++j) {
+				const Label& prior = work.entries[j];
+				f32 dy = endY - prior.y, dx = left - prior.left;
+				if (dy < 0)
+					dy = -dy;
+				if (dx < 0)
+					dx = -dx;
+				if (dy < 32 && dx < (left > prior.left ? prior.width : width)) {
+					endY         = prior.y - 33;
+					f32 distance = endY - startY;
+					if (distance < 0)
+						distance = -distance;
+					if (left == right) {
+						endX = startX - distance * .5f;
+						left = right = endX - width;
+					} else {
+						endX  = startX + distance * .5f;
+						left  = endX;
+						right = endX + width;
+					}
+					// moved above that label, so test against every placed label again
+					j = -1;
+				}
 			}
-			break;
-		case 1: {
-			s32 result = sound->mFile.GetResult();
-			if (result == 0) {
-				++sound->mLoadState;
-			} else if (result < 0) {
-#if defined(VERSION_JP)
-				OSPanic("sound.cpp", 0xF5, "%s%s", "", "Read");
-#else
-				OSPanic("sound.cpp", 0xF9, "%s%s", "", "Read");
-#endif
+			work.entries[work.used].y       = endY;
+			work.entries[work.used].left    = left;
+			work.entries[work.used++].width = width;
+			if (pass == 0) {
+				f32 inner = radius + .1f * radius * (f32)sin(eyes->mPhase), outer = 1.2f * inner;
+				for (s32 k = 0; (f32)k < 16.0f; ++k) {
+					f32 outerAngle = .3926991f * k + eyes->mAngle, innerAngle = .3926991f * (k + 1) + eyes->mAngle;
+					f32 x0 = x + outer * (f32)sin(outerAngle), y0 = y + outer * (f32)cos(outerAngle);
+					f32 x1 = x + inner * (f32)sin(innerAngle), y1 = y + inner * (f32)cos(innerAngle);
+					DrawGsLineSegment(gs, NULL, x0, y0, 0, gold, x1, y1, 0, gold);
+				}
+				DrawGsLineSegment(gs, NULL, startX, startY, 0, gold, endX, endY, 0, gold);
 			}
-			break;
-		}
-		case 2:
-			fn_801E8C18(sound->mFile.mBuffer);
-			HSD_SynthSFXLoad("sfx_sample.ssm", sound->mSampleBank, NULL, 0);
-			++sound->mLoadState;
-			break;
-		case 3:
-			if (!(bool)HSD_SynthSFXGetPendingLoadCount()) {
-				sound->mLoadState   = 0;
-				sound->mSampleReady = 1;
-				return TRUE;
+			if (pass == 1) {
+				DrawHudRoundedRectangle(160, left + width * .5f, endY - 16, width, 16, 1, 1);
+				DrawGsLineSegment(gs, NULL, endX, endY, 0, gold, right, endY, 0, gold);
+				s32 icon    = GetItemIconTextureIndex(object->GetItem());
+				CTpl& tpl   = gGame.mTpl;
+				CTexObj tex = tpl.mTex.Init(&((TPLPalette*)tpl.mBuffer)->descriptorArray[icon], 0);
+				SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+				DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, left + 16, endY - 16, 0, 32, 32, 0, 0, 0);
+				SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+				DrawGsProportionalTextFormat(&base->mGs, -1, name, left + 32, (endY - 20) - 6, 0, 20, 20);
 			}
-			break;
-		default:
-			sound->mLoadState = 0;
-			break;
 		}
-		return FALSE;
+		work.used = 0;
 	}
-	sound->mDefaultTrack = 0;
-	ClearStageBank(sound);
-#if !defined(VERSION_PAL)
-	OSReport(">>>%s\n", stageSfxTable[stage]);
-#endif
-	RegisterName(sound, stageSfxTable[stage]);
-	return TRUE;
+	SetGsLineWidth(gs->mCurRenderMode, 12, 5);
 }
 
-/**
- * @note Address: 0x8001FC54
- * @note Size: 0x68
- */
-extern "C" void fn_8001FC54(XSound* sound)
+extern "C" void ApproachHudValue(f32*, f32*, f32);
+
+struct RoboeyesValue {
+	f32 value, target;
+	void Update()
+	{
+		f32 step = (target - value) * 0.5f;
+		if (step < 0)
+			step = -step;
+		ApproachHudValue(&value, &target, step);
+	}
+};
+
+static inline void DrawRoboeyesLens(CGs* gs, Vec* points, f32 x, f32 y, f32 rx, f32 ry, u32 color, const f32* angles, bool right)
 {
-	InitAudio(sound, 0x700000, 0x60, 0x20);
-	sound->mSampleBank  = HSD_SynthSFXNewBank(0x480000);
-	sound->mStageBank   = HSD_SynthSFXNewBank(0x280000);
-	sound->mLoadState   = 0;
-	sound->mSampleReady = 0;
-	HSD_JObjSetJSoundCallback(fn_8001FCBC);
+	for (s32 i = 0; i < 65; ++i) {
+		f32 a  = .09817477f * i;
+		f32 sx = (f32)sin(a), cy = (f32)cos(a);
+		points[i].x = sx * rx + x;
+		points[i].y = cy * ry + y;
+		points[i].z = 0;
+	}
+	DrawGsLineStrip(gs, points, color, 65);
+	u32 trailColor = color;
+	for (s32 i = 0; i < 10; ++i) {
+		for (s32 j = 0; j < 5; ++j) {
+			f32 a  = HALF_PI * j;
+			f32 sx = (f32)sin(right ? a - angles[i] : a + angles[i]);
+			f32 cy = (f32)cos(right ? a - angles[i] : a + angles[i]);
+			DrawGsLineSegment(gs, NULL, sx * rx + x, cy * ry + y, 0, trailColor, sx * (rx - 10.0f) + x, cy * (ry - 10.0f) + y, 0,
+			                  trailColor);
+		}
+		trailColor = (color & ~0xffU) | (u8)(s32)(0.5f * ((f32)(u8)color * (10 - i) / 10.0f));
+	}
 }
 
-/**
- * @note Address: 0x8001FCBC
- * @note Size: 0x38
- */
-// particle sounds from joint anims
-extern "C" void fn_8001FCBC(s32 sfx)
+void CScrnRoboeyes::Draw(CGs* gs, s32 mode)
 {
-	fn_8001E904(&lbl_8025C400.mSound, sfx, 255);
+	if (!mActive)
+		return;
+	f32 x = mX, y = mY, width = mWidth, height = mHeight;
+	u32 color = ((u32)mColor.r << 24) | ((u32)mColor.g << 16) | ((u32)mColor.b << 8) | (u32)mColor.a;
+	SetGsChannelEnabled(gs, 0, 0);
+	SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gs->mCurRenderMode, 1, 7, 1);
+	SetGsDepthMode(gs->mCurRenderMode, 1, 7, 0);
+	static f32 scanline;
+	if (!gGame.mMenu.mActive) {
+		if (++scanline >= 4.0f)
+			scanline = 0;
+	}
+	SetGsBlendMode(gs->mCurRenderMode, 3, 4, 5, 15);
+	SetGsLineWidth(gs->mCurRenderMode, 12, 5);
+	if (mWidth >= mTargetWidth) {
+		u32 tint = 0x30303000 | (u8)color;
+		for (s32 i = 0; i < 448; i += 4.0f) {
+			f32 line = i + scanline;
+			DrawGsLineSegment(gs, NULL, 0, line, 0, tint, 640, line, 0, tint);
+		}
+	}
+	DrawRoboeyesItemLabels(this, (CBase*)gs);
+	SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+	SetGsLineWidth(gs->mCurRenderMode, 12, 5);
+	static f32 trail[10];
+	for (s32 i = 9; i > 0; --i)
+		trail[i] = trail[i - 1];
+	trail[0]                        = mRotation;
+	static RoboeyesValue separation = { 150, 150 }, lw = { width, width }, lh = { height, height }, rw = { width, width },
+	                     rh = { height, height }, focus = { 0, 0 };
+	static s32 state;
+	// 0: lenses apart at full size until attachment 2 is out, 1: they slide together, 2: the right lens
+	// shrinks to a half and the left to a sixth until it is put away, 3: back to full size, 4: apart again
+	switch (state) {
+	case 0:
+		lw.target = width;
+		lh.target = height;
+		rw.target = width;
+		rh.target = height;
+		if (gGame.GetPlayer()->GetAttachment() == 2)
+			state = 1;
+		break;
+	case 1:
+		separation.target = 0;
+		if (separation.value <= 0.1f) {
+			state        = 2;
+			focus.target = 120;
+		}
+		break;
+	case 2:
+		lw.target = width / 6.0f;
+		lh.target = height / 6.0f;
+		rw.target = width * .5f;
+		rh.target = height * .5f;
+		if (gGame.GetPlayer()->GetAttachment() != 2) {
+			focus.target = 0;
+			state        = 3;
+		}
+		break;
+	case 3:
+		lw.target = width;
+		lh.target = height;
+		rw.target = width;
+		rh.target = height;
+		if (lw.value >= width - 1.0f)
+			state = 4;
+		break;
+	case 4:
+		separation.target = 150;
+		if (separation.value >= 149) {
+			separation.value = 150;
+			state            = 0;
+		}
+		break;
+	}
+	separation.Update();
+	lw.Update();
+	lh.Update();
+	focus.Update();
+	rw.Update();
+	rh.Update();
+	f32 offset = separation.value;
+	f32 rx = .6f * (rw.value * .5f), ry = .6f * (rh.value * .5f);
+	Vec points[65];
+	DrawRoboeyesLens(gs, points, x - offset, y, .6f * (lw.value * .5f), .6f * (lh.value * .5f), color, trail, false);
+	DrawRoboeyesLens(gs, points, x + offset, y, rx, ry, color, trail, true);
+	if (state == 2) {
+		CTexObj tex;
+		static s32 frame;
+		++frame;
+		u32 tint = 0xffffff00 | (u8)color;
+		for (s32 i = 0; i < 4; ++i) {
+			f32 a      = HALF_PI * i;
+			f32 radius = rx + 3.0f * (f32)sin(DEG2RAD * ((frame * 24) % 360));
+			f32 sx = (f32)sin(a), cy = (f32)cos(a);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			CTpl& tpl = gGame.mTpl;
+			tex       = tpl.mTex.Init(&((TPLPalette*)tpl.mBuffer)->descriptorArray[128 - StatusTextureOffset], 0);
+			u16 w = GXGetTexObjWidth(&tex), h = GXGetTexObjHeight(&tex);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, tint, tint, tint, tint, radius * sx + x, radius * cy + y, 0, 1.4f * (1.1f * w), 1.4f * h,
+			                   0, 0, a);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		}
+	}
+	SetGsLineWidth(gs->mCurRenderMode, 12, 5);
 }
 
 /**
  * @note Address: 0x80021474
  * @note Size: 0x8C
  */
-extern "C" void Update__13CScrnRoboeyesFUl(CScrnRoboeyes* eyes, u32 frames)
+void CScrnRoboeyes::Update(u32 frames)
 {
-	Update__9CScrnWipeFUl(eyes, frames);
-	if (eyes->mActive) {
-		eyes->mAngle += 0.02617994f * frames;
-		eyes->mPhase += 0.10471976f * frames;
+	CScrnWipe::Update(frames);
+	if (mActive) {
+		mAngle += 0.02617994f * frames;
+		mPhase += 0.10471976f * frames;
 	}
 }
 
@@ -212,28 +343,28 @@ extern "C" void Update__13CScrnRoboeyesFUl(CScrnRoboeyes* eyes, u32 frames)
  * @note Address: 0x80021500
  * @note Size: 0x70
  */
-extern "C" void Reset__13CScrnRoboeyesFv(CScrnRoboeyes* eyes)
+void CScrnRoboeyes::Reset()
 {
-	eyes->mActive = FALSE;
-	eyes->mX = eyes->mY = 0.0f;
-	eyes->mWidth = eyes->mHeight = 0.0f;
-	eyes->mTargetWidth = eyes->mTargetHeight = 0.0f;
-	eyes->mSpeedWidth = eyes->mSpeedHeight = 0.0f;
-	eyes->mColor.r                         = 0.0f;
-	eyes->mColor.g                         = 0.0f;
-	eyes->mColor.b                         = 0.0f;
-	eyes->mColor.a                         = 0.0f;
-	eyes->mTarget.r                        = 0.0f;
-	eyes->mTarget.g                        = 0.0f;
-	eyes->mTarget.b                        = 0.0f;
-	eyes->mTarget.a                        = 0.0f;
-	eyes->mSpeed.r                         = 0.0f;
-	eyes->mSpeed.g                         = 0.0f;
-	eyes->mSpeed.b                         = 0.0f;
-	eyes->mSpeed.a                         = 0.0f;
-	eyes->_5C = eyes->_60 = 0.0f;
-	eyes->mAngle          = 0.0f;
-	eyes->mPhase          = 0.0f;
+	mActive = FALSE;
+	mX = mY = 0.0f;
+	mWidth = mHeight = 0.0f;
+	mTargetWidth = mTargetHeight = 0.0f;
+	mSpeedWidth = mSpeedHeight = 0.0f;
+	mColor.r                   = 0.0f;
+	mColor.g                   = 0.0f;
+	mColor.b                   = 0.0f;
+	mColor.a                   = 0.0f;
+	mTarget.r                  = 0.0f;
+	mTarget.g                  = 0.0f;
+	mTarget.b                  = 0.0f;
+	mTarget.a                  = 0.0f;
+	mSpeed.r                   = 0.0f;
+	mSpeed.g                   = 0.0f;
+	mSpeed.b                   = 0.0f;
+	mSpeed.a                   = 0.0f;
+	mRotation = mSpeedRotation = 0.0f;
+	mAngle                     = 0.0f;
+	mPhase                     = 0.0f;
 }
 
 // steps a value towards its target, it stops there
@@ -252,6 +383,201 @@ static inline void StepChannel(f32& current, f32& target, f32& speed, u32 frames
 	}
 }
 
+static inline void DrawWipeQuad(CGs* gs, const WipeQuad& shape, u32 color)
+{
+	const Vec* quad = shape.vertices;
+	DrawGsVertexQuad(gs, quad[0].x, quad[0].y, quad[0].z, color, quad[1].x, quad[1].y, quad[1].z, color, quad[2].x, quad[2].y, quad[2].z,
+	                 color, quad[3].x, quad[3].y, quad[3].z, color);
+}
+
+static inline void BeginWipe(CGs* gs, s32 mode)
+{
+	if (mode) {
+		static const Vec corners[4] = { { 0, 0, -1 }, { 640, 0, -1 }, { 640, 448, -1 }, { 0, 448, -1 } };
+		WipeQuad quad               = { { corners[0], corners[1], corners[2], corners[3] } };
+		SetGsDepthMode(gs->mCurRenderMode, 1, 7, 1);
+		DrawWipeQuad(gs, quad, 0);
+	}
+	SetGsAlphaCompare(gs->mCurRenderMode, 7, 0, 0, 7, 0xFF);
+	SetGsChannelEnabled(gs, 0, 0);
+	SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gs->mCurRenderMode, 1, 7, 1);
+}
+
+static inline void FinishWipe(const CScrnWipe* wipe, CGs* gs, s32 mode)
+{
+	static const Vec corners[4] = { { 0, 0, 0 }, { 640, 0, 0 }, { 640, 448, 0 }, { 0, 448, 0 } };
+	WipeQuad quad               = { { corners[0], corners[1], corners[2], corners[3] } };
+	u32 color = ((u32)wipe->mColor.r << 24) | ((u32)wipe->mColor.g << 16) | ((u32)wipe->mColor.b << 8) | (u32)wipe->mColor.a;
+	if (mode)
+		SetGsDepthMode(gs->mCurRenderMode, 1, 1, 1);
+	else
+		SetGsDepthMode(gs->mCurRenderMode, 1, 1, 0);
+	DrawWipeQuad(gs, quad, color);
+	SetGsAlphaCompare(gs->mCurRenderMode, 4, 0, 0, 3, 0xFF);
+	SetGsDepthMode(gs->mCurRenderMode, 1, 3, 0);
+}
+
+static inline void BeginWipeMask(CGs* gs, f32 opacity)
+{
+	static const Vec corners[4] = { { 0, 0, 0 }, { 640, 0, 0 }, { 640, 448, 0 }, { 0, 448, 0 } };
+	WipeQuad quad               = { { corners[0], corners[1], corners[2], corners[3] } };
+	SetGsDestinationAlpha(gs->mCurRenderMode, 0, 0);
+	SetGsColorUpdate(gs->mCurRenderMode, 0);
+	SetGsAlphaUpdate(gs->mCurRenderMode, 1);
+	SetGsBlendMode(gs->mCurRenderMode, 0, 4, 5, 15);
+	SetGsAlphaCompare(gs->mCurRenderMode, 7, 0, 0, 7, 255);
+	SetGsDepthMode(gs->mCurRenderMode, 0, 7, 0);
+	SetGsTevMode(gs->mCurTevStage, 4);
+	f32 alpha = 255.0f - opacity;
+	DrawWipeQuad(gs, quad, 0xFF000000 | (u32)alpha);
+	SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+	SetGsAlphaCompare(gs->mCurRenderMode, 4, (s32)alpha, 0, 3, 255);
+}
+
+static inline void EndWipeMask(CGs* gs)
+{
+	SetGsColorUpdate(gs->mCurRenderMode, 1);
+	SetGsAlphaUpdate(gs->mCurRenderMode, 0);
+	SetGsBlendMode(gs->mCurRenderMode, 1, 7, 6, 15);
+	SetGsAlphaCompare(gs->mCurRenderMode, 4, 0, 0, 3, 255);
+	SetGsDepthMode(gs->mCurRenderMode, 1, 7, 1);
+}
+
+/**
+ * @note Address: 0x80021570
+ * @note Size: 0x528
+ */
+void CScrnWipeCustom::Draw(CGs* gs, s32 mode)
+{
+	if (!mActive)
+		return;
+	BeginWipe(gs, mode);
+	for (s32 row = 0; row < 448.0f / 40.0f; ++row) {
+		f32 y = (f32)row * 40.0f + 20.0f;
+		for (s32 col = 0; col < 640.0f / 40.0f; ++col) {
+			f32 x = (f32)col * 40.0f + 20.0f;
+			f32 extra;
+			if (col < 8.0f)
+				extra = 0.2f * col;
+			else
+				extra = 0.2f * (16.0f - col);
+			DrawGsCircle(gs, 16, 0, 0, x, y, 0.0f, mWidth + mWidth * extra, mHeight + mHeight * extra, 0.0f, 0.0f, 0.0f);
+		}
+	}
+	FinishWipe(this, gs, mode);
+}
+
+/**
+ * @note Address: 0x80021A98
+ * @note Size: 0x644
+ */
+void CScrnWipeTex::Draw(CGs* gs, s32 mode)
+{
+	if (!mActive)
+		return;
+	BeginWipe(gs, mode);
+	BeginWipeMask(gs, mColor.a);
+	SetGsTevMode(gs->mCurTevStage, 0);
+	SetGsDepthCompareBeforeTexture(gs->mCurRenderMode, 0);
+	DrawGsTexturedQuad(gs, &mTex, -1, -1, -1, -1, mX, mY, 0.0f, mWidth, mHeight, 0.0f, 0.0f, mRotation);
+	SetGsDepthCompareBeforeTexture(gs->mCurRenderMode, 1);
+	EndWipeMask(gs);
+	SetGsTevMode(gs->mCurTevStage, 4);
+	FinishWipe(this, gs, mode);
+}
+
+static inline void SetTilePoint(Vec& v, f32 x, f32 y)
+{
+	v.x = x;
+	v.y = y;
+}
+
+static inline void SetTileEdge(Vec* vertices, f32 x, f32 y, f32 outerX, f32 outerY, f32 nextX, f32 nextY)
+{
+	SetTilePoint(vertices[0], x, y);
+	SetTilePoint(vertices[1], outerX, outerY);
+	SetTilePoint(vertices[2], nextX, nextY);
+	SetTilePoint(vertices[3], x, y);
+}
+
+/**
+ * @note Address: 0x800220DC
+ * @note Size: 0x7C0
+ */
+void CScrnWipeTile::Draw(CGs* gs, s32 mode)
+{
+	if (!mActive)
+		return;
+	BeginWipe(gs, mode);
+	BeginWipeMask(gs, mColor.a);
+	f32 edgeWidth = 24.0f;
+	if (edgeWidth > mWidth)
+		edgeWidth = mWidth;
+	f32 edgeHeight = 24.0f;
+	if (edgeHeight > mHeight)
+		edgeHeight = mHeight;
+	DrawGsQuad(gs, 255, 255, 255, 255, mX, mY, 0.0f, mWidth, mHeight, 0.0f, 0.0f, mRotation);
+
+	Vec vertices[18] = {};
+	const f32 dx = edgeWidth * 0.5f, dy = edgeHeight * 0.5f;
+	f32 left = -mWidth * 0.5f, right = mWidth * 0.5f;
+	f32 outerLeft = -mWidth * 0.5f - dx, outerRight = mWidth * 0.5f + dx;
+	f32 top = -mHeight * 0.5f, bottom = mHeight * 0.5f;
+	f32 outerTop = -mHeight * 0.5f - dy, outerBottom = mHeight * 0.5f + dy;
+	SetTileEdge(vertices, left, top, outerLeft, outerTop, outerRight, outerTop);
+	SetTileEdge(vertices + 4, right, top, outerRight, outerTop, outerRight, outerBottom);
+	SetTileEdge(vertices + 8, right, bottom, outerRight, outerBottom, outerLeft, outerBottom);
+	SetTileEdge(vertices + 12, left, bottom, outerLeft, outerBottom, outerLeft, outerTop);
+	SetTilePoint(vertices[16], left, top);
+	SetTilePoint(vertices[17], outerLeft, outerTop);
+	u32 colors[18] = { 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0 };
+	Mtx translation, rotation, transform;
+	PSMTXTrans(translation, mX, mY, 0.0f);
+	PSMTXRotRad(rotation, 'z', -mRotation);
+	PSMTXConcat(translation, rotation, transform);
+	PSMTXMultVecArray(transform, vertices, vertices, 18);
+	DrawGsColoredTrianglePrimitive(gs, GX_TRIANGLESTRIP, gs->mCamera->mViewMtx, vertices, colors, 18);
+	EndWipeMask(gs);
+	FinishWipe(this, gs, mode);
+}
+
+/**
+ * @note Address: 0x8002289C
+ * @note Size: 0x794
+ */
+void CScrnWipe::Draw(CGs* gs, s32 mode)
+{
+	if (!mActive)
+		return;
+	BeginWipe(gs, mode);
+	BeginWipeMask(gs, mColor.a);
+	f32 edgeWidth = 32.0f;
+	if (edgeWidth > mWidth)
+		edgeWidth = mWidth;
+	f32 edgeHeight = 32.0f * (mHeight / mWidth);
+	if (edgeHeight > mHeight)
+		edgeHeight = mHeight;
+
+	DrawGsCircle(gs, 64, 255, 255, mX, mY, 0.0f, mWidth, mHeight, 0.0f, 0.0f, 0.0f);
+	PrimVertex vertices[130];
+	for (s32 i = 0; i < 65; i++) {
+		f32 angle     = (TWO_PI / 64.0f) * i;
+		PrimVertex* v = &vertices[2 * i];
+		v[0].pos.x    = mX - mWidth * 0.5f * (f32)sin(angle);
+		v[0].pos.y    = mY + mHeight * 0.5f * (f32)cos(angle);
+		v[0].pos.z    = 0.0f;
+		v[0].color    = 255;
+		v[1].pos.x    = mX - (mWidth + edgeWidth) * 0.5f * (f32)sin(angle);
+		v[1].pos.y    = mY + (mHeight + edgeHeight) * 0.5f * (f32)cos(angle);
+		v[1].pos.z    = 0.0f;
+		v[1].color    = 0;
+	}
+	DrawGsTriangleVertices(gs, GX_TRIANGLESTRIP, gs->mCamera->mViewMtx, vertices, 130);
+	EndWipeMask(gs);
+	FinishWipe(this, gs, mode);
+}
+
 static inline bool SizeStopped(CScrnWipe* wipe)
 {
 	return 0.0f == wipe->mSpeedWidth && 0.0f == wipe->mSpeedHeight;
@@ -263,22 +589,22 @@ static inline bool SizeStopped(CScrnWipe* wipe)
  */
 // a wipe's update: it turns, sizes its hole and fades its color, and goes off once the size
 // stops when it was asked to
-extern "C" void Update__9CScrnWipeFUl(CScrnWipe* wipe, u32 frames)
+void CScrnWipe::Update(u32 frames)
 {
-	if (!wipe->mActive) {
+	if (!mActive) {
 		return;
 	}
-	if (0.0f != wipe->_60) {
-		wipe->_5C = fmod(wipe->_60 * frames + wipe->_5C, TWO_PI);
+	if (0.0f != mSpeedRotation) {
+		mRotation = fmod(mSpeedRotation * frames + mRotation, TWO_PI);
 	}
-	StepChannel(wipe->mWidth, wipe->mTargetWidth, wipe->mSpeedWidth, frames);
-	StepChannel(wipe->mHeight, wipe->mTargetHeight, wipe->mSpeedHeight, frames);
-	StepChannel(wipe->mColor.r, wipe->mTarget.r, wipe->mSpeed.r, frames);
-	StepChannel(wipe->mColor.g, wipe->mTarget.g, wipe->mSpeed.g, frames);
-	StepChannel(wipe->mColor.b, wipe->mTarget.b, wipe->mSpeed.b, frames);
-	StepChannel(wipe->mColor.a, wipe->mTarget.a, wipe->mSpeed.a, frames);
-	if (wipe->mHideWhenDone && SizeStopped(wipe)) {
-		wipe->mActive = FALSE;
+	StepChannel(mWidth, mTargetWidth, mSpeedWidth, frames);
+	StepChannel(mHeight, mTargetHeight, mSpeedHeight, frames);
+	StepChannel(mColor.r, mTarget.r, mSpeed.r, frames);
+	StepChannel(mColor.g, mTarget.g, mSpeed.g, frames);
+	StepChannel(mColor.b, mTarget.b, mSpeed.b, frames);
+	StepChannel(mColor.a, mTarget.a, mSpeed.a, frames);
+	if (mHideWhenDone && SizeStopped(this)) {
+		mActive = FALSE;
 	}
 }
 
@@ -287,8 +613,9 @@ extern "C" void Update__9CScrnWipeFUl(CScrnWipe* wipe, u32 frames)
  * @note Size: 0x2B4
  */
 // starts a wipe, the color and the hole size both go from the first values to the second
-extern "C" void fn_80023438(CScrnWipe* wipe, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, f32 x, f32 y, f32 width0, f32 height0,
-                            f32 width1, f32 height1, f32 time, u8 a1, BOOL hideWhenDone)
+// NONMATCHING: regalloc
+extern "C" void StartScreenWipeColorTransition(CScrnWipe* wipe, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, f32 x, f32 y, f32 width0,
+                                               f32 height0, f32 width1, f32 height1, f32 time, u8 a1, BOOL hideWhenDone)
 {
 	wipe->mActive       = TRUE;
 	wipe->mHideWhenDone = hideWhenDone;
@@ -338,8 +665,8 @@ extern "C" void fn_80023438(CScrnWipe* wipe, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, 
  * @note Size: 0x1B8
  */
 // the same with one color
-extern "C" void fn_800236EC(CScrnWipe* wipe, u8 r, u8 g, u8 b, u8 a, BOOL hideWhenDone, f32 x, f32 y, f32 width0, f32 height0, f32 width1,
-                            f32 height1, f32 time)
+extern "C" void StartScreenWipe(CScrnWipe* wipe, u8 r, u8 g, u8 b, u8 a, BOOL hideWhenDone, f32 x, f32 y, f32 width0, f32 height0,
+                                f32 width1, f32 height1, f32 time)
 {
 	wipe->mActive       = TRUE;
 	wipe->mHideWhenDone = hideWhenDone;
@@ -377,26 +704,26 @@ extern "C" void fn_800236EC(CScrnWipe* wipe, u8 r, u8 g, u8 b, u8 a, BOOL hideWh
  * @note Address: 0x800238A4
  * @note Size: 0x68
  */
-extern "C" void Reset__9CScrnWipeFv(CScrnWipe* wipe)
+void CScrnWipe::Reset()
 {
-	wipe->mActive = FALSE;
-	wipe->mX = wipe->mY = 0.0f;
-	wipe->mWidth = wipe->mHeight = 0.0f;
-	wipe->mTargetWidth = wipe->mTargetHeight = 0.0f;
-	wipe->mSpeedWidth = wipe->mSpeedHeight = 0.0f;
-	wipe->mColor.r                         = 0.0f;
-	wipe->mColor.g                         = 0.0f;
-	wipe->mColor.b                         = 0.0f;
-	wipe->mColor.a                         = 0.0f;
-	wipe->mTarget.r                        = 0.0f;
-	wipe->mTarget.g                        = 0.0f;
-	wipe->mTarget.b                        = 0.0f;
-	wipe->mTarget.a                        = 0.0f;
-	wipe->mSpeed.r                         = 0.0f;
-	wipe->mSpeed.g                         = 0.0f;
-	wipe->mSpeed.b                         = 0.0f;
-	wipe->mSpeed.a                         = 0.0f;
-	wipe->_5C = wipe->_60 = 0.0f;
+	mActive = FALSE;
+	mX = mY = 0.0f;
+	mWidth = mHeight = 0.0f;
+	mTargetWidth = mTargetHeight = 0.0f;
+	mSpeedWidth = mSpeedHeight = 0.0f;
+	mColor.r                   = 0.0f;
+	mColor.g                   = 0.0f;
+	mColor.b                   = 0.0f;
+	mColor.a                   = 0.0f;
+	mTarget.r                  = 0.0f;
+	mTarget.g                  = 0.0f;
+	mTarget.b                  = 0.0f;
+	mTarget.a                  = 0.0f;
+	mSpeed.r                   = 0.0f;
+	mSpeed.g                   = 0.0f;
+	mSpeed.b                   = 0.0f;
+	mSpeed.a                   = 0.0f;
+	mRotation = mSpeedRotation = 0.0f;
 }
 
 static inline bool HasColor(CScrnColor* color)
@@ -408,17 +735,17 @@ static inline bool HasColor(CScrnColor* color)
  * @note Address: 0x8002390C
  * @note Size: 0x22C
  */
-// NONMATCHING: the quad template's address is loaded first
-extern "C" void fn_8002390C(CScrnColor* color, CGs* gs)
+// NONMATCHING: retail loads the corners' address before it tests the color
+extern "C" void DrawScreenColorOverlay(CScrnColor* color, CGs* gs)
 {
 	if (HasColor(color)) {
-		Vec quad[4] = { { 0.0f, 0.0f, 0.0f }, { 640.0f, 0.0f, 0.0f }, { 640.0f, 448.0f, 0.0f }, { 0.0f, 448.0f, 0.0f } };
-		u32 packed  = ((u32)color->mColor.r << 24) | ((u32)color->mColor.g << 16) | ((u32)color->mColor.b << 8) | (u32)color->mColor.a;
-		fn_80199AB0(gs, 0, 0);
-		fn_8019B56C(gs->mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(gs->mCurRenderMode, 1, 1, 0);
-		fn_80198614(gs, quad[0].x, quad[0].y, quad[0].z, packed, quad[1].x, quad[1].y, quad[1].z, packed, quad[2].x, quad[2].y, quad[2].z,
-		            packed, quad[3].x, quad[3].y, quad[3].z, packed);
+		static const Vec corners[4] = { { 0, 0, 0 }, { 640, 0, 0 }, { 640, 448, 0 }, { 0, 448, 0 } };
+		WipeQuad quad               = { { corners[0], corners[1], corners[2], corners[3] } };
+		u32 packed = ((u32)color->mColor.r << 24) | ((u32)color->mColor.g << 16) | ((u32)color->mColor.b << 8) | (u32)color->mColor.a;
+		SetGsChannelEnabled(gs, 0, 0);
+		SetGsBlendMode(gs->mCurRenderMode, 1, 4, 5, 15);
+		SetGsDepthMode(gs->mCurRenderMode, 1, 1, 0);
+		DrawWipeQuad(gs, quad, packed);
 	}
 }
 
@@ -426,7 +753,7 @@ extern "C" void fn_8002390C(CScrnColor* color, CGs* gs)
  * @note Address: 0x80023B38
  * @note Size: 0x23C
  */
-extern "C" void fn_80023B38(CScrnColor* color, u32 frames)
+extern "C" void UpdateScreenFade(CScrnColor* color, u32 frames)
 {
 	StepChannel(color->mColor.r, color->mTarget.r, color->mSpeed.r, frames);
 	StepChannel(color->mColor.g, color->mTarget.g, color->mSpeed.g, frames);
@@ -438,7 +765,8 @@ extern "C" void fn_80023B38(CScrnColor* color, u32 frames)
  * @note Address: 0x80023D74
  * @note Size: 0x16C
  */
-extern "C" void fn_80023D74(CScrnColor* color, u8 r, u8 g, u8 b, u8 a, f32 time)
+// NONMATCHING: regalloc
+extern "C" void SetScreenFadeTargetColor(CScrnColor* color, u8 r, u8 g, u8 b, u8 a, f32 time)
 {
 	color->mTarget.r = r;
 	color->mTarget.g = g;
@@ -470,7 +798,8 @@ extern "C" void fn_80023D74(CScrnColor* color, u8 r, u8 g, u8 b, u8 a, f32 time)
  * @note Address: 0x80023EE0
  * @note Size: 0x20C
  */
-extern "C" void fn_80023EE0(CScrnColor* color, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, u8 a1, f32 time)
+// NONMATCHING: regalloc
+extern "C" void StartScreenFade(CScrnColor* color, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1, u8 g1, u8 b1, u8 a1, f32 time)
 {
 	color->mColor.r  = r0;
 	color->mColor.g  = g0;
@@ -502,7 +831,7 @@ extern "C" void fn_80023EE0(CScrnColor* color, u8 r0, u8 g0, u8 b0, u8 a0, u8 r1
  * @note Address: 0x800240EC
  * @note Size: 0x1BC
  */
-extern "C" void fn_800240EC(CScrnQuake* quake, u32 frames)
+extern "C" void UpdateScreenShake(CScrnQuake* quake, u32 frames)
 {
 	StepChannel(quake->mShake[0].x, quake->mShake[1].x, quake->mShake[2].x, frames);
 	StepChannel(quake->mShake[0].y, quake->mShake[1].y, quake->mShake[2].y, frames);
@@ -521,7 +850,7 @@ static inline void CopyVector(CVec& destination, const Vec& source)
  * @note Address: 0x800242A8
  * @note Size: 0x184
  */
-extern "C" void fn_800242A8(CScrnQuake* quake, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 time)
+extern "C" void StartScreenShake(CScrnQuake* quake, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 time)
 {
 	quake->mShake[0].Set(x0, y0, z0);
 	quake->mShake[0].x = Abs(quake->mShake[0].x);
@@ -568,7 +897,7 @@ CVec CVec::operator-(Vec other) const
  * @note Address: 0x80024524
  * @note Size: 0x34
  */
-extern "C" void fn_80024524(CScrnQuake* quake)
+extern "C" void ResetScreenShake(CScrnQuake* quake)
 {
 	quake->mShake[0].Set(0.0f, 0.0f, 0.0f);
 	quake->mShake[1].Set(0.0f, 0.0f, 0.0f);
@@ -602,15 +931,15 @@ void CPtclDust3::Draw(CGs* gs)
 	u32 edgeColor = mColor & 0xFFFFFF00;
 	u32 color     = (mColor & 0xFFFFFF00) | ((u32)(s32)((f32)(mColor & 0xFF) * mAlpha) & 0xFF);
 	if (mTex != NULL) {
-		fn_8019AFA0(gs->mCurTevStage, 0);
+		SetGsTevMode(gs->mCurTevStage, 0);
 		Vec rot = { 0.0f, 0.0f, 0.0f };
 		rot.z   = mAngle;
-		fn_80197800(gs, mTex, color, color, color, color, mPos.x, mPos.y, mPos.z, width, height, rot.x, rot.y, rot.z);
-		fn_8019AFA0(gs->mCurTevStage, 4);
+		DrawGsTexturedQuad(gs, mTex, color, color, color, color, mPos.x, mPos.y, mPos.z, width, height, rot.x, rot.y, rot.z);
+		SetGsTevMode(gs->mCurTevStage, 4);
 	} else {
 		Vec rot = { 0.0f, 0.0f, 0.0f };
 		rot.z   = mAngle;
-		fn_80198258(gs, 8, color, edgeColor, mPos.x, mPos.y, mPos.z, width, height, rot.x, rot.y, rot.z);
+		DrawGsCircle(gs, 8, color, edgeColor, mPos.x, mPos.y, mPos.z, width, height, rot.x, rot.y, rot.z);
 	}
 }
 
@@ -657,19 +986,19 @@ void CPtclDust2::Draw(CGs* gs)
 	u32 color  = (mColor & 0xFFFFFF00) | ((u32)(s32)((f32)(mColor & 0xFF) * mAlpha) & 0xFF);
 	f32 radius = 1.5f * (mSize.x > mSize.y ? mSize.x : mSize.y);
 	if (mTex != NULL) {
-		fn_8019AFA0(gs->mCurTevStage, 0);
+		SetGsTevMode(gs->mCurTevStage, 0);
 		Vec rot = { 0.0f, 0.0f, 0.0f };
 		rot.z   = mAngle;
-		fn_80197800(gs, mTex, color, color, color, color, mPos.x, mPos.y, mPos.z, radius, radius, rot.x, rot.y, rot.z);
-		fn_8019AFA0(gs->mCurTevStage, 4);
+		DrawGsTexturedQuad(gs, mTex, color, color, color, color, mPos.x, mPos.y, mPos.z, radius, radius, rot.x, rot.y, rot.z);
+		SetGsTevMode(gs->mCurTevStage, 4);
 	} else {
 		// two triangles make a star
 		Vec first = { 0.0f, 0.0f, 0.0f };
 		first.z   = mAngle;
-		fn_80198258(gs, 3, color, color, mPos.x, mPos.y, mPos.z, radius, radius, first.x, first.y, first.z);
+		DrawGsCircle(gs, 3, color, color, mPos.x, mPos.y, mPos.z, radius, radius, first.x, first.y, first.z);
 		Vec second = { 0.0f, 0.0f, 0.0f };
 		second.z   = THIRD_PI + mAngle;
-		fn_80198258(gs, 3, color, color, mPos.x, mPos.y, mPos.z, radius, radius, second.x, second.y, second.z);
+		DrawGsCircle(gs, 3, color, color, mPos.x, mPos.y, mPos.z, radius, radius, second.x, second.y, second.z);
 	}
 }
 
@@ -703,20 +1032,20 @@ void CPtclDust2::Update(u32 frames)
  * @note Address: 0x80024CA0
  * @note Size: 0xE0
  */
-extern "C" void fn_80024CA0(CPtcl* ptcl)
+extern "C" void DrawParticlePool(CPtcl* ptcl)
 {
-	CGs* gs = &lbl_8025C400.mGs;
-	fn_80199AB0(gs, 0, 0);
-	fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-	fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 3, 0);
-	lbl_8025C400.mGs._29C = 1;
+	CGs* gs = &gGame.mGs;
+	SetGsChannelEnabled(gs, 0, 0);
+	SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
+	gGame.mGs.mBillboardEnabled = 1;
 	for (s32 i = 0; i < ptcl->mCount; ++i) {
 		CPtclOne* one = ptcl->Get(i);
 		if (one->mActive != FALSE) {
-			one->Draw(&lbl_8025C400.mGs);
+			one->Draw(&gGame.mGs);
 		}
 	}
-	lbl_8025C400.mGs._29C = 0;
+	gGame.mGs.mBillboardEnabled = 0;
 }
 
 /**
@@ -731,7 +1060,7 @@ void CPtclOne::Draw(CGs* gs)
  * @note Address: 0x80024D84
  * @note Size: 0x84
  */
-extern "C" void fn_80024D84(CPtcl* ptcl, u32 frames)
+extern "C" void UpdateParticlePool(CPtcl* ptcl, u32 frames)
 {
 	for (s32 i = 0; i < ptcl->mCount; ++i) {
 		CPtclOne* one = ptcl->Get(i);
@@ -753,7 +1082,7 @@ void CPtclOne::Update(u32 frames)
  * @note Address: 0x80024E0C
  * @note Size: 0x44
  */
-extern "C" void fn_80024E0C(CPtcl* ptcl)
+extern "C" void ClearParticlePool(CPtcl* ptcl)
 {
 	for (s32 i = 0; i < ptcl->mCount; ++i) {
 		CPtclOne* one = ptcl->Get(i);
@@ -768,7 +1097,7 @@ extern "C" void fn_80024E0C(CPtcl* ptcl)
  * @note Address: 0x80024E50
  * @note Size: 0x15C
  */
-extern "C" CPtclOne* fn_80024E50(CPtcl* ptcl, const Vec* pos, const Vec* size, const Vec* vel, u32 color)
+extern "C" CPtclOne* SpawnPoolParticle(CPtcl* ptcl, const Vec* pos, const Vec* size, const Vec* vel, u32 color)
 {
 	for (s32 i = 0; i < ptcl->mCount; ++i) {
 		CPtclOne* one = ptcl->Get(i);
@@ -793,7 +1122,7 @@ extern "C" CPtclOne* fn_80024E50(CPtcl* ptcl, const Vec* pos, const Vec* size, c
  * @note Address: 0x80024FAC
  * @note Size: 0x84
  */
-extern "C" void fn_80024FAC(CPtcl* ptcl, void* ptcls, s32 stride, s32 count)
+extern "C" void InitParticlePool(CPtcl* ptcl, void* ptcls, s32 stride, s32 count)
 {
 	ptcl->mPtcls   = (u8*)ptcls;
 	ptcl->mStride  = stride;
@@ -809,13 +1138,13 @@ extern "C" void fn_80024FAC(CPtcl* ptcl, void* ptcls, s32 stride, s32 count)
  * @note Size: 0xD8
  */
 // Cursor's SetScaleY
-extern "C" void SetScaleY__6CursorFfl(Cursor* cursor, f32 y, s32 force)
+void Cursor::SetScaleY(f32 y, s32 force)
 {
-	y                            = -y;
-	cursor->mMoveScale.y         = y;
-	cursor->mMoveScale.mTarget.y = y;
-	if (cursor->mJObj != NULL) {
-		cursor->CJObj::SetScaleY(y, force);
+	y                    = -y;
+	mMoveScale.y         = y;
+	mMoveScale.mTarget.y = y;
+	if (mJObj != NULL) {
+		CJObj::SetScaleY(y, force);
 	}
 }
 
@@ -824,29 +1153,29 @@ extern "C" void SetScaleY__6CursorFfl(Cursor* cursor, f32 y, s32 force)
  * @note Size: 0x190
  */
 // Cursor's SetScale(scale)
-extern "C" void SetScale__6CursorFfl(Cursor* cursor, f32 scale, s32 force)
+void Cursor::SetScale(f32 scale, s32 force)
 {
 	f32 x = scale;
 	f32 y = -scale;
 	f32 z = scale;
 
-	cursor->mMoveScale.x         = x;
-	cursor->mMoveScale.y         = y;
-	cursor->mMoveScale.z         = z;
-	cursor->mMoveScale.mTarget.x = x;
-	cursor->mMoveScale.mTarget.y = y;
-	cursor->mMoveScale.mTarget.z = z;
-	if (cursor->mJObj) {
+	mMoveScale.x         = x;
+	mMoveScale.y         = y;
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.x = x;
+	mMoveScale.mTarget.y = y;
+	mMoveScale.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(cursor->mScale != v)) {
+			if (!(mScale != v)) {
 				return;
 			}
 		}
-		cursor->mScale.x = x;
-		cursor->mScale.y = y;
-		cursor->mScale.z = z;
-		HSD_JObjSetScale(cursor->mJObj, &cursor->mScale);
+		mScale.x = x;
+		mScale.y = y;
+		mScale.z = z;
+		HSD_JObjSetScale(mJObj, &mScale);
 	}
 }
 
@@ -855,27 +1184,27 @@ extern "C" void SetScale__6CursorFfl(Cursor* cursor, f32 scale, s32 force)
  * @note Size: 0x190
  */
 // Cursor's SetScale(x, y, z)
-extern "C" void SetScale__6CursorFfffl(Cursor* cursor, f32 x, f32 y, f32 z, s32 force)
+void Cursor::SetScale(f32 x, f32 y, f32 z, s32 force)
 {
 	y = -y;
 
-	cursor->mMoveScale.x         = x;
-	cursor->mMoveScale.y         = y;
-	cursor->mMoveScale.z         = z;
-	cursor->mMoveScale.mTarget.x = x;
-	cursor->mMoveScale.mTarget.y = y;
-	cursor->mMoveScale.mTarget.z = z;
-	if (cursor->mJObj) {
+	mMoveScale.x         = x;
+	mMoveScale.y         = y;
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.x = x;
+	mMoveScale.mTarget.y = y;
+	mMoveScale.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(cursor->mScale != v)) {
+			if (!(mScale != v)) {
 				return;
 			}
 		}
-		cursor->mScale.x = x;
-		cursor->mScale.y = y;
-		cursor->mScale.z = z;
-		HSD_JObjSetScale(cursor->mJObj, &cursor->mScale);
+		mScale.x = x;
+		mScale.y = y;
+		mScale.z = z;
+		HSD_JObjSetScale(mJObj, &mScale);
 	}
 }
 
@@ -884,29 +1213,29 @@ extern "C" void SetScale__6CursorFfffl(Cursor* cursor, f32 x, f32 y, f32 z, s32 
  * @note Size: 0x19C
  */
 // Cursor's SetScale(v)
-extern "C" void SetScale__6CursorFRC3Vecl(Cursor* cursor, const Vec& scale, s32 force)
+void Cursor::SetScale(const Vec& scale, s32 force)
 {
 	f32 x = scale.x;
 	f32 y = -scale.y;
 	f32 z = scale.z;
 
-	cursor->mMoveScale.x         = x;
-	cursor->mMoveScale.y         = y;
-	cursor->mMoveScale.z         = z;
-	cursor->mMoveScale.mTarget.x = x;
-	cursor->mMoveScale.mTarget.y = y;
-	cursor->mMoveScale.mTarget.z = z;
-	if (cursor->mJObj) {
+	mMoveScale.x         = x;
+	mMoveScale.y         = y;
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.x = x;
+	mMoveScale.mTarget.y = y;
+	mMoveScale.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(cursor->mScale != v)) {
+			if (!(mScale != v)) {
 				return;
 			}
 		}
-		cursor->mScale.x = x;
-		cursor->mScale.y = y;
-		cursor->mScale.z = z;
-		HSD_JObjSetScale(cursor->mJObj, &cursor->mScale);
+		mScale.x = x;
+		mScale.y = y;
+		mScale.z = z;
+		HSD_JObjSetScale(mJObj, &mScale);
 	}
 }
 
@@ -926,19 +1255,18 @@ static inline s32 AnimationGroup(XObj* object, s32 id)
  * @note Size: 0x38
  */
 // Cursor's SetAnim, keeps the classical scale
-extern "C" void SetAnim__6CursorFliPvPvPvffff(Cursor* object, s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim,
-                                              f32 frame, f32 rate, f32 blend, f32 blendRate)
+void Cursor::SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend, f32 blendRate)
 {
-	SetAnim__4XObjFliPvPvPvffff(object, id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
-	HSD_JObjSetFlags(object->mJObj, CLASSICAL_SCALE);
+	XObj::SetAnim(id, force, jointAnim, matAnim, shapeAnim, frame, rate, blend, blendRate);
+	HSD_JObjSetFlags(mJObj, CLASSICAL_SCALE);
 }
 
 /**
  * @note Address: 0x8002571C
  * @note Size: 0x4
  */
-// XObj's vf94
-extern "C" void vf94__4XObjFv()
+// XObj's ResetForNewGame
+void XObj::ResetForNewGame()
 {
 }
 
@@ -946,18 +1274,18 @@ extern "C" void vf94__4XObjFv()
  * @note Address: 0x80025720
  * @note Size: 0x24
  */
-// XObj's vfA0
-extern "C" BOOL vfA0__4XObjFPCc(XObj* object, const char* path)
+// XObj's LoadAnimationArchiveAsync
+BOOL XObj::LoadAnimationArchiveAsync(const char* path)
 {
-	return fn_8008A38C(&object->mAnim, path);
+	return LoadJointAnimationAsync(&mAnim, path);
 }
 
 /**
  * @note Address: 0x80025744
  * @note Size: 0x4
  */
-// XObj's vfCC
-extern "C" void vfCC__4XObjFv()
+// XObj's DrawDebugStatus
+void XObj::DrawDebugStatus()
 {
 }
 
@@ -966,23 +1294,23 @@ extern "C" void vfCC__4XObjFv()
  * @note Size: 0x1C
  */
 // XObj's GetCameraTarget
-extern "C" Vec GetCameraTarget__4XObjFv(CXObj* object)
+Vec XObj::GetCameraTarget()
 {
-	return object->mMoveTranslate;
+	return mMoveTranslate;
 }
 
 /**
  * @note Address: 0x80025764
  * @note Size: 0xF4
  */
-// XObj's vfF0
-extern "C" HSD_AnimJoint* vfF0__4XObjFl(XObj* object, s32 id)
+// XObj's GetJointAnimation
+HSD_AnimJoint* XObj::GetJointAnimation(s32 id)
 {
-	if (AnimationGroup(object, id)) {
-		HSD_AnimJoint** animations = object->mAnim.mAnimJoint;
+	if (AnimationGroup(this, id)) {
+		HSD_AnimJoint** animations = mAnim.mAnimJoint;
 		return animations != NULL ? animations[(id % 1000) % 1000] : NULL;
 	}
-	HSD_AnimJoint** animations = object->mArchive.mAnimJoint;
+	HSD_AnimJoint** animations = mArchive.mAnimJoint;
 	return animations != NULL ? animations[id % 1000] : NULL;
 }
 
@@ -990,14 +1318,14 @@ extern "C" HSD_AnimJoint* vfF0__4XObjFl(XObj* object, s32 id)
  * @note Address: 0x80025858
  * @note Size: 0xF4
  */
-// XObj's vfF4
-extern "C" HSD_MatAnimJoint* vfF4__4XObjFl(XObj* object, s32 id)
+// XObj's GetMaterialAnimation
+HSD_MatAnimJoint* XObj::GetMaterialAnimation(s32 id)
 {
-	if (AnimationGroup(object, id)) {
-		HSD_MatAnimJoint** animations = object->mAnim.mMatAnimJoint;
+	if (AnimationGroup(this, id)) {
+		HSD_MatAnimJoint** animations = mAnim.mMatAnimJoint;
 		return animations != NULL ? animations[(id % 1000) % 1000] : NULL;
 	}
-	HSD_MatAnimJoint** animations = object->mArchive.mMatAnimJoint;
+	HSD_MatAnimJoint** animations = mArchive.mMatAnimJoint;
 	return animations != NULL ? animations[id % 1000] : NULL;
 }
 
@@ -1005,14 +1333,14 @@ extern "C" HSD_MatAnimJoint* vfF4__4XObjFl(XObj* object, s32 id)
  * @note Address: 0x8002594C
  * @note Size: 0xF4
  */
-// XObj's vfF8
-extern "C" HSD_ShapeAnimJoint* vfF8__4XObjFl(XObj* object, s32 id)
+// XObj's GetShapeAnimation
+HSD_ShapeAnimJoint* XObj::GetShapeAnimation(s32 id)
 {
-	if (AnimationGroup(object, id)) {
-		HSD_ShapeAnimJoint** animations = object->mAnim.mShapeAnimJoint;
+	if (AnimationGroup(this, id)) {
+		HSD_ShapeAnimJoint** animations = mAnim.mShapeAnimJoint;
 		return animations != NULL ? animations[(id % 1000) % 1000] : NULL;
 	}
-	HSD_ShapeAnimJoint** animations = object->mArchive.mShapeAnimJoint;
+	HSD_ShapeAnimJoint** animations = mArchive.mShapeAnimJoint;
 	return animations != NULL ? animations[id % 1000] : NULL;
 }
 
@@ -1020,8 +1348,8 @@ extern "C" HSD_ShapeAnimJoint* vfF8__4XObjFl(XObj* object, s32 id)
  * @note Address: 0x80025A40
  * @note Size: 0x8
  */
-// XObj's vf100
-extern "C" s32 vf100__4XObjFll(void* object, s32 unused, s32 value)
+// XObj's OnPlayerContact
+s32 XObj::OnPlayerContact(s32 unused, s32 value)
 {
 	return value;
 }
@@ -1030,9 +1358,7 @@ extern "C" s32 vf100__4XObjFll(void* object, s32 unused, s32 value)
  * @note Address: 0x80025A48
  * @note Size: 0x50
  */
-// NONMATCHING: the loop test is placed differently
-// XObj's vf124
-extern "C" s32 vf124__4XObjFlPl(void* object, s32 count)
+s32 XObj::HandleEventCommand(s32 count, s32* args)
 {
 	for (s32 i = 0; i < count; ++i) { }
 	return 0;
@@ -1042,18 +1368,17 @@ extern "C" s32 vf124__4XObjFlPl(void* object, s32 count)
  * @note Address: 0x80025A98
  * @note Size: 0x8
  */
-// XObj's vf128
-extern "C" s32 vf128__4XObjFv(XObj* object)
+// XObj's GetEventScript
+extern "C" s32 GetEventScript__4XObjFv(XObj* object)
 {
-	return object->_80C;
+	return object->mEventScript;
 }
 
 /**
  * @note Address: 0x80025AA0
  * @note Size: 0x4
  */
-// XObj's vf130
-extern "C" void vf130__4XObjFv()
+void XObj::OnPushDisplacement(const Vec& displacement)
 {
 }
 
@@ -1062,12 +1387,12 @@ extern "C" void vf130__4XObjFv()
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateX
-extern "C" void SetTranslateX__5CXObjFfl(CXObj* object, f32 x, s32 force)
+void CXObj::SetTranslateX(f32 x, s32 force)
 {
-	object->mMoveTranslate.x         = x;
-	object->mMoveTranslate.mTarget.x = x;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetTranslateX(x, force);
+	mMoveTranslate.x         = x;
+	mMoveTranslate.mTarget.x = x;
+	if (mJObj != NULL) {
+		CJObj::SetTranslateX(x, force);
 	}
 }
 
@@ -1076,12 +1401,12 @@ extern "C" void SetTranslateX__5CXObjFfl(CXObj* object, f32 x, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateY
-extern "C" void SetTranslateY__5CXObjFfl(CXObj* object, f32 y, s32 force)
+void CXObj::SetTranslateY(f32 y, s32 force)
 {
-	object->mMoveTranslate.y         = y;
-	object->mMoveTranslate.mTarget.y = y;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetTranslateY(y, force);
+	mMoveTranslate.y         = y;
+	mMoveTranslate.mTarget.y = y;
+	if (mJObj != NULL) {
+		CJObj::SetTranslateY(y, force);
 	}
 }
 
@@ -1090,12 +1415,12 @@ extern "C" void SetTranslateY__5CXObjFfl(CXObj* object, f32 y, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetTranslateZ
-extern "C" void SetTranslateZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
+void CXObj::SetTranslateZ(f32 z, s32 force)
 {
-	object->mMoveTranslate.z         = z;
-	object->mMoveTranslate.mTarget.z = z;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetTranslateZ(z, force);
+	mMoveTranslate.z         = z;
+	mMoveTranslate.mTarget.z = z;
+	if (mJObj != NULL) {
+		CJObj::SetTranslateZ(z, force);
 	}
 }
 
@@ -1104,12 +1429,12 @@ extern "C" void SetTranslateZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleX
-extern "C" void SetScaleX__5CXObjFfl(CXObj* object, f32 x, s32 force)
+void CXObj::SetScaleX(f32 x, s32 force)
 {
-	object->mMoveScale.x         = x;
-	object->mMoveScale.mTarget.x = x;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetScaleX(x, force);
+	mMoveScale.x         = x;
+	mMoveScale.mTarget.x = x;
+	if (mJObj != NULL) {
+		CJObj::SetScaleX(x, force);
 	}
 }
 
@@ -1118,12 +1443,12 @@ extern "C" void SetScaleX__5CXObjFfl(CXObj* object, f32 x, s32 force)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleZ
-extern "C" void SetScaleZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
+void CXObj::SetScaleZ(f32 z, s32 force)
 {
-	object->mMoveScale.z         = z;
-	object->mMoveScale.mTarget.z = z;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetScaleZ(z, force);
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.z = z;
+	if (mJObj != NULL) {
+		CJObj::SetScaleZ(z, force);
 	}
 }
 
@@ -1132,12 +1457,12 @@ extern "C" void SetScaleZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationX
-extern "C" void SetRotationX__5CXObjFfl(CXObj* object, f32 x, s32 force)
+void CXObj::SetRotationX(f32 x, s32 force)
 {
-	object->mMoveRotate.x         = x;
-	object->mMoveRotate.mTarget.x = x;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetRotationX(x, force);
+	mMoveRotate.x         = x;
+	mMoveRotate.mTarget.x = x;
+	if (mJObj != NULL) {
+		CJObj::SetRotationX(x, force);
 	}
 }
 
@@ -1146,12 +1471,12 @@ extern "C" void SetRotationX__5CXObjFfl(CXObj* object, f32 x, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationY
-extern "C" void SetRotationY__5CXObjFfl(CXObj* object, f32 y, s32 force)
+void CXObj::SetRotationY(f32 y, s32 force)
 {
-	object->mMoveRotate.y         = y;
-	object->mMoveRotate.mTarget.y = y;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetRotationY(y, force);
+	mMoveRotate.y         = y;
+	mMoveRotate.mTarget.y = y;
+	if (mJObj != NULL) {
+		CJObj::SetRotationY(y, force);
 	}
 }
 
@@ -1160,12 +1485,12 @@ extern "C" void SetRotationY__5CXObjFfl(CXObj* object, f32 y, s32 force)
  * @note Size: 0x1B0
  */
 // CXObj's SetRotationZ
-extern "C" void SetRotationZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
+void CXObj::SetRotationZ(f32 z, s32 force)
 {
-	object->mMoveRotate.z         = z;
-	object->mMoveRotate.mTarget.z = z;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetRotationZ(z, force);
+	mMoveRotate.z         = z;
+	mMoveRotate.mTarget.z = z;
+	if (mJObj != NULL) {
+		CJObj::SetRotationZ(z, force);
 	}
 }
 
@@ -1174,25 +1499,25 @@ extern "C" void SetRotationZ__5CXObjFfl(CXObj* object, f32 z, s32 force)
  * @note Size: 0x190
  */
 // CXObj's SetPos(x, y, z)
-extern "C" void SetPos__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+void CXObj::SetPos(f32 x, f32 y, f32 z, s32 force)
 {
-	obj->mMoveTranslate.x         = x;
-	obj->mMoveTranslate.y         = y;
-	obj->mMoveTranslate.z         = z;
-	obj->mMoveTranslate.mTarget.x = x;
-	obj->mMoveTranslate.mTarget.y = y;
-	obj->mMoveTranslate.mTarget.z = z;
-	if (obj->mJObj) {
+	mMoveTranslate.x         = x;
+	mMoveTranslate.y         = y;
+	mMoveTranslate.z         = z;
+	mMoveTranslate.mTarget.x = x;
+	mMoveTranslate.mTarget.y = y;
+	mMoveTranslate.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(obj->mTranslate != v)) {
+			if (!(mTranslate != v)) {
 				return;
 			}
 		}
-		obj->mTranslate.x = x;
-		obj->mTranslate.y = y;
-		obj->mTranslate.z = z;
-		HSD_JObjSetTranslate(obj->mJObj, &obj->mTranslate);
+		mTranslate.x = x;
+		mTranslate.y = y;
+		mTranslate.z = z;
+		HSD_JObjSetTranslate(mJObj, &mTranslate);
 	}
 }
 
@@ -1201,12 +1526,12 @@ extern "C" void SetPos__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x17C
  */
 // CXObj's SetPos(pos)
-extern "C" void SetPos__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
+void CXObj::SetPos(const Vec& v, s32 force)
 {
-	obj->mMoveTranslate.Set(v);
-	obj->mMoveTranslate.mTarget.Set(v);
-	if (obj->mJObj) {
-		obj->CJObj::SetTranslate(v, force);
+	mMoveTranslate.Set(v);
+	mMoveTranslate.mTarget.Set(v);
+	if (mJObj) {
+		CJObj::SetTranslate(v, force);
 	}
 }
 
@@ -1215,26 +1540,26 @@ extern "C" void SetPos__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
  * @note Size: 0x240
  */
 // CXObj's SetRot(x, y, z)
-extern "C" void SetRot__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+void CXObj::SetRot(f32 x, f32 y, f32 z, s32 force)
 {
-	obj->mMoveRotate.x         = x;
-	obj->mMoveRotate.y         = y;
-	obj->mMoveRotate.z         = z;
-	obj->mMoveRotate.mTarget.x = x;
-	obj->mMoveRotate.mTarget.y = y;
-	obj->mMoveRotate.mTarget.z = z;
-	if (obj->mJObj) {
+	mMoveRotate.x         = x;
+	mMoveRotate.y         = y;
+	mMoveRotate.z         = z;
+	mMoveRotate.mTarget.x = x;
+	mMoveRotate.mTarget.y = y;
+	mMoveRotate.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
 			// tests the cached translation, as CJObj's does
-			if (!(obj->mTranslate != v)) {
+			if (!(mTranslate != v)) {
 				return;
 			}
 		}
-		obj->mRotate.x = x;
-		obj->mRotate.y = y;
-		obj->mRotate.z = z;
-		obj->UpdateRotation();
+		mRotate.x = x;
+		mRotate.y = y;
+		mRotate.z = z;
+		UpdateRotation();
 	}
 }
 
@@ -1243,12 +1568,12 @@ extern "C" void SetRot__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
  * @note Size: 0x22C
  */
 // CXObj's SetRot(rot)
-extern "C" void SetRot__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
+void CXObj::SetRot(const Vec& v, s32 force)
 {
-	obj->mMoveRotate.Set(v);
-	obj->mMoveRotate.mTarget.Set(v);
-	if (obj->mJObj) {
-		obj->CJObj::SetRotation(v, force);
+	mMoveRotate.Set(v);
+	mMoveRotate.mTarget.Set(v);
+	if (mJObj) {
+		CJObj::SetRotation(v, force);
 	}
 }
 
@@ -1256,11 +1581,11 @@ extern "C" void SetRot__5CXObjFRC3Vecl(CXObj* obj, const Vec& v, s32 force)
  * @note Address: 0x80026B64
  * @note Size: 0x38
  */
-// Cursor's vfAC
-extern "C" void vfAC__6CursorFv(Cursor* cursor)
+// Cursor's DrawObject
+void Cursor::DrawObject()
 {
-	if (cursor->mJObj != NULL) {
-		HSD_JObjDispAll(cursor->mJObj, NULL, 7, 0);
+	if (mJObj != NULL) {
+		HSD_JObjDispAll(mJObj, NULL, 7, 0);
 	}
 }
 
@@ -1269,21 +1594,21 @@ extern "C" void vfAC__6CursorFv(Cursor* cursor)
  * @note Size: 0x90
  */
 // Cursor's update, spins it
-extern "C" void vfA4__6CursorFUl(Cursor* cursor, u32 frames)
+void Cursor::UpdateObject(u32 frames)
 {
-	cursor->mAngle = fmod(cursor->mAngleSpeed * (f32)frames + cursor->mAngle, TWO_PI);
-	cursor->SetRotationZ(cursor->mAngle, 0);
-	vfA4__4XObjFUl(cursor, frames);
+	mAngle = fmod(mAngleSpeed * (f32)frames + mAngle, TWO_PI);
+	SetRotationZ(mAngle, 0);
+	XObj::UpdateObject(frames);
 }
 
 /**
  * @note Address: 0x80026C2C
  * @note Size: 0x4C
  */
-extern "C" BOOL vf9C__6CursorFRC9CoordInfo(Cursor* cursor, CoordInfo* info)
+BOOL Cursor::LoadFromPlacement(const CoordInfo& info)
 {
-	if (vf9C__4XObjFRC9CoordInfo(cursor, info)) {
-		HSD_JObjSetFlags(cursor->mJObj, CLASSICAL_SCALE);
+	if (XObj::LoadFromPlacement(info)) {
+		HSD_JObjSetFlags(mJObj, CLASSICAL_SCALE);
 		return TRUE;
 	}
 	return FALSE;
@@ -1293,11 +1618,11 @@ extern "C" BOOL vf9C__6CursorFRC9CoordInfo(Cursor* cursor, CoordInfo* info)
  * @note Address: 0x80026C78
  * @note Size: 0x38
  */
-extern "C" void vf90__6CursorFUl(Cursor* cursor, u32 id)
+void Cursor::InitializeObject(u32 id)
 {
-	vf90__4XObjFUl(cursor, id);
-	cursor->mAngleSpeed = 0.0f;
-	cursor->mAngle      = 0.0f;
+	XObj::InitializeObject(id);
+	mAngleSpeed = 0.0f;
+	mAngle      = 0.0f;
 }
 
 /**
@@ -1307,23 +1632,23 @@ extern "C" void vf90__6CursorFUl(Cursor* cursor, u32 id)
 // NONMATCHING: float regalloc
 // Logo::Draw, the current logo centred on the screen at its alpha. the first one has a shine
 // that comes and goes with the angle
-extern "C" void fn_80026CB0(Logo* logo)
+extern "C" void DrawCurrentLogo(Logo* logo)
 {
 	if (logo->IsActive() && logo->mAlpha > 0.0f) {
-		fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
-		fn_8019B648(lbl_8025C400.mGs.mCurRenderMode, 1);
-		fn_8019B5D0(lbl_8025C400.mGs.mCurRenderMode, 0);
-		fn_8019B504(lbl_8025C400.mGs.mCurRenderMode, 4, 0, 0, 3, 255);
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
+		SetGsChannelEnabled(&gGame.mGs, 0, 0);
+		SetGsColorUpdate(gGame.mGs.mCurRenderMode, 1);
+		SetGsAlphaUpdate(gGame.mGs.mCurRenderMode, 0);
+		SetGsAlphaCompare(gGame.mGs.mCurRenderMode, 4, 0, 0, 3, 255);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 		CTexObj tex;
 		if (logo->mState == 3 || logo->mState == 4 || logo->mState == 5) {
 			tex       = logo->mTpl.mTex.Init(logo->GetDesc(3), 0);
 			u16 w     = GXGetTexObjWidth(&tex);
 			f32 h     = GXGetTexObjHeight(&tex);
 			u32 color = (u32)(255.0f * logo->mAlpha) | 0xFFFFFF00;
-			fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
 
 			tex        = logo->mTpl.mTex.Init(logo->GetDesc(4), 0);
 			f32 shineW = GXGetTexObjWidth(&tex);
@@ -1334,30 +1659,34 @@ extern "C" void fn_80026CB0(Logo* logo)
 				shine = 0.0f;
 			}
 			color = (u32)(255.0f * logo->mAlpha * shine) | 0xFFFFFF00;
-			fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, 320.0f, y, 0.0f, shineW, shineH, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, y, 0.0f, shineW, shineH, 0.0f, 0.0f, 0.0f);
 		}
 		if (logo->mState == 6 || logo->mState == 7 || logo->mState == 8) {
-			tex       = logo->mTpl.mTex.Init(logo->GetDesc(0), 0);
-			u16 w     = GXGetTexObjWidth(&tex);
-			f32 h     = GXGetTexObjHeight(&tex);
+			tex   = logo->mTpl.mTex.Init(logo->GetDesc(0), 0);
+			u16 w = GXGetTexObjWidth(&tex);
+			f32 h = GXGetTexObjHeight(&tex);
+#if defined(VERSION_JP)
+			u32 color = (u32)(255.0f * logo->mAlpha) | 0x0046FF00;
+#else
 			u32 color = (u32)(255.0f * logo->mAlpha) | 0xDC000000;
-			fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, 320.0f, h / 2.0f + 154.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+#endif
+			DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, h / 2.0f + 154.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
 		}
 		if (logo->mState == 9 || logo->mState == 10 || logo->mState == 11) {
 			tex       = logo->mTpl.mTex.Init(logo->GetDesc(1), 0);
 			u16 w     = GXGetTexObjWidth(&tex);
 			u16 h     = GXGetTexObjHeight(&tex);
 			u32 color = (u32)(255.0f * logo->mAlpha) | 0xFFFFFF00;
-			fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
 		}
 		if (logo->mState == 12 || logo->mState == 13 || logo->mState == 14) {
 			tex       = logo->mTpl.mTex.Init(logo->GetDesc(2), 0);
 			u16 w     = GXGetTexObjWidth(&tex);
 			u16 h     = GXGetTexObjHeight(&tex);
 			u32 color = (u32)(255.0f * logo->mAlpha) | 0xFFFFFF00;
-			fn_80197800(&lbl_8025C400.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, 224.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
 		}
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 	}
 }
 
@@ -1367,14 +1696,24 @@ extern "C" void fn_80026CB0(Logo* logo)
  */
 // NONMATCHING: sprintf's format and buffer are set up in another order
 // Logo::Update, reads the logos in, then fades each of them in and out
-extern "C" void fn_80027528(Logo* logo, u32 frames)
+extern "C" void UpdateBootLogos(Logo* logo, u32 frames)
 {
+#if !defined(VERSION_JP)
 	char path[64];
+#endif
 	switch (logo->mState) {
 	case 1:
 		logo->mState = 2;
-	case 2:
-		sprintf(path, "tpl/logo%s.tpl", "_us");
+	case 2: {
+#if defined(VERSION_PAL)
+		static const char* const suffix[] = { "_en", "_ge", "_fr", "_sp", "_it" };
+		sprintf(path, "tpl/logo%s.tpl", suffix[gGame.mLanguage]);
+#elif defined(VERSION_US)
+		const char* suffix = "_us";
+		sprintf(path, "tpl/logo%s.tpl", suffix);
+#else
+		const char* path = "tpl/logo.tpl";
+#endif
 		if (!logo->mTpl.ReadEx(path, 0, 0)) {
 			break;
 		}
@@ -1385,8 +1724,9 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 			logo->mState = 6;
 		}
 		logo->ResetFade();
+	}
 	case 3:
-		if (logo->mAlpha < 1.0f && (logo->mAlpha += 0.033333335f * frames) > 1.0f) {
+		if (logo->mAlpha < 1.0f && (logo->mAlpha += (1.0f / (0.5f * FRAME_RATE)) * frames) > 1.0f) {
 			logo->mAlpha = 1.0f;
 		}
 		if (logo->mAlpha != 1.0f) {
@@ -1395,11 +1735,11 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		logo->mState = 4;
 	case 4:
 		logo->mTimer += frames;
-		if (logo->mTimer >= 90.0f) {
-			if ((logo->mAngle += 0.05235988f * frames) >= 3.1415927f) {
+		if (logo->mTimer >= 1.5f * FRAME_RATE) {
+			if ((logo->mAngle += (DEG2RAD * (180.0f / FRAME_RATE)) * frames) >= 3.1415927f) {
 				logo->mAngle = 0.0f;
 			}
-			BOOL done = logo->mTimer >= 3600.0f ? TRUE : (&lbl_8025C400.mPad.mPad[0])->mTrigger != 0;
+			BOOL done = logo->mTimer >= 60.0f * FRAME_RATE ? TRUE : (&gGame.mPad.mPad[0])->mTrigger != 0;
 			if (!done) {
 				break;
 			}
@@ -1408,7 +1748,7 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		logo->mState = 5;
 	case 5:
-		if (logo->mAlpha > 0.0f && (logo->mAlpha -= 0.033333335f * frames) < 0.0f) {
+		if (logo->mAlpha > 0.0f && (logo->mAlpha -= (1.0f / (0.5f * FRAME_RATE)) * frames) < 0.0f) {
 			logo->mAlpha = 0.0f;
 		}
 		if (logo->mAlpha == 0.0f) {
@@ -1417,7 +1757,7 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		break;
 	case 6:
-		if (logo->mAlpha < 1.0f && (logo->mAlpha += 0.033333335f * frames) > 1.0f) {
+		if (logo->mAlpha < 1.0f && (logo->mAlpha += (1.0f / (0.5f * FRAME_RATE)) * frames) > 1.0f) {
 			logo->mAlpha = 1.0f;
 		}
 		if (logo->mAlpha != 1.0f) {
@@ -1425,13 +1765,13 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		logo->mState = 7;
 	case 7:
-		if ((logo->mTimer += frames) >= 60.0f) {
+		if ((logo->mTimer += frames) >= FRAME_RATE) {
 			logo->mState = 8;
 		} else {
 			break;
 		}
 	case 8:
-		if (logo->mAlpha > 0.0f && (logo->mAlpha -= 0.033333335f * frames) < 0.0f) {
+		if (logo->mAlpha > 0.0f && (logo->mAlpha -= (1.0f / (0.5f * FRAME_RATE)) * frames) < 0.0f) {
 			logo->mAlpha = 0.0f;
 		}
 		if (logo->mAlpha == 0.0f) {
@@ -1440,7 +1780,7 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		break;
 	case 9:
-		if (logo->mAlpha < 1.0f && (logo->mAlpha += 0.033333335f * frames) > 1.0f) {
+		if (logo->mAlpha < 1.0f && (logo->mAlpha += (1.0f / (0.5f * FRAME_RATE)) * frames) > 1.0f) {
 			logo->mAlpha = 1.0f;
 		}
 		if (logo->mAlpha != 1.0f) {
@@ -1448,13 +1788,13 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		logo->mState = 10;
 	case 10:
-		if ((logo->mTimer += frames) >= 60.0f) {
+		if ((logo->mTimer += frames) >= FRAME_RATE) {
 			logo->mState = 11;
 		} else {
 			break;
 		}
 	case 11:
-		if (logo->mAlpha > 0.0f && (logo->mAlpha -= 0.033333335f * frames) < 0.0f) {
+		if (logo->mAlpha > 0.0f && (logo->mAlpha -= (1.0f / (0.5f * FRAME_RATE)) * frames) < 0.0f) {
 			logo->mAlpha = 0.0f;
 		}
 		if (logo->mAlpha == 0.0f) {
@@ -1463,7 +1803,7 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		break;
 	case 12:
-		if (logo->mAlpha < 1.0f && (logo->mAlpha += 0.033333335f * frames) > 1.0f) {
+		if (logo->mAlpha < 1.0f && (logo->mAlpha += (1.0f / (0.5f * FRAME_RATE)) * frames) > 1.0f) {
 			logo->mAlpha = 1.0f;
 		}
 		if (logo->mAlpha != 1.0f) {
@@ -1471,13 +1811,13 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
 		}
 		logo->mState = 13;
 	case 13:
-		if ((logo->mTimer += frames) >= 60.0f) {
+		if ((logo->mTimer += frames) >= FRAME_RATE) {
 			logo->mState = 14;
 		} else {
 			break;
 		}
 	case 14:
-		if (logo->mAlpha > 0.0f && (logo->mAlpha -= 0.033333335f * frames) < 0.0f) {
+		if (logo->mAlpha > 0.0f && (logo->mAlpha -= (1.0f / (0.5f * FRAME_RATE)) * frames) < 0.0f) {
 			logo->mAlpha = 0.0f;
 		}
 		if (logo->mAlpha == 0.0f) {
@@ -1496,7 +1836,7 @@ extern "C" void fn_80027528(Logo* logo, u32 frames)
  * @note Size: 0x1C
  */
 // Logo's init
-extern "C" void fn_80027A7C(Logo* logo)
+extern "C" void ResetLogoFadeState(Logo* logo)
 {
 	logo->mState = 0;
 	logo->ResetFade();
@@ -1507,12 +1847,12 @@ extern "C" void fn_80027A7C(Logo* logo)
  * @note Size: 0xD8
  */
 // CXObj's SetScaleY
-extern "C" void SetScaleY__5CXObjFfl(CXObj* object, f32 value, s32 force)
+void CXObj::SetScaleY(f32 value, s32 force)
 {
-	object->mMoveScale.y         = value;
-	object->mMoveScale.mTarget.y = value;
-	if (object->mJObj != NULL) {
-		object->CJObj::SetScaleY(value, force);
+	mMoveScale.y         = value;
+	mMoveScale.mTarget.y = value;
+	if (mJObj != NULL) {
+		CJObj::SetScaleY(value, force);
 	}
 }
 
@@ -1521,29 +1861,29 @@ extern "C" void SetScaleY__5CXObjFfl(CXObj* object, f32 value, s32 force)
  * @note Size: 0x18C
  */
 // CXObj's SetScale(scale)
-extern "C" void SetScale__5CXObjFfl(CXObj* obj, f32 scale, s32 force)
+void CXObj::SetScale(f32 scale, s32 force)
 {
 	f32 x = scale;
 	f32 y = scale;
 	f32 z = scale;
 
-	obj->mMoveScale.x         = x;
-	obj->mMoveScale.y         = y;
-	obj->mMoveScale.z         = z;
-	obj->mMoveScale.mTarget.x = x;
-	obj->mMoveScale.mTarget.y = y;
-	obj->mMoveScale.mTarget.z = z;
-	if (obj->mJObj) {
+	mMoveScale.x         = x;
+	mMoveScale.y         = y;
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.x = x;
+	mMoveScale.mTarget.y = y;
+	mMoveScale.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(obj->mScale != v)) {
+			if (!(mScale != v)) {
 				return;
 			}
 		}
-		obj->mScale.x = x;
-		obj->mScale.y = y;
-		obj->mScale.z = z;
-		HSD_JObjSetScale(obj->mJObj, &obj->mScale);
+		mScale.x = x;
+		mScale.y = y;
+		mScale.z = z;
+		HSD_JObjSetScale(mJObj, &mScale);
 	}
 }
 
@@ -1552,25 +1892,25 @@ extern "C" void SetScale__5CXObjFfl(CXObj* obj, f32 scale, s32 force)
  * @note Size: 0x18C
  */
 // CXObj's SetScale(x, y, z)
-extern "C" void SetScale__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force)
+void CXObj::SetScale(f32 x, f32 y, f32 z, s32 force)
 {
-	obj->mMoveScale.x         = x;
-	obj->mMoveScale.y         = y;
-	obj->mMoveScale.z         = z;
-	obj->mMoveScale.mTarget.x = x;
-	obj->mMoveScale.mTarget.y = y;
-	obj->mMoveScale.mTarget.z = z;
-	if (obj->mJObj) {
+	mMoveScale.x         = x;
+	mMoveScale.y         = y;
+	mMoveScale.z         = z;
+	mMoveScale.mTarget.x = x;
+	mMoveScale.mTarget.y = y;
+	mMoveScale.mTarget.z = z;
+	if (mJObj) {
 		if (force == 0) {
 			Vec v = { x, y, z };
-			if (!(obj->mScale != v)) {
+			if (!(mScale != v)) {
 				return;
 			}
 		}
-		obj->mScale.x = x;
-		obj->mScale.y = y;
-		obj->mScale.z = z;
-		HSD_JObjSetScale(obj->mJObj, &obj->mScale);
+		mScale.x = x;
+		mScale.y = y;
+		mScale.z = z;
+		HSD_JObjSetScale(mJObj, &mScale);
 	}
 }
 
@@ -1579,12 +1919,12 @@ extern "C" void SetScale__5CXObjFfffl(CXObj* obj, f32 x, f32 y, f32 z, s32 force
  * @note Size: 0x178
  */
 // CXObj's SetScale(v)
-extern "C" void SetScale__5CXObjFRC3Vecl(CXObj* obj, const Vec& scale, s32 force)
+void CXObj::SetScale(const Vec& scale, s32 force)
 {
-	obj->mMoveScale.Set(scale);
-	obj->mMoveScale.mTarget.Set(scale);
-	if (obj->mJObj) {
-		obj->CJObj::SetScale(scale, force);
+	mMoveScale.Set(scale);
+	mMoveScale.mTarget.Set(scale);
+	if (mJObj) {
+		CJObj::SetScale(scale, force);
 	}
 }
 
@@ -1592,15 +1932,15 @@ extern "C" void SetScale__5CXObjFRC3Vecl(CXObj* obj, const Vec& scale, s32 force
  * @note Address: 0x80028000
  * @note Size: 0xB4
  */
-// XObjDemo's vfAC, draws through its own camera and lights when it has them
-extern "C" void vfAC__8XObjDemoFv(XObjDemo* demo)
+// XObjDemo's DrawObject, draws through its own camera and lights when it has them
+void XObjDemo::DrawObject()
 {
-	if (demo->mState != 0) {
-		CCamera* camera = demo->mArchive.mDesc[0] != NULL ? &demo->mCamera : &lbl_8025C400.mCameras[0];
-		CLight* light   = demo->mArchive.mDesc[1] != NULL ? &demo->mLights[0] : &lbl_8025C400.mLights[0];
+	if (mState != 0) {
+		CCamera* camera = mArchive.mDesc[0] != NULL ? &mCamera : &gGame.mCameras[0];
+		CLight* light   = mArchive.mDesc[1] != NULL ? &mLights[0] : &gGame.mLights[0];
 		light->SetCurrent(camera);
 		if (camera->SetCurrent() != NULL) {
-			demo->vfB0(NULL);
+			DrawWithView(NULL);
 			camera->EndCurrent();
 		}
 	}
@@ -1608,8 +1948,7 @@ extern "C" void vfAC__8XObjDemoFv(XObjDemo* demo)
 
 static inline bool FadeDone()
 {
-	return 0.0f == lbl_8025C400.mFade.mSpeed.r && 0.0f == lbl_8025C400.mFade.mSpeed.g && 0.0f == lbl_8025C400.mFade.mSpeed.b
-	    && 0.0f == lbl_8025C400.mFade.mSpeed.a;
+	return 0.0f == gGame.mFade.mSpeed.r && 0.0f == gGame.mFade.mSpeed.g && 0.0f == gGame.mFade.mSpeed.b && 0.0f == gGame.mFade.mSpeed.a;
 }
 
 /**
@@ -1617,31 +1956,31 @@ static inline bool FadeDone()
  * @note Size: 0x244
  */
 // XObjDemo's update, steps the camera and light anims with the model
-extern "C" void vfA4__8XObjDemoFUl(XObjDemo* demo, u32 frames)
+void XObjDemo::UpdateObject(u32 frames)
 {
-	if (demo->mState == 0) {
+	if (mState == 0) {
 		return;
 	}
-	if (demo->mState == 2 && FadeDone()) {
-		demo->mState = 0;
+	if (mState == 2 && FadeDone()) {
+		mState = 0;
 		return;
 	}
-	vfA4__4XObjFUl(demo, frames);
-	if (demo->mArchive.mDesc[0] != NULL && demo->mCameraAnim >= 0) {
-		demo->mCamera.SetAnimRate((f32)frames);
-		demo->mCamera.Anim();
+	XObj::UpdateObject(frames);
+	if (mArchive.mDesc[0] != NULL && mCameraAnim >= 0) {
+		mCamera.SetAnimRate((f32)frames);
+		mCamera.Anim();
 	}
-	for (s32 i = 0; i < demo->mLightCount; ++i) {
-		if (demo->mArchive.mDesc[i + 1] != NULL && demo->mLightAnims[i] >= 0) {
-			demo->mLights[i].SetAnimRate((f32)frames);
-			demo->mLights[i].Anim();
+	for (s32 i = 0; i < mLightCount; ++i) {
+		if (mArchive.mDesc[i + 1] != NULL && mLightAnims[i] >= 0) {
+			mLights[i].SetAnimRate((f32)frames);
+			mLights[i].Anim();
 		}
 	}
-	if (demo->mLoop) {
-		if (GetAObj(demo->mJObj)->flags & 0x44000000) {
-			demo->mState = 1;
-			demo->SetPos(demo->mMoveTranslate, 0);
-			demo->SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	if (mLoop) {
+		if (GetAObj(mJObj)->flags & (AOBJ_NO_ANIM | AOBJ_REWINDED)) {
+			mState = 1;
+			SetPos(mMoveTranslate, 0);
+			SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		}
 	}
 }
@@ -1651,42 +1990,42 @@ extern "C" void vfA4__8XObjDemoFUl(XObjDemo* demo, u32 frames)
  * @note Size: 0xA4
  */
 // XObjDemo's Release
-extern "C" void Release__8XObjDemoFv(XObjDemo* demo)
+void XObjDemo::Release()
 {
-	if (demo->mArchive.mDesc[0] != NULL) {
-		demo->mCamera.Release();
+	if (mArchive.mDesc[0] != NULL) {
+		mCamera.Release();
 	}
-	for (s32 i = 0; i < demo->mLightCount; ++i) {
-		if (demo->mArchive.mDesc[i + 1] != NULL) {
-			demo->mLights[i].Release();
+	for (s32 i = 0; i < mLightCount; ++i) {
+		if (mArchive.mDesc[i + 1] != NULL) {
+			mLights[i].Release();
 		}
 	}
-	Release__4XObjFv(demo);
+	XObj::Release();
 }
 
 /**
  * @note Address: 0x8002840C
  * @note Size: 0xD4
  */
-// XObjDemo's vf9C, builds the camera and the light list from the archive
-extern "C" BOOL vf9C__8XObjDemoFRC9CoordInfo(XObjDemo* demo, CoordInfo* info)
+// XObjDemo's LoadFromPlacement, builds the camera and the light list from the archive
+BOOL XObjDemo::LoadFromPlacement(const CoordInfo& info)
 {
-	if (vf9C__4XObjFRC9CoordInfo(demo, info)) {
-		if (demo->mArchive.mDesc[0] != NULL) {
-			demo->mCamera.Init((HSD_CObjDesc*)demo->mArchive.mDesc[0]->_00);
+	if (XObj::LoadFromPlacement(info)) {
+		if (mArchive.mDesc[0] != NULL) {
+			mCamera.Init((HSD_CObjDesc*)mArchive.mDesc[0]->mObjectDesc);
 #if defined(VERSION_PAL)
-			demo->mCamera.SetViewport(0.0f, 0.0f, &lbl_8025C400.mGs.mScreen);
+			mCamera.SetViewport(0.0f, 0.0f, &gGame.mGs.mScreen);
 #endif
 		}
 		HSD_LObj* prev = NULL;
 		for (s32 i = 0; i < 8; ++i) {
-			if (demo->mArchive.mDesc[i + 1] != NULL) {
-				demo->mLights[i].Init((HSD_LightDesc*)demo->mArchive.mDesc[i + 1]->_00, FALSE);
-				demo->mLightCount++;
+			if (mArchive.mDesc[i + 1] != NULL) {
+				mLights[i].Init((HSD_LightDesc*)mArchive.mDesc[i + 1]->mObjectDesc, FALSE);
+				mLightCount++;
 				if (prev != NULL) {
-					prev->next = &demo->mLights[i];
+					prev->next = &mLights[i];
 				}
-				prev = &demo->mLights[i];
+				prev = &mLights[i];
 			}
 		}
 		if (prev != NULL) {
@@ -1697,21 +2036,77 @@ extern "C" BOOL vf9C__8XObjDemoFRC9CoordInfo(XObjDemo* demo, CoordInfo* info)
 	return FALSE;
 }
 
+// the title screen's background and text colors, the logo's textures and which of each is in use
+const TitlePaletteEntry gTitlePalette[] = {
+	{ { 0, 0, 128, 0 }, {} },     { { 128, 0, 0, 0 }, {} },     { { 0, 128, 0, 0 }, {} },
+	{ { 200, 200, 200, 0 }, {} }, { { 128, 128, 128, 0 }, {} }, { { 0, 207, 233, 0 }, {} },
+	{ { 255, 220, 133, 0 }, {} }, { { 255, 220, 0, 0 }, {} },   { {}, { 255, 255, 255, 0 } },
+};
+#if defined(VERSION_JP)
+const s32 gTitleLogoTextures[3] = { 0, 3, 4 };
+#else
+const s32 gTitleLogoTextures[3] = {};
+#endif
+s32 gTitlePaletteIndex = 3;
+s32 gTitleLogoIndex    = 1;
+
 /**
  * @note Address: 0x800284E0
  * @note Size: 0x64
  */
-// XObjDemo's vf98
-extern "C" void vf98__8XObjDemoFv(XObjDemo* demo)
+// XObjDemo's ResetObjectState
+void XObjDemo::ResetObjectState()
 {
-	vf98__4XObjFv(demo);
-	demo->mState      = 0;
-	demo->mLoop       = FALSE;
-	demo->mCameraAnim = -1;
-	demo->mLightCount = 0;
+	XObj::ResetObjectState();
+	mState      = 0;
+	mLoop       = FALSE;
+	mCameraAnim = -1;
+	mLightCount = 0;
 	for (s32 i = 0; i < 8; ++i) {
-		demo->mLightAnims[i] = -1;
+		mLightAnims[i] = -1;
 	}
+}
+
+extern "C" void DrawTitleHelpText(Title* menu)
+{
+	f32 alpha   = menu->mMenuAlpha * menu->mHelpAlpha;
+	f32 spacing = 30.0f;
+	SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 1);
+	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+	CTexObj blob     = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[109 - StatusTextureOffset], 0);
+	menu->mHelpCount = 0;
+	const char* text = menu->mHelpText;
+	if (text) {
+		const int limit = 20;
+		for (int i = 0; i < limit && *text; i++, text++) {
+			menu->mBg[i].mText = text;
+			menu->mHelpCount++;
+			if (HelpTextIsJapanese() && (IsSjisLead(*text) & 1))
+				text++;
+		}
+	}
+	f32 zero    = 0.0f;
+	f32 opacity = 255.0f * alpha;
+	for (int i = 0; i < menu->mHelpCount; i++) {
+		MenuHelpChar* glyph = &menu->mBg[i];
+		s32 width;
+		CFont font;
+		CTexObj tex  = *GetFontGlyphTexture(&font, glyph->mText, &width);
+		f32 bob      = 2.0f * (f32)sin(glyph->mAngle0);
+		f32 rotation = sin(0.7f * glyph->mAngle1);
+		f32 swell    = sin(PI * alpha);
+		f32 grow     = sin(HALF_PI * alpha);
+		f32 scale    = 0.2f * swell + grow;
+		f32 x        = 0.5f * spacing + (i * spacing + (320.0f - menu->mHelpCount * spacing * 0.5f));
+		f32 y        = 384.0f + bob;
+		rotation     = -(DEG2RAD * (10.0f * rotation));
+		u32 color    = (u32)opacity | 0xFFFFFF00;
+		DrawGsTexturedQuad(&gGame.mGs, &blob, color, color, color, color, x, y, 1.0f, 30.0f * scale, 30.0f * scale, 0.0f, -zero, rotation);
+		scale       = 30.0f * (0.8f * scale);
+		f32 padding = HelpGlyphPadding(width, scale);
+		DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, gTitleHelpOutlineX, gTitleHelpOutlineY);
+	}
+	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 }
 
 // the name's letters shrink away
@@ -1729,7 +2124,7 @@ static inline void OnCardRemoved(Title* title)
 	title->SetMode(9);
 	title->mOffset = -32.0f;
 	for (s32 i = 0; i < 3; i++) {
-		fn_8003D7DC(&lbl_80361E8C[i]);
+		ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 	}
 }
 
@@ -1738,28 +2133,28 @@ static inline void OnFormattedCardGone(Title* title)
 {
 	title->SetMode(25);
 	title->mState = 11;
-	fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-	title->_37BC   = -200.0f;
-	title->mOffset = 0.0f;
-	title->mAlpha  = 0.0f;
+	PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+	title->mTargetPanelY = -200.0f;
+	title->mOffset       = 0.0f;
+	title->mAlpha        = 0.0f;
 	HideName(title);
-	title->_37A8 = 0;
-	title->_3809 = 0;
-	title->_3808 = 0;
+	title->mSelection     = 0;
+	title->mSaveFound     = 0;
+	title->mCardScanState = 0;
 }
 
 // moves the yes or no choice with left and right
 static inline void MoveYesNo(Title* title, CPad& pad)
 {
-	if (pad.mPad->mRepeat & 0x40001) {
+	if (pad.mPad->mRepeat & (HSD_PAD_STICK_LEFT | HSD_PAD_DPADLEFT)) {
 		if (title->mChoice > 0) {
 			title->mChoice--;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 		}
-	} else if (pad.mPad->mRepeat & 0x80002) {
+	} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_RIGHT | HSD_PAD_DPADRIGHT)) {
 		if (title->mChoice < 1) {
 			title->mChoice++;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 		}
 	}
 }
@@ -1770,24 +2165,29 @@ static inline void MoveYesNo(Title* title, CPad& pad)
  */
 // NONMATCHING: the loop's float registers are assigned in another order
 // draws the title's name: a bubble per letter, then the letter with a shadow on four sides
-extern "C" void fn_80028BAC(Title* title)
+extern "C" void DrawTitleNameBubbles(Title* title)
 {
 	if (title->mName.mActive) {
-		fn_8019B56C(lbl_8025C400.mGs.mCurRenderMode, 1, 4, 5, 15);
-		fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 1, 7, 0);
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 0);
-		CTexObj bubble = (&lbl_8025C400.mTpl)->mTex.Init(&((TPLPalette*)(&lbl_8025C400.mTpl)->mBuffer)->descriptorArray[108], 0);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsChannelEnabled(&gGame.mGs, 0, 0);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+		CTexObj bubble = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[108 - StatusTextureOffset], 0);
 		f32 zero       = 0.0f;
 		u32 color      = title->mName.mColor & 0xFFFFFF00;
 		for (s32 i = 0; i < title->mName.mCount; i++) {
 			f32 scale = title->mName.mChars[i].mScale;
-			if (scale <= zero || strncmp(title->mName.mChars[i].mText, " ", 1) == 0) {
+			if (scale <= zero) {
 				continue;
 			}
+#if !defined(VERSION_JP)
+			if (strncmp(title->mName.mChars[i].mText, " ", 1) == 0) {
+				continue;
+			}
+#endif
 			CFont font;
 			s32 width;
-			CTexObj letter = *fn_8019E8F4(&font, title->mName.mChars[i].mText, &width);
+			CTexObj letter = *GetFontGlyphTexture(&font, title->mName.mChars[i].mText, &width);
 			f32 bob;
 			f32 tilt;
 			f32 swell;
@@ -1795,29 +2195,33 @@ extern "C" void fn_80028BAC(Title* title)
 			f32 x;
 			f32 rot;
 			f32 y;
-			bob       = 4.0f * (f32)sin(title->mName.mChars[i].mBob);
-			tilt      = sin(0.7f * title->mName.mChars[i].mTilt);
-			swell     = sin(3.1415927f * scale);
-			pop       = 0.2f * swell + (f32)sin(1.5707964f * scale);
-			x         = 24.0f + (48.0f * i + (320.0f - 48.0f * title->mName.mCount / 2.0f));
+			bob   = 4.0f * (f32)sin(title->mName.mChars[i].mBob);
+			tilt  = sin(0.7f * title->mName.mChars[i].mTilt);
+			swell = sin(PI * scale);
+			pop   = 0.2f * swell + (f32)sin(HALF_PI * scale);
+#if defined(VERSION_PAL)
+			x = 20.0f + (40.0f * i + (320.0f - 40.0f * title->mName.mCount / 2.0f));
+#else
+			x = 24.0f + (48.0f * i + (320.0f - 48.0f * title->mName.mCount / 2.0f));
+#endif
 			u32 alpha = 255.0f * scale;
-			rot       = -(0.017453292f * (10.0f * tilt));
+			rot       = -(DEG2RAD * (10.0f * tilt));
 			y         = 64.0f + bob;
-			fn_80197800(&lbl_8025C400.mGs, &bubble, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, x, y,
-			            0.0f, 20.0f * (2.0f * pop), 20.0f * (2.0f * pop), zero, -zero, rot);
+			DrawGsTexturedQuad(&gGame.mGs, &bubble, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, x, y,
+			                   0.0f, 20.0f * (2.0f * pop), 20.0f * (2.0f * pop), zero, -zero, rot);
 			f32 size   = 20.0f * (1.7f * pop);
 			f32 shrink = width / 24.0f * size;
 			f32 off    = size - shrink;
 			for (s32 j = 0; j < 4; j++) {
-				fn_80197800(&lbl_8025C400.mGs, &letter, alpha, alpha, alpha, alpha, off / 2.0f + (x + lbl_8021195C[j]),
-				            bob + (64.0f + lbl_8021196C[j]), 0.0f, size, size, zero, -zero, rot);
+				DrawGsTexturedQuad(&gGame.mGs, &letter, alpha, alpha, alpha, alpha, off / 2.0f + (x + gTitleNameOutlineX[j]),
+				                   bob + (64.0f + gTitleNameOutlineY[j]), 0.0f, size, size, zero, -zero, rot);
 			}
-			fn_80197800(&lbl_8025C400.mGs, &letter, color | alpha, color | alpha, color | alpha, color | alpha, off / 2.0f + x, y, 0.0f,
-			            size, size, zero, -zero, rot);
+			DrawGsTexturedQuad(&gGame.mGs, &letter, color | alpha, color | alpha, color | alpha, color | alpha, off / 2.0f + x, y, 0.0f,
+			                   size, size, zero, -zero, rot);
 		}
-		fn_8019AFA0(lbl_8025C400.mGs.mCurTevStage, 4);
-		fn_8019B464(lbl_8025C400.mGs.mCurRenderMode, 0, 7, 0);
-		fn_80199AB0(&lbl_8025C400.mGs, 0, 0);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
+		SetGsChannelEnabled(&gGame.mGs, 0, 0);
 	}
 }
 
@@ -1827,86 +2231,87 @@ extern "C" void fn_80028BAC(Title* title)
  */
 // the options: up and down pick rumble, sound or back, A changes the line, B goes back. the
 // rumble test runs the motor for 24 frames
-extern "C" void fn_80029168(Title* title, u32 frames)
+extern "C" void UpdateTitleOptions(Title* title, u32 frames)
 {
 	CPad pad(0);
 
-	title->mCursor.vfA4(frames);
-	title->_1C += frames;
-	if (title->_1C >= 60.0f) {
-		title->_1C = 60;
-		title->_18 = fmod(title->_18 + frames * 9, 360.0);
+	title->mCursor.UpdateObject(frames);
+	title->mHighlightDelay += frames;
+	if (title->mHighlightDelay >= FRAME_RATE) {
+		title->mHighlightDelay = FRAME_RATE;
+		title->mPulseAngle     = fmod(title->mPulseAngle + frames * 9, 360.0);
 	}
-	if (!pad.mPad->mConnected && title->_3818) {
-		title->_3818 = FALSE;
-		lbl_8025C400.mStatus.mFlags &= ~0x800000000ULL;
+	// the game flags keep the settings: 0x800000000 is rumble on, 0x1000000000 mono sound
+	if (!pad.mPad->mConnected && title->mRumble) {
+		title->mRumble = FALSE;
+		gGame.mStatus.mFlags &= ~0x800000000ULL;
 	}
 
-	switch (title->_08) {
+	switch (title->mOptionState) {
 	case 0:
-		if (pad.mPad->mRepeat & 0x10008) {
-			if (title->_380C > 0) {
-				title->_380C--;
-				fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
-				title->_18 = 45.0f;
+		if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+			if (title->mOptionLine > 0) {
+				title->mOptionLine--;
+				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+				title->mPulseAngle = 45.0f;
 			}
-		} else if (pad.mPad->mRepeat & 0x20004) {
-			if (title->_380C < 2) {
-				title->_380C++;
-				fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
-				title->_18 = 45.0f;
+		} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+			if (title->mOptionLine < 2) {
+				title->mOptionLine++;
+				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+				title->mPulseAngle = 45.0f;
 			}
 		}
 		if (pad.mPad->mTrigger & 0x100) {
-			switch (title->_380C) {
+			switch (title->mOptionLine) {
 			case 0:
 				if (pad.mPad->mConnected) {
-					if (title->_3818) {
-						title->_3818 = FALSE;
-						lbl_8025C400.mStatus.mFlags &= ~0x800000000ULL;
+					if (title->mRumble) {
+						title->mRumble = FALSE;
+						gGame.mStatus.mFlags &= ~0x800000000ULL;
 					} else {
-						title->_3818 = TRUE;
-						lbl_8025C400.mStatus.mFlags |= 0x800000000ULL;
+						title->mRumble = TRUE;
+						gGame.mStatus.mFlags |= 0x800000000ULL;
 						if (pad.mPad->mConnected) {
 							HSD_PadRumbleOn(pad.mPad->mPort);
 						}
-						title->_08   = 1;
-						title->_3820 = 24;
+						title->mOptionState = 1;
+						title->mRumbleTimer = 24;
 					}
-					fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+					PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				} else {
-					fn_8001E904(&lbl_8025C400.mSound, 0x85, 0xFF);
+					PlayGameSound(&gGame.mSound, 0x85, 0xFF);
 				}
 				break;
 			case 1:
-				if (title->_3819) {
-					title->_3819 = FALSE;
-					lbl_8025C400.mStatus.mFlags &= ~0x1000000000ULL;
-					fn_8001E00C(&lbl_8025C400.mSound, FALSE);
+				if (title->mMono) {
+					title->mMono = FALSE;
+					gGame.mStatus.mFlags &= ~0x1000000000ULL;
+					SetGameSoundStereo(&gGame.mSound, FALSE);
 				} else {
-					title->_3819 = TRUE;
-					lbl_8025C400.mStatus.mFlags |= 0x1000000000ULL;
-					fn_8001E00C(&lbl_8025C400.mSound, TRUE);
+					title->mMono = TRUE;
+					gGame.mStatus.mFlags |= 0x1000000000ULL;
+					SetGameSoundStereo(&gGame.mSound, TRUE);
 				}
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				break;
 			case 2:
-				title->_08 = 2;
+				title->mOptionState = 2;
 				title->mCursor.SetAnim(1, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-				title->_18 = 90.0f;
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+				title->mPulseAngle = 90.0f;
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				break;
 			}
 		} else if (pad.mPad->mTrigger & 0x200) {
-			title->_08 = 2;
+			title->mOptionState = 2;
 			title->mCursor.SetAnim(1, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			title->_18 = 90.0f;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			title->mPulseAngle = 90.0f;
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 		}
 		break;
 	case 1:
-		if (--title->_3820 < 0) {
-			title->_08 = 0;
+		if (--title->mRumbleTimer < 0) {
+			title->mOptionState = 0;
 			if (pad.mPad->mConnected) {
 				HSD_PadRumbleOffN(pad.mPad->mPort);
 			}
@@ -1917,17 +2322,17 @@ extern "C" void fn_80029168(Title* title, u32 frames)
 		break;
 	case 2:
 		HSD_AObj* aobj = GetAObj(title->mCursor.mJObj);
-		if ((aobj->flags & 0x44000000) || title->mCursor.mAnimId == 0 || title->mCursor.mArchive.mNum[0] < 2) {
+		if ((aobj->flags & (AOBJ_NO_ANIM | AOBJ_REWINDED)) || title->mCursor.mAnimId == 0 || title->mCursor.mArchive.mNum[0] < 2) {
 			title->mCursor.SetAnim(0, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-			title->_18    = 0.0f;
-			title->mState = 11;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			title->_3814   = 0.0f;
-			title->_08     = 0;
-			title->_380C   = 0;
-			title->_37BC   = -200.0f;
-			title->mOffset = 0.0f;
-			title->mAlpha  = 0.0f;
+			title->mPulseAngle = 0.0f;
+			title->mState      = 11;
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			title->mTargetOptionAlpha = 0.0f;
+			title->mOptionState       = 0;
+			title->mOptionLine        = 0;
+			title->mTargetPanelY      = -200.0f;
+			title->mOffset            = 0.0f;
+			title->mAlpha             = 0.0f;
 			HideName(title);
 		}
 		break;
@@ -1947,10 +2352,280 @@ static inline f32 GetAnimProgress(Title* title)
 static inline bool IsLineLit(Title* title, s32 line)
 {
 	bool lit = false;
-	if (title->_380C == line && title->_1C >= 60.0f) {
+	if (title->mOptionLine == line && title->mHighlightDelay >= FRAME_RATE) {
 		lit = true;
 	}
 	return lit;
+}
+
+MenuSaveSlot gTitleSaveSlots[3];
+
+extern "C" {
+void DrawMenuBannerPanels(const char*, f32, f32, f32, f32);
+void DrawSaveSlotDetails(MenuSaveSlot*, u8, s16, u8, f32, f32, f32, f32, f32, f32, f32);
+#if defined(VERSION_JP)
+s32 DrawJapaneseSaveStatusMessage(s32, s32, f32, f32, f32, f32);
+s32 DrawJapaneseCardErrorMessage(s32, s32, u8, f32, f32, f32, f32);
+#else
+// each save slot is this much wider than 154, and the three shift left by half of three times it
+static f32 sSaveSlotExtraWidth = 10.0f;
+s32 DrawSaveStatusMessage(s32, s32, f32, f32, f32, f32);
+s32 DrawCardErrorMessage(s32, s32, u8, f32, f32, f32, f32);
+#endif
+}
+
+static inline u32 LoadTextColor(f32 alpha)
+{
+	return 0x14141400 | (u32)(255.0f * alpha);
+}
+static inline f32 LoadPromptY(Title* title, f32 panelY)
+{
+	return ((8.0f + (356.0f - panelY)) - 6.0f) + title->mLoadOffset;
+}
+static inline s32 LoadStatusAt(Title* title, s32 id, f32 panelX, f32 panelY)
+{
+#if defined(VERSION_JP)
+	return DrawJapaneseSaveStatusMessage(title->mChannel, id, panelX, panelY, 21.0f, title->mLoadAlpha);
+#else
+	return DrawSaveStatusMessage(title->mChannel, id, panelX, panelY, 21.0f, title->mLoadAlpha);
+#endif
+}
+static inline s32 LoadStatusLines(Title* title, s32 id, f32 panelX, f32 panelY)
+{
+	return LoadStatusAt(title, id, 320.0f + panelX, LoadPromptY(title, panelY));
+}
+#if !defined(VERSION_JP)
+static inline void DrawLoadText(const char* text, f32 center, f32 y, u32 color)
+{
+	f32 width = MeasureGameTextWidth(&gGame.mGs, text, 1, 21.0f);
+	DrawGsProportionalTextFormat(&gGame.mGs, color, text, center - width * 0.5f, y, 0.0f, 21.0f, 21.0f);
+}
+#endif
+static inline const char* LoadPromptText(s32 western, s32 japanese)
+{
+#if defined(VERSION_JP)
+	return GetTitleAndSaveMenuText(japanese);
+#else
+	return GetLocalizedInterfaceText(western);
+#endif
+}
+
+#if defined(VERSION_JP)
+static inline u32 LoadHalfWidth(u32 cells)
+{
+	return ((cells - 1) * 21) / 2;
+}
+#else
+static inline void DrawLoadChoice(Title* title, s32 label, f32 center, f32 y)
+{
+	u32 color = LoadTextColor(title->mLoadAlpha);
+	DrawLoadText(GetLocalizedInterfaceText(label), center, y, color);
+}
+#endif
+
+extern "C" void DrawTitleLoadScreen(Title* title)
+{
+	switch (title->mMode) {
+	case 2:
+	case 3:
+	case 8:
+	case 15:
+	case 24:
+		for (s32 i = 0; i < 3; ++i) {
+#if defined(VERSION_JP)
+			f32 x = 49.0f + (194.0f * i + 77.0f), width = 154.0f;
+#else
+			f32 width = 154.0f + sSaveSlotExtraWidth;
+			f32 x     = 49.0f + ((width * .5f) + i * (40.0f + width)) - (3.0f * sSaveSlotExtraWidth) * .5f;
+#endif
+			u8 selected = 0, empty = 0;
+			if (title->mFile == i)
+				selected = 1;
+			if (title->mFreeBlocks >= 6 && title->mFreeEntries > 0)
+				empty = 1;
+			DrawSaveSlotDetails(&gTitleSaveSlots[i], empty, i, selected, x, 223.0f, width, 230.0f, title->mLoadAlpha, 1.0f, 1.0f);
+		}
+		break;
+	}
+	f32 panelX = title->mPanelX, panelY = title->mPanelY - 8.0f;
+	DrawMenuBannerPanels(NULL, panelX, panelY, 1.0f, title->mLoadOffset);
+	bool showMessage = false;
+	s32 lines        = 2;
+	char text[256];
+
+	switch (title->mMode) {
+	case 2:
+		if (!title->mSelection) {
+#if defined(VERSION_JP)
+			sprintf(text, "%s", LoadPromptText(0x94, 0x15));
+			u32 cells  = strlen(text) / 2;
+			f32 center = 320.0f + panelX, top = 8.0f + (356.0f - panelY);
+			f32 x = center - LoadHalfWidth(cells), y = (top - 6.0f) + title->mLoadOffset;
+			DrawGsProportionalTextFormat(&gGame.mGs, LoadTextColor(title->mLoadAlpha), text, x, y, 0.0f, 21.0f, 21.0f);
+			sprintf(text, "%s", LoadPromptText(0x95, 0x16));
+			cells = strlen(text) / 2;
+			DrawGsProportionalTextFormat(&gGame.mGs, LoadTextColor(title->mLoadAlpha), text, center - LoadHalfWidth(cells),
+			                             (21.0f + top) + title->mLoadOffset, 0.0f, 21.0f, 21.0f);
+#else
+			f32 top   = 8.0f + (356.0f - panelY);
+			u32 color = LoadTextColor(title->mLoadAlpha);
+			DrawLoadText(LoadPromptText(0x94, 0), 320.0f, (top - 6.0f) + title->mLoadOffset, color);
+			DrawLoadText(LoadPromptText(0x95, 0), 320.0f, (21.0f + top) + title->mLoadOffset, color);
+#endif
+		} else {
+			sprintf(text, "%s", LoadPromptText(0xbc, 0x12));
+			showMessage = true;
+		}
+		break;
+	case 3:
+		sprintf(text, "%s", LoadPromptText(0xa8, 1));
+		showMessage = true;
+		break;
+	case 5:
+		lines = LoadStatusLines(title, 10, panelX, panelY);
+		break;
+	case 6:
+		lines = LoadStatusLines(title, 11, panelX, panelY);
+		break;
+	case 8:
+		sprintf(text, "%s", LoadPromptText(0xc1, 0x32));
+		showMessage = true;
+		break;
+	case 11: {
+		f32 x = 320.0f + panelX, y = LoadPromptY(title, panelY);
+		if (title->mPhase == 0)
+			lines = LoadStatusAt(title, 5, x, y);
+		else
+			lines = LoadStatusAt(title, 6, x, y);
+		break;
+	}
+	case 12:
+		lines = LoadStatusLines(title, 7, panelX, panelY);
+		break;
+	case 13: {
+		f32 x = 320.0f + panelX, y = LoadPromptY(title, panelY);
+		if (title->mPhase == 0)
+			lines = LoadStatusAt(title, 7, x, y);
+		else
+			lines = LoadStatusAt(title, 9, x, y);
+		break;
+	}
+	case 9:
+	case 14:
+#if defined(VERSION_JP)
+		lines = DrawJapaneseCardErrorMessage(title->mChannel, title->mResult, 1, 320.0f + panelX, LoadPromptY(title, panelY), 21.0f,
+		                                     title->mLoadAlpha);
+#else
+		lines = DrawCardErrorMessage(title->mChannel, title->mResult, 1, 320.0f + panelX, LoadPromptY(title, panelY), 21.0f,
+		                             title->mLoadAlpha);
+#endif
+		break;
+	case 15:
+		lines = LoadStatusLines(title, 4, panelX, panelY);
+		break;
+	case 18:
+		lines = LoadStatusLines(title, 1, panelX, panelY);
+		break;
+	case 19:
+#if defined(VERSION_JP)
+		lines = LoadStatusLines(title, 12, panelX, panelY);
+#else
+	{
+		f32 x = 320.0f + panelX, y = LoadPromptY(title, panelY);
+		if (title->mFormatCancelled == 1)
+			lines = LoadStatusAt(title, 16, x, y);
+		else
+			lines = LoadStatusAt(title, 12, x, y);
+	}
+#endif
+		break;
+	case 20:
+		lines = LoadStatusLines(title, 3, panelX, panelY);
+		break;
+	case 21:
+		lines = LoadStatusLines(title, 8, panelX, panelY);
+		break;
+	case 22:
+		lines = LoadStatusLines(title, 14, panelX, panelY);
+		break;
+	case 24:
+		if (title->mPhase == 0)
+			lines = LoadStatusLines(title, 4, panelX, panelY);
+		break;
+	case 25:
+		break;
+	}
+	if (lines <= 2)
+		lines = 2;
+	title->mOffset = -(lines - 2) * 21;
+	if (showMessage) {
+#if defined(VERSION_JP)
+		u32 cells = strlen(text) / 2;
+		DrawGsProportionalTextFormat(&gGame.mGs, LoadTextColor(title->mLoadAlpha), text, (320.0f + panelX) - LoadHalfWidth(cells),
+		                             LoadPromptY(title, panelY), 0.0f, 21.0f, 21.0f);
+#else
+		DrawLoadText(text, 320.0f, LoadPromptY(title, panelY), LoadTextColor(title->mLoadAlpha));
+#endif
+	}
+
+	switch (title->mMode) {
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 11: {
+		f32 extra = 0;
+		if (lines > 1)
+			extra = (lines - 2) * 21;
+#if defined(VERSION_JP)
+		sprintf(text, "%s", LoadPromptText(0, 0x33));
+		u32 cells = strlen(text) / 2;
+		f32 barX  = title->mChoice == 0 ? ((32.0f + (320.0f + panelX)) - LoadHalfWidth(cells)) - 2.0f
+		                                : 60.0f + (10.0f + ((32.0f + (320.0f + panelX)) - LoadHalfWidth(cells)));
+		f32 width = 56.699997f;
+#else
+		f32 barX = title->mChoice == 0 ? 281.25f : 358.75f, width = 61.5f;
+#endif
+		f32 base = (24.0f + (12.0f + (356.0f - panelY))) - 6.0f;
+		{
+			CTexObj tex;
+			f32 alpha = title->mLoadAlpha, scroll = title->mLoadScroll;
+			f32 barY     = 8.0f + (extra + (base + title->mLoadOffset));
+			u32 barColor = 0x181CC600 | (u32)(200.0f * alpha);
+			InitMenuSelectionBar(tex);
+			DrawMenuSelectionBar(tex, barX, 2.0f + barY, width, 22.0f, alpha, scroll, barColor);
+		}
+		f32 y = extra + (base + title->mLoadOffset);
+#if defined(VERSION_JP)
+		DrawGsProportionalTextFormat(&gGame.mGs, LoadTextColor(title->mLoadAlpha), text, 10.0f + ((320.0f + panelX) - LoadHalfWidth(cells)),
+		                             y, 0.0f, 21.0f, 21.0f);
+#else
+		if (HelpTextIsJapanese()) {
+			DrawLoadChoice(title, 0x65, 281.25f, y);
+			DrawLoadChoice(title, 0x66, 358.75f, y);
+		} else {
+			DrawLoadChoice(title, 0x65, 283.25f, y - 1.0f);
+			DrawLoadChoice(title, 0x66, 360.75f, y - 1.0f);
+		}
+#endif
+		break;
+	}
+	}
+	if (title->mOptionAlpha > 0.0f) {
+#if defined(VERSION_JP)
+		sprintf(text, "%s", LoadPromptText(0, 0x36));
+		{
+			u32 cells = strlen(text) / 2;
+			DrawGsProportionalTextFormat(&gGame.mGs, LoadTextColor(title->mOptionAlpha), text, (320.0f + panelX) - LoadHalfWidth(cells),
+			                             LoadPromptY(title, panelY), 0.0f, 21.0f, 21.0f);
+		}
+#else
+		{
+			u32 color = LoadTextColor(title->mOptionAlpha);
+			DrawLoadText(GetLocalizedInterfaceText(0x61), 320.0f, LoadPromptY(title, panelY), color);
+		}
+#endif
+	}
 }
 
 /**
@@ -1960,68 +2635,330 @@ static inline bool IsLineLit(Title* title, s32 line)
 // NONMATCHING: float regalloc
 // draws the options: a window, its title and the three lines, the picked one lit once the
 // window is open. the back line bobs while the cursor plays its anim
-extern "C" void fn_80029760(Title* title)
+extern "C" void DrawTitleOptions(Title* title)
 {
-	f32 scale = title->_3810;
+	f32 scale = title->mOptionAlpha;
 	if (scale > 0.0f) {
 		f32 alpha  = 255.0f * scale;
 		f32 h      = 224.0f * scale;
 		s32 a      = alpha;
 		u32 window = (u32)alpha | 0xFFFFFF00;
 		f32 top;
-		fn_800652C0((u32)(160.0f * scale), window, 320.0f, top = 224.0f - h / 2.0f, 320.0f * scale, h, 1.0f, 1.0f, 1.0f);
+		DrawTexturedWindowFrame((u32)(160.0f * scale), window, 320.0f, top = 224.0f - h / 2.0f, 320.0f * scale, h, 1.0f, 1.0f, 1.0f);
 
 		u32 lit    = (u8)a | 0xFFFFFF00;
 		u32 normal = (u8)alpha | 0xFFFFFF00;
-		fn_8006DBF0(0x60);
-		f32 titleSize    = 24.0f * title->_3810;
-		const char* text = fn_8006DBF0(0x60);
-		fn_80196610(&lbl_8025C400, normal, text, 320.0f - fn_801968BC(&lbl_8025C400.mGs, text, 1, titleSize) / 2.0f, titleSize + top, 0.0f,
-		            titleSize, titleSize);
-
-		f32 size  = 24.0f * title->_3810;
+		const char* text;
+#if !defined(VERSION_PAL)
+#if defined(VERSION_JP)
+		text = GetTitleAndSaveMenuText(0x35);
+#else
+		GetLocalizedInterfaceText(0x60);
+#endif
+		f32 titleSize = 24.0f * title->mOptionAlpha;
+#if !defined(VERSION_JP)
+		text = GetLocalizedInterfaceText(0x60);
+#endif
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, 320.0f - MeasureGameTextWidth(&gGame.mGs, text, 1, titleSize) / 2.0f,
+		                             titleSize + top, 0.0f, titleSize, titleSize);
+#endif
+		f32 size = 24.0f * title->mOptionAlpha;
+#if defined(VERSION_PAL)
+		top = (224.0f - (4.0f * (size * 0.5f) * 0.5f - size * 0.25f)) - h * 0.5f;
+#endif
 		u32 color = normal;
 		if (IsLineLit(title, 0)) {
 			color = lit;
 		}
-		text  = fn_8006DBF0(0x10);
-		f32 x = 320.0f - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f - 8.0f;
+#if defined(VERSION_JP)
+		text     = GetLocalizedInterfaceText(0x49);
+		f32 half = size * 0.5f;
+		f32 left = 320.0f - 9.0f * half;
+		f32 y    = size + (4.0f * half + top);
+		DrawGsProportionalTextFormat(&gGame.mGs, color, text, size + left, y, 0.0f, size, size);
+		if (title->mRumble) {
+			text = GetLocalizedInterfaceText(0x4a);
+			DrawGsProportionalTextFormat(&gGame.mGs, normal, text, size + (5.0f * size + left), y, 0.0f, size, size);
+		} else {
+			text = GetLocalizedInterfaceText(0x4b);
+			DrawGsProportionalTextFormat(&gGame.mGs, normal, text, half + (5.0f * size + left), y, 0.0f, size, size);
+		}
+		color = IsLineLit(title, 1) ? lit : normal;
+		text  = GetLocalizedInterfaceText(0x4c);
+		y     = size + (4.0f * (2.0f * half) + top);
+		DrawGsProportionalTextFormat(&gGame.mGs, color, text, left, y, 0.0f, size, size);
+		text = title->mMono ? GetLocalizedInterfaceText(0x4d) : GetLocalizedInterfaceText(0x4e);
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, 5.0f * size + left, y, 0.0f, size, size);
+#else
+		text  = GetLocalizedInterfaceText(0x10);
+		f32 x = 320.0f - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f - 8.0f;
 		f32 y;
-		fn_80196610(&lbl_8025C400, color, text, x - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f,
-		            y = size + (4.0f * (size / 2.0f) + top), 0.0f, size, size);
-		text = title->_3818 ? fn_8006DBF0(0x11) : fn_8006DBF0(0x12);
-		x    = 8.0f + (fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f + 320.0f);
-		fn_80196610(&lbl_8025C400, normal, text, x - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f, y, 0.0f, size, size);
+		DrawGsProportionalTextFormat(&gGame.mGs, color, text, x - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f,
+		                             y = size + (4.0f * (size / 2.0f) + top), 0.0f, size, size);
+		text = title->mRumble ? GetLocalizedInterfaceText(0x11) : GetLocalizedInterfaceText(0x12);
+		x    = 8.0f + (MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f + 320.0f);
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, x - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f, y, 0.0f, size,
+		                             size);
 
 		color = normal;
 		if (IsLineLit(title, 1)) {
 			color = lit;
 		}
-		text = fn_8006DBF0(0x13);
-		x    = 320.0f - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f - 8.0f;
-		fn_80196610(&lbl_8025C400, color, text, x - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f,
-		            y = size + (4.0f * (2.0f * (size / 2.0f)) + top), 0.0f, size, size);
-		text = title->_3819 ? fn_8006DBF0(0x14) : fn_8006DBF0(0x15);
-		x    = 8.0f + (fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f + 320.0f);
-		fn_80196610(&lbl_8025C400, normal, text, x - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f, y, 0.0f, size, size);
+		text = GetLocalizedInterfaceText(0x13);
+		x    = 320.0f - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f - 8.0f;
+		DrawGsProportionalTextFormat(&gGame.mGs, color, text, x - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f,
+		                             y = size + (4.0f * (2.0f * (size / 2.0f)) + top), 0.0f, size, size);
+		text = title->mMono ? GetLocalizedInterfaceText(0x14) : GetLocalizedInterfaceText(0x15);
+		x    = 8.0f + (MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f + 320.0f);
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, x - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f, y, 0.0f, size,
+		                             size);
+#endif
 
-		f32 t        = title->mCursor.mAnimId == 1 ? GetAnimProgress(title) : 0.0f;
-		f32 bob      = title->_380C == 2 ? 2.0f * (f32)sin(4.712389f * t) : 0.0f;
+		f32 progress = title->mCursor.mAnimId == 1 ? GetAnimProgress(title) : 0.0f;
+		f32 bob      = title->mOptionLine == 2 ? 2.0f * (f32)sin(4.712389f * progress) : 0.0f;
 		f32 backSize = 24.0f + bob;
 		if (IsLineLit(title, 2)) {
 			normal = lit;
 		}
-		text = fn_8006DBF0(0x16);
-		fn_80196610(&lbl_8025C400, normal, text, 320.0f - fn_801968BC(&lbl_8025C400.mGs, text, 1, size) / 2.0f,
-		            (backSize - size) / 2.0f + ((2.0f * size + (4.0f * (3.0f * (size / 2.0f)) + top)) - backSize), 0.0f, size, size);
+#if defined(VERSION_JP)
+		text = GetLocalizedInterfaceText(0x4f);
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, 320.0f - 3.0f * half,
+		                             (backSize - size) / 2.0f + ((2.0f * size + (4.0f * (3.0f * half) + top)) - backSize), 0.0f, size,
+		                             backSize);
+#else
+		text = GetLocalizedInterfaceText(0x16);
+		DrawGsProportionalTextFormat(&gGame.mGs, normal, text, 320.0f - MeasureGameTextWidth(&gGame.mGs, text, 1, size) / 2.0f,
+		                             (backSize - size) / 2.0f + ((2.0f * size + (4.0f * (3.0f * (size / 2.0f)) + top)) - backSize), 0.0f,
+		                             size, size);
+#endif
 	}
+}
+
+static inline void BeginTitleOverlay()
+{
+	CGs& gs = gGame.mGs;
+	SetGsChannelEnabled(&gs, 4, 0);
+	SetGsColorUpdate(gs.mCurRenderMode, 1);
+	SetGsAlphaUpdate(gs.mCurRenderMode, 0);
+	SetGsAlphaCompare(gs.mCurRenderMode, 4, 0, 0, 3, 255);
+	SetGsBlendMode(gs.mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gs.mCurRenderMode, 0, 7, 0);
+	if (gs.mCurRenderMode)
+		ApplyGsRenderMode(gs.mCurRenderMode, FALSE);
+	if (gs.mCurTevStage)
+		ApplyGsTevStage(gs.mCurTevStage, FALSE);
+	if (gs.mCurChannel)
+		ApplyGsChannel(gs.mCurChannel, FALSE);
+}
+
+static inline void DrawTitleCursors(Title* title, f32 halfWidth, f32 y)
+{
+#if defined(VERSION_JP)
+	const f32 gap = 24.0f;
+#else
+	const f32 gap = 30.0f;
+#endif
+	title->mCursor.SetPos((320.0f - halfWidth) - gap, y, 10.0f, 0);
+	title->mCursor.SetRotationY(0.2617994f, 0);
+	title->mCursor.DrawObject();
+	title->mCursor.SetPos(gap + (320.0f + halfWidth), y, 10.0f, 0);
+	title->mCursor.SetRotationY(-0.2617994f, 0);
+	title->mCursor.DrawObject();
+}
+
+static inline f32 DrawTitleEntry(Title* title, s32 entry, s32 textId, f32 y, f32 progress, u32 normal, u32 lit)
+{
+	const char* text = GetTitleAndSaveMenuText(textId);
+	f32 size         = 24.0f + (title->mSelection == entry ? 2.0f * (f32)sin(4.712389f * progress) : 0.0f);
+	f32 width        = MeasureGameTextWidth(&gGame.mGs, text, 1, 24.0f);
+	if (entry == 1) {
+		bool selected = false;
+		if (title->mSelection == entry && (f32)title->mHighlightDelay >= FRAME_RATE)
+			selected = true;
+		u32 tint = normal;
+		if (selected)
+			tint = lit;
+		if (title->mSaveFound)
+			DrawGsProportionalTextFormat(&gGame.mGs, tint, text, 320.0f - width * .5f, (size - 24.0f) * .5f + (y - size), 0.0f, 24.0f,
+			                             size);
+	} else {
+		f32 x = 320.0f - width * .5f, top = (size - 24.0f) * .5f + (y - size);
+		bool selected = false;
+		if (title->mSelection == entry && (f32)title->mHighlightDelay >= FRAME_RATE)
+			selected = true;
+		DrawGsProportionalTextFormat(&gGame.mGs, selected ? lit : normal, text, x, top, 0.0f, 24.0f, size);
+	}
+	return width;
+}
+
+#if !defined(VERSION_JP)
+static inline f32 TitleOptionWidth(s32 first)
+{
+	f32 value1  = MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(first + 1), 1, 24.0f);
+	f32 value2  = MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(first + 2), 1, 24.0f);
+	f32 label   = MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(first), 1, 24.0f);
+	f32 largest = value1 > value2 ? value1 : value2;
+	return 2.0f * ((label > largest ? label : largest) + 8.0f);
+}
+#endif
+
+extern "C" void DrawTitleScreen(Title* title)
+{
+#if defined(VERSION_JP)
+	enum { dustTexture = 5, footerTexture = 2 };
+#else
+	enum { dustTexture = 2, footerTexture = 1 };
+#endif
+	bool active = false;
+	if (title->mState >= 1 && title->mState < 23)
+		active = true;
+	if (!active)
+		return;
+	CGame& game       = gGame;
+	CGs& gs           = game.mGs;
+	gGame.mGs.mCamera = game.GetScreenCamera();
+	if (BeginGsCamera(&game)) {
+		if (title->mMenuAlpha > 0.0f) {
+			BeginTitleOverlay();
+
+			for (s32 i = 0; i < 16; ++i) {
+				f32 alpha = title->mMenuAlpha;
+				SetGsTevMode(gs.mCurTevStage, 0);
+				TitleDust& dust = title->mDust[i];
+
+				f32 w     = dust.mSpeedX * GXGetTexObjWidth(&title->mTex[dustTexture]);
+				u16 h     = GXGetTexObjHeight(&title->mTex[dustTexture]);
+				u32 color = 0xffffff00 | (u32)(255.0f * dust.mSpeedY * alpha);
+				DrawGsTexturedQuad(&gGame.mGs, &title->mTex[dustTexture], color, color, color, color, dust.mX, dust.mY, 0.0f, w,
+				                   dust.mSpeedX * h, 0, 0, 0);
+				SetGsTevMode(gs.mCurTevStage, 4);
+			}
+			SetGsTevMode(gs.mCurTevStage, 0);
+			u16 w     = GXGetTexObjWidth(&title->mTex[gTitleLogoTextures[gTitleLogoIndex]]);
+			u16 h     = GXGetTexObjHeight(&title->mTex[gTitleLogoTextures[gTitleLogoIndex]]);
+			u32 color = 0xffffff00 | (u32)(255.0f * title->mMenuAlpha);
+			DrawGsTexturedQuad(&gGame.mGs, &title->mTex[gTitleLogoTextures[gTitleLogoIndex]], color, color, color, color, 320, 130, 0, w, h,
+			                   0, 0, 0);
+			SetGsTevMode(gs.mCurTevStage, 4);
+		}
+		EndGsCamera(&gGame.mGs);
+	}
+	if (title->mDemo.mState && (title->mDemo.mStatus.mFlags & 1)) {
+		HSD_StateInvalidate(-1);
+		if (gs.mCurRenderMode)
+			gs.mCurRenderMode->Invalidate();
+		if (gs.mCurTevStage)
+			gs.mCurTevStage->Invalidate();
+		if (gs.mCurChannel && !gs.mCurChannel->mDirty)
+			gs.mCurChannel->mDirty = TRUE;
+		title->mDemo.DrawObject();
+	}
+	gGame.mGs.mCamera = game.GetScreenCamera();
+	if (!BeginGsCamera(&game))
+		return;
+	if (title->mMenuAlpha > 0.0f) {
+		BeginTitleOverlay();
+		SetGsTevMode(gs.mCurTevStage, 0);
+		CTexObj& tex = title->mTex[footerTexture];
+		u16 w = GXGetTexObjWidth(&tex), h = GXGetTexObjHeight(&tex);
+		u32 color = (u32)(255.0f * title->mMenuAlpha);
+		DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, 398.0f, 0, .6f * w, .6f * h, 0, 0, 0);
+		SetGsTevMode(gs.mCurTevStage, 4);
+	}
+	DrawPanelBackground<SavePanel>(title->mLoadAlpha + title->mOptionAlpha);
+	DrawTitleHelpText(title);
+	DrawTitleLoadScreen(title);
+	DrawTitleOptions(title);
+	DrawTitleNameBubbles(title);
+	if (title->mState == 10 || title->mState == 11 || title->mState == 12) {
+		f32 wave            = 127.0f * (f32)sin(DEG2RAD * title->mPulseAngle);
+		f32 alpha           = title->mMenuAlpha;
+		const GXColor& text = gTitlePalette[gTitlePaletteIndex].text;
+		u32 rgb             = ((u32)text.r << 24) | ((u32)text.g << 16) | ((u32)text.b << 8);
+		u32 lit             = rgb | (u8)(127.0f + alpha * wave);
+		u32 normal          = rgb | (u8)(255.0f * alpha);
+		f32 progress        = title->mCursor.mAnimId == 1 ? GetAnimProgress(title) : 0.0f;
+#if defined(VERSION_JP)
+		enum { first = 0x13, second = 0x14, third = 0x35 };
+#else
+		enum { first = 0, second = 1, third = 2 };
+#endif
+		f32 w0 = DrawTitleEntry(title, 0, first, 324.0f, progress, normal, lit);
+		f32 w1 = DrawTitleEntry(title, 1, second, 352.0f, progress, normal, lit);
+		f32 y  = 380.0f;
+		f32 w2 = DrawTitleEntry(title, 2, third, y, progress, normal, lit);
+		switch (title->mSelection) {
+		case 0:
+			y = 324.0f;
+#if defined(VERSION_JP)
+			w2 = w0;
+#endif
+			break;
+		case 1:
+			y = 352.0f;
+#if defined(VERSION_JP)
+			w2 = w1;
+#endif
+			break;
+		case 2:
+			y = 380.0f;
+			break;
+		}
+#if !defined(VERSION_JP)
+		f32 widest = w0 > w1 ? w0 : w1;
+		w2         = w2 > widest ? w2 : widest;
+#endif
+		DrawTitleCursors(title, w2 * 0.5f, y);
+	}
+	if (title->mState == 21) {
+		f32 y;
+		u32 width;
+		switch (title->mOptionLine) {
+		case 0:
+			y = 208;
+#if defined(VERSION_PAL)
+			y -= 18.0f;
+#endif
+#if defined(VERSION_JP)
+			width = 192;
+#else
+			width = TitleOptionWidth(0x10);
+#endif
+			break;
+		case 1:
+			y = 256;
+#if defined(VERSION_PAL)
+			y -= 18.0f;
+#endif
+#if defined(VERSION_JP)
+			width = 216;
+#else
+			width = TitleOptionWidth(0x13);
+#endif
+			break;
+		case 2:
+			y = 304;
+#if defined(VERSION_PAL)
+			y -= 18.0f;
+#endif
+#if defined(VERSION_JP)
+			width = 72;
+#else
+			width = MeasureGameTextWidth(&gs, GetLocalizedInterfaceText(0x16), 1, 24.0f);
+#endif
+			break;
+		}
+
+		DrawTitleCursors(title, width / 2, y);
+	}
+	EndGsCamera(&gGame.mGs);
 }
 
 /**
  * @note Address: 0x8002BB7C
  * @note Size: 0x4
  */
-extern "C" void State25__5TitleFUl(Title* title)
+void Title::State25(u32 frames)
 {
 }
 
@@ -2030,28 +2967,28 @@ extern "C" void State25__5TitleFUl(Title* title)
  * @note Size: 0x148
  */
 // waits out the delay, then fades the labels and leaves for the game
-extern "C" void State24__5TitleFUl(Title* title, u32 frames)
+void Title::State24(u32 frames)
 {
-	switch (title->mPhase) {
+	switch (mPhase) {
 	case 0:
-		title->mDelay -= frames;
-		if (title->mDelay < 0) {
-			title->mDelay = 0;
-			++title->mPhase;
+		mDelay -= frames;
+		if (mDelay < 0) {
+			mDelay = 0;
+			++mPhase;
 		}
 		break;
 	case 1:
-		HideName(title);
-		title->_37BC   = -200.0f;
-		title->mOffset = 0.0f;
-		title->mAlpha  = 0.0f;
-		title->mChoice = 0;
-		title->mState  = 13;
-		title->SetMode(25);
-		XSound* sound = &lbl_8025C400.mSound;
-		fn_8001E904(sound, 0x88, 255);
-		fn_8001E660(sound, (s32)0xFFFF0003);
-		lbl_8025C400.mInfoScrn._1D0 = title->mFile;
+		HideName(this);
+		mTargetPanelY = -200.0f;
+		mOffset       = 0.0f;
+		mAlpha        = 0.0f;
+		mChoice       = 0;
+		mState        = 13;
+		SetMode(25);
+		XSound* sound = &gGame.mSound;
+		PlayGameSound(sound, 0x88, 255);
+		StopGameSfx(sound, (s32)0xFFFF0003);
+		gGame.mInfoScrn.mSelectedSaveSlot = mFile;
 		break;
 	}
 }
@@ -2060,7 +2997,7 @@ extern "C" void State24__5TitleFUl(Title* title, u32 frames)
  * @note Address: 0x8002BCC8
  * @note Size: 0x4
  */
-extern "C" void State23__5TitleFUl(Title* title)
+void Title::State23(u32 frames)
 {
 }
 
@@ -2068,18 +3005,18 @@ extern "C" void State23__5TitleFUl(Title* title)
  * @note Address: 0x8002BCCC
  * @note Size: 0x20
  */
-extern "C" void State22__5TitleFUl(Title* title)
+void Title::State22(u32 frames)
 {
-	State20__5TitleFUl(title);
+	State20(frames);
 }
 
 /**
  * @note Address: 0x8002BCEC
  * @note Size: 0x20
  */
-extern "C" void State21__5TitleFUl(Title* title)
+void Title::State21(u32 frames)
 {
-	State20__5TitleFUl(title);
+	State20(frames);
 }
 
 /**
@@ -2087,51 +3024,51 @@ extern "C" void State21__5TitleFUl(Title* title)
  * @note Size: 0x4AC
  */
 // the card check's message, it waits for A or for the card to change
-extern "C" void State20__5TitleFUl(Title* title)
+void Title::State20(u32 frames)
 {
 	CPad pad(0);
-	s32 error = title->mResult;
+	s32 error = mResult;
 
 	if (error == -3) {
-		if (title->_37A8 == 1) {
-			if (title->mReady) {
-				OnFormattedCardGone(title);
+		if (mSelection == 1) {
+			if (mReady) {
+				OnFormattedCardGone(this);
 				return;
 			}
-		} else if (title->mReady == 1) {
+		} else if (mReady == 1) {
 			for (s32 i = 0; i < 3; i++) {
-				fn_8003D7DC(&lbl_80361E8C[i]);
+				ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 			}
-			fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-			title->SetMode(1);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+			SetMode(1);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			return;
 		}
-	} else if (title->_37A8 == 1) {
-		if (!title->mReady || !title->_3809) {
-			OnFormattedCardGone(title);
+	} else if (mSelection == 1) {
+		if (!mReady || !mSaveFound) {
+			OnFormattedCardGone(this);
 			return;
 		}
-	} else if (!title->mReady) {
-		OnCardRemoved(title);
+	} else if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
 	if (pad.mPad->mTrigger & 0x100) {
-		if (title->_37A8 == 1) {
-			OnFormattedCardGone(title);
+		if (mSelection == 1) {
+			OnFormattedCardGone(this);
 			return;
 		}
 		if (error == -3) {
-			OnCardRemoved(title);
+			OnCardRemoved(this);
 		} else if (error == -5) {
-			title->SetMode(19);
-			title->mShowMessage = 1;
+			SetMode(19);
+			mShowMessage = 1;
 		} else {
-			title->SetMode(5);
-			title->mOffset = -32.0f;
-			title->mChoice = 1;
+			SetMode(5);
+			mOffset = -32.0f;
+			mChoice = 1;
 		}
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+		PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 	}
 }
 
@@ -2141,7 +3078,7 @@ static inline void HandleUnavailableCard(Title* title)
 	if (title->mReady == 0) {
 		OnCardRemoved(title);
 #if !defined(VERSION_JP)
-		title->_3C44 = 0;
+		title->mFormatCancelled = 0;
 #endif
 		return;
 	}
@@ -2149,9 +3086,9 @@ static inline void HandleUnavailableCard(Title* title)
 		title->SetMode(5);
 		title->mOffset = -32.0f;
 		title->mChoice = 1;
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
+		PlayGameSound(&gGame.mSound, 0x88, 255);
 #if !defined(VERSION_JP)
-		title->_3C44 = 0;
+		title->mFormatCancelled = 0;
 #endif
 	}
 }
@@ -2160,25 +3097,25 @@ static inline void HandleUnavailableCard(Title* title)
  * @note Address: 0x8002C1B8
  * @note Size: 0x118
  */
-extern "C" void State19__5TitleFUl(Title* title)
+void Title::State19(u32 frames)
 {
-	HandleUnavailableCard(title);
+	HandleUnavailableCard(this);
 }
 
 /**
  * @note Address: 0x8002C2D0
  * @note Size: 0x118
  */
-extern "C" void State18__5TitleFUl(Title* title)
+void Title::State18(u32 frames)
 {
-	HandleUnavailableCard(title);
+	HandleUnavailableCard(this);
 }
 
 /**
  * @note Address: 0x8002C3E8
  * @note Size: 0x4
  */
-extern "C" void State17__5TitleFUl(Title* title)
+void Title::State17(u32 frames)
 {
 }
 
@@ -2186,7 +3123,7 @@ extern "C" void State17__5TitleFUl(Title* title)
  * @note Address: 0x8002C3EC
  * @note Size: 0x4
  */
-extern "C" void State16__5TitleFUl(Title* title)
+void Title::State16(u32 frames)
 {
 }
 
@@ -2196,43 +3133,43 @@ extern "C" void State16__5TitleFUl(Title* title)
  */
 // NONMATCHING: regalloc
 // waits for the card to read the file picked, then shows what is in it
-extern "C" void State15__5TitleFUl(Title* title, u32 frames)
+void Title::State15(u32 frames)
 {
-	Memcard* card = &lbl_8025C400.mMemcard.mCard;
+	Memcard* card = &gGame.mMemcard.mCard;
 	s32 step      = card->mState;
 	SavePreviewRecord* file;
 	s32 result;
 
-	title->mDelay -= frames;
-	if (title->mDelay < 0) {
-		title->mDelay = 0;
+	mDelay -= frames;
+	if (mDelay < 0) {
+		mDelay = 0;
 	}
 	switch (step) {
 	case 0:
-		title->_37D0 = lbl_8025C400.mMemcard.mCard._16A04;
-		title->_37D4 = lbl_8025C400.mMemcard.mCard._16A00;
-		file         = &card->mSaves[0][title->mFile];
+		mFreeBlocks  = gGame.mMemcard.mCard.mFreeBlocks;
+		mFreeEntries = gGame.mMemcard.mCard.mFreeEntries;
+		file         = &card->mSaves[0][mFile];
 		if (file->mState != 0) {
-			lbl_80361E8C[title->mFile].mUsed       = 1;
-			lbl_80361E8C[title->mFile].mLevel      = file->mHeader.mLevel;
-			lbl_80361E8C[title->mFile].mBattery    = file->mHeader.mBattery;
-			lbl_80361E8C[title->mFile].mMaxBattery = file->mHeader.mMaxBattery;
-			lbl_80361E8C[title->mFile].mMoney      = file->mHeader.mMoney;
-			lbl_80361E8C[title->mFile].mExp        = file->mHeader.mExp;
-			lbl_80361E8C[title->mFile].mScrap      = file->mHeader.mScrap;
-			lbl_80361E8C[title->mFile].mRank       = file->mHeader.mRank;
-			lbl_80361E8C[title->mFile].mHours      = file->mHeader.mFrames / 216000;
-			lbl_80361E8C[title->mFile].mMinutes    = (file->mHeader.mFrames / 3600) % 60;
-			lbl_80361E8C[title->mFile].mStage      = file->mHeader.mStage;
-			lbl_80361E8C[title->mFile].mTimeMode   = file->mHeader.mTimeMode;
-			lbl_80361E8C[title->mFile].mState      = 0;
-			if (file->mHeader._34 > 0) {
-				lbl_80361E8C[title->mFile].mActive = 1;
+			gTitleSaveSlots[mFile].mUsed       = 1;
+			gTitleSaveSlots[mFile].mLevel      = file->mHeader.mLevel;
+			gTitleSaveSlots[mFile].mBattery    = file->mHeader.mBattery;
+			gTitleSaveSlots[mFile].mMaxBattery = file->mHeader.mMaxBattery;
+			gTitleSaveSlots[mFile].mMoney      = file->mHeader.mMoney;
+			gTitleSaveSlots[mFile].mExp        = file->mHeader.mExp;
+			gTitleSaveSlots[mFile].mScrap      = file->mHeader.mScrap;
+			gTitleSaveSlots[mFile].mRank       = file->mHeader.mRank;
+			gTitleSaveSlots[mFile].mHours      = file->mHeader.mFrames / 216000;
+			gTitleSaveSlots[mFile].mMinutes    = (file->mHeader.mFrames / 3600) % 60;
+			gTitleSaveSlots[mFile].mStage      = file->mHeader.mStage;
+			gTitleSaveSlots[mFile].mTimeMode   = file->mHeader.mTimeMode;
+			gTitleSaveSlots[mFile].mState      = 0;
+			if (file->mHeader.mActive > 0) {
+				gTitleSaveSlots[mFile].mActive = 1;
 			} else {
-				lbl_80361E8C[title->mFile].mActive = 0;
+				gTitleSaveSlots[mFile].mActive = 0;
 			}
 		}
-		title->SetMode(24);
+		SetMode(24);
 		break;
 	case 4:
 		break;
@@ -2250,8 +3187,8 @@ extern "C" void State15__5TitleFUl(Title* title, u32 frames)
 	case 13:
 	case 14:
 	case 15:
-		result         = lbl_8025C400.mMemcard.mCard.mCard.mResult;
-		title->mResult = result;
+		result  = gGame.mMemcard.mCard.mCard.mResult;
+		mResult = result;
 		switch (result) {
 		case -128:
 		case -14:
@@ -2269,23 +3206,23 @@ extern "C" void State15__5TitleFUl(Title* title, u32 frames)
 		case -2:
 		case -1:
 		case 0:
-			if (step == 2 && (result == -6 || result == -13)) {
-				title->SetMode(11);
-				title->mChoice      = 1;
-				title->mShowMessage = 1;
-			} else if (result == -3 || result == -5) {
-				title->SetMode(20);
-				title->mShowMessage = 1;
+			if (step == 2 && (result == CARD_RESULT_BROKEN || result == CARD_RESULT_ENCODING)) {
+				SetMode(11);
+				mChoice      = 1;
+				mShowMessage = 1;
+			} else if (result == CARD_RESULT_NOCARD || result == CARD_RESULT_IOERROR) {
+				SetMode(20);
+				mShowMessage = 1;
 			} else {
-				title->SetMode(14);
-				title->mOffset = -32.0f;
+				SetMode(14);
+				mOffset = -32.0f;
 			}
-			title->mAlpha = 1.0f;
+			mAlpha = 1.0f;
 			break;
 		default:
-			title->SetMode(14);
-			title->mAlpha  = 1.0f;
-			title->mOffset = -32.0f;
+			SetMode(14);
+			mAlpha  = 1.0f;
+			mOffset = -32.0f;
 			break;
 		}
 		break;
@@ -2297,49 +3234,49 @@ extern "C" void State15__5TitleFUl(Title* title, u32 frames)
  * @note Size: 0x408
  */
 // shows what is wrong with the card until A is pressed or the card changes
-extern "C" void State14__5TitleFUl(Title* title)
+void Title::State14(u32 frames)
 {
 	CPad pad(0);
-	s32 error = title->mResult;
+	s32 error = mResult;
 
 	switch (error) {
 	case -3:
-		if (title->_37E2 == 1) {
+		if (mWrongDevice == 1) {
 			for (s32 i = 0; i < 3; i++) {
-				fn_8003D7DC(&lbl_80361E8C[i]);
+				ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 			}
-			fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-			title->SetMode(1);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			title->mOffset = 0.0f;
+			StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+			SetMode(1);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			mOffset = 0.0f;
 			return;
 		}
-		if (title->mReady == 1) {
+		if (mReady == 1) {
 			for (s32 i = 0; i < 3; i++) {
-				fn_8003D7DC(&lbl_80361E8C[i]);
+				ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 			}
-			fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-			title->SetMode(1);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			title->mOffset = 0.0f;
+			StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+			SetMode(1);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			mOffset = 0.0f;
 			return;
 		}
 		break;
 	case -2:
-		if (!title->_37E2) {
-			OnCardRemoved(title);
+		if (!mWrongDevice) {
+			OnCardRemoved(this);
 			return;
 		}
 		break;
 	case -128:
-		if ((!title->mReady || !title->_3809) && title->_37A8 == 1) {
-			OnFormattedCardGone(title);
+		if ((!mReady || !mSaveFound) && mSelection == 1) {
+			OnFormattedCardGone(this);
 			return;
 		}
 		break;
 	default:
-		if (!title->mReady) {
-			OnCardRemoved(title);
+		if (!mReady) {
+			OnCardRemoved(this);
 			return;
 		}
 		break;
@@ -2347,20 +3284,20 @@ extern "C" void State14__5TitleFUl(Title* title)
 	if (pad.mPad->mTrigger & 0x100) {
 		switch (error) {
 		case -9:
-			title->SetMode(18);
-			title->mOffset = 0.0f;
+			SetMode(18);
+			mOffset = 0.0f;
 			break;
 		case -128:
-			title->SetMode(6);
-			title->mOffset = -32.0f;
+			SetMode(6);
+			mOffset = -32.0f;
 			break;
 		default:
-			title->SetMode(5);
-			title->mOffset = -32.0f;
-			title->mChoice = 1;
+			SetMode(5);
+			mOffset = -32.0f;
+			mChoice = 1;
 			break;
 		}
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+		PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 	}
 }
 
@@ -2368,31 +3305,31 @@ extern "C" void State14__5TitleFUl(Title* title)
  * @note Address: 0x8002CB40
  * @note Size: 0x1B4
  */
-extern "C" void State13__5TitleFUl(Title* title, u32 frames)
+void Title::State13(u32 frames)
 {
 	CPad pad(0);
 
-	if (!title->mReady) {
-		OnCardRemoved(title);
+	if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
-	switch (title->mPhase) {
+	switch (mPhase) {
 	case 0:
-		title->mDelay -= frames;
-		if (title->mDelay < 0) {
-			title->mDelay = 0;
-			title->mPhase++;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+		mDelay -= frames;
+		if (mDelay < 0) {
+			mDelay = 0;
+			mPhase++;
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 		}
 		break;
 	case 1:
 		if (pad.mPad->mTrigger & 0x100) {
 			for (s32 i = 0; i < 3; i++) {
-				fn_8003D7DC(&lbl_80361E8C[i]);
+				ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 			}
-			fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-			title->SetMode(1);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+			SetMode(1);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			return;
 		}
 		break;
@@ -2403,18 +3340,18 @@ extern "C" void State13__5TitleFUl(Title* title, u32 frames)
  * @note Address: 0x8002CCF4
  * @note Size: 0x14C
  */
-extern "C" void State12__5TitleFUl(Title* title, u32 frames)
+void Title::State12(u32 frames)
 {
-	title->mDelay -= frames;
-	if (title->mDelay < 0) {
-		title->mDelay = 0;
+	mDelay -= frames;
+	if (mDelay < 0) {
+		mDelay = 0;
 	}
-	switch (lbl_8025C400.mMemcard.mCard.mState) {
+	switch (gGame.mMemcard.mCard.mState) {
 	case 0:
-		title->_37D0 = lbl_8025C400.mMemcard.mCard._16A04;
-		title->_37D4 = lbl_8025C400.mMemcard.mCard._16A00;
-		title->SetMode(13);
-		title->mAlpha = 1.0f;
+		mFreeBlocks  = gGame.mMemcard.mCard.mFreeBlocks;
+		mFreeEntries = gGame.mMemcard.mCard.mFreeEntries;
+		SetMode(13);
+		mAlpha = 1.0f;
 		break;
 	case 1:
 	case 2:
@@ -2430,8 +3367,8 @@ extern "C" void State12__5TitleFUl(Title* title, u32 frames)
 	case 13:
 	case 14:
 	case 15: {
-		s32 result     = lbl_8025C400.mMemcard.mCard.mCard.mResult;
-		title->mResult = result;
+		s32 result = gGame.mMemcard.mCard.mCard.mResult;
+		mResult    = result;
 		switch (result) {
 		case -128:
 		case -14:
@@ -2449,19 +3386,19 @@ extern "C" void State12__5TitleFUl(Title* title, u32 frames)
 		case -2:
 		case -1:
 		case 0:
-			if (result == -6 || result == -13) {
-				title->SetMode(19);
-				title->mShowMessage = 1;
+			if (result == CARD_RESULT_BROKEN || result == CARD_RESULT_ENCODING) {
+				SetMode(19);
+				mShowMessage = 1;
 			} else {
-				title->SetMode(21);
-				title->mShowMessage = 1;
+				SetMode(21);
+				mShowMessage = 1;
 			}
-			title->mAlpha = 1.0f;
+			mAlpha = 1.0f;
 			break;
 		default:
-			title->SetMode(14);
-			title->mAlpha  = 1.0f;
-			title->mOffset = -32.0f;
+			SetMode(14);
+			mAlpha  = 1.0f;
+			mOffset = -32.0f;
 			break;
 		}
 		break;
@@ -2474,45 +3411,45 @@ extern "C" void State12__5TitleFUl(Title* title, u32 frames)
  * @note Size: 0x348
  */
 // asked twice whether to make a new save file
-extern "C" void State11__5TitleFUl(Title* title)
+void Title::State11(u32 frames)
 {
 	CPad pad(0);
 
-	if (!title->mReady) {
-		OnCardRemoved(title);
+	if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
-	switch (title->mPhase) {
+	switch (mPhase) {
 	case 0:
-		MoveYesNo(title, pad);
+		MoveYesNo(this, pad);
 		if (pad.mPad->mTrigger & 0x100) {
-			if (title->mChoice == 0) {
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-				title->mChoice = 1;
-				title->mPhase++;
+			if (mChoice == 0) {
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+				mChoice = 1;
+				mPhase++;
 			} else {
-				title->SetMode(19);
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+				SetMode(19);
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 #if !defined(VERSION_JP)
-				title->_3C44 = 1;
+				mFormatCancelled = 1;
 #endif
 			}
 			return;
 		}
 		break;
 	case 1:
-		MoveYesNo(title, pad);
+		MoveYesNo(this, pad);
 		if (pad.mPad->mTrigger & 0x100) {
-			if (title->mChoice == 0) {
-				fn_80088E78(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-				title->SetMode(12);
-				title->mDelay = 90;
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			if (mChoice == 0) {
+				StartMemoryCardFormatCheck(&gGame.mMemcard.mCard, mChannel, 1);
+				SetMode(12);
+				mDelay = 1.5f * FRAME_RATE;
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			} else {
-				title->SetMode(19);
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+				SetMode(19);
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 #if !defined(VERSION_JP)
-				title->_3C44 = 1;
+				mFormatCancelled = 1;
 #endif
 			}
 			return;
@@ -2525,7 +3462,7 @@ extern "C" void State11__5TitleFUl(Title* title)
  * @note Address: 0x8002D188
  * @note Size: 0x4
  */
-extern "C" void State10__5TitleFUl(Title* title)
+void Title::State10(u32 frames)
 {
 }
 
@@ -2533,24 +3470,24 @@ extern "C" void State10__5TitleFUl(Title* title)
  * @note Address: 0x8002D18C
  * @note Size: 0x148
  */
-extern "C" void State9__5TitleFUl(Title* title)
+void Title::State9(u32 frames)
 {
 	CPad pad(0);
-	if (title->_37E2 == 1 || title->mReady == 1) {
+	if (mWrongDevice == 1 || mReady == 1) {
 		for (s32 i = 0; i < 3; ++i) {
-			fn_8003D7DC(&lbl_80361E8C[i]);
+			ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 		}
-		fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, TRUE);
-		title->SetMode(1);
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
-		title->mOffset = 0.0f;
+		StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, TRUE);
+		SetMode(1);
+		PlayGameSound(&gGame.mSound, 0x88, 255);
+		mOffset = 0.0f;
 		return;
 	}
 	if (pad.mPad->mTrigger & 0x100) {
-		title->SetMode(5);
-		title->mOffset = -32.0f;
-		title->mChoice = 1;
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 255);
+		SetMode(5);
+		mOffset = -32.0f;
+		mChoice = 1;
+		PlayGameSound(&gGame.mSound, 0x88, 255);
 	}
 }
 
@@ -2558,20 +3495,20 @@ extern "C" void State9__5TitleFUl(Title* title)
  * @note Address: 0x8002D2D4
  * @note Size: 0x218
  */
-extern "C" void State8__5TitleFUl(Title* title)
+void Title::State8(u32 frames)
 {
-	s32 cardState = lbl_8025C400.mMemcard.mCard.mState;
+	s32 cardState = gGame.mMemcard.mCard.mState;
 	switch (cardState) {
 	case 0:
-		HideName(title);
-		fn_8001E660(&lbl_8025C400.mSound, (s32)0xFFFF0003);
-		title->_37BC                = -200.0f;
-		title->mAlpha               = 0.0f;
-		lbl_8025C400.mInfoScrn._1D0 = title->mFile;
-		fn_80068B98(&lbl_8025C400.mInfoScrn);
-		title->SetMode(25);
-		title->mState   = 13;
-		title->mTimeout = 20000;
+		HideName(this);
+		StopGameSfx(&gGame.mSound, (s32)0xFFFF0003);
+		mTargetPanelY                     = -200.0f;
+		mAlpha                            = 0.0f;
+		gGame.mInfoScrn.mSelectedSaveSlot = mFile;
+		ResumeScrapCounterPulse(&gGame.mInfoScrn);
+		SetMode(25);
+		mState   = 13;
+		mTimeout = 20000;
 		break;
 	case 1:
 	case 2:
@@ -2587,8 +3524,8 @@ extern "C" void State8__5TitleFUl(Title* title)
 	case 13:
 	case 14:
 	case 15: {
-		s32 result     = lbl_8025C400.mMemcard.mCard.mCard.mResult;
-		title->mResult = result;
+		s32 result = gGame.mMemcard.mCard.mCard.mResult;
+		mResult    = result;
 		switch (result) {
 		case -128:
 		case -14:
@@ -2606,23 +3543,24 @@ extern "C" void State8__5TitleFUl(Title* title)
 		case -2:
 		case -1:
 		case 0:
-			if (cardState == 2 && (result == -6 || result == -13)) {
-				title->SetMode(11);
-				title->mChoice      = 1;
-				title->mShowMessage = 1;
-			} else if (result == -3 || result == -5) {
-				title->SetMode(22);
-				title->mShowMessage = 1;
+			// while mounting (card state 2), a broken card or one from another region gets the format question
+			if (cardState == 2 && (result == CARD_RESULT_BROKEN || result == CARD_RESULT_ENCODING)) {
+				SetMode(11);
+				mChoice      = 1;
+				mShowMessage = 1;
+			} else if (result == CARD_RESULT_NOCARD || result == CARD_RESULT_IOERROR) {
+				SetMode(22);
+				mShowMessage = 1;
 			} else {
-				title->SetMode(14);
-				title->mOffset = -32.0f;
+				SetMode(14);
+				mOffset = -32.0f;
 			}
-			title->mAlpha = 1.0f;
+			mAlpha = 1.0f;
 			break;
 		default:
-			title->SetMode(14);
-			title->mAlpha  = 1.0f;
-			title->mOffset = -32.0f;
+			SetMode(14);
+			mAlpha  = 1.0f;
+			mOffset = -32.0f;
 			break;
 		}
 		break;
@@ -2634,7 +3572,7 @@ extern "C" void State8__5TitleFUl(Title* title)
  * @note Address: 0x8002D4EC
  * @note Size: 0x4
  */
-extern "C" void State7__5TitleFUl(Title* title)
+void Title::State7(u32 frames)
 {
 }
 
@@ -2643,53 +3581,53 @@ extern "C" void State7__5TitleFUl(Title* title)
  * @note Size: 0x304
  */
 // asked whether to save over the file, unless the card went away under it
-extern "C" void State6__5TitleFUl(Title* title)
+void Title::State6(u32 frames)
 {
 	CPad pad(0);
 
-	if ((!title->mReady || !title->_3809) && title->_37A8 == 1) {
-		title->SetMode(25);
-		title->mState = 11;
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-		title->_37BC   = -200.0f;
-		title->mOffset = 0.0f;
-		title->mAlpha  = 0.0f;
-		HideName(title);
-		title->_37A8 = 0;
-		title->_3809 = 0;
-		title->_3808 = 0;
+	if ((!mReady || !mSaveFound) && mSelection == 1) {
+		SetMode(25);
+		mState = 11;
+		PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+		mTargetPanelY = -200.0f;
+		mOffset       = 0.0f;
+		mAlpha        = 0.0f;
+		HideName(this);
+		mSelection     = 0;
+		mSaveFound     = 0;
+		mCardScanState = 0;
 		return;
 	}
-	if (!title->mReady) {
-		OnCardRemoved(title);
+	if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
-	if (pad.mPad->mRepeat & 0x40001) {
-		if (title->mChoice > 0) {
-			title->mChoice--;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+	if (pad.mPad->mRepeat & (HSD_PAD_STICK_LEFT | HSD_PAD_DPADLEFT)) {
+		if (mChoice > 0) {
+			mChoice--;
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			return;
 		}
-	} else if (pad.mPad->mRepeat & 0x80002) {
-		if (title->mChoice < 1) {
-			title->mChoice++;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+	} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_RIGHT | HSD_PAD_DPADRIGHT)) {
+		if (mChoice < 1) {
+			mChoice++;
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			return;
 		}
 	}
 	if (pad.mPad->mTrigger & 0x100) {
-		switch (title->mChoice) {
+		switch (mChoice) {
 		case 0:
-			fn_8008A1F4(&lbl_8025C400.mMemcard.mCard, title->mChannel, title->mFile, 1);
-			title->SetMode(15);
-			title->mDelay = 90;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			title->mOffset = -32.0f;
+			StartMemoryCardSaveWrite(&gGame.mMemcard.mCard, mChannel, mFile, 1);
+			SetMode(15);
+			mDelay = 1.5f * FRAME_RATE;
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			mOffset = -32.0f;
 			break;
 		case 1:
-			title->SetMode(2);
-			title->mChoice = 0;
-			fn_8001E904(&lbl_8025C400.mSound, 0x86, 0xFF);
+			SetMode(2);
+			mChoice = 0;
+			PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			break;
 		}
 	}
@@ -2700,76 +3638,76 @@ extern "C" void State6__5TitleFUl(Title* title)
  * @note Size: 0x504
  */
 // asked whether to go on without saving
-extern "C" void State5__5TitleFUl(Title* title)
+void Title::State5(u32 frames)
 {
 	CPad pad(0);
 
-	switch (title->mResult) {
+	switch (mResult) {
 	case -3:
-		if (title->mReady == 1) {
+		if (mReady == 1) {
 			for (s32 i = 0; i < 3; i++) {
-				fn_8003D7DC(&lbl_80361E8C[i]);
+				ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 			}
-			fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-			title->mOffset = 0.0f;
-			title->SetMode(1);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+			mOffset = 0.0f;
+			SetMode(1);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			return;
 		}
 		break;
 	case -2:
-		if (!title->_37E2) {
-			OnCardRemoved(title);
+		if (!mWrongDevice) {
+			OnCardRemoved(this);
 			return;
 		}
 		break;
 	default:
-		if (!title->mReady) {
-			OnCardRemoved(title);
+		if (!mReady) {
+			OnCardRemoved(this);
 			return;
 		}
 		break;
 	}
-	MoveYesNo(title, pad);
+	MoveYesNo(this, pad);
 	if (pad.mPad->mTrigger & 0x100) {
-		if (title->mChoice == 0 && (pad.mPad->mTrigger & 0x100)) {
-			HideName(title);
-			title->_37BC   = -200.0f;
-			title->mOffset = 0.0f;
-			title->mAlpha  = 0.0f;
-			title->mChoice = 0;
-			title->mState  = 13;
-			title->SetMode(25);
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			fn_8001E660(&lbl_8025C400.mSound, (s32)0xFFFF0003);
-			lbl_8025C400.mInfoScrn._1D0 = title->mFile;
+		if (mChoice == 0 && (pad.mPad->mTrigger & 0x100)) {
+			HideName(this);
+			mTargetPanelY = -200.0f;
+			mOffset       = 0.0f;
+			mAlpha        = 0.0f;
+			mChoice       = 0;
+			mState        = 13;
+			SetMode(25);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			StopGameSfx(&gGame.mSound, (s32)0xFFFF0003);
+			gGame.mInfoScrn.mSelectedSaveSlot = mFile;
 			return;
 		}
-		if (title->mChoice == 1 && (pad.mPad->mTrigger & 0x100)) {
-			if (title->mShowMessage == 1) {
-				title->SetMode(19);
-				title->mOffset = 0.0f;
-			} else if (title->mResult == 0) {
-				title->SetMode(2);
-				title->mChoice = 0;
-			} else if (title->mResult == -3) {
-				title->SetMode(25);
-				title->mState = 11;
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-				title->_37BC   = -200.0f;
-				title->mAlpha  = 0.0f;
-				title->mChoice = 0;
-				title->mOffset = 0.0f;
-				HideName(title);
+		if (mChoice == 1 && (pad.mPad->mTrigger & 0x100)) {
+			if (mShowMessage == 1) {
+				SetMode(19);
+				mOffset = 0.0f;
+			} else if (mResult == 0) {
+				SetMode(2);
+				mChoice = 0;
+			} else if (mResult == -3) {
+				SetMode(25);
+				mState = 11;
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+				mTargetPanelY = -200.0f;
+				mAlpha        = 0.0f;
+				mChoice       = 0;
+				mOffset       = 0.0f;
+				HideName(this);
 			} else {
 				for (s32 i = 0; i < 3; i++) {
-					fn_8003D7DC(&lbl_80361E8C[i]);
+					ResetSaveSlotRecord(&gTitleSaveSlots[i]);
 				}
-				fn_80089890(&lbl_8025C400.mMemcard.mCard, title->mChannel, 1);
-				title->SetMode(1);
-				title->mOffset = 0.0f;
+				StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, mChannel, 1);
+				SetMode(1);
+				mOffset = 0.0f;
 			}
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			return;
 		}
 	}
@@ -2779,7 +3717,7 @@ extern "C" void State5__5TitleFUl(Title* title)
  * @note Address: 0x8002DCF8
  * @note Size: 0x4
  */
-extern "C" void State4__5TitleFUl(Title* title)
+void Title::State4(u32 frames)
 {
 }
 
@@ -2788,42 +3726,42 @@ extern "C" void State4__5TitleFUl(Title* title)
  * @note Size: 0x240
  */
 // the yes or no question, left and right pick, A takes it
-extern "C" void State3__5TitleFUl(Title* title)
+void Title::State3(u32 frames)
 {
 	CPad pad(0);
 	CPadOne* state;
 
-	if (!title->mReady) {
-		OnCardRemoved(title);
+	if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
 	state = pad.mPad;
-	if (state->mRepeat & 0x40001) {
-		if (title->mChoice > 0) {
-			title->mChoice--;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+	if (state->mRepeat & (HSD_PAD_STICK_LEFT | HSD_PAD_DPADLEFT)) {
+		if (mChoice > 0) {
+			mChoice--;
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			return;
 		}
-	} else if (state->mRepeat & 0x80002) {
-		if (title->mChoice < 1) {
-			title->mChoice++;
-			fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+	} else if (state->mRepeat & (HSD_PAD_STICK_RIGHT | HSD_PAD_DPADRIGHT)) {
+		if (mChoice < 1) {
+			mChoice++;
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			return;
 		}
 	}
 	if (state->mTrigger & 0x100) {
-		switch (title->mChoice) {
+		switch (mChoice) {
 		case 0:
-			fn_8008A1F4(&lbl_8025C400.mMemcard.mCard, title->mChannel, title->mFile, 1);
-			title->SetMode(15);
-			title->mDelay = 90;
-			fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			title->mOffset = -32.0f;
+			StartMemoryCardSaveWrite(&gGame.mMemcard.mCard, mChannel, mFile, 1);
+			SetMode(15);
+			mDelay = 1.5f * FRAME_RATE;
+			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			mOffset = -32.0f;
 			return;
 		case 1:
-			title->SetMode(2);
-			title->mChoice = 0;
-			fn_8001E904(&lbl_8025C400.mSound, 0x86, 0xFF);
+			SetMode(2);
+			mChoice = 0;
+			PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			return;
 		}
 	}
@@ -2834,89 +3772,89 @@ extern "C" void State3__5TitleFUl(Title* title)
  * @note Size: 0x638
  */
 // picks one of the three save files, A starts or loads it, B goes back
-extern "C" void State2__5TitleFUl(Title* title)
+void Title::State2(u32 frames)
 {
 	CPad pad(0);
 
-	if ((!title->mReady || !title->_3809) && title->_37A8 == 1) {
-		OnFormattedCardGone(title);
+	if ((!mReady || !mSaveFound) && mSelection == 1) {
+		OnFormattedCardGone(this);
 		return;
 	}
-	if (!title->mReady) {
-		OnCardRemoved(title);
+	if (!mReady) {
+		OnCardRemoved(this);
 		return;
 	}
-	title->mOffset = 0.0f;
-	if (pad.mPad->mRepeat & 0x40001) {
-		title->mFile--;
-		if (title->mFile < 0) {
-			title->mFile = 2;
+	mOffset = 0.0f;
+	if (pad.mPad->mRepeat & (HSD_PAD_STICK_LEFT | HSD_PAD_DPADLEFT)) {
+		mFile--;
+		if (mFile < 0) {
+			mFile = 2;
 		}
-		fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
-	} else if (pad.mPad->mRepeat & 0x80002) {
-		title->mFile++;
-		if (title->mFile > 2) {
-			title->mFile = 0;
+		PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+	} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_RIGHT | HSD_PAD_DPADRIGHT)) {
+		mFile++;
+		if (mFile > 2) {
+			mFile = 0;
 		}
-		fn_8001E904(&lbl_8025C400.mSound, 0x87, 0xFF);
+		PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 	}
 	if (pad.mPad->mTrigger & 0x100) {
-		switch (title->_37A8) {
+		switch (mSelection) {
 		case 0:
-			if (lbl_80361E8C[title->mFile].mUsed == 1) {
-				title->SetMode(3);
-				title->mChoice = 1;
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-			} else if (title->_37D0 >= 6 && title->_37D4 > 0) {
-				fn_8008A1F4(&lbl_8025C400.mMemcard.mCard, title->mChannel, title->mFile, 1);
-				title->SetMode(15);
-				title->mDelay  = 90;
-				title->mOffset = -32.0f;
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+			if (gTitleSaveSlots[mFile].mUsed == 1) {
+				SetMode(3);
+				mChoice = 1;
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+			} else if (mFreeBlocks >= 6 && mFreeEntries > 0) {
+				StartMemoryCardSaveWrite(&gGame.mMemcard.mCard, mChannel, mFile, 1);
+				SetMode(15);
+				mDelay  = 1.5f * FRAME_RATE;
+				mOffset = -32.0f;
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			} else {
-				title->mResult = -9;
-				title->SetMode(14);
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-				title->mOffset = -32.0f;
+				mResult = CARD_RESULT_INSSPACE;
+				SetMode(14);
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+				mOffset = -32.0f;
 			}
 			return;
 		case 1:
-			if (lbl_80361E8C[title->mFile].mUsed == 1) {
-				if (!fn_8003D7C4(&lbl_80361E8C[title->mFile])) {
-					title->mResult = -128;
-					title->SetMode(14);
-					fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-					title->mOffset = 0.0f;
+			if (gTitleSaveSlots[mFile].mUsed == 1) {
+				if (!IsSaveSlotIntact(&gTitleSaveSlots[mFile])) {
+					mResult = -128;
+					SetMode(14);
+					PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+					mOffset = 0.0f;
 					return;
 				}
-				if (lbl_80361E8C[title->mFile].mStage == 0) {
-					HideName(title);
-					title->_37BC   = -200.0f;
-					title->mAlpha  = 0.0f;
-					title->mChoice = 0;
-					title->mState  = 13;
-					title->SetMode(25);
-					fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-					fn_8001E660(&lbl_8025C400.mSound, (s32)0xFFFF0003);
-					lbl_8025C400.mInfoScrn._1D0 = title->mFile;
+				if (gTitleSaveSlots[mFile].mStage == 0) {
+					HideName(this);
+					mTargetPanelY = -200.0f;
+					mAlpha        = 0.0f;
+					mChoice       = 0;
+					mState        = 13;
+					SetMode(25);
+					PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+					StopGameSfx(&gGame.mSound, (s32)0xFFFF0003);
+					gGame.mInfoScrn.mSelectedSaveSlot = mFile;
 					return;
 				}
-				fn_80089C90(&lbl_8025C400.mMemcard.mCard, title->mChannel, title->mFile, 1);
-				title->SetMode(8);
-				fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
+				StartMemoryCardSaveRead(&gGame.mMemcard.mCard, mChannel, mFile, 1);
+				SetMode(8);
+				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			} else {
-				fn_8001E904(&lbl_8025C400.mSound, 0x86, 0xFF);
+				PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			}
 			return;
 		}
 	} else if (pad.mPad->mTrigger & 0x200) {
-		title->SetMode(25);
-		title->mState = 11;
-		fn_8001E904(&lbl_8025C400.mSound, 0x88, 0xFF);
-		title->_37BC   = -200.0f;
-		title->mOffset = 0.0f;
-		title->mAlpha  = 0.0f;
-		HideName(title);
+		SetMode(25);
+		mState = 11;
+		PlayGameSound(&gGame.mSound, 0x88, 0xFF);
+		mTargetPanelY = -200.0f;
+		mOffset       = 0.0f;
+		mAlpha        = 0.0f;
+		HideName(this);
 	}
 }
 
@@ -2924,13 +3862,13 @@ extern "C" void State2__5TitleFUl(Title* title)
  * @note Address: 0x8002E574
  * @note Size: 0x358
  */
-extern "C" void State1__5TitleFUl(Title* title, u32 frames)
+void Title::State1(u32 frames)
 {
-	Memcard* card = &lbl_8025C400.mMemcard.mCard;
+	Memcard* card = &gGame.mMemcard.mCard;
 	s32 state     = card->mState;
-	title->mDelay -= frames;
-	if (title->mDelay < 0)
-		title->mDelay = 0;
+	mDelay -= frames;
+	if (mDelay < 0)
+		mDelay = 0;
 	switch (state) {
 	case 0: {
 		OSTime timestamps[3];
@@ -2939,39 +3877,39 @@ extern "C" void State1__5TitleFUl(Title* title, u32 frames)
 			if (save->mState) {
 				OSCalendarTime calendar;
 				OSTicksToCalendarTime(OSSecondsToTicks((OSTime)save->mStat.time), &calendar);
-				s32 frames                  = save->mHeader.mFrames;
-				s32 active                  = save->mHeader._34;
-				lbl_80361E8C[i].mUsed       = 1;
-				lbl_80361E8C[i].mLevel      = save->mHeader.mLevel;
-				lbl_80361E8C[i].mBattery    = save->mHeader.mBattery;
-				lbl_80361E8C[i].mMaxBattery = save->mHeader.mMaxBattery;
-				lbl_80361E8C[i].mMoney      = save->mHeader.mMoney;
-				lbl_80361E8C[i].mExp        = save->mHeader.mExp;
-				lbl_80361E8C[i].mScrap      = save->mHeader.mScrap;
-				lbl_80361E8C[i].mRank       = save->mHeader.mRank;
-				lbl_80361E8C[i].mHours      = frames / 216000;
-				lbl_80361E8C[i].mMinutes    = (frames / 3600) % 60;
-				lbl_80361E8C[i].mStage      = save->mHeader.mStage;
-				lbl_80361E8C[i].mTimeMode   = save->mHeader.mTimeMode;
+				s32 frames                     = save->mHeader.mFrames;
+				s32 active                     = save->mHeader.mActive;
+				gTitleSaveSlots[i].mUsed       = 1;
+				gTitleSaveSlots[i].mLevel      = save->mHeader.mLevel;
+				gTitleSaveSlots[i].mBattery    = save->mHeader.mBattery;
+				gTitleSaveSlots[i].mMaxBattery = save->mHeader.mMaxBattery;
+				gTitleSaveSlots[i].mMoney      = save->mHeader.mMoney;
+				gTitleSaveSlots[i].mExp        = save->mHeader.mExp;
+				gTitleSaveSlots[i].mScrap      = save->mHeader.mScrap;
+				gTitleSaveSlots[i].mRank       = save->mHeader.mRank;
+				gTitleSaveSlots[i].mHours      = frames / 216000;
+				gTitleSaveSlots[i].mMinutes    = (frames / 3600) % 60;
+				gTitleSaveSlots[i].mStage      = save->mHeader.mStage;
+				gTitleSaveSlots[i].mTimeMode   = save->mHeader.mTimeMode;
 				if (active > 0)
-					lbl_80361E8C[i].mActive = 1;
+					gTitleSaveSlots[i].mActive = 1;
 				else
-					lbl_80361E8C[i].mActive = 0;
+					gTitleSaveSlots[i].mActive = 0;
 				timestamps[i] = OSCalendarTimeToTicks(&calendar);
-				if (save->mStatus != 0 || !fn_80086F24(save))
-					lbl_80361E8C[i].mState = 1;
+				if (save->mStatus != 0 || !IsValidSavePreview(save))
+					gTitleSaveSlots[i].mState = 1;
 				else
-					lbl_80361E8C[i].mState = 0;
+					gTitleSaveSlots[i].mState = 0;
 			}
 		}
-		title->_37D0 = lbl_8025C400.mMemcard.mCard._16A04;
-		title->_37D4 = lbl_8025C400.mMemcard.mCard._16A00;
-		title->SetMode(2);
-		if (title->_37A8 == 0)
-			title->mFile = 0;
+		mFreeBlocks  = gGame.mMemcard.mCard.mFreeBlocks;
+		mFreeEntries = gGame.mMemcard.mCard.mFreeEntries;
+		SetMode(2);
+		if (mSelection == 0)
+			mFile = 0;
 		else
-			title->mFile = fn_80035184(timestamps[0], timestamps[1], timestamps[2]);
-		title->mAlpha = 1.0f;
+			mFile = IndexOfLargestOfThree(timestamps[0], timestamps[1], timestamps[2]);
+		mAlpha = 1.0f;
 		break;
 	}
 	case 1:
@@ -2988,8 +3926,8 @@ extern "C" void State1__5TitleFUl(Title* title, u32 frames)
 	case 13:
 	case 14:
 	case 15: {
-		s32 result     = lbl_8025C400.mMemcard.mCard.mCard.mResult;
-		title->mResult = result;
+		s32 result = gGame.mMemcard.mCard.mCard.mResult;
+		mResult    = result;
 		switch (result) {
 		case -128:
 		case -14:
@@ -3007,22 +3945,22 @@ extern "C" void State1__5TitleFUl(Title* title, u32 frames)
 		case -2:
 		case -1:
 		case 0:
-			if (result == -6 || result == -13) {
-				title->SetMode(11);
-				title->mChoice = 1;
-			} else if (result == -5) {
-				title->SetMode(19);
-				title->mShowMessage = 1;
+			if (result == CARD_RESULT_BROKEN || result == CARD_RESULT_ENCODING) {
+				SetMode(11);
+				mChoice = 1;
+			} else if (result == CARD_RESULT_IOERROR) {
+				SetMode(19);
+				mShowMessage = 1;
 			} else {
-				title->SetMode(14);
-				title->mOffset = -32.0f;
+				SetMode(14);
+				mOffset = -32.0f;
 			}
-			title->mAlpha = 1.0f;
+			mAlpha = 1.0f;
 			break;
 		default:
-			title->SetMode(14);
-			title->mAlpha  = 1.0f;
-			title->mOffset = -32.0f;
+			SetMode(14);
+			mAlpha  = 1.0f;
+			mOffset = -32.0f;
 			break;
 		}
 		break;
@@ -3034,69 +3972,664 @@ extern "C" void State1__5TitleFUl(Title* title, u32 frames)
  * @note Address: 0x8002E8CC
  * @note Size: 0x4
  */
-extern "C" void State0__5TitleFUl(Title* title)
+void Title::State0(u32 frames)
 {
+}
+
+static inline void ApproachTitleOffset(f32& value, f32& target)
+{
+	f32 speed = (target - value) * .25f;
+	if (speed < 0)
+		speed = -speed;
+	if (speed <= 1)
+		speed = 1;
+	ApproachHudValue(&value, &target, speed);
+}
+
+extern "C" {
+#if !defined(VERSION_JP)
+extern const char* gTitleTextureSuffixes[5];
+#endif
+}
+
+static inline void KeepTitleSoundPlaying(XSound* sound)
+{
+	if (!IsGameSoundPlaying(sound, (s32)0xffff0003))
+		PlayGameSound(sound, (s32)0xffff0003, 255);
+}
+
+static inline void ShowTitleChoice(Title* title, s32 id)
+{
+	u32 tint             = 0xffffff00 | (u32)(255.f * title->mLoadAlpha);
+	const char* text     = GetTitleAndSaveMenuText(id);
+	title->mName.mActive = 1;
+	title->mName.mCount  = 0;
+	if (text != NULL) {
+		title->mName.mColor = tint;
+		for (s32 i = 0; i < 20 && *text; i++, text++) {
+			title->mName.mChars[i].mText  = text;
+			title->mName.mChars[i].mScale = -.2f * i;
+			title->mName.mChars[i].mWait  = FRAME_RATE;
+			title->mName.mChars[i].mBob   = DEG2RAD * (rand() % 360);
+			title->mName.mChars[i].mTilt  = DEG2RAD * (rand() % 360);
+			title->mName.mCount++;
+			if (HelpTextIsJapanese() && IsSjisLead(*text))
+				text++;
+		}
+		for (s32 i = title->mName.mCount; i < 20; i++) {
+			title->mName.mChars[i].mText  = NULL;
+			title->mName.mChars[i].mScale = 0;
+			title->mName.mChars[i].mWait  = 0;
+		}
+	}
+}
+static inline void UpdateTitleDust(Title* title, u32 frames)
+{
+	f32 fade   = .009f * frames;
+	f32 growth = .018f * frames;
+	for (s32 i = 0; i < (s32)ARRAY_SIZE(title->mDust); ++i) {
+		TitleDust& dust = title->mDust[i];
+		switch (dust.mState) {
+		case 0:
+			dust.mTimer = rand() % 120;
+			++dust.mState;
+			break;
+		case 1:
+			if ((s32)--dust.mTimer < 0) {
+				dust.mSpeedY = 1;
+				++dust.mState;
+			}
+			break;
+		case 2:
+			dust.mSpeedY -= fade;
+			dust.mSpeedX += growth;
+			if (dust.mSpeedX >= 2) {
+				dust.mX      = rand() % 640;
+				dust.mY      = rand() % 480;
+				dust.mSpeedY = dust.mSpeedX = 0;
+				dust.mState                 = 0;
+			}
+			break;
+		}
+	}
+}
+
+static inline void ApplyTitleControllerSetting(Title* title)
+{
+	if (gGame.mStatus.mFlags & 0x4000) {
+		if (gGame.mPad.mPad[0].mConnected) {
+			title->mRumble = 1;
+			gGame.mStatus.mFlags |= 0x800000000ULL;
+		} else {
+			title->mRumble = 0;
+			gGame.mStatus.mFlags &= ~0x800000000ULL;
+		}
+		gGame.mStatus.mFlags &= ~0x4000ULL;
+	}
+}
+
+static inline void TitleSelectionMoved(Title* title)
+{
+	title->mPulseAngle = 45;
+	PlayGameSound(&gGame.mSound, 0x87, 255);
+}
+
+static inline void TitleSelectionConfirmed(Title* title)
+{
+	PlayGameSound(&gGame.mSound, 0x88, 255);
+	title->mState = 12;
+	title->mCursor.SetAnim(1, TRUE, NULL, NULL, NULL, 0, 1, 0, 10);
+	title->mPulseAngle = 90;
+}
+
+/**
+ * @note Address: 0x8002E8D0
+ */
+// NONMATCHING: retail reaches the card's busy and found flags in two steps and turns the result of
+// the shift-jis test into 0 or 1 before it tests it
+extern "C" void UpdateTitleScreen(Title* title, u32 frames)
+{
+
+	ApproachTitleOffset(title->mPanelY, title->mTargetPanelY);
+	ApproachHudValue(&title->mLoadAlpha, &title->mAlpha, .08f * frames);
+	ApproachTitleOffset(title->mLoadOffset, title->mOffset);
+	ApproachHudValue(&title->mOptionAlpha, &title->mTargetOptionAlpha, .08f * frames);
+	title->mLoadScroll -= .008f * frames;
+	if (title->mState != 0 && title->mState != 1 && title->mState != 23) {
+		if (title->mName.mActive && title->mName.mActive > 0) {
+			for (s32 i = 0; i < title->mName.mCount; ++i) {
+				if (title->mName.mChars[i].mWait > 0) {
+					if (title->mName.mChars[i].mScale < 1) {
+						if ((title->mName.mChars[i].mScale += (1.f / (.3f * FRAME_RATE)) * frames) > 1)
+							title->mName.mChars[i].mScale = 1;
+					}
+				} else if (title->mName.mChars[i].mScale > 0) {
+					if ((title->mName.mChars[i].mScale -= (1.f / (.3f * FRAME_RATE)) * frames) < 0)
+						title->mName.mChars[i].mScale = 0;
+				}
+			}
+			s32 visible = 0;
+			for (s32 i = 0; i < title->mName.mCount; ++i) {
+				if (0 != title->mName.mChars[i].mScale) {
+					++visible;
+					title->mName.mChars[i].mBob += (5.f * DEG2RAD) * frames;
+					title->mName.mChars[i].mTilt += (3.f * DEG2RAD) * frames;
+				}
+			}
+			if (!visible)
+				title->mName.mActive = 0;
+		}
+		switch (title->mHelpFadeState) {
+		case 0:
+			break;
+		case 1:
+			title->mHelpAlpha = 0;
+			++title->mHelpFadeState;
+			title->mHelpText = title->mNextHelpText;
+			break;
+		case 2:
+			title->mHelpAlpha += .04f * frames;
+			if (title->mHelpAlpha >= 1) {
+				title->mHelpAlpha     = 1;
+				title->mHelpFadeState = 0;
+			}
+			break;
+		}
+		if (title->mMenuAlpha > 0) {
+			for (s32 i = 0; i < (s32)ARRAY_SIZE(title->mBg); ++i) {
+				title->mBg[i].mAngle0 += (5.f * DEG2RAD) * frames;
+				title->mBg[i].mAngle1 += (3.f * DEG2RAD) * frames;
+			}
+		}
+		if (title->mMode != 1 && title->mMode != 8 && title->mMode != 12 && title->mMode != 15) {
+			Memcard& card = gGame.mMemcard.mCard;
+			s32 sector, capacity;
+			title->mReady       = 0;
+			title->mWrongDevice = 0;
+			switch (ProbeMemoryCardCapacity(&card, title->mChannel, &capacity, &sector)) {
+			case CARD_RESULT_WRONGDEVICE:
+				title->mWrongDevice = 1;
+				break;
+			case CARD_RESULT_READY:
+				if (sector == 8192)
+					title->mReady = 1;
+				break;
+			case CARD_RESULT_NOCARD:
+			case CARD_RESULT_FATAL_ERROR:
+				break;
+			}
+			if (!title->mReady)
+				title->mShowMessage = 0;
+			if (!title->mReady) {
+				if (title->mState != 20 && title->mSelection == 1)
+					title->mSelection = 0;
+				title->mSaveFound     = 0;
+				title->mCardScanState = 0;
+#if !defined(VERSION_JP)
+				title->mFormatCancelled = 0;
+#endif
+			} else {
+				switch (title->mCardScanState) {
+				case 0:
+					StartMemoryCardScan(&card, title->mChannel, FALSE);
+					title->mCardScanState = 1;
+					break;
+				case 1:
+					if (!title->mSaveFound && card.mFound)
+						title->mSaveFound = 1;
+					break;
+				}
+			}
+		}
+		bool running = title->mState >= 1 && title->mState < 23;
+		if (!running)
+			return;
+		if (gGame.mMemcard.mCard.mBusy)
+			return;
+	}
+	// 1-2 scan the card, 3-5 read in the cursor, the demo model and the textures, 10 fades the menu in,
+	// 11 is the menu, 12 waits for the cursor's anim, 20 runs the file modes, 21 the options, 13-14 fade
+	// out, 22 frees it all and changes the stage, 23 is done
+	switch (title->mState) {
+	case 1:
+		title->mState = 2;
+		StartMemoryCardScan(&gGame.mMemcard.mCard, title->mChannel, FALSE);
+		StartScreenFade(&gGame.mFade, 0, 0, 0, 255, 0, 0, 0, 255, 0);
+		break;
+	case 2:
+		if (gGame.mMemcard.mCard.mFound) {
+			title->mSelection = 1;
+			title->mSaveFound = 1;
+			ApplyTitleControllerSetting(title);
+		} else {
+			title->mSelection     = 0;
+			title->mSaveFound     = 0;
+			title->mCardScanState = 0;
+			ApplyTitleControllerSetting(title);
+		}
+		title->mState = 3;
+		if (gCmdLineArgs.mTitleCursor < 0) {
+			title->mSpawnIndex = rand() % 11;
+		} else {
+			title->mSpawnIndex = gCmdLineArgs.mTitleCursor % 11;
+		}
+		// fall through: loading starts on the same frame as cursor selection
+	case 3:
+		if (title->mCursor.LoadFromPlacement(CoordInfo(GetSpawnData(title->mSpawnIndex))))
+			++title->mState;
+		break;
+	case 4:
+		if (title->mDemo.LoadFromPlacement(CoordInfo(GetSpawnData(11))))
+			++title->mState;
+		break;
+	case 5: {
+#if defined(VERSION_JP)
+		const char* path = "tpl/title.tpl";
+#else
+		char path[64];
+		sprintf(path, "tpl/title%s.tpl", gTitleTextureSuffixes[gGame.mLanguage]);
+#endif
+		if (!title->mTpl.ReadEx(path, 0, 0))
+			break;
+		PlayGameSound(&gGame.mSound, (s32)0xffff0003, 255);
+		title->mState   = 10;
+		title->mTimeout = -1;
+		title->mTpl.CloseHandle();
+		title->mTex[0] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[0], 0);
+		title->mTex[1] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[1], 0);
+		title->mTex[2] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[2], 0);
+#if defined(VERSION_JP)
+		title->mTex[3] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[3], 0);
+		title->mTex[4] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[4], 0);
+		title->mTex[5] = title->mTpl.mTex.Init(&((TPLPalette*)title->mTpl.mBuffer)->descriptorArray[5], 0);
+#endif
+		title->mMenuAlpha = title->_14 = 0;
+		StartScreenFade(&gGame.mFade, 0, 0, 0, 255, gTitlePalette[gTitlePaletteIndex].background.r,
+		                gTitlePalette[gTitlePaletteIndex].background.g, gTitlePalette[gTitlePaletteIndex].background.b, 0, .5f);
+#if defined(VERSION_PAL)
+		Vec pos = { 0.0f, 4.0f, 0.0f };
+#else
+		Vec pos = { 0.0f, 8.0f, 0.0f };
+#endif
+		title->mDemo.mState = 1;
+		title->mDemo.mLoop  = TRUE;
+		title->mDemo.SetPos(pos, 0);
+		title->mDemo.SetAnim(0, TRUE, NULL, NULL, NULL, 0, 1, 0, 10);
+		// The first animation frame runs immediately after loading.
+	}
+	case 10: {
+
+		if (title->mMenuAlpha < 1) {
+			if ((title->mMenuAlpha += (1.f / (.5f * FRAME_RATE)) * frames) > 1)
+				title->mMenuAlpha = 1;
+		}
+		if (title->_14 < 1) {
+			if ((title->_14 += (1.f / FRAME_RATE) * frames) > 1)
+				title->_14 = 1;
+		}
+		title->mCursor.UpdateObject(frames);
+		title->mDemo.UpdateObject(frames);
+		UpdateTitleDust(title, frames);
+		if (title->mMenuAlpha == 1 && title->_14 == 1)
+			title->mState = 11;
+		break;
+	}
+	case 11: {
+		title->mHighlightDelay += frames;
+		if (title->mHighlightDelay >= FRAME_RATE) {
+			title->mHighlightDelay = (s32)FRAME_RATE;
+			title->mPulseAngle     = (f32)fmod(title->mPulseAngle + (f32)(frames * 9), 360.);
+		}
+		title->mCursor.UpdateObject(frames);
+		title->mDemo.UpdateObject(frames);
+		UpdateTitleDust(title, frames);
+		KeepTitleSoundPlaying(&gGame.mSound);
+		CPad pad(0);
+		if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+			if (title->mSaveFound) {
+				if (title->mSelection > 0) {
+					--title->mSelection;
+					TitleSelectionMoved(title);
+				}
+			} else if (title->mSelection != 0) {
+				title->mSelection = 0;
+				TitleSelectionMoved(title);
+			}
+		} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+			if (title->mSaveFound) {
+				if (title->mSelection < 2) {
+					++title->mSelection;
+					TitleSelectionMoved(title);
+				}
+			} else if (title->mSelection != 2) {
+				title->mSelection = 2;
+				TitleSelectionMoved(title);
+			}
+		}
+#if !defined(VERSION_PAL)
+		else
+#endif
+		    if (pad.mPad->mTrigger & 0x100) {
+			switch (title->mSelection) {
+			case 0:
+			case 1:
+				for (s32 i = 0; i < 3; ++i)
+					ResetSaveSlotRecord(&gTitleSaveSlots[i]);
+				StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, title->mChannel, FALSE);
+				title->SetMode(1);
+				TitleSelectionConfirmed(title);
+				break;
+			case 2:
+				TitleSelectionConfirmed(title);
+				break;
+			}
+		}
+		break;
+	}
+	case 12: {
+		title->mCursor.UpdateObject(frames);
+		title->mDemo.UpdateObject(frames);
+		UpdateTitleDust(title, frames);
+		HSD_AObj* aobj = GetAObj(title->mCursor.mJObj);
+		if ((aobj->flags & (AOBJ_NO_ANIM | AOBJ_REWINDED)) || title->mCursor.mAnimId == 0 || title->mCursor.mArchive.mNum[0] < 2) {
+			title->mCursor.SetAnim(0, TRUE, NULL, NULL, NULL, 0, 1, 0, 10);
+			title->mPulseAngle = 0;
+			switch (title->mSelection) {
+			case 0:
+				title->mTargetPanelY = 0;
+				title->mAlpha        = 1;
+				title->mState        = 20;
+#if defined(VERSION_JP)
+				ShowTitleChoice(title, 19);
+#else
+				ShowTitleChoice(title, 0);
+#endif
+				break;
+			case 1:
+				title->mTargetPanelY = 0;
+				title->mAlpha        = 1;
+				title->mState        = 20;
+				PlayGameSound(&gGame.mSound, 0x88, 255);
+#if defined(VERSION_JP)
+				ShowTitleChoice(title, 20);
+#else
+				ShowTitleChoice(title, 1);
+#endif
+				break;
+			case 2:
+				title->mTargetPanelY      = 0;
+				title->mTargetOptionAlpha = 1;
+				title->mState             = 21;
+				title->mOptionState       = 0;
+				title->mOptionLine        = 0;
+				PlayGameSound(&gGame.mSound, 0x88, 255);
+#if defined(VERSION_JP)
+				ShowTitleChoice(title, 53);
+#else
+				ShowTitleChoice(title, 2);
+#endif
+				break;
+			}
+		}
+		break;
+	}
+	case 20:
+		title->mDemo.UpdateObject(frames);
+		UpdateTitleDust(title, frames);
+		KeepTitleSoundPlaying(&gGame.mSound);
+		(title->*gTitleModeUpdates[title->mMode])(frames);
+		break;
+	case 21:
+		title->mDemo.UpdateObject(frames);
+		UpdateTitleDust(title, frames);
+		KeepTitleSoundPlaying(&gGame.mSound);
+		UpdateTitleOptions(title, frames);
+		break;
+	case 13: {
+		title->mState = 14;
+		StartScreenFade(&gGame.mFade, gTitlePalette[gTitlePaletteIndex].background.r, gTitlePalette[gTitlePaletteIndex].background.g,
+		                gTitlePalette[gTitlePaletteIndex].background.b, 0, 0, 0, 0, 255, .5f);
+		title->mDemo.mState = 0;
+	}
+	case 14: {
+
+		if (title->mMenuAlpha > 0) {
+			if ((title->mMenuAlpha -= (1.f / (.5f * FRAME_RATE)) * frames) < 0)
+				title->mMenuAlpha = 0;
+		}
+		if (title->_14 > 0) {
+			if ((title->_14 -= (1.f / (.5f * FRAME_RATE)) * frames) < 0)
+				title->_14 = 0;
+		}
+		if (title->mMenuAlpha == 0) {
+			bool faded = gGame.mFade.mSpeed.r == 0 && gGame.mFade.mSpeed.g == 0 && gGame.mFade.mSpeed.b == 0 && gGame.mFade.mSpeed.a == 0;
+			if (faded) {
+				GXColor black                   = { 0, 0, 0, 0 };
+				title->mState                   = 22;
+				HSD_VIData.current.vi.clear_clr = black;
+			}
+		}
+		break;
+	}
+	case 22:
+		title->mDemo.Release();
+		title->mCursor.Release();
+		title->mTpl.Close();
+		if (title->mTimeout >= 0) {
+			ChangeGameStage(&gGame, title->mTimeout, TRUE);
+			title->mTimeout = -1;
+		}
+		title->mState = 23;
+		break;
+	case 23:
+		break;
+	}
+	if (title->mState != 0 && title->mState != 22 && title->mState != 23) {
+		GXColor color                   = gTitlePalette[gTitlePaletteIndex].background;
+		HSD_VIData.current.vi.clear_clr = color;
+	}
+}
+
+extern "C" {
+s32 HSD_SynthSFXNewBank(s32 size);
+s32 HSD_SynthSFXBankClear(s32 bank);
+void HSD_JObjSetJSoundCallback(void (*callback)(s32));
+extern "C" void PlayGameSfxAtFullVolume(s32 sfx);
+void InitAudio(void* owner, u32 heapSize, u32 voices, u32 groups);
+BOOL LoadSoundSampleMetadata(void* data);
+s32 HSD_SynthSFXLoad(const char* name, s32 bank, void (*callback)(s32, s32), s32 arg);
+}
+
+// drops every sfx name waiting to load and empties the stage bank
+static inline void ClearStageBank(XSound* sound)
+{
+	sound->mStageRequests.Clear();
+	sound->mLoadRequestCount = 0;
+	HSD_SynthSFXBankClear(sound->mStageBank);
+}
+
+// queues a name for the stage bank unless it is already there, sound.cpp has the same
+static inline void RegisterStageSoundName(XSound* sound, const char* name)
+{
+	s32 bank = sound->mStageBank;
+	if (name == NULL) {
+		return;
+	}
+	for (u32 i = 0; i < 16; ++i) {
+		if (sound->mStageRequests.entries[i].mName != NULL && strcmp(sound->mStageRequests.entries[i].mName, name) == 0) {
+			return;
+		}
+	}
+	for (u32 i = 0; i < 16; ++i) {
+		if (sound->mStageRequests.entries[i].mName == NULL) {
+			++sound->mLoadRequestCount;
+			sound->mStageRequests.entries[i].mName = name;
+			sound->mStageRequests.entries[i].mBank = bank;
+#if !defined(VERSION_PAL)
+			OSReport("Register:%s\n", name);
+#endif
+			return;
+		}
+	}
+#if !defined(VERSION_PAL)
+	OSReport("Ssm::Load xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+#endif
+}
+
+/**
+ * @note Address: 0x8001F8D8
+ * @note Size: 0xA4
+ */
+extern "C" void ClearStageSoundBank(XSound* sound)
+{
+	ClearStageBank(sound);
+}
+
+/**
+ * @note Address: 0x8001F97C
+ * @note Size: 0x2D8
+ */
+// NONMATCHING: the strings are in sound.cpp's rodata
+// a negative stage loads the shared samples a step per call, TRUE once they're in
+extern "C" BOOL LoadGameSoundBank(XSound* sound, s32 stage)
+{
+	if (stage < 0) {
+		switch (sound->mLoadState) {
+		case 0:
+			sound->mSampleReady = 0;
+			if (sound->mFile.ReadAsync("sfx_sample.sem", 0, 0, FALSE) >= 0) {
+				++sound->mLoadState;
+			} else {
+#if defined(VERSION_JP)
+				OSPanic("sound.cpp", 0xED, "%s%s", "", "Read");
+#else
+				OSPanic("sound.cpp", 0xF1, "%s%s", "", "Read");
+#endif
+			}
+			break;
+		case 1: {
+			s32 result = sound->mFile.GetResult();
+			if (result == 0) {
+				++sound->mLoadState;
+			} else if (result < 0) {
+#if defined(VERSION_JP)
+				OSPanic("sound.cpp", 0xF5, "%s%s", "", "Read");
+#else
+				OSPanic("sound.cpp", 0xF9, "%s%s", "", "Read");
+#endif
+			}
+			break;
+		}
+		case 2:
+			LoadSoundSampleMetadata(sound->mFile.mBuffer);
+			HSD_SynthSFXLoad("sfx_sample.ssm", sound->mSampleBank, 0, 0);
+			++sound->mLoadState;
+			break;
+		case 3:
+			if (!HasPendingSoundBankLoad()) {
+				sound->mLoadState   = 0;
+				sound->mSampleReady = 1;
+				return TRUE;
+			}
+			break;
+		default:
+			sound->mLoadState = 0;
+			break;
+		}
+		return FALSE;
+	}
+	sound->mDefaultTrack = 0;
+	ClearStageBank(sound);
+#if !defined(VERSION_PAL)
+	OSReport(">>>%s\n", stageSfxTable[stage]);
+#endif
+	RegisterStageSoundName(sound, stageSfxTable[stage]);
+	return TRUE;
+}
+
+/**
+ * @note Address: 0x8001FC54
+ * @note Size: 0x68
+ */
+extern "C" void InitGameSound(XSound* sound)
+{
+	InitAudio(sound, 0x700000, 0x60, 0x20);
+	sound->mSampleBank  = HSD_SynthSFXNewBank(0x480000);
+	sound->mStageBank   = HSD_SynthSFXNewBank(0x280000);
+	sound->mLoadState   = 0;
+	sound->mSampleReady = 0;
+	HSD_JObjSetJSoundCallback(PlayGameSfxAtFullVolume);
+}
+
+/**
+ * @note Address: 0x8001FCBC
+ * @note Size: 0x38
+ */
+// particle sounds from joint anims
+extern "C" void PlayGameSfxAtFullVolume(s32 sfx)
+{
+	PlayGameSound(&gGame.mSound, sfx, 255);
 }
 
 /**
  * @note Address: 0x80030CE8
  * @note Size: 0x1FC
  */
-extern "C" void fn_80030CE8(Title* title)
+extern "C" void ResetTitleScreenState(Title* title)
 {
-	title->mState   = 0;
-	title->mMode    = 0;
-	title->mTimeout = -1;
-	title->_10      = 0.0f;
-	title->_14      = 0.0f;
-	title->_18      = 90.0f;
-	title->_1C      = 0;
-	title->_20      = 0;
-	title->mCursor.vf90(0);
+	title->mState          = 0;
+	title->mMode           = 0;
+	title->mTimeout        = -1;
+	title->mMenuAlpha      = 0.0f;
+	title->_14             = 0.0f;
+	title->mPulseAngle     = 90.0f;
+	title->mHighlightDelay = 0;
+	title->mSpawnIndex     = 0;
+	title->mCursor.InitializeObject(0);
 	title->mCursor.mAngle      = 0.0f;
 	title->mCursor.mAngleSpeed = 0.0f;
-	title->_37A8               = 0;
+	title->mSelection          = 0;
 	title->mFile               = 0;
 	title->mChoice             = 0;
-	title->_37E4               = 0.0f;
+	title->mLoadAlpha          = 0.0f;
 	title->mAlpha              = 0.0f;
 	title->mPrevMode           = 0;
 	title->mPhase              = 0;
 	title->mDelay              = 0;
-	title->_37B0               = -10.0f;
-	title->_37B4               = -200.0f;
-	title->_37B8               = -10.0f;
-	title->_37BC               = -200.0f;
+	title->mPanelX             = -10.0f;
+	title->mPanelY             = -200.0f;
+	title->mTargetPanelX       = -10.0f;
+	title->mTargetPanelY       = -200.0f;
 	title->_37C0               = 0.0f;
-	title->_37C4               = 0.0f;
+	title->mLoadOffset         = 0.0f;
 	title->_37C8               = 0.0f;
 	title->mOffset             = 0.0f;
-	title->_380C               = 0;
-	title->_08                 = 0;
-	title->_3810               = 0.0f;
-	title->_3814               = 0.0f;
+	title->mOptionLine         = 0;
+	title->mOptionState        = 0;
+	title->mOptionAlpha        = 0.0f;
+	title->mTargetOptionAlpha  = 0.0f;
 	CPad pad(0);
 	if (pad.mPad->mConnected != 0) {
-		if (lbl_8025C400.mStatus.mFlags & 0x800000000ULL)
-			title->_3818 = 1;
+		if (gGame.mStatus.mFlags & 0x800000000ULL)
+			title->mRumble = 1;
 		else
-			title->_3818 = 0;
+			title->mRumble = 0;
 	} else {
-		title->_3818 = 0;
+		title->mRumble = 0;
 	}
-	if (lbl_8025C400.mStatus.mFlags & 0x1000000000ULL)
-		title->_3819 = 1;
+	if (gGame.mStatus.mFlags & 0x1000000000ULL)
+		title->mMono = 1;
 	else
-		title->_3819 = 0;
+		title->mMono = 0;
 	title->mChannel = 0;
 	for (s32 i = 0; i < 3; ++i)
-		fn_8003D7DC(&lbl_80361E8C[i]);
-	title->_37AC = 0.0f;
-	title->_3809 = 0;
-	title->_3808 = 0;
-	fn_8001E630(&lbl_8025C400.mSound, 1);
+		ResetSaveSlotRecord(&gTitleSaveSlots[i]);
+	title->mLoadScroll    = 0.0f;
+	title->mSaveFound     = 0;
+	title->mCardScanState = 0;
+	KeyOffGameSoundTrack(&gGame.mSound, 1);
 #if !defined(VERSION_JP)
-	title->_3C44 = 0;
+	title->mFormatCancelled = 0;
 #endif
 }
 
@@ -3104,10 +4637,10 @@ extern "C" void fn_80030CE8(Title* title)
  * @note Address: 0x80030EE4
  * @note Size: 0x120
  */
-extern "C" void fn_80030EE4(Title* title)
+extern "C" void InitTitleScreen(Title* title)
 {
-	fn_80030CE8(title);
-	title->mDemo.vf90(0);
+	ResetTitleScreenState(title);
+	title->mDemo.InitializeObject(0);
 	for (s32 i = 0; i < 16; ++i) {
 		title->mDust[i].mState  = 0;
 		title->mDust[i].mTimer  = 0;
@@ -3117,6 +4650,6 @@ extern "C" void fn_80030EE4(Title* title)
 		title->mDust[i].mSpeedY = 0.0f;
 	}
 #if !defined(VERSION_JP)
-	title->_3C44 = 0;
+	title->mFormatCancelled = 0;
 #endif
 }

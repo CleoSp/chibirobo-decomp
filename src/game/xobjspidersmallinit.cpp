@@ -11,15 +11,15 @@ struct XObjSpiderSmallParams {
 };
 typedef char XObjSpiderSmallParams_size_check[sizeof(XObjSpiderSmallParams) == 0x78 ? 1 : -1];
 
-// the tu's data block, the code reaches it from lbl_8022B088
+// the tu's data block, the code reaches it from sSmallSpiderStateData
 struct XObjSpiderSmallData {
 	u8 _000[0x130];                  // _000
 	XObjSpiderSmallParams mDefaults; // _130
-	XObjSpiderSmallParams mParams;   // _1A8, lbl_8022B230
+	XObjSpiderSmallParams mParams;   // _1A8, gSmallSpiderStateHandlers
 };
 
 extern "C" {
-extern XObjSpiderSmallData lbl_8022B088;
+extern XObjSpiderSmallData sSmallSpiderStateData;
 }
 
 /**
@@ -27,11 +27,12 @@ extern XObjSpiderSmallData lbl_8022B088;
  * @note Size: 0x17C
  */
 // todo: the tu's __sinit, the statics it sets up are other units'
-extern "C" void __sinit_xobjspidersmallinit_cpp()
+extern "C" void __sinit_xobjspidersmall_cpp()
 {
-	__construct_array(lbl_8037E97C, (ConstructorDestructor)fn_80100204, (ConstructorDestructor)fn_80100154, sizeof(lbl_8037E97C[0]), 39);
-	__register_global_object(NULL, (void*)fn_8010011C, lbl_8037E970);
-	lbl_8022B088.mParams = lbl_8022B088.mDefaults;
+	__construct_array(gSmallSpiderStatusByStage, (ConstructorDestructor)__ct__22SmallSpiderStageStatusFv,
+	                  (ConstructorDestructor)__dt__22SmallSpiderStageStatusFv, sizeof(gSmallSpiderStatusByStage[0]), 39);
+	__register_global_object(NULL, (void*)DestroySmallSpiderStatusTable, gSmallSpiderStatusDestructorChain);
+	sSmallSpiderStateData.mParams = sSmallSpiderStateData.mDefaults;
 }
 
-__declspec(section ".ctors") extern void (*const spiderSmallInit)() = __sinit_xobjspidersmallinit_cpp;
+__declspec(section ".ctors") extern void (*const spiderSmallInit)() = __sinit_xobjspidersmall_cpp;

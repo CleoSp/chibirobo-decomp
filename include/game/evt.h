@@ -206,12 +206,13 @@ class CEvtData {
 public:
 	CEvtData()
 	{
-		mScript = NULL;
-		_04     = 0;
+		mScript  = NULL;
+		mContext = 0;
 	}
 
-	u8* mScript; // _00, read pointer
-	u32 _04;     // _04
+	u8* mScript;  // _00, read pointer
+	u32 mContext; // _04, the object the script runs for (the event's owner, else the caller's or queued context); object id -1 resolves to
+	              // it
 	// _08 vtable
 
 	virtual ~CEvtData() { } // _08
@@ -238,28 +239,68 @@ public:
 STATIC_ASSERT(sizeof(CStack) == 0x10);
 
 class CCameraMemento;
+class CMsg;
 
 // the script runner. PUSHBP and POPBP park mValues's count on mFrames
 class CEvt {
 public:
-	u32 _00;                        // _00, ABORT only resumes a parked script while this is zero
+	u32 mOwner;                     // _00, ABORT only resumes a parked script while this is zero
 	CEvtData mData;                 // _04
-	s32 _10;                        // _10, SELECT result
-	s32 _14;                        // _14
-	s32 _18;                        // _18
-	s32 _1C;                        // _1C
-	s32 _20;                        // _20
+	s32 mSelectResult;              // _10, SELECT result
+	s32 mResult2;                   // _14
+	s32 mWaitTimer;                 // _18
+	s32 mYesNoActive;               // _1C
+	s32 mMenuActive;                // _20
 	CStack mCalls;                  // _24, return addresses
 	CStack mFrames;                 // _34
 	CStack mValues;                 // _44
-	u8* _54;                        // _54, WARP raises a flag deep inside it
-	s32 _58;                        // _58
-	s16 _5C;                        // _5C
-	s16 _5E;                        // _5E
+	CMsg* mMsg;                     // _54, the message window the script talks through
+	s32 mMsgState;                  // _58
+	s16 mUseValue;                  // _5C
+	s16 mHitValue;                  // _5E
 	CCameraMemento* mCameraMemento; // _60, private saved camera
 	// _64 vtable
 
 	virtual ~CEvt() { } // _08
+
+	// the command handlers, evtCmdTable names the opcodes of each
+	s32 _cmd_ABORT(u8 command, s32 step);
+	s32 _cmd_RETURN(u8 command, s32 step);
+	s32 _cmd_GOTO(u8 command, s32 step);
+	s32 _cmd_SET(u8 command, s32 step);
+	s32 _cmd_IF(u8 command, s32 step);
+	s32 _cmd_RUN(u8 command, s32 step);
+	s32 _cmd_LIB(u8 command, s32 step);
+	s32 _cmd_PUSHBP(u8 command, s32 step);
+	s32 _cmd_POPBP(u8 command, s32 step);
+	s32 _cmd_SETSP(u8 command, s32 step);
+	s32 _cmd_ANIM(u8 command, s32 step);
+	s32 _cmd_ANIM2(u8 command, s32 step);
+	s32 _cmd_ATTACH(u8 command, s32 step);
+	s32 _cmd_BORN(u8 command, s32 step);
+	s32 _cmd_CALL(u8 command, s32 step);
+	s32 _cmd_CAMERA(u8 command, s32 step);
+	s32 _cmd_WAIT(u8 command, s32 step);
+	s32 _cmd_COLOR(u8 command, s32 step);
+	s32 _cmd_DIR(u8 command, s32 step);
+	s32 _cmd_DISP(u8 command, s32 step);
+	s32 _cmd_KILL(u8 command, s32 step);
+	s32 _cmd_LIGHT(u8 command, s32 step);
+	s32 _cmd_MENU(u8 command, s32 step);
+	s32 _cmd_MOVE(u8 command, s32 step);
+	s32 _cmd_MOVETO(u8 command, s32 step);
+	s32 _cmd_MOVIE(u8 command, s32 step);
+	s32 _cmd_MSG(u8 command, s32 step);
+	s32 _cmd_POS(u8 command, s32 step);
+	s32 _cmd_PRINTF(u8 command, s32 step);
+	s32 _cmd_PTCL(u8 command, s32 step);
+	s32 _cmd_READ(u8 command, s32 step);
+	s32 _cmd_SCALE(u8 command, s32 step);
+	s32 _cmd_SCRN(u8 command, s32 step);
+	s32 _cmd_SFX(u8 command, s32 step);
+	s32 _cmd_TIMER(u8 command, s32 step);
+	s32 _cmd_WARP(u8 command, s32 step);
+	s32 _cmd_WIN(u8 command, s32 step);
 };
 STATIC_ASSERT(sizeof(CEvt) == 0x68);
 
@@ -299,9 +340,9 @@ public:
 // the same with each script's context and two arguments
 class CEvtQueueEx : public CEvtQueue {
 public:
-	u32 mContext[0x80]; // _208
-	s16 mArg0[0x80];    // _408
-	s16 mArg1[0x80];    // _508
+	u32 mContext[0x80];  // _208
+	s16 mUseValue[0x80]; // _408
+	s16 mHitValue[0x80]; // _508
 
 	virtual ~CEvtQueueEx() { } // _08
 };
@@ -324,21 +365,38 @@ class XObj;
 
 extern "C" {
 // script flags, one bit each, and script variables. both go in the save file
-extern u32 lbl_8036781C[0x80];
-extern s32 lbl_80367A2C[0x800];
+extern CEvtFlags gEventFlags;
+extern CEvtVars gEventVars;
 // the camera states scripts save and load
-extern CCameraMemento lbl_8036AA3C[];
+extern CCameraMemento gEventCameraMementos[];
 
 // world position of the joint a path leads to, path holds a sibling count per level
-CVec fn_8007E7C8(CJObj* obj, s32 depth, s32* path);
-CVec fn_8007E7F4(CJObj* obj, s32 depth, s32* path);
+CVec GetEventJointWorldPosition(CJObj* obj, s32 depth, s32* path);
+CVec CJObj_GetJointWorldPositionByPath(CJObj* obj, s32 depth, s32* path);
 // start a script on evt, or park it in the queue while another one runs
-void fn_8007EEA4(CEvt* evt, u8* script, u32 context, s16 argument0, s16 argument1);
-void fn_8007F040(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
+void StartOrQueueEventScript(CEvt* evt, u8* script, u32 context, s16 useValue, s16 hitValue);
+void ResetEventScriptState(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
 // runs the script on for step frames
 void CEvt_Update(CEvt* evt, s32 step);
 // the object an event refers to by id, -1 is the one running the script
-XObj* fn_8007F570(void* context, s16 id);
+XObj* ResolveEventObjectId(void* context, s16 id);
 }
+
+struct EvtBeatLatch {
+	s32 mPending; // _00
+	s32 mBeat;    // _04
+
+	EvtBeatLatch() { mPending = 0; }
+};
+
+extern "C" EvtBeatLatch gEventBeatLatch;
+struct EvtCmdEntry {
+	u8 command;                                 // _00
+	u8 _01;                                     // _01, a per-command constant in evtCmdTable (3 for most, also 0, 1, 7, 11), never read
+	const char* name;                           // _04
+	s32 (CEvt::*handler)(u8 command, s32 step); // _08
+};
+STATIC_ASSERT(sizeof(EvtCmdEntry) == 0x14);
+extern "C" EvtCmdEntry evtCmdTable[];
 
 #endif

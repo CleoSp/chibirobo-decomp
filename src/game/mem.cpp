@@ -3,11 +3,11 @@
 #include <string.h>
 
 extern "C" {
-void fn_801D06A0(u32* size, void** top);
-u32 fn_801D06D0(void);
-u32 fn_801D0704(void);
-u32 fn_801D073C(void);
-u32 fn_801D0768(void);
+void GetObjectHeapBounds(u32* size, void** top);
+u32 GetObjectPoolCapacityBytes(void);
+u32 GetObjectHeapRemainingBytes(void);
+u32 GetObjectPoolUsedBytes(void);
+u32 GetObjectPoolFreeBytes(void);
 }
 
 // one entry per block, used or freed. a freed block keeps its address in mFree so Alloc
@@ -18,7 +18,7 @@ struct MEMINFO {
 	u8* mFree;        // _04
 	u32 mSize;        // _08
 	char mName[0x80]; // _0C
-	s32 mStatic;      // _8C
+	s32 mStatic;      // _8C, set blocks get reused whole instead of split
 };
 STATIC_ASSERT(sizeof(MEMINFO) == 0x90);
 
@@ -34,7 +34,7 @@ namespace mm {
 static inline u32 GetAllocSize()
 {
 	BOOL enabled = OSDisableInterrupts();
-	u32 size     = sTop - sCur;
+	u32 size     = sTop - sCur; // the arena grows down from sTop
 	OSRestoreInterrupts(enabled);
 	return size;
 }
@@ -43,7 +43,7 @@ static inline u32 GetAllocSize()
 static inline s32 GetRemainSize()
 {
 	BOOL enabled = OSDisableInterrupts();
-	s32 remain   = fn_801D0704();
+	s32 remain   = GetObjectHeapRemainingBytes();
 	s32 size;
 	if (remain == -1) {
 		size = 0;
@@ -58,8 +58,8 @@ static inline s32 GetRemainSize()
 static inline s32 GetFreeSize()
 {
 	BOOL enabled = OSDisableInterrupts();
-	u32 freed    = fn_801D0768();
-	s32 remain   = fn_801D0704();
+	u32 freed    = GetObjectPoolFreeBytes();
+	s32 remain   = GetObjectHeapRemainingBytes();
 	s32 size;
 	if (remain == -1) {
 		size = 0;
@@ -83,10 +83,10 @@ void mm::Dump()
 {
 	OSReport("===============================================================================\n");
 
-	u32 total     = 0;
-	MEMINFO* info = sInfo;
-	for (int i = 0; i < MEMINFO_MAX; info++, i++) {
-		if (info->mAddr != 0) {
+	u32 total = 0;
+	for (int i = 0; i < MEMINFO_MAX; ++i) {
+		MEMINFO* info = &sInfo[i];
+		if (info->mAddr != 0) { // u lines are used blocks, f freed
 			total += info->mSize;
 			OSReport("-----(%4d) u %08X,%9d(%6.1f) %c %s\n", i, info->mAddr, info->mSize, KB(info->mSize),
 			         (s8)(info->mStatic != 0 ? '*' : ' '), info->mName);
@@ -103,18 +103,20 @@ void mm::Dump()
 	OSReport("\n");
 
 	u32 size;
-	fn_801D06A0(&size, NULL);
+	GetObjectHeapBounds(&size, NULL);
 	OSReport("ObjHeap   :%9d(%7.1fK)(%6.3fM)\n", size, KB(size), MB(size));
-	OSReport(" remain   :%9d(%7.1fK)(%6.3fM)\n", fn_801D0704(), KB(fn_801D0704()), MB(fn_801D0704()));
-	OSReport(" alloc    :%9d(%7.1fK)(%6.3fM)\n", fn_801D06D0(), KB(fn_801D06D0()), MB(fn_801D06D0()));
-	OSReport(" using    :%9d(%7.1fK)(%6.3fM)\n", fn_801D073C(), KB(fn_801D073C()), MB(fn_801D073C()));
-	OSReport(" freed    :%9d(%7.1fK)(%6.3fM)\n", fn_801D0768(), KB(fn_801D0768()), MB(fn_801D0768()));
+	OSReport(" remain   :%9d(%7.1fK)(%6.3fM)\n", GetObjectHeapRemainingBytes(), KB(GetObjectHeapRemainingBytes()),
+	         MB(GetObjectHeapRemainingBytes()));
+	OSReport(" alloc    :%9d(%7.1fK)(%6.3fM)\n", GetObjectPoolCapacityBytes(), KB(GetObjectPoolCapacityBytes()),
+	         MB(GetObjectPoolCapacityBytes()));
+	OSReport(" using    :%9d(%7.1fK)(%6.3fM)\n", GetObjectPoolUsedBytes(), KB(GetObjectPoolUsedBytes()), MB(GetObjectPoolUsedBytes()));
+	OSReport(" freed    :%9d(%7.1fK)(%6.3fM)\n", GetObjectPoolFreeBytes(), KB(GetObjectPoolFreeBytes()), MB(GetObjectPoolFreeBytes()));
 	OSReport("\n");
 
-	s32 freeHeap = GetFreeSize();
-	OSReport("FreeHeap  :%9d(%7.1fK)(%6.3fM)\n", freeHeap, KB(freeHeap), MB(freeHeap));
-	s32 remainHeap = GetRemainSize();
-	OSReport("RemainHeap:%9d(%7.1fK)(%6.3fM)\n", remainHeap, KB(remainHeap), MB(remainHeap));
+	size = GetFreeSize();
+	OSReport("FreeHeap  :%9d(%7.1fK)(%6.3fM)\n", (s32)size, KB((s32)size), MB((s32)size));
+	size = GetRemainSize();
+	OSReport("RemainHeap:%9d(%7.1fK)(%6.3fM)\n", (s32)size, KB((s32)size), MB((s32)size));
 	OSReport("\n");
 }
 /*
@@ -230,7 +232,7 @@ void mm::Dump()
     bl       OSReport
     addi     r3, r1, 0x8
     li       r4, 0x0
-    bl       fn_801D06A0
+    bl       GetObjectHeapBounds
     lwz      r4, 0x8(r1)
     lis      r0, 0x4330
     stw      r0, 0x18(r1)
@@ -249,7 +251,7 @@ void mm::Dump()
     fmuls    f1, f0, f3
     crset    cr1eq
     bl       OSReport
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     lis      r0, 0x4330
     stw      r3, 0x24(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -258,7 +260,7 @@ void mm::Dump()
     lfd      f1, 0x20(r1)
     fsubs    f1, f1, f2
     fdivs    f31, f1, f0
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     lis      r0, 0x4330
     stw      r3, 0x2c(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -267,14 +269,14 @@ void mm::Dump()
     lfd      f1, 0x28(r1)
     fsubs    f1, f1, f2
     fmuls    f30, f1, f0
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     fmr      f1, f30
     mr       r4, r3
     fmr      f2, f31
     addi     r3, r31, 0x11c
     crset    cr1eq
     bl       OSReport
-    bl       fn_801D06D0
+    bl       GetObjectPoolCapacityBytes
     lis      r0, 0x4330
     stw      r3, 0x34(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -283,7 +285,7 @@ void mm::Dump()
     lfd      f1, 0x30(r1)
     fsubs    f1, f1, f2
     fdivs    f31, f1, f0
-    bl       fn_801D06D0
+    bl       GetObjectPoolCapacityBytes
     lis      r0, 0x4330
     stw      r3, 0x3c(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -292,14 +294,14 @@ void mm::Dump()
     lfd      f1, 0x38(r1)
     fsubs    f1, f1, f2
     fmuls    f30, f1, f0
-    bl       fn_801D06D0
+    bl       GetObjectPoolCapacityBytes
     fmr      f1, f30
     mr       r4, r3
     fmr      f2, f31
     addi     r3, r31, 0x13c
     crset    cr1eq
     bl       OSReport
-    bl       fn_801D073C
+    bl       GetObjectPoolUsedBytes
     lis      r0, 0x4330
     stw      r3, 0x44(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -308,7 +310,7 @@ void mm::Dump()
     lfd      f1, 0x40(r1)
     fsubs    f1, f1, f2
     fdivs    f31, f1, f0
-    bl       fn_801D073C
+    bl       GetObjectPoolUsedBytes
     lis      r0, 0x4330
     stw      r3, 0x4c(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -317,14 +319,14 @@ void mm::Dump()
     lfd      f1, 0x48(r1)
     fsubs    f1, f1, f2
     fmuls    f30, f1, f0
-    bl       fn_801D073C
+    bl       GetObjectPoolUsedBytes
     fmr      f1, f30
     mr       r4, r3
     fmr      f2, f31
     addi     r3, r31, 0x15c
     crset    cr1eq
     bl       OSReport
-    bl       fn_801D0768
+    bl       GetObjectPoolFreeBytes
     lis      r0, 0x4330
     stw      r3, 0x54(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -333,7 +335,7 @@ void mm::Dump()
     lfd      f1, 0x50(r1)
     fsubs    f1, f1, f2
     fdivs    f30, f1, f0
-    bl       fn_801D0768
+    bl       GetObjectPoolFreeBytes
     lis      r0, 0x4330
     stw      r3, 0x5c(r1)
     lfd      f2, lbl_8065F4D8@sda21(r0)
@@ -342,7 +344,7 @@ void mm::Dump()
     lfd      f1, 0x58(r1)
     fsubs    f1, f1, f2
     fmuls    f31, f1, f0
-    bl       fn_801D0768
+    bl       GetObjectPoolFreeBytes
     fmr      f1, f31
     mr       r4, r3
     fmr      f2, f30
@@ -354,9 +356,9 @@ void mm::Dump()
     bl       OSReport
     bl       OSDisableInterrupts
     mr       r28, r3
-    bl       fn_801D0768
+    bl       GetObjectPoolFreeBytes
     mr       r29, r3
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     mr       r30, r3
     cmpwi    r30, -0x1
     bne      .L_80191790
@@ -395,7 +397,7 @@ void mm::Dump()
     bl       OSReport
     bl       OSDisableInterrupts
     mr       r29, r3
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     mr       r30, r3
     cmpwi    r30, -0x1
     bne      .L_80191824
@@ -857,6 +859,7 @@ void mm::Free(void* ptr, s32 flag)
 		if (sInfo[i].mAddr != 0 && sInfo[i].mAddr == ptr) {
 			if (sInfo[i].mAddr == sCur) {
 				// the lowest block, give it straight back to the arena
+				// (sCur only ever points at the lowest used block)
 				sCur           = sInfo[i].mAddr + sInfo[i].mSize;
 				sInfo[i].mFree = 0;
 				sInfo[i].mAddr = 0;
@@ -864,7 +867,7 @@ void mm::Free(void* ptr, s32 flag)
 			} else {
 				sInfo[i].mAddr = 0;
 			}
-			if (flag) {
+			if (flag) { // also clears the static marker
 				sInfo[i].mStatic = 0;
 			}
 			Compact(FALSE);
@@ -872,6 +875,7 @@ void mm::Free(void* ptr, s32 flag)
 			return;
 		}
 	}
+	// freeing a pointer it doesn't track dumps the table
 	Dump();
 	OSRestoreInterrupts(enabled);
 }
@@ -957,7 +961,7 @@ void mm::Free(void* ptr, s32 flag)
 void* mm::Alloc(u32 size, const char* name)
 {
 	BOOL enabled = OSDisableInterrupts();
-	if (size & 31) {
+	if (size & 31) { // blocks are 32-byte aligned
 		OSReport("mm::Alloc>> alloc size must be 32byte alignment -- %s(%d)!\n", name, size);
 		size = (size + 31) & ~31;
 	}
@@ -969,7 +973,7 @@ void* mm::Alloc(u32 size, const char* name)
 		u8* cur = sCur;
 		for (i = 0; i < sNum; i++) {
 			if (sInfo[i].mAddr == 0 && sInfo[i].mFree != 0 && sInfo[i].mSize >= size) {
-				if (sInfo[i].mStatic != 0) {
+				if (sInfo[i].mStatic != 0) { // a static block is reused whole
 					sInfo[i].mAddr = sInfo[i].mFree;
 					strcpy(sInfo[i].mName, name);
 					found = TRUE;
@@ -1007,6 +1011,7 @@ void* mm::Alloc(u32 size, const char* name)
 		}
 
 		if (!found) {
+			// nothing reusable: carve a fresh block off the arena's bottom
 			for (i = 0; i < MEMINFO_MAX; i++) {
 				if (sInfo[i].mAddr == 0 && sInfo[i].mFree == 0) {
 					sInfo[i].mFree = sCur - size;
@@ -1214,7 +1219,7 @@ void* mm::Alloc(u32 size, const char* name)
     beq      .L_80192108
     bl       OSDisableInterrupts
     mr       r22, r3
-    bl       fn_801D0704
+    bl       GetObjectHeapRemainingBytes
     mr       r21, r3
     cmpwi    r21, -0x1
     bne      .L_80192098
@@ -1276,12 +1281,12 @@ void mm::Init()
 		sInfo[i].mName[0] = '\0';
 		sInfo[i].mStatic  = 0;
 	}
-	sTop = sCur = (u8*)OSGetArenaHi();
+	sTop = sCur = (u8*)OSGetArenaHi(); // the arena fills downward from here
 	sNum        = 0;
 }
 
 // small container with a word buffer, class unknown
-struct Unk80192214 {
+struct WordBuffer {
 	u32* mBuf; // _00
 	s32 _04;   // _04
 	s32 mSize; // _08
@@ -1291,10 +1296,10 @@ struct Unk80192214 {
  * @note Address: 0x80192214
  * @note Size: 0x7C
  */
-extern "C" void fn_80192214(Unk80192214* p, s32 n)
+extern "C" void AllocateWordBuffer(WordBuffer* p, s32 n)
 {
 	if (p->mBuf != NULL) {
-		if (p->mBuf != NULL) {
+		if (p->mBuf != NULL) { // the inner check is redundant
 			OSFreeToHeap(__OSCurrHeap, p->mBuf);
 			p->mBuf = NULL;
 		}

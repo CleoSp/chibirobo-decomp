@@ -1,15 +1,16 @@
 #include "game/xobj.h"
 #include "game/xobjread.h"
+#include "Dolphin/os.h"
 
 /**
  * @note Address: 0x80131C6C
  * @note Size: 0xC0
  */
 // any read still waiting
-extern "C" BOOL vf1C__8XObjReadFv(XObjRead* reader)
+BOOL XObjRead::HasPendingReads()
 {
 	for (s32 i = 0; i < 8; ++i) {
-		if (reader->mReqs[i].mObj != NULL) {
+		if (mReqs[i].mObj != NULL) {
 			return TRUE;
 		}
 	}
@@ -20,21 +21,21 @@ extern "C" BOOL vf1C__8XObjReadFv(XObjRead* reader)
  * @note Address: 0x80131D2C
  * @note Size: 0x280
  */
-extern "C" bool fn_80131D2C()
+extern "C" BOOL HasPendingObjectReads()
 {
-	return vf1C__8XObjReadFv(&lbl_80380008) || vf1C__8XObjReadFv(&lbl_803803A8) || vf1C__8XObjReadFv(&lbl_80380748);
+	return gAllObjectsReader.HasPendingReads() || gSingleObjectReader.HasPendingReads() || gObjectAnimationReader.HasPendingReads();
 }
 
 /**
  * @note Address: 0x80131FAC
  * @note Size: 0x94
  */
-// XObjReadAnm::vf18, reads the object's anim archive
-extern "C" void vf18__11XObjReadAnmFP11XObjReadReq(XObjReadAnm* reader, XObjReadReq* req)
+// XObjReadAnm::ProcessRequest, reads the object's anim archive
+void XObjReadAnm::ProcessRequest(XObjReadReq* req)
 {
 	XObj* object     = (XObj*)req->mObj;
 	const char* path = (const char*)req->mInfo;
-	while (!object->vfA0(path)) {
+	while (!object->LoadAnimationArchiveAsync(path)) {
 		OSYieldThread();
 	}
 	req->mObj = NULL;

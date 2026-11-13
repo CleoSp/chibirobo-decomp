@@ -10,23 +10,31 @@ extern "C" {
 #include "game/evt.h"
 #include "game/xobjchr.h"
 
-extern "C" BOOL fn_800DED24(XObjDust* dust, u32 frames);
+extern "C" BOOL UpdateDustEvent(XObjDust* dust, u32 frames);
+
+// todo: cleanup, game/xobjfreeevent.cpp and game/xobjdustevent.cpp have the same
+static inline void TriggerEvent(XObj* object, u32 first, u32 second)
+{
+	const void* script = object->GetEventScript();
+	if (!IsPlayerBlockingEvents(gGame.GetPlayer()))
+		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)object, first, second);
+}
 
 /**
  * @note Address: 0x800DF0A0
  * @note Size: 0x238
  */
-extern "C" BOOL fn_800DF0A0(XObjDust* dust)
+extern "C" BOOL CheckDustScatterHeading(XObjDust* dust)
 {
 	if (__fpclassifyf(dust->mHeading) == FP_NAN) {
-		if (lbl_8025C400.GetPlayer()->mAnimId == 0x27) {
-			f32 z        = dust->mMoveTranslate.z - lbl_8025C400.GetPlayer()->mMoveTranslate.z;
-			f32 x        = dust->mMoveTranslate.x - lbl_8025C400.GetPlayer()->mMoveTranslate.x;
+		if (gGame.GetPlayer()->mAnimId == 0x27) { // the player's anim that scatters dust
+			f32 z        = dust->mMoveTranslate.z - gGame.GetPlayer()->mMoveTranslate.z;
+			f32 x        = dust->mMoveTranslate.x - gGame.GetPlayer()->mMoveTranslate.x;
 			dust->mSpeed = sqrtf(x * x + z * z);
-			if (dust->mSpeed < 20.0f) {
-				dust->mHeading = atan2(dust->mMoveTranslate.x - lbl_8025C400.GetPlayer()->mMoveTranslate.x,
-				                       dust->mMoveTranslate.z - lbl_8025C400.GetPlayer()->mMoveTranslate.z);
-				dust->mSpeed   = 0.2f * (25.0f - dust->mSpeed);
+			if (dust->mSpeed < 20.0f) { // only close dust scatters
+				dust->mHeading = atan2(dust->mMoveTranslate.x - gGame.GetPlayer()->mMoveTranslate.x,
+				                       dust->mMoveTranslate.z - gGame.GetPlayer()->mMoveTranslate.z);
+				dust->mSpeed   = 0.2f * (25.0f - dust->mSpeed); // away from the player, capped at 2
 				if (dust->mSpeed > 2.0f)
 					dust->mSpeed = 2.0f;
 				dust->mStatus.mFlags |= 0x4000000000000000ULL;
@@ -43,13 +51,11 @@ extern "C" BOOL fn_800DF0A0(XObjDust* dust)
  * @note Address: 0x800DF2D8
  * @note Size: 0x2B0
  */
-extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
+extern "C" BOOL UpdateDriftingDust(XObjDust* dust, u32 frames)
 {
 	dust->mPhase = fmod(dust->mPhaseStep * frames + dust->mPhase, TWO_PI);
 	if (0.0f != dust->mBouncePhase) {
-		f32 phase          = 0.02f * frames + dust->mBouncePhase;
-		dust->mBouncePhase = phase;
-		if (phase > PI) {
+		if ((dust->mBouncePhase += 0.02f * frames) > PI) { // one half-sine bounce
 			dust->mBouncePhase  = 0.0f;
 			dust->mBounceHeight = 0.0f;
 		}
@@ -57,7 +63,7 @@ extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
 	f32 bounce             = sin(dust->mBouncePhase);
 	f32 bob                = sin(dust->mPhase);
 	dust->mMoveTranslate.y = dust->mBounceHeight * bounce + (0.8f * bob + dust->mBaseY);
-	if (fn_800DF0A0(dust)) {
+	if (CheckDustScatterHeading(dust)) {
 		if (dust->mSpeed > 0.0f) {
 			f32 speed    = dust->mSpeed - 0.05f * frames;
 			dust->mSpeed = speed;
@@ -69,19 +75,15 @@ extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
 		f32 z = cos(dust->mHeading);
 		dust->mMoveTranslate.z += dust->mSpeed * z;
 	}
-	if (dust->mStatus.mFlags & 0x4000000000000000ULL) {
+	if (dust->mStatus.mFlags & 0x4000000000000000ULL) { // scattered dust fades out
 		f32 opacity = dust->mFade - 0.02f * frames;
 		dust->mFade = opacity;
 		if (opacity <= 0.0f)
 			dust->mFade = 0.0f;
 		PSVECScale((Vec*)&dust->mMoveScale, (Vec*)&dust->mMoveScale, 1.12f * dust->mFade);
-		if (0.0f == PSVECMag((Vec*)&dust->mMoveScale)) {
+		if (0.0f == PSVECMag((Vec*)&dust->mMoveScale)) { // fully gone
 			if (dust->mStatus.mFlags & 0xC0000000000ULL) {
-				s32 arg            = dust->mEventArg;
-				s32 id             = dust->mEventId;
-				const void* script = dust->vf128();
-				if (!fn_8009FDE4(lbl_8025C400.GetPlayer()))
-					fn_8007EEA4(&lbl_8025C400.mEvt, (u8*)script, (u32)dust, id, arg);
+				TriggerEvent(dust, dust->mEventId, dust->mEventArg); // flagged dust fires its event on removal
 			}
 			return TRUE;
 		}
@@ -93,19 +95,19 @@ extern "C" BOOL fn_800DF2D8(XObjDust* dust, u32 frames)
  * @note Address: 0x800DF588
  * @note Size: 0x148
  */
-extern "C" void vfA4__8XObjDustFUl(XObjDust* dust, u32 frames)
+void XObjDust::UpdateObject(u32 frames)
 {
-	vfA4__4XObjFUl(dust, frames);
-	if (dust->GetObjFlags() & 1) {
-		if (fn_800DF2D8(dust, frames)) {
-			dust->Release();
-			dust->SetFlag();
+	UpdateObject__4XObjFUl(this, frames);
+	if (GetObjFlags() & 1) {
+		if (UpdateDriftingDust(this, frames)) {
+			Release();
+			SetFlag();
 		}
 	}
-	if (dust->GetObjFlags() & 2) {
-		if (fn_800DED24(dust, frames)) {
-			dust->Release();
-			dust->SetFlag();
+	if (GetObjFlags() & 2) {
+		if (UpdateDustEvent(this, frames)) {
+			Release();
+			SetFlag();
 		}
 	}
 }
@@ -114,41 +116,41 @@ extern "C" void vfA4__8XObjDustFUl(XObjDust* dust, u32 frames)
  * @note Address: 0x800DF6D0
  * @note Size: 0x28
  */
-extern "C" void Release__8XObjDustFv(XObjDust* dust)
+void XObjDust::Release()
 {
-	dust->mMatAnim = NULL;
-	Release__4XObjFv(dust);
+	mMatAnim = NULL;
+	XObj::Release();
 }
 
 /**
  * @note Address: 0x800DF6F8
  * @note Size: 0x2A8
  */
-extern "C" BOOL vf9C__8XObjDustFRC9CoordInfo(XObjDust* dust, CoordInfo* info)
+BOOL XObjDust::LoadFromPlacement(const CoordInfo& info)
 {
-	dust->_260 = info->_00->_2C;
-	if (dust->IsFlagSet())
+	mPlacementParam1 = info.mPlacement->mParam1;
+	if (IsFlagSet())
 		return TRUE;
-	BOOL result = vf9C__4XObjFRC9CoordInfo(dust, info);
+	BOOL result = LoadFromPlacement__4XObjFRC9CoordInfo(this, &info);
 	if (result) {
-		dust->mStatus.mFlags |= 0x18100000ULL;
-		HSD_AObj* aobj = GetAObj(dust->mJObj);
+		mStatus.mFlags |= 0x18100000ULL;
+		HSD_AObj* aobj = GetAObj(mJObj);
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		if (end > 0.0f) {
-			f32 frame              = fmod((f32)rand(), end);
-			UnkStageObj* placement = dust->mCoord._00;
-			dust->SetAnim(placement->_30, TRUE, NULL, NULL, NULL, frame, 1.0f, 1.0f, 10.0f);
+			f32 frame              = fmod((f32)rand(), end); // a random start frame
+			UnkStageObj* placement = mCoord.mPlacement;
+			SetAnim(placement->mStartAnim, TRUE, NULL, NULL, NULL, frame, 1.0f, 1.0f, 10.0f);
 		}
-		dust->mAnimId2   = dust->mAnimId;
-		dust->mAnimCount = dust->mArchive.mNum[0];
-		if (dust->GetObjFlags() & 1) {
-			f32 scale = (rand() % 100 + 100) / 100.0f;
-			PSVECScale((Vec*)&dust->mMoveScale, (Vec*)&dust->mMoveScale, scale);
+		mAnimId2   = mAnimId;
+		mAnimCount = mArchive.mNum[0];
+		if (GetObjFlags() & 1) {
+			f32 scale = (rand() % 100 + 100) / 100.0f; // scale 1.00-1.99
+			PSVECScale((Vec*)&mMoveScale, (Vec*)&mMoveScale, scale);
 		}
-		if (dust->GetObjFlags() & 2) {
-			dust->mStartScale.x = dust->mMoveScale.x;
-			dust->mStartScale.y = dust->mMoveScale.y;
-			dust->mStartScale.z = dust->mMoveScale.z;
+		if (GetObjFlags() & 2) {
+			mStartScale.x = mMoveScale.x;
+			mStartScale.y = mMoveScale.y;
+			mStartScale.z = mMoveScale.z;
 		}
 	}
 	return result;

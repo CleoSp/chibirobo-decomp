@@ -19,6 +19,12 @@ public:
 	// _13C vtable
 
 	virtual ~CFont() { } // _08 (weak)
+
+#if defined(VERSION_JP)
+	void Init();
+#else
+	void Init(BOOL builtin);
+#endif
 };
 STATIC_ASSERT(sizeof(CFont) == 0x140);
 
@@ -34,12 +40,7 @@ inline bool IsSjisLead(u8 c)
 
 extern "C" {
 // the glyph texture for one character and how wide it is
-CTexObj* fn_8019E8F4(CFont* font, const char* str, s32* width);
-#if defined(VERSION_JP)
-void Init__5CFontFv(CFont* font);
-#else
-void Init__5CFontFi(CFont* font, BOOL builtin);
-#endif
+CTexObj* GetFontGlyphTexture(CFont* font, const char* str, s32* width);
 }
 
 #endif

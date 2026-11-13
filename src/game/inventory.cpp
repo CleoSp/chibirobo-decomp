@@ -41,7 +41,7 @@ static inline void CompactSlot(Inventory* inventory, s32 index)
  * @note Address: 0x800DC62C
  * @note Size: 0x128
  */
-extern "C" void fn_800DC62C(Inventory* inventory)
+extern "C" void CompactInventory(Inventory* inventory)
 {
 	for (s32 i = 0; i < 255; ++i) {
 		if (inventory->mItems[i].mCount <= 0)
@@ -53,13 +53,12 @@ extern "C" void fn_800DC62C(Inventory* inventory)
  * @note Address: 0x800DC754
  * @note Size: 0x25C
  */
-extern "C" s32 fn_800DC754(Inventory* inventory, s16 id, s32 amount)
+extern "C" s32 RemoveInventoryItemCount(Inventory* inventory, s16 id, s32 amount)
 {
 	s32 index = FindItem(inventory, id);
 	if (index >= 0) {
-		s16 count = inventory->mItems[index].mCount;
-		if (count > 0) {
-			count -= amount;
+		if (inventory->mItems[index].mCount > 0) {
+			s16 count = inventory->mItems[index].mCount - amount;
 			if (count < 0)
 				count = 0;
 			inventory->mItems[index].mCount = count;
@@ -75,7 +74,7 @@ extern "C" s32 fn_800DC754(Inventory* inventory, s16 id, s32 amount)
  * @note Address: 0x800DC9B0
  * @note Size: 0x380
  */
-extern "C" s32 fn_800DC9B0(Inventory* inventory, s16 id, s16 amount, BOOL add)
+extern "C" s32 SetOrAddInventoryItemCount(Inventory* inventory, s16 id, s16 amount, BOOL add)
 {
 	s32 index = FindAvailableSlot(inventory, id);
 	if (index >= 0) {
