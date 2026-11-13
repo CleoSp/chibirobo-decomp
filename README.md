@@ -1,6 +1,6 @@
 # Chibi-Robo!
 
-A work in progress decompilation of Chibi-Robo! for the GameCube.
+A work in progress decompilation of Chibi-Robo! for the GameCube and Wii.
 
 [![Linked](https://cleosp.com/chibirobo-decomp/badges/linked.svg)](https://cleosp.com/chibirobo-decomp/)
 [![Data](https://cleosp.com/chibirobo-decomp/badges/data.svg)](https://cleosp.com/chibirobo-decomp/)
@@ -14,7 +14,7 @@ Supported versions:
 - `GGTE01`: USA rev 0
 - `GGTJ01_01`: Japan rev 1
 - `GGTP01`: Europe rev 0
-- `R24J01`: Japan rev 0 (Wii, [wii-jp branch](https://github.com/LabDennis/chibirobo-decomp/tree/wii-jp#building))
+- `R24J01`: Japan rev 0 (Wii)
 
 This repository contains no game assets. You need your own copy of the game to build it.
 
@@ -45,13 +45,7 @@ git clone https://github.com/CleoSp/chibirobo-decomp.git
 cd chibirobo-decomp
 ```
 
-For Wii, use the following clone command and place the disc in `orig/R24J01/`:
-
-```sh
-git clone --branch wii-jp https://github.com/LabDennis/chibirobo-decomp.git
-```
-
-Put an ISO, RVZ or CISO of your game in the folder for its version: `orig/GGTE01/`, `orig/GGTJ01_01/` or `orig/GGTP01/`.
+Put an ISO, RVZ or CISO of your game in `orig/<version>/`, for example `orig/R24J01/` for Wii.
 
 Configure and build:
 
@@ -60,19 +54,17 @@ python3 configure.py
 ninja
 ```
 
-To pick a version, add `--version GGTE01`, `--version GGTJ01_01` or `--version GGTP01` to the configure command.
+To pick a version, use its ID when configuring, for example `python3 configure.py --version R24J01`. The default is `GGTE01`.
 
-The build checks the DOL and 16 RELs against the originals. Unfinished units still link original code.
+The build checks the DOL and, on GameCube, the 16 RELs against the originals. Unfinished units still link original code.
 
 ## Progress site
 
-The Progress workflow rebuilds all three versions on the self-hosted runner,
+The Progress workflow rebuilds the three GameCube versions and [Wii Japan](https://cleosp.com/chibirobo-decomp/#v=R24J01) on the self-hosted runner,
 then publishes the interactive page and README badges to
 [cleosp.com/chibirobo-decomp](https://cleosp.com/chibirobo-decomp/). It runs when
 source, config, or tools change on the default branch, and can also be run from
 the Actions tab. Failed builds leave the last published page in place.
-
-The [Wii progress map](https://labdennis.github.io/chibirobo-decomp/#v=R24J01) uses the same measures.
 
 The runner needs `CHIBIROBO_ORIG` set to its local `orig/` folder. Only the
 progress report goes to GitHub; the discs stay on the runner. In the repo’s
