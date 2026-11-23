@@ -3549,12 +3549,6 @@ void InvalidateMessageDrawState(CGs* gs);
 #endif
 }
 
-#if defined(VERSION_JP)
-#define MSG_OBJECT_OFFSET(offset) ((offset) - 8)
-#else
-#define MSG_OBJECT_OFFSET(offset) (offset)
-#endif
-
 #if defined(VERSION_PAL)
 static inline void MsgRestoreScissor(u32 x, u32 y, u32 width, u32 height)
 {
@@ -3780,10 +3774,10 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
 					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
 					HSD_JObjSetFlags(portrait->mJObj, 8);
-					u32 oldColor                                      = *(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168));
-					s32 oldMode                                       = *(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164));
-					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = 0xFFFFFF00;
-					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = 0;
+					u32 oldModulateColor = portrait->mColors[1];
+					u32 oldBlendColor    = portrait->mColors[0];
+					portrait->mColors[1] = 0xFFFFFF00;
+					portrait->mColors[0] = 0;
 					portrait->DrawObject();
 #if defined(VERSION_US)
 					joint.CJObj::SetTranslate(oldPosition, 1);
@@ -3794,8 +3788,8 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 #endif
 					SetRotationY__5CJObjFfl(&joint, oldYaw, 1);
 					HSD_JObjClearFlags(portrait->mJObj, 8);
-					*(u32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x168)) = oldColor;
-					*(s32*)((u8*)portrait + MSG_OBJECT_OFFSET(0x164)) = oldMode;
+					portrait->mColors[1] = oldModulateColor;
+					portrait->mColors[0] = oldBlendColor;
 #if !defined(VERSION_JP)
 				}
 #endif
