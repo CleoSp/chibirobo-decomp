@@ -3747,8 +3747,6 @@ extern "C" void UpdateMapCameraOrbit(CCameraActionMap* map, u32 step)
 	}
 }
 
-extern "C" void C_VECCrossProduct(Vec* a, Vec* b, Vec* axb);
-
 // picks the two corners of mNearestEyeEntry's side, ordered by which side chibi robo is on
 /**
  * @note Address: 0x8013D2DC

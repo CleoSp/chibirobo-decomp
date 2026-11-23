@@ -2,11 +2,6 @@
 #include "game/xchr.h"
 #include "game/gmath.h"
 
-extern "C" {
-void HSD_MtxGetScale(Mtx mtx, Vec* scale);
-void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
-}
-
 extern "C" void Attach__5CJObjFP9_HSD_JObj(CJObj*, HSD_JObj*);
 
 static inline void PlaceInTaoMouth(CJObj& joint, XObj* carried, Mtx mount, f32 z)

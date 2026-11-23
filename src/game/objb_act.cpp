@@ -32,8 +32,6 @@ extern "C" {
 extern "C" {
 void ConfigureSubwindowCamera(FbSubwin* subwin, const Vec& interest, f32 angleY, f32 angleX, f32 distance, f32 fov);
 void SetObjectJointTranslationByPath(CXObj* obj, s32 depth, const s32* path, f32 x, f32 y, f32 z); // puts a joint at a translation
-f32 GetJointAnimationEndFrame(const CJObj* obj);                                                   // the end frame of the anim
-HSD_JObj* GetObjectJointByPath(const CJObj* obj, s32 depth, s32* path);
 CVec GetPlayerJointLocalTranslationByPath(CJObj* obj, s32 depth, s32* path);
 void SetJointYawByPath(CXObj* obj, s32 depth, s32* path, f32 angle);
 void SetJointTranslationFromVectorByPath(CJObj* obj, s32 depth, s32* path, const Vec& pos);
@@ -81,7 +79,6 @@ Vec GetObjectJointMatrixScale(const CJObj*);
 HSD_Generator* CreateScaledParticleAtPosition(CGame*, u32, u32, s32, const Vec&, const Vec&, BOOL);
 
 extern const s32 lbl_8020A5E8[];
-f32 GetJointAnimationCurrentFrame(CJObj*);
 BOOL CheckCarriedObjectContacts(XActLift*, const Vec*, f32, f32, BOOL, BOOL, BOOL, Vec*);
 static inline void HeldAnim(XObj* obj, s32 id, BOOL force = FALSE, f32 blend = 0)
 {
@@ -1767,7 +1764,6 @@ void UpdateLadderActionAnimation(XActLadder* act, s32 anim, HSD_AObj* aobj, u32 
 const Vec* GetScaledTargetFloorExtent(const XAction*);
 s32 FindPlayerSupportingFloor(XObjChr*, s32, s32);
 f32 GetObjectEdgeOutwardYaw(const XObj*, Vec*, s32);
-f32 GetJointAnimationCurrentFrame(CJObj*);
 
 static inline void HangAnim(XActHang* act, s32 id, f32 loop = 1, BOOL force = FALSE, f32 start = 0)
 {

@@ -35,10 +35,6 @@ void HandleToyScreenShakeCommand(XObjActorToy*, u32 frames);
 void HandleToyKind25ECommand(XObjActorToy*, u32 frames);
 }
 
-extern "C" HSD_JObj* GetObjectJointByPath(const CJObj*, s32, s32*);
-extern "C" f32 GetJointAnimationCurrentFrame(CJObj*);
-extern "C" f32 GetJointAnimationEndFrame(CJObj*);
-
 static inline void SetToyBlinkVisibility(XObjActorToy* toy, CJObj& joint)
 {
 	if ((s32)(toy->mKindCounter & 3) < 2)
@@ -677,8 +673,6 @@ void XObjActorToy::StateHitRecovery(u32 frames)
 		break;
 	}
 }
-
-extern "C" void HSD_MtxGetScale(Mtx matrix, Vec* scale);
 
 static inline void FinishToyMount(XObjActorToy* toy)
 {

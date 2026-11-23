@@ -343,8 +343,6 @@ extern s32 gSpiderBossVolleySlot;
 extern s32 gActor3Kind15ActivationCounter;
 }
 
-extern "C" void HSD_MtxGetTranslate(Mtx mat, Vec* vec);
-
 // the jobj's place in the world
 inline Vec GetJObjPos(HSD_JObj* jobj)
 {

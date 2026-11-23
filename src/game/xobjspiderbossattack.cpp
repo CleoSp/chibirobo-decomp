@@ -15,10 +15,6 @@ f32 GetPlayerCollisionRadius(XObjChr* player);
 void ApplyPlayerHitReaction(XObjChr* player, BOOL react, BOOL stop, f32 time);
 }
 
-extern "C" {
-void HSD_MtxGetScale(Mtx matrix, Vec* scale);
-}
-
 /**
  * @note Address: 0x80103F54
  * @note Size: 0x7E8

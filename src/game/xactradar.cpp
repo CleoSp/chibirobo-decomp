@@ -21,7 +21,6 @@ extern "C" void DrawPlayerRadarEffects(XActRadar*)
 }
 
 extern "C" CVec GetRadarDishWorldPosition(XObjRadar*);
-extern "C" void PSMTXMultVecArray(const Mtx, const Vec*, Vec*, u32);
 
 static inline u32 PackRadarColor(const ScrnColorF& c)
 {

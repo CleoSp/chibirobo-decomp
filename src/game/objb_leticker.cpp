@@ -19,7 +19,6 @@ extern "C" {
 // XObjLeticker, and the camera that turns around it in steps, CCameraActionLeticker
 
 extern "C" {
-void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
 BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
 BOOL TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle);
 BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle);

@@ -217,4 +217,10 @@ typedef char CJObj_size_check[sizeof(CJObj) == 0x38 ? 1 : -1];
 
 #pragma pop
 
+extern "C" {
+HSD_JObj* GetObjectJointByPath(const CJObj* object, s32 depth, s32* path);
+f32 GetJointAnimationCurrentFrame(CJObj* object);
+f32 GetJointAnimationEndFrame(CJObj* object);
+}
+
 #endif

@@ -18,11 +18,6 @@ extern "C" {
 #include <stdarg.h>
 #include <string.h>
 
-// the sdk calls the hsd header tree doesn't declare
-extern "C" {
-void C_VECCrossProduct(const Vec* a, const Vec* b, Vec* axb);
-}
-
 // geometry, joint and string helpers, backwards for deferred inlining
 
 extern "C" {

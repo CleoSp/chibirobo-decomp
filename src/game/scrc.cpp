@@ -30,8 +30,6 @@ void HideMoolahCounter(void* mgr);
 void ShowMoolahCounter(void* mgr);
 void HideHappyPointCounter(void* mgr);
 void ShowHappyPointCounter(void* mgr);
-void HSD_MtxGetScale(Mtx mat, Vec* vec);
-void PSMTXRotRad(Mtx m, char axis, f32 rad);
 void LaunchSpiderBossPart(XObjActor3* actor);
 void CarryRiderAtActorJoint(XObjActor3* actor, u32 frames);
 void InitParticlePool(CPtcl* pool, void* particles, s32 count, s32 stride);

@@ -166,7 +166,6 @@ BOOL FindMapFloorBelow(const XObjMap* map, const Vec* pos, XObjMapHit* hit, Vec*
 void ScaleVectorInPlace(Vec* value, f32 scale);
 Vec GetFloorCenterOffset(XObjFloor* const* floors, s32 index);
 Vec GetFloorExtent(XObjFloor* const* floors, s32 index);
-HSD_JObj* GetObjectJointByPath(const CJObj* object, s32 depth, s32* path);
 void GetJointScale(CJObj*, HSD_JObj* jobj, Vec* scale);
 f32 GetHorizontalDistance(const Vec* a, const Vec* b);
 s32 GetObjectPoolId(const XObj* object);
@@ -4886,8 +4885,6 @@ BOOL IsJumpActionState(const XAction*, s32);
 BOOL IsLadderActionState(const XAction*, s32);
 BOOL IsRopeActionState(const XAction*, s32);
 s32 ClassifyFloatBits(f32);
-f32 GetJointAnimationEndFrame(CJObj*);
-f32 GetJointAnimationCurrentFrame(CJObj*);
 }
 
 /**
@@ -5722,7 +5719,6 @@ extern "C" {
 void DrawRadarTargetBeam(XActRadar*);
 void DrawPopperShotParticles(XActPopper*);
 void DrawTumbleRing(XActTumbleFade*, const Vec&, f32);
-void PSMTXMultVecArray(const Mtx, const Vec*, Vec*, u32);
 }
 
 static inline u16 ShadeBatteryWarning(u32* colors, u32 color, f32 alpha, const XObjChr* player)

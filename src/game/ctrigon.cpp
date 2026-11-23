@@ -14,7 +14,6 @@ extern "C" {
 #include <stdlib.h>
 
 extern "C" {
-void C_VECCrossProduct(Vec* a, Vec* b, Vec* axb);
 void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
 void HSD_DObjCountVertices(HSD_DObj* dobj, u32* verts, u32* polys);
 void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys);

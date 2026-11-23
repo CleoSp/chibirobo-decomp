@@ -1230,8 +1230,6 @@ void XObjSpider::State3(u32 frames)
 	}
 }
 
-extern "C" f32 GetJointAnimationCurrentFrame(CJObj* obj);
-extern "C" f32 GetJointAnimationEndFrame(CJObj* obj);
 extern "C" void ApproachHudValue(f32* value, f32* target, f32 step);
 extern "C" BOOL IsPlayerFlashingFromHit(XObjChr* chr);
 
