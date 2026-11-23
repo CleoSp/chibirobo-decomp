@@ -1,9 +1,6 @@
 #include "game/cgameutil.h"
 #include <math.h>
 
-extern "C" void PSMTXTrans(Mtx, f32, f32, f32);
-extern "C" void PSMTXScale(Mtx, f32, f32, f32);
-
 static inline CTexObj& WindowFrameTexture()
 {
 	CTpl& tpl = gGame.mTpl;

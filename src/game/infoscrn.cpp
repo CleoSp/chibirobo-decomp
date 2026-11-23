@@ -24,8 +24,6 @@
 extern "C" {
 u16 GXGetTexObjWidth(const GXTexObj* obj);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
-void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
-void PSMTXScale(Mtx m, f32 x, f32 y, f32 z);
 void DrawHudPointCounter(InfoPoint* point);
 void DrawHudScanlines(InfoScrn* scrn);
 void InfoScrn_DrawTimer(InfoScrn* scrn);

@@ -5,7 +5,6 @@
 // XObjActor3's update
 
 extern "C" {
-void HSD_MtxGetScale(Mtx mat, Vec* vec);
 void HandleSpiderCounterCommand(XObjActor3* actor);
 void CarryRiderAtActorJoint(XObjActor3* actor, u32 frames);
 }

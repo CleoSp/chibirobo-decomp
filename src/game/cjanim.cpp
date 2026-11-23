@@ -368,8 +368,6 @@ void XObj::ProjectOffsetToScreen(const Vec* offset, f32* x, f32* y, f32* z, CCam
 		*z = screenZ;
 }
 
-extern "C" void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
-
 static inline void CountCrossedEdge(Vec& from, Vec& to, Vec* a, Vec* b, s32& outside, s32& crossed)
 {
 	f32 first = SignedTriangleArea2XZ(&from, a, b);

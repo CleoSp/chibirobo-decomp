@@ -4,11 +4,6 @@
 #include "game/globals.h"
 #include "game/hsd_dobj.h"
 
-extern "C" {
-void PSMTXRotRad(Mtx mtx, char axis, f32 angle);
-void PSMTXTrans(Mtx mtx, f32 x, f32 y, f32 z);
-}
-
 // the texture animation of the skip-th dobj's material
 static inline HSD_AObj* GetTexAObj(HSD_JObj* jobj, s32 skip)
 {

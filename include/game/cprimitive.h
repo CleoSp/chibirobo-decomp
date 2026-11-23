@@ -3,7 +3,7 @@
 
 #include "game/ctpl.h"
 #ifdef _MTXTYPES_h_
-// built with the HSD headers, which don't have the primitive types or these two
+// built with the HSD headers, which don't have GXPrimitive
 typedef enum _GXPrimitive {
 	GX_POINTS        = 0xB8,
 	GX_LINES         = 0xA8,
@@ -15,8 +15,7 @@ typedef enum _GXPrimitive {
 } GXPrimitive;
 typedef MtxPtr MtxP;
 extern "C" {
-void PSMTXRotRad(Mtx mtx, char axis, f32 angle);
-void PSMTXTrans(Mtx mtx, f32 xT, f32 yT, f32 zT);
+#include <dolphin/mtx/mtx.h>
 }
 #else
 #include "Dolphin/gx.h"

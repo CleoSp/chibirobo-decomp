@@ -15,10 +15,6 @@ extern "C" {
 
 // XObj, the CXObjIntp every placed object in the house is built on
 
-extern "C" {
-void C_VECReflect(const Vec* source, const Vec* normal, Vec* result);
-}
-
 #if defined(VERSION_PAL)
 #define ANIMATION_RATE(rate) ((rate) * (60.0f / (f32)gVideoFramesPerSecond))
 #else
@@ -55,8 +51,6 @@ static inline void StepColor(f32& current, f32& target, f32& speed, u32 frames)
 		}
 	}
 }
-
-extern "C" void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
 
 /**
  * @note Address: 0x8008C8A4

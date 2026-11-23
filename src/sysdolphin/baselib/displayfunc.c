@@ -36,7 +36,6 @@ extern MtxPtr HSD_MtxAlloc(void);
 extern void HSD_MtxFree(MtxPtr mtx);
 extern void memset(void* ptr, s32 value, u32 size);
 extern void PSVECScale(f32 scale, Vec* src, Vec* dst);
-extern void PSMTXRotRad(Mtx m, char axis, f32 rad);
 
 HSD_ObjAllocData zlist_alloc_data;
 

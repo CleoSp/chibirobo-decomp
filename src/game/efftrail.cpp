@@ -262,8 +262,6 @@ extern "C" void UpdatePointParticleDisplay(PointPtcl* ptcl, u32 frames)
 }
 
 #if defined(VERSION_JP)
-extern "C" void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
-
 static inline void DrawRingStrip(Mtx transform, u32 color, Vec* vertices, bool separate)
 {
 	PSMTXMultVecArray(transform, vertices, vertices, 50);

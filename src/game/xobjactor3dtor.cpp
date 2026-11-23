@@ -8,7 +8,6 @@
 extern "C" {
 BOOL HSD_AudioSFXCheck(s32 id);
 void HSD_AudioSFXKeyOff(s32 id);
-void HSD_MtxGetScale(Mtx mat, Vec* vec);
 void OSReport(const char* fmt, ...);
 void HandleKind9ActorCommand(XObjActor3* actor);
 void HandleActorRiderCommand(XObjActor3* actor);

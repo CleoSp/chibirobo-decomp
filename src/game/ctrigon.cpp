@@ -14,7 +14,6 @@ extern "C" {
 #include <stdlib.h>
 
 extern "C" {
-void PSMTXMultVecArray(const Mtx m, const Vec* srcBase, Vec* dstBase, u32 count);
 void C_VECCrossProduct(Vec* a, Vec* b, Vec* axb);
 void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
 void HSD_DObjCountVertices(HSD_DObj* dobj, u32* verts, u32* polys);

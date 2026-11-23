@@ -119,10 +119,8 @@ struct CaptionMsg {
 extern "C" {
 const char* GetStageName(s32 stage);
 u16 GXGetTexObjWidth(const GXTexObj* obj);
-void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
 void DrawTexturedWindowFrame(u32 color, s32 a, f32 x, f32 y, f32 w, f32 h, f32 sx, f32 sy, f32 sz);
-void PSMTXRotRad(Mtx m, char axis, f32 rad);
 }
 
 // mSavedInfo while SaveCamInfo holds a camera info, NULL otherwise

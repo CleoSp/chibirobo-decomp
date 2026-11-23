@@ -118,8 +118,6 @@ extern HSD_LObj* HSD_LObjGetCurrentByType(u16 flags);
 extern void HSD_LObjGetLightVector(HSD_LObj* lobj, Vec* v);
 extern u32 HSD_LObjGetLightMaskDiffuse(void);
 
-extern void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
-
 extern void GXSetTexCoordGen2(u32 dst_coord, u32 func, u32 src_param, u32 mtx, u32 normalize, u32 postmtx);
 
 extern void HSD_StateRegisterTexGen(s32 coord);

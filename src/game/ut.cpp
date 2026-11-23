@@ -21,7 +21,6 @@ extern "C" {
 // the sdk calls the hsd header tree doesn't declare
 extern "C" {
 void C_VECCrossProduct(const Vec* a, const Vec* b, Vec* axb);
-void PSMTXRotRad(Mtx m, char axis, f32 rad);
 }
 
 // geometry, joint and string helpers, backwards for deferred inlining

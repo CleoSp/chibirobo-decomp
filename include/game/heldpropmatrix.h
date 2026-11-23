@@ -3,8 +3,6 @@
 
 #include "game/xobj.h"
 
-extern "C" void PSMTXTrans(Mtx matrix, f32 x, f32 y, f32 z);
-
 static inline void SetHeldPropMatrix(XObj* prop, MtxPtr const& matrix)
 {
 	HSD_JObjCopyMtx(prop->mJObj, matrix);

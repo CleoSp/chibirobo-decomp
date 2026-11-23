@@ -10,6 +10,7 @@ f32 PSVECSquareMag(Vec* v);
 f32 PSVECMag(const Vec* v);
 f32 PSVECDotProduct(Vec* a, Vec* b);
 void PSVECCrossProduct(Vec* a, Vec* b, Vec* result);
+void C_VECReflect(const Vec* src, const Vec* normal, Vec* dst);
 void PSVECReflect(Vec* src, Vec* normal, Vec* dst);
 f32 PSVECSquareDistance(Vec* a, Vec* b);
 f32 PSVECDistance(Vec* a, Vec* b);

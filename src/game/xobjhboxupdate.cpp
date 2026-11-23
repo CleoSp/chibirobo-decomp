@@ -8,8 +8,6 @@
 #include <stdlib.h>
 
 extern "C" {
-void PSMTXTrans(Mtx matrix, f32 x, f32 y, f32 z);
-void HSD_MtxGetRotation(Mtx matrix, Vec* rotation);
 void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 u8* GetGlobalTextEntry(s32 index);
 }

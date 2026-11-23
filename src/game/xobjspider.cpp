@@ -53,7 +53,6 @@ void ResetSpiderState(XObjSpider* spider);
 
 void ActivateWaitingKind43AActorsAtPosition(f32 x, f32 y, f32 z);
 s32 GetAttachmentCountById(AttachmentValues* values, s32 id);
-void HSD_MtxGetScale(Mtx mat, Vec* vec);
 void HSD_StateInvalidate(s32 state);
 int rand();
 void OSReport(const char* fmt, ...);
