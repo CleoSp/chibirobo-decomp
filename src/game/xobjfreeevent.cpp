@@ -1,17 +1,7 @@
 #include "game/xobjfree.h"
 #include "game/xobjflags.h"
-#include "game/cgame.h"
+#include "game/xobjevent.h"
 #include "game/globals.h"
-#include "game/evt.h"
-#include "game/xobjchr.h"
-
-// todo: cleanup
-static inline void TriggerEvent(XObj* object, u32 first, u32 second)
-{
-	const void* script = object->GetEventScript();
-	if (!IsPlayerBlockingEvents(gGame.GetPlayer()))
-		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)object, first, second);
-}
 
 // XObjFree::Release
 /**
@@ -36,7 +26,7 @@ void XObjFree::ResetObjectState()
 		mLife = (s16)GetObjFlags();
 	mMatAnim = NULL;
 	if (mJObj != NULL && (mStatus.mFlags & 0x1000ULL)) {
-		UnkStageObj* animation = mCoord.mPlacement;
+		StagePlacement* animation = mCoord.mPlacement;
 		SetAnim(animation->mStartAnim, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
 	}
 }
@@ -70,11 +60,11 @@ BOOL XObjDust::OnItemUsed(const Vec* position, s32 kind)
 			mStatus.mFlags |= 0x4000000000000000ULL;
 			mEventId = kind;
 			if (mStatus.mFlags & 0x00000C0000000000ULL)
-				TriggerEvent(this, mEventId, mEventArg);
+				TriggerEvent(mEventId, mEventArg);
 		} else
 			return FALSE;
 	} else if (mStatus.mFlags & 0x0000040000000000ULL) {
-		TriggerEvent(this, (s16)kind, -1);
+		TriggerEvent(kind, -1);
 	} else
 		return FALSE;
 	return TRUE;
@@ -95,8 +85,8 @@ void XObjDust::OnHitFromPosition(const Vec& position, f32 strength)
 			mEventArg = 2000;
 	} else if (mStatus.mFlags & 0x0000080000000000ULL) {
 		if (strength >= (s32)GetPlayerActionParameter(31) / 100.0f)
-			TriggerEvent(this, -1, 2001);
+			TriggerEvent(-1, 2001);
 		else
-			TriggerEvent(this, -1, 2000);
+			TriggerEvent(-1, 2000);
 	}
 }

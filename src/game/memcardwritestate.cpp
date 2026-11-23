@@ -3,9 +3,6 @@
 #include "game/memcard.h"
 #include <stdio.h>
 
-extern "C" void CaptureGameSaveData(Memcard*);
-extern "C" void BuildSaveBanner(Memcard*, s32);
-
 // NONMATCHING: retail materializes the loop counters as li+mr, derives the stat
 // pointer from its card base and rematerializes failed=FALSE on the loop-exit edge
 /**

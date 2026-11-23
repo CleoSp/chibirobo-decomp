@@ -48,6 +48,10 @@ static inline u16 ShadeRadarBeam(XActRadar* act, u32* colors, u32 base)
 	return n;
 }
 
+/**
+ * @note Address: 0x800BD324
+ * @note Size: 0x1324
+ */
 extern "C" void DrawRadarTargetBeam(XActRadar* act)
 {
 	if (!(act->mFade > 0))
@@ -243,6 +247,10 @@ static inline void StartRadarTone(XActRadar* act, s32 tone, u8 r0, u8 g0, u8 b0,
 	}
 }
 
+/**
+ * @note Address: 0x800BE930
+ * @note Size: 0x12D4
+ */
 void UpdateRadarTargeting(XActRadar* act, s32 anim, HSD_AObj* aobj, u32 frames, f32, f32)
 {
 	// 1 takes the radar out, 2 puts it away. a scan starts at 3, 4 spins the dish a full turn and
@@ -930,6 +938,10 @@ void UpdatePopperShotFlight(XActPopperShot* shot, u32 frames)
 	FadePopperRing(shot->mRing[1], frames);
 }
 
+/**
+ * @note Address: 0x800C21A0
+ * @note Size: 0x874
+ */
 void CheckPopperShotImpact(XActPopperShot* shot)
 {
 	Vec pos  = shot->mPos;
@@ -1303,11 +1315,6 @@ static inline void RecoverTumble(XActTumble* act, s32 anim, HSD_AObj* aobj, s32 
 		FinishTumble(act, 1.0f);
 }
 
-static inline bool TumbleStationary(const CVec& delta)
-{
-	return PSVECMag((Vec*)&delta) == 0.0f;
-}
-
 /**
  * @note Address: 0x800C3A80
  * @note Size: 0x9E8
@@ -1375,7 +1382,7 @@ void UpdatePlayerTumbleAnimation(XActTumble* act, s32 anim, HSD_AObj* aobj, u32 
 		break;
 	case 14:
 		if (act->mOwner->mIdleModeTimer > 0) {
-			if (!act->mIdleParticle && TumbleStationary(act->mOwner->mMoveTranslate - (Vec)act->mOwner->mLastPos)) {
+			if (!act->mIdleParticle && (act->mOwner->mMoveTranslate - (Vec)act->mOwner->mLastPos).Length() == 0.0f) {
 				s32 effect = 0x28;
 				if (rand() & 1)
 					effect = 0x26;

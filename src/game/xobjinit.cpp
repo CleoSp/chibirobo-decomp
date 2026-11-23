@@ -3,8 +3,9 @@
 #include "game/cgame.h"
 #include "game/hsd_dobj.h"
 #include "game/globals.h"
+#include "game/stagedata.h"
 
-#include "game/spiderplacement.h"
+#include "game/placement.h"
 #include "game/mm.h"
 #include "game/arcache.h"
 #include "game/xobjmap.h"
@@ -15,7 +16,6 @@ extern "C" {
 CObjArchive* FindFreeObjectArchive(CObjArchive*);
 u32 ARGetSize(void);
 u8* GetGlobalTextEntry(s32);
-u8* GetStageScriptByIndex(s32);
 BOOL IsStageDataLoaded();
 }
 static inline bool HasSource(const AttrInfo& attr)
@@ -157,10 +157,10 @@ BOOL XObj::LoadFromPlacement(const CoordInfo& info)
 				EnableLighting(GetEnvData()[9] / 100.f); // env slot 9 is the light level in percent
 			if ((mStatus.mFlags & 2) && mJObj)
 				HSD_JObjWalkTree(mJObj, JObjSetMObjFlags, (f32**)0x04000000);
-			UnkStageObj* place = mCoord.mPlacement;
-			s32 index          = place - GetStagePlacementByIndex(0); // the placement's index in the stage
+			StagePlacement* place = mCoord.mPlacement;
+			s32 index             = place - GetStagePlacementByIndex(0); // the placement's index in the stage
 			if (index > 0)
-				mEventScript = (u32)GetStageScriptByIndex(index);
+				mEventScript = GetStageScriptByIndex(index);
 		}
 		UpdateObjectFloorHeights(this);
 		UpdateObjectFloorXZExtent(this);
@@ -185,7 +185,7 @@ BOOL XObj::LoadFromPlacement(const CoordInfo& info)
  */
 void XObj::ResetObjectState()
 {
-	mEventScript        = 0;
+	mEventScript        = NULL;
 	mFloorHit.mTriangle = -1;
 	mFloorHit.mTrigon   = 0;
 	mFloorHit.mHeight   = 0.0f;
@@ -195,7 +195,7 @@ void XObj::ResetObjectState()
 	mAnmQueue.Clear();
 	mAnchorX = mAnchorZ = NAN;
 	mMarkerOverride     = 0;
-	mMarkerOverride |= 0x80000000; // no marker override
+	mMarkerOverride |= MarkerUseAvailable;
 	mColorStep[0].mValue.x = mColorStep[0].mValue.y = mColorStep[0].mValue.z = 255.0f;
 	mColorStep[0].mTarget.x = mColorStep[0].mTarget.y = mColorStep[0].mTarget.z = 255.0f;
 	mColorStep[0].mSpeed.x = mColorStep[0].mSpeed.y = mColorStep[0].mSpeed.z = 0.0f;

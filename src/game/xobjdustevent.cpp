@@ -1,22 +1,12 @@
 #include "game/xobjflags.h"
-#include "game/cgame.h"
+#include "game/xobjevent.h"
 #include "game/xchr.h"
 #include "game/hsd_cobj.h"
-#include "game/evt.h"
-#include "game/xobjchr.h"
 
 static inline BOOL AnimDone(HSD_JObj* joint)
 {
 	HSD_AObj* aobj = GetAObj(joint);
 	return aobj != NULL ? (aobj->flags & 0x44000000) != 0 : TRUE;
-}
-
-// todo: cleanup, game/xobjfreeevent.cpp and game/xobjdust.cpp have the same
-static inline void TriggerEvent(XObj* object, u32 first, u32 second)
-{
-	const void* script = object->GetEventScript();
-	if (!IsPlayerBlockingEvents(gGame.GetPlayer()))
-		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)object, first, second);
 }
 
 /**
@@ -32,7 +22,7 @@ extern "C" BOOL UpdateDustEvent(XObjDust* dust, u32 frames)
 			if (aobj != NULL) {
 				if (aobj->flags & 0x44000000) {
 					if (dust->mStatus.mFlags & 0xC0000000000ULL) {
-						TriggerEvent(dust, dust->mEventId, dust->mEventArg);
+						dust->TriggerEvent(dust->mEventId, dust->mEventArg);
 					}
 					return TRUE;
 				}

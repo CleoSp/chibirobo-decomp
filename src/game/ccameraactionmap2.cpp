@@ -65,8 +65,6 @@ extern "C" BOOL ResolveMapCameraEyeCollision(CCameraActionMap* map, CVec& eye, c
 extern "C" CVec SpringDamp(CVec& position, const Vec& target, const CVec& previous, f32 step, f32 stiffness, f32 damping, f32 restDistance);
 // out of line vector helpers
 extern "C" void CopyVecToCVec(CVec& dst, const Vec& src);
-extern "C" CVec __ct__4CVecFRC3Vec(const Vec& src);
-extern "C" CVec __ct__4CVecFfff(f32 x, f32 y, f32 z);
 extern "C" void SetVectorComponents(CVec* v, f32 x, f32 y, f32 z);
 extern "C" f32 GetHorizontalDistance(const Vec* from, const Vec* to);      // horizontal distance
 extern "C" f32 GetHeadingBetweenPositions(const Vec* from, const Vec* to); // horizontal angle
@@ -484,7 +482,7 @@ void CCameraActionMap::Update(u32 step)
 			f32 pitch = mAngle.x;
 			f32 distance;
 			{
-				CVec target = __ct__4CVecFRC3Vec(mTarget->GetCameraTarget());
+				CVec target(mTarget->GetCameraTarget());
 				CVec current(mEye);
 				distance = PSVECDistance(&target, &current);
 			}
@@ -492,8 +490,8 @@ void CCameraActionMap::Update(u32 step)
 			candidate.x = center.x + distance * (f32)cos(yaw) * (f32)cos(pitch);
 			candidate.z = center.z + distance * -(f32)sin(yaw) * (f32)cos(pitch);
 			candidate.y = center.y;
-			CopyVecToCVec(sMapCameraTestEye, __ct__4CVecFRC3Vec(candidate));
-			CopyVecToCVec(sMapCameraTestCenter, __ct__4CVecFRC3Vec(center));
+			sMapCameraTestEye.Set(candidate);
+			sMapCameraTestCenter.Set(center);
 			mIntersectionCount
 			    = CalcIntersectVec__16CCameraActionMapFRC3VecRC3VecP11CamMapEntryl(this, candidate, center, mIntersectionEntries, 0);
 			if (mIntersectionCount == 0 && TrySetMapCameraTargetYaw(this, PI + mTarget->mMoveRotate.mTarget.y, 20.0f, 0.0f)) {
@@ -504,8 +502,7 @@ void CCameraActionMap::Update(u32 step)
 		// the target came back at the camera: put the eye behind its facing, at least 31 away
 		if (lbl_8065B344 != 0) {
 			SetInterest(GetMapCameraTargetWithHeightOffset(this));
-			CVec angles;
-			CopyVecToCVec(angles, __ct__4CVecFfff(mAngle.x, mTarget->mMoveRotate.y, mAngle.z));
+			CVec angles(mAngle.x, mTarget->mMoveRotate.y, mAngle.z);
 			SetAngle(angles);
 			CVec current(mEye);
 			f32 distance = PSVECDistance(&current, &mSpringTarget);
@@ -670,7 +667,7 @@ void CCameraActionMap::Update(u32 step)
 				mEyeInterpTime = 5.0f;
 		}
 		mPrevTargetEye.y = mTargetEye.y = mCurrentHeight;
-		SetEye(__ct__4CVecFfff(mEye.x, mTargetEye.y, mEye.z));
+		SetEye(CVec(mEye.x, mTargetEye.y, mEye.z));
 		Vec target = mTargetEye;
 		if (mPrevTargetEye != target)
 			StartCameraEyeInterpolation(this, target, mEyeInterpTime);

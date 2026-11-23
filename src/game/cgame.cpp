@@ -1,4 +1,5 @@
 #include "game/cgame.h"
+#include "game/gmath.h"
 #include "game/mic.h"
 #include "game/video.h"
 #include "game/mm.h"
@@ -68,11 +69,11 @@ extern "C" void DrawStageNameBubbles(CGame* game)
 			f32 y;
 			bob       = 4.0f * (f32)sin(game->mStageName.mChars[i].mBob);
 			tilt      = sin(0.7f * game->mStageName.mChars[i].mTilt);
-			swell     = sin(3.1415927f * scale);
-			pop       = 0.2f * swell + (f32)sin(1.5707964f * scale);
+			swell     = sin(PI * scale);
+			pop       = 0.2f * swell + (f32)sin(HALF_PI * scale);
 			x         = spacing * 0.5f + (spacing * i + (320.0f - spacing * game->mStageName.mCount / 2.0f));
 			u32 alpha = 255.0f * scale;
-			rot       = -(0.017453292f * (10.0f * tilt));
+			rot       = -(DEG2RAD * (10.0f * tilt));
 			y         = 150.0f + bob;
 			DrawGsTexturedQuad(&gGame.mGs, &bubble, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, alpha | 0xFFFFFF00, x, y,
 			                   0.0f, glyphSize * (2.2f * pop), glyphSize * (2.2f * pop), zero, -zero, rot);
@@ -94,7 +95,6 @@ extern "C" void DrawStageNameBubbles(CGame* game)
 
 extern "C" {
 s32 GetDefaultStageIndex(void);
-s32 GetSaveFileStage(void* card);
 void ClearMainMenuExtraRows(void* menu);
 void ResetMessageState(CMsg* msg);
 void CMsg_ResetPos(CMsg* msg);
@@ -146,7 +146,7 @@ extern "C" void ChangeGameStage(CGame* game, s32 stage, BOOL showName)
 			game->SetStage(first);
 		}
 	} else if (stage == 20000) {
-		game->SetStage(GetSaveFileStage(&game->mMemcard));
+		game->SetStage(GetSaveFileStage(&game->mMemcard.mCard));
 		game->mMemcardLoaded = TRUE;
 	} else if (stage >= 0) {
 		game->SetStage(stage);

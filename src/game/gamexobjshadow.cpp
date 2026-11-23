@@ -1,4 +1,5 @@
 #include "game/cgame.h"
+#include <math.h>
 #include "game/xobjmap.h"
 #include "game/hsd_dobj.h"
 #include "game/cgameutil.h"
@@ -103,7 +104,7 @@ extern "C" void RenderSceneShadow(CGame* game)
 									alpha = 0.8f;
 								}
 							}
-							obj->DrawGroundShadowAt(&obj->mMoveTranslate, sin(3.1415927f * alpha * 0.5f)); // a half-sine falloff
+							obj->DrawGroundShadowAt(&obj->mMoveTranslate, sin(PI * alpha * 0.5f)); // a half-sine falloff
 						}
 					}
 					EndGsCamera(&game->mGs);

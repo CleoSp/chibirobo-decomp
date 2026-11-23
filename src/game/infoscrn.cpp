@@ -7,7 +7,7 @@
 #include "game/stg.h"
 #include "game/video.h"
 #include <string.h>
-#include <math.h>
+#include "game/gmath.h"
 
 // the info screen, the hud drawn over the game: the clock, the battery, the happy points and
 // the three counters that pop up in the corner. CGame keeps it in mInfoScrn
@@ -393,10 +393,10 @@ extern "C" void DrawObjectLoadingProgress(InfoScrn* scrn)
 			y    = 406.0f - th / 2;
 			left = 320.0f - half;
 			DrawGsTexturedQuad(&gGame.mGs, &tex, 0x808080C8, 0x808080C8, 0x808080C8, 0x808080C8, sLoading.mX + left, y, 0.0f, 0.9f * tw,
-			                   0.9f * th, 0.0f, 3.1415927f, 0.0f);
+			                   0.9f * th, 0.0f, PI, 0.0f);
 			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 			DrawGsTexturedQuad(&gGame.mGs, &tex, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, sLoading.mX + left, y, 0.0f, 0.8f * tw,
-			                   0.8f * th, 0.0f, 3.1415927f, 0.0f);
+			                   0.8f * th, 0.0f, PI, 0.0f);
 			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 			SetGsCullMode(gGame.mGs.mCurRenderMode, 2);
 
@@ -407,15 +407,15 @@ extern "C" void DrawObjectLoadingProgress(InfoScrn* scrn)
 			PSMTXTrans(tex.mMtx[0], 0.25f, 0.0f, 0.0f);
 			tex.mMtxDirty = TRUE;
 			DrawGsTexturedQuad(&gGame.mGs, &tex, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 322.0f, 408.0f, 0.0f, max, 14.0f, 0.0f,
-			                   0.0f, 3.1415927f);
+			                   0.0f, PI);
 			PSMTXTrans(tex.mMtx[0], 0.5f, 0.0f, 0.0f);
 			tex.mMtxDirty = TRUE;
 			DrawGsTexturedQuad(&gGame.mGs, &tex, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 322.0f - half - 4.0f, 408.0f, 0.0f, 8.0f,
-			                   14.0f, 0.0f, 0.0f, 3.1415927f);
+			                   14.0f, 0.0f, 0.0f, PI);
 			PSMTXTrans(tex.mMtx[0], 0.0f, 0.0f, 0.0f);
 			tex.mMtxDirty = TRUE;
 			DrawGsTexturedQuad(&gGame.mGs, &tex, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 0xC8C8C880, 4.0f + (322.0f + half), 408.0f, 0.0f, 8.0f,
-			                   14.0f, 0.0f, 0.0f, 3.1415927f);
+			                   14.0f, 0.0f, 0.0f, PI);
 
 			tex      = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[118 - StatusTextureOffset], 0);
 			u16 barW = GXGetTexObjWidth(&tex);
@@ -1666,6 +1666,10 @@ static inline u32 BatteryDigitColor(int whole, u32 low, u32 active, u32 inactive
 		return active;
 	return inactive;
 }
+/**
+ * @note Address: 0x80068D10
+ * @note Size: 0x1DF0
+ */
 extern "C" void DrawHudBatteryGauge(InfoScrn* h)
 {
 	f32 alpha = h->mBatteryAlpha * gHudOpacityScale;
@@ -1882,6 +1886,10 @@ static inline void DrawClockQuad(CTexObj& tex, u32 color, f32 x, f32 y, f32 z, f
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 }
 
+/**
+ * @note Address: 0x80067928
+ * @note Size: 0x1220
+ */
 extern "C" void DrawHudClock(InfoScrn* scrn)
 {
 	f32 alpha = scrn->mClockAlpha * gHudOpacityScale;
@@ -2362,6 +2370,10 @@ static const char* sWide  = "\x81\x40\x81\x49\x81\x68\x81\x94\x81\x90\x81\x93\x8
                             "\x82\x90\x82\x91\x82\x92\x82\x93\x82\x94\x82\x95\x82\x96\x82\x97"
                             "\x82\x98\x82\x99\x82\x9A\x81\x6F\x81\x62\x81\x70";
 
+/**
+ * @note Address: 0x80066630
+ * @note Size: 0xE4
+ */
 extern "C" s32 ConvertHudTextToFullWidth(char* text)
 {
 	char buf[0x200];

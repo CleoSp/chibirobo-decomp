@@ -3,13 +3,15 @@
 #include "game/hsd_jobj.h"
 #include "game/hsd_cobj.h"
 #include "game/stg.h"
+#include "game/stagedata.h"
+#include "game/placement.h"
 #include "game/cgame.h"
 #include "game/cgs.h"
 #include "game/fbtexeff.h"
 #include "game/cfont.h"
 #include "game/xchr.h"
 #include "game/video.h"
-#include <math.h>
+#include "game/gmath.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +19,6 @@
 #include "game/menupanelbackground.h"
 
 extern "C" {
-void* GetSpawnData(s32 index);
 const char* GetLocalizedPCDialogue(s32 id);
 char* GetLocalizedInterfaceText(s32 id);
 char* GetStatusOverviewLabel(s32 id);
@@ -131,17 +132,17 @@ static MenuMCTestSub sMenuMCTestSub;
 // the items the status and item menus page through
 static MenuStatusTable sStatusItemTable;
 // the chibi-pc pages and the lists they show
-MenuPCPage gShopHistoryPage;
-MenuPCPage gShopCatalogPage;
+MenuPCPage gItemShopPage;
+MenuPCPage gScrapShopPage;
 u8 gStatusIconUnlocked[24];
 u8 gStatusEntryAvailable[16];
-static MenuPCItem sShopHistoryEntries[20];
+static MenuPCItem sItemShopEntries[20];
 PCRankingRow gPCRankingRows[10];
-static MenuPCItem sShopCatalogEntries[20];
+static MenuPCItem sScrapShopEntries[20];
 
 extern "C" CTexObj* CopyMenuTextureObject(CTexObj* dst, const CTexObj* src);
-extern "C" s32 CountShopCatalogEntries(const MenuPCPage*);
-extern "C" s32 CountShopHistoryEntries(const MenuPCPage*);
+extern "C" s32 CountScrapShopEntries(const MenuPCPage*);
+extern "C" s32 CountItemShopEntries(const MenuPCPage*);
 extern "C" s32 CountDecimalDigits(s32 value);
 extern "C" BOOL Draw__5CMenuFv(CMenu* menu);
 extern "C" s32 GetPlayerLevel(Params* params);
@@ -149,8 +150,8 @@ extern "C" Params* GetPlayerParamsByIndex(CGame* game, s32 i);
 extern "C" void DrawMenuLine(CGs* gs, u32 color, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
 extern "C" void DrawPCExchangeRateIcon(f32 x, f32 y, f32 alpha);
 extern "C" CTexObj* GetSubwindowTexture(CGame* game);
-extern "C" s32 GetShopCatalogFirstRow(const MenuPCPage* page);
-extern "C" s32 GetShopHistoryFirstRow(const MenuPCPage* page);
+extern "C" s32 GetScrapShopFirstRow(const MenuPCPage* page);
+extern "C" s32 GetItemShopFirstRow(const MenuPCPage* page);
 extern "C" void SetMenuTextureTranslation(CTexObj* tex, f32 x, f32 y);
 extern "C" void SetMenuTextureScale(CTexObj* tex, f32 x, f32 y);
 extern "C" void DrawSolidQuad(CGs* gs, Vec* quad, u32 color);
@@ -189,12 +190,12 @@ static inline void PCEaseCall(f32& value, f32& target)
 		rate = 1.0f;
 	ApproachHudValue(&value, &target, rate);
 }
-enum PCShopListKind { PriceList, ItemPriceList };
-template <PCShopListKind kind>
 #if defined(VERSION_JP)
-void DrawPCShopList(s32, f32, f32, f32, f32, f32);
+void DrawPCItemShopList(s32, f32, f32, f32, f32, f32);
+void DrawPCScrapShopList(s32, f32, f32, f32, f32, f32);
 #else
-void DrawPCShopList(s32, f32, f32, f32, f32, f32, f32);
+void DrawPCItemShopList(s32, f32, f32, f32, f32, f32, f32);
+void DrawPCScrapShopList(s32, f32, f32, f32, f32, f32, f32);
 #endif
 
 extern "C" {
@@ -465,22 +466,22 @@ BOOL MenuPC::Draw()
 #else
 			const f32 scroll = 8.0f;
 #endif
-			MenuPCPage* page = &gShopHistoryPage;
+			MenuPCPage* page = &gItemShopPage;
 			s32 selected     = this->mPurchaseSelection;
 			f32 alpha        = this->mListAlpha;
 #if defined(VERSION_JP)
-			DrawPCShopList<ItemPriceList>(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f);
+			DrawPCItemShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f);
 #else
-			DrawPCShopList<ItemPriceList>(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f, scroll);
+			DrawPCItemShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f, scroll);
 #endif
 			DrawPCGoldNumber(true, 339.0f, 316.0f, this->mAlpha, 1.0f, this->mMoneyDisplay.shown);
-			s32 positions = CountShopHistoryEntries(page) - 8;
+			s32 positions = CountItemShopEntries(page) - 8;
 			f32 first, last;
 			if (positions <= 1) {
 				first = 0.f;
 				last  = 1.f;
 			} else {
-				s32 start = GetShopHistoryFirstRow(page);
+				s32 start = GetItemShopFirstRow(page);
 				f32 step  = 1.0f / (f32)positions;
 				f32 row   = (f32)start;
 				first     = step * row;
@@ -497,21 +498,21 @@ BOOL MenuPC::Draw()
 #else
 			const f32 scroll = 8.0f;
 #endif
-			MenuPCPage* page = &gShopCatalogPage;
+			MenuPCPage* page = &gScrapShopPage;
 			s32 selected     = this->mShopSelection;
 #if defined(VERSION_JP)
-			DrawPCShopList<PriceList>(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f);
+			DrawPCScrapShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f);
 #else
-			DrawPCShopList<PriceList>(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f, scroll);
+			DrawPCScrapShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f, scroll);
 #endif
 			DrawPCBlueNumber(true, 339.0f, 316.0f, this->mAlpha, 1.0f, this->mScrapDisplay.shown);
-			s32 positions = CountShopCatalogEntries(page) - 8;
+			s32 positions = CountScrapShopEntries(page) - 8;
 			f32 first, last;
 			if (positions <= 1) {
 				first = 0.f;
 				last  = 1.f;
 			} else {
-				s32 start = GetShopCatalogFirstRow(page);
+				s32 start = GetScrapShopFirstRow(page);
 				f32 step  = 1.0f / (f32)positions;
 				f32 row   = (f32)start;
 				first     = step * row;
@@ -1427,8 +1428,8 @@ inline void MenuTitle::Set(const char* text, u32 color)
 			mChars[i].mText   = p;
 			mChars[i].mFade   = -0.2f * i;
 			mChars[i].mHold   = FRAME_RATE;
-			mChars[i].mAngle0 = 0.017453292f * (rand() % 360);
-			mChars[i].mAngle1 = 0.017453292f * (rand() % 360);
+			mChars[i].mAngle0 = DEG2RAD * (rand() % 360);
+			mChars[i].mAngle1 = DEG2RAD * (rand() % 360);
 			mCount++;
 			if (IsJapanese() && (IsSjisLead(*p) & 1)) {
 				p++;
@@ -2614,7 +2615,7 @@ extern "C" CTexObj* GetSubwindowTexture(CGame* game)
  * @note Address: 0x800490EC
  * @note Size: 0x8
  */
-extern "C" s32 GetShopCatalogFirstRow(const MenuPCPage* page)
+extern "C" s32 GetScrapShopFirstRow(const MenuPCPage* page)
 {
 	return page->mStart;
 }
@@ -2623,7 +2624,7 @@ extern "C" s32 GetShopCatalogFirstRow(const MenuPCPage* page)
  * @note Address: 0x800490F4
  * @note Size: 0x8
  */
-extern "C" s32 GetShopHistoryFirstRow(const MenuPCPage* page)
+extern "C" s32 GetItemShopFirstRow(const MenuPCPage* page)
 {
 	return page->mStart;
 }
@@ -3013,11 +3014,11 @@ extern "C" s32 IndexOfLargestOfThree(s64 a, s64 b, s64 c)
  * @note Address: 0x800345A8
  * @note Size: 0xC4
  */
-extern "C" s32 CountShopCatalogEntries(const MenuPCPage*)
+extern "C" s32 CountScrapShopEntries(const MenuPCPage*)
 {
 	s32 count = 0;
 	for (int i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopCatalogEntries + i;
+		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 stock               = entry->mCount;
 		if (entry->mItem >= 0 && stock >= 0)
 			count++;
@@ -3029,11 +3030,11 @@ extern "C" s32 CountShopCatalogEntries(const MenuPCPage*)
  * @note Address: 0x800349A8
  * @note Size: 0xC4
  */
-extern "C" s32 CountShopHistoryEntries(const MenuPCPage*)
+extern "C" s32 CountItemShopEntries(const MenuPCPage*)
 {
 	s32 count = 0;
 	for (int i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopHistoryEntries + i;
+		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 stock               = entry->mCount;
 		if (entry->mItem >= 0 && stock >= 0)
 			count++;
@@ -3047,7 +3048,7 @@ extern "C" s32 CountShopHistoryEntries(const MenuPCPage*)
  */
 // the shop's page of 9 from the catalog, and the items just before and after it
 // NONMATCHING: regalloc
-extern "C" void PopulateShopCatalogPage(MenuPCPage* list)
+extern "C" void PopulateScrapShopPage(MenuPCPage* list)
 {
 	s32 count;
 	s32 n;
@@ -3062,7 +3063,7 @@ extern "C" void PopulateShopCatalogPage(MenuPCPage* list)
 	count = 0;
 	n     = 0;
 	for (i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopCatalogEntries + i;
+		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -3086,7 +3087,7 @@ extern "C" void PopulateShopCatalogPage(MenuPCPage* list)
 	n                     = 0;
 	count                 = 0;
 	for (i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopCatalogEntries + i;
+		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -3105,7 +3106,7 @@ extern "C" void PopulateShopCatalogPage(MenuPCPage* list)
 	n     = 0;
 	count = 0;
 	for (i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopCatalogEntries + i;
+		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -3123,7 +3124,7 @@ extern "C" void PopulateShopCatalogPage(MenuPCPage* list)
 	}
 }
 
-static inline void ClearShopHistoryRows(MenuPCPage* list)
+static inline void ClearItemShopRows(MenuPCPage* list)
 {
 	for (int i = 0; i < 20; i++) {
 		list->mRows[i].mItem         = -1;
@@ -3139,16 +3140,16 @@ static inline void ClearShopHistoryRows(MenuPCPage* list)
  * @note Size: 0x3E0
  */
 // NONMATCHING: register allocation and instruction scheduling
-extern "C" void PopulateShopHistoryPage(MenuPCPage* list)
+extern "C" void PopulateItemShopPage(MenuPCPage* list)
 {
 	s32 count;
 	s32 n;
 	s16 price;
-	ClearShopHistoryRows(list);
+	ClearItemShopRows(list);
 	count = 0;
 	n     = 0;
 	for (int i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopHistoryEntries + i;
+		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -3176,7 +3177,7 @@ extern "C" void PopulateShopHistoryPage(MenuPCPage* list)
 	count                        = 0;
 	n                            = 0;
 	for (int i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopHistoryEntries + i;
+		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -3197,7 +3198,7 @@ extern "C" void PopulateShopHistoryPage(MenuPCPage* list)
 	count = 0;
 	n     = 0;
 	for (int i = 0; i < 20; i++) {
-		const MenuPCItem* entry = sShopHistoryEntries + i;
+		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
@@ -4429,12 +4430,12 @@ extern "C" void DrawSaveMenuTitle(MenuSave* menu)
 				s0          = sin(glyph->mAngle0);
 				bob         = 4.0f * s0;
 				rot         = sin(0.7f * glyph->mAngle1);
-				s1          = sin(3.1415927f * t);
-				s2          = sin(1.5707964f * t);
+				s1          = sin(PI * t);
+				s2          = sin(HALF_PI * t);
 				scale       = 0.2f * s1 + s2;
 				x           = 24.0f + (48.0f * i + (320.0f - 48.0f * menu->mTitle.mCount * 0.5f));
 				alpha       = 255.0f * t;
-				rot         = -(0.017453292f * (10.0f * rot));
+				rot         = -(DEG2RAD * (10.0f * rot));
 				y           = 64.0f + bob;
 				u32 c       = alpha | 0xFFFFFF00;
 				DrawGsTexturedQuad(&gGame.mGs, &blob, c, c, c, c, x, y, 0.0f, 20.0f * (2.0f * scale), 20.0f * (2.0f * scale), 0.0f, -zero,
@@ -4493,12 +4494,12 @@ extern "C" void DrawItemMenuTitle(MenuItem* menu)
 				s0          = sin(glyph->mAngle0);
 				bob         = 4.0f * s0;
 				rot         = sin(0.7f * glyph->mAngle1);
-				s1          = sin(3.1415927f * t);
-				s2          = sin(1.5707964f * t);
+				s1          = sin(PI * t);
+				s2          = sin(HALF_PI * t);
 				scale       = 0.2f * s1 + s2;
 				x           = 24.0f + (48.0f * i + (320.0f - 48.0f * menu->mTitle.mCount * 0.5f));
 				alpha       = 255.0f * t;
-				rot         = -(0.017453292f * (10.0f * rot));
+				rot         = -(DEG2RAD * (10.0f * rot));
 				y           = 64.0f + bob;
 				u32 c       = alpha | 0xFFFFFF00;
 				DrawGsTexturedQuad(&gGame.mGs, &blob, c, c, c, c, x, y, 0.0f, 20.0f * (2.0f * scale), 20.0f * (2.0f * scale), 0.0f, -zero,
@@ -4699,7 +4700,7 @@ static inline void CheckPlayerInventoryFlags()
 BOOL MenuStatus::Draw()
 {
 	if (CMenu::Draw()) {
-		DrawPanelBackground<ItemStatusPanel>(mAlpha);
+		DrawStatusPanelBackground(mAlpha);
 		DrawStatusMenuTabs(this);
 		if (mMode == 2 || mMode == 4) {
 			SetScissor(104, 248);
@@ -4869,8 +4870,8 @@ void MenuItem::Open()
 	}
 	mNameCharCount = 0;
 	for (int i = 0; i < (int)ARRAY_SIZE(mBg); i++) {
-		mBg[i].mAngle0 = 0.017453292f * (rand() % 360);
-		mBg[i].mAngle1 = 0.017453292f * (rand() % 360);
+		mBg[i].mAngle0 = DEG2RAD * (rand() % 360);
+		mBg[i].mAngle1 = DEG2RAD * (rand() % 360);
 	}
 }
 
@@ -5243,16 +5244,11 @@ void MenuPC::State0(u32)
 	}
 }
 
-static inline s16 MenuHistoryValue(int i)
+static inline void SavePCShopState(MenuPC* menu)
 {
-	return sShopHistoryEntries[i].mCount;
-}
-
-static inline void RestorePCHistory(MenuPC* menu)
-{
-	if (menu->mHistoryCount > 0) {
-		for (int i = 0; i < menu->mHistoryCount; i++) {
-			gEventVars.mVars[menu->mHistoryStart + i + menu->mHistoryCount] = MenuHistoryValue(i);
+	if (menu->mItemShopCount > 0) {
+		for (int i = 0; i < menu->mItemShopCount; i++) {
+			gEventVars.mVars[menu->mItemShopBase + i + menu->mItemShopCount] = sItemShopEntries[i].mCount;
 		}
 		gEventVars.mVars[196] = menu->mDepositBalance;
 	}
@@ -5294,23 +5290,10 @@ void MenuPC::State2(u32)
 		// B: shrink the frame, mode 11 closes the pc once it is shut
 		ResetPCText(menu, 11);
 		menu->mTargetFrameHeight = 0.0f;
-		RestorePCHistory(menu);
+		SavePCShopState(menu);
 	}
 }
 
-static inline s32 MenuPower10(s32 exponent)
-{
-	s32 result = 1;
-	for (s32 i = 0; i < exponent; i++)
-		result *= 10;
-	return result;
-}
-static inline s32 MenuDigit(s32 value, s32 digit)
-{
-	if (digit == 0)
-		return value % 10;
-	return (value / MenuPower10(digit)) % 10;
-}
 // chibi robo's money and scrap
 static inline s32 GetMoney()
 {
@@ -5603,16 +5586,6 @@ void MenuPC::State10(u32)
 		break;
 	}
 }
-// the placement entry's scale, in percent there
-static inline Vec EntryScale(XObj* obj)
-{
-	UnkStageObj* entry = obj->mCoord.mPlacement;
-	Vec scale          = lbl_80362048[0];
-	scale.x            = entry->mScale[0] / 100.0f;
-	scale.y            = entry->mScale[1] / 100.0f;
-	scale.z            = entry->mScale[2] / 100.0f;
-	return scale;
-}
 
 /**
  * @note Address: 0x800621E0
@@ -5620,18 +5593,7 @@ static inline Vec EntryScale(XObj* obj)
  */
 extern "C" CVec GetStagePlacementScale(XObj* obj)
 {
-	return EntryScale(obj);
-}
-
-// and its position, in centimeters
-static inline Vec EntryPos(XObj* obj)
-{
-	UnkStageObj* entry = obj->mCoord.mPlacement;
-	Vec pos            = lbl_8036203C;
-	pos.x              = entry->mPos[0] / 100.0f;
-	pos.y              = entry->mPos[1] / 100.0f;
-	pos.z              = entry->mPos[2] / 100.0f;
-	return pos;
+	return PlacementScale(obj->mCoord, lbl_80362048[0]);
 }
 
 /**
@@ -5640,10 +5602,10 @@ static inline Vec EntryPos(XObj* obj)
  */
 extern "C" CVec GetStagePlacementPosition(XObj* obj)
 {
-	return EntryPos(obj);
+	return PlacementPosition(obj->mCoord, lbl_8036203C);
 }
 
-extern "C" void PopulateShopCatalogPage(MenuPCPage*);
+extern "C" void PopulateScrapShopPage(MenuPCPage*);
 
 static inline s32 CountPCShopItems(MenuPCItem* table)
 {
@@ -5697,7 +5659,7 @@ static inline s32 ResetPCShopPage(MenuPC* menu, MenuPCItem*& table)
 }
 static inline s16 PCShopEntryId(s32 index)
 {
-	return gShopCatalogPage.mRows[index].mItem;
+	return gScrapShopPage.mRows[index].mItem;
 }
 
 /**
@@ -5709,7 +5671,7 @@ void MenuPC::State7(u32 frames)
 	MenuPC* menu = this;
 	s32 count;
 	CPad pad(0);
-	MenuPCItem* table = sShopCatalogEntries;
+	MenuPCItem* table = sScrapShopEntries;
 	count             = CountPCShopItems(table);
 	ApproachHudValue(&menu->mPanelAlpha, &menu->mPanelTarget, 0.08f * frames);
 	switch (menu->mPhase) {
@@ -5725,7 +5687,7 @@ void MenuPC::State7(u32 frames)
 				}
 				if (pad.mPad->mRepeat & 0x10008) {
 					CountPCShopItems(table);
-					if (gShopCatalogPage.mStart > 0) {
+					if (gScrapShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
 						break;
@@ -5738,7 +5700,7 @@ void MenuPC::State7(u32 frames)
 					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 				}
 				if (pad.mPad->mRepeat & 0x20004) {
-					if (gShopCatalogPage.mStart < PCShopMaxPage(table) - 1) {
+					if (gScrapShopPage.mStart < PCShopMaxPage(table) - 1) {
 						menu->mScrollTarget = -17.0f;
 						menu->mPhase        = 10;
 						break;
@@ -5754,7 +5716,7 @@ void MenuPC::State7(u32 frames)
 					s32 next = menu->mShopSelection + 1;
 					if (next <= 19) {
 						menu->mShopSelection = next;
-						s16 id               = gShopCatalogPage.mRows[menu->mShopSelection].mItem;
+						s16 id               = gScrapShopPage.mRows[menu->mShopSelection].mItem;
 						if (id >= 0)
 							PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 					}
@@ -5765,13 +5727,13 @@ void MenuPC::State7(u32 frames)
 		if (PCShopEntryId(menu->mShopSelection) < 0) {
 			do {
 				menu->mShopSelection--;
-				s16 id = gShopCatalogPage.mRows[menu->mShopSelection].mItem;
+				s16 id = gScrapShopPage.mRows[menu->mShopSelection].mItem;
 				if (id >= 0)
 					break;
 			} while (menu->mShopSelection != 0);
 		}
 		if (pad.mPad->mTrigger & 0x100) {
-			if (PCShopEntryId(menu->mShopSelection) >= 0 && gShopCatalogPage.mRows[menu->mShopSelection].mCount > 0) {
+			if (PCShopEntryId(menu->mShopSelection) >= 0 && gScrapShopPage.mRows[menu->mShopSelection].mCount > 0) {
 				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				menu->mPanelTarget = 1.0f;
 				menu->mPhase++;
@@ -5801,9 +5763,9 @@ void MenuPC::State7(u32 frames)
 		} else if (pad.mPad->mTrigger & 0x100) {
 			if (menu->mYesNo == 0) {
 				MenuPCItem* entry;
-				s32 item  = gShopCatalogPage.mIndex[menu->mShopSelection];
+				s32 item  = gScrapShopPage.mIndex[menu->mShopSelection];
 				s32 scrap = GetScrap();
-				entry     = &sShopCatalogEntries[item];
+				entry     = &sScrapShopEntries[item];
 				s16 price = entry->mPrice;
 				if (price <= scrap) {
 					scrap -= price;
@@ -5811,11 +5773,11 @@ void MenuPC::State7(u32 frames)
 					menu->mScrapDisplay.target = scrap;
 					menu->mYesNo               = 2;
 					PlayGameSound(&gGame.mSound, 0x30009, 0xFF);
-					gEventVars.mVars[menu->mCatalogBase + entry->mItem] = 1;
-					menu->mExitState                                    = item;
-					s16& quantity                                       = entry->mCount;
-					s16 stock                                           = quantity;
-					s32 remaining                                       = stock;
+					gEventVars.mVars[menu->mScrapShopBase + entry->mItem] = 1;
+					menu->mExitState                                      = item;
+					s16& quantity                                         = entry->mCount;
+					s16 stock                                             = quantity;
+					s32 remaining                                         = stock;
 					if (stock > 0)
 						remaining = stock - 1;
 					quantity = remaining;
@@ -5840,17 +5802,17 @@ void MenuPC::State7(u32 frames)
 			menu->mPhase       = 0;
 			menu->mPanelTarget = 0.0f;
 			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
-			PopulateShopCatalogPage(&gShopCatalogPage);
+			PopulateScrapShopPage(&gScrapShopPage);
 			ResetPCText(menu, 11);
 			menu->mTargetFrameHeight = 0.0f;
-			RestorePCHistory(menu);
+			SavePCShopState(menu);
 		}
 		break;
 	case 10: // sliding to the next row; once there the list starts a row later
 		if (menu->mScroll == menu->mScrollTarget) {
-			if (gShopCatalogPage.mStart < ResetPCShopPage(menu, table) - 1) {
-				gShopCatalogPage.mStart++;
-				PopulateShopCatalogPage(&gShopCatalogPage);
+			if (gScrapShopPage.mStart < ResetPCShopPage(menu, table) - 1) {
+				gScrapShopPage.mStart++;
+				PopulateScrapShopPage(&gScrapShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			}
 			menu->mScroll       = 0.0f;
@@ -5861,9 +5823,9 @@ void MenuPC::State7(u32 frames)
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
 			CountPCShopItems(table);
-			if (gShopCatalogPage.mStart > 0) {
-				gShopCatalogPage.mStart--;
-				PopulateShopCatalogPage(&gShopCatalogPage);
+			if (gScrapShopPage.mStart > 0) {
+				gScrapShopPage.mStart--;
+				PopulateScrapShopPage(&gScrapShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			}
 			menu->mScroll       = 0.0f;
@@ -6559,7 +6521,7 @@ extern "C" void DrawPlayerStatusIcon(s32 id, u8 available, bool selected, f32 x,
 		if (selected) {
 			static s32 frame = 0;
 			frame++;
-			bob = 4.0f * (f32)sin(0.017453292f * ((frame * 20) % 360));
+			bob = 4.0f * (f32)sin(DEG2RAD * ((frame * 20) % 360));
 		}
 		tex        = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[id], 0);
 		width      = scale * GXGetTexObjWidth(&tex);
@@ -6574,7 +6536,7 @@ extern "C" void DrawPlayerStatusIcon(s32 id, u8 available, bool selected, f32 x,
 		if (selected) {
 			SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
 			SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 2, 0);
-			f32 pulse = alpha * (0.2f * (f32)sin(3.1415927f * phase) + 0.2f);
+			f32 pulse = alpha * (0.2f * (f32)sin(PI * phase) + 0.2f);
 			if (pulse < 0.0f)
 				pulse = 0.0f;
 			u32 highlight = (u32)(255.0f * pulse) | 0xFFFFFF00;
@@ -6814,12 +6776,12 @@ extern "C" void DrawStatusHelpText(MenuStatus* menu)
 			CTexObj tex  = *GetFontGlyphTexture(&font, glyph->mText, &width);
 			f32 bob      = 2.0f * (f32)sin(glyph->mAngle0);
 			f32 rotation = sin(0.7f * glyph->mAngle1);
-			f32 s1       = sin(3.1415927f * alpha);
-			f32 s2       = sin(1.5707964f * alpha);
+			f32 s1       = sin(PI * alpha);
+			f32 s2       = sin(HALF_PI * alpha);
 			f32 scale    = 0.2f * s1 + s2;
 			f32 x        = 0.5f * spacing + (i * spacing + (320.0f - menu->mHelpCount * spacing * 0.5f));
 			f32 y        = 384.0f + bob;
-			rotation     = -(0.017453292f * (10.0f * rotation));
+			rotation     = -(DEG2RAD * (10.0f * rotation));
 			u32 color    = (u32)opacity | 0xFFFFFF00;
 			DrawGsTexturedQuad(&gGame.mGs, &blob, color, color, color, color, x, y, 1.0f, 30.0f * scale, 30.0f * scale, 0.0f, -zero,
 			                   rotation);
@@ -6871,12 +6833,12 @@ extern "C" void DrawStatusMenuTitle(MenuStatus* menu)
 				s0          = sin(glyph->mAngle0);
 				bob         = 4.0f * s0;
 				rot         = sin(0.7f * glyph->mAngle1);
-				s1          = sin(3.1415927f * t);
-				s2          = sin(1.5707964f * t);
+				s1          = sin(PI * t);
+				s2          = sin(HALF_PI * t);
 				scale       = 0.2f * s1 + s2;
 				x           = 24.0f + (48.0f * i + (320.0f - 48.0f * menu->mTitle.mCount * 0.5f));
 				alpha       = 255.0f * t;
-				rot         = -(0.017453292f * (10.0f * rot));
+				rot         = -(DEG2RAD * (10.0f * rot));
 				y           = 64.0f + bob;
 				u32 c       = alpha | 0xFFFFFF00;
 				DrawGsTexturedQuad(&gGame.mGs, &blob, c, c, c, c, x, y, 0.0f, 20.0f * (2.0f * scale), 20.0f * (2.0f * scale), 0.0f, -zero,
@@ -7267,7 +7229,7 @@ BOOL MenuMCTest::Update(u32 frames)
 BOOL MenuItem::Draw()
 {
 	if (CMenu::Draw()) {
-		DrawPanelBackground<ItemStatusPanel>(mAlpha);
+		DrawStatusPanelBackground(mAlpha);
 		f32 x = mGridX - 42.0f;
 		f32 y = 180.0f + mGridY;
 		SetScissor(104, 248);
@@ -7317,12 +7279,12 @@ BOOL MenuItem::Draw()
 					CTexObj tex  = *GetFontGlyphTexture(&font, glyph->mText, &width);
 					f32 bob      = 2.0f * (f32)sin(glyph->mAngle0);
 					f32 rotation = sin(0.7f * glyph->mAngle1);
-					f32 s1       = sin(3.1415927f * alpha);
-					f32 s2       = sin(1.5707964f * alpha);
+					f32 s1       = sin(PI * alpha);
+					f32 s2       = sin(HALF_PI * alpha);
 					f32 scale    = 0.2f * s1 + s2;
 					f32 x        = 0.5f * spacing + (i * spacing + (320.0f - mNameCharCount * spacing * 0.5f));
 					f32 y        = 384.0f + bob;
-					rotation     = -(0.017453292f * (10.0f * rotation));
+					rotation     = -(DEG2RAD * (10.0f * rotation));
 					u32 color    = (u32)opacity | 0xFFFFFF00;
 					DrawGsTexturedQuad(&gGame.mGs, &blob, color, color, color, color, x, y, 1.0f, 30.0f * scale, 30.0f * scale, 0.0f, -zero,
 					                   rotation);
@@ -7354,7 +7316,7 @@ extern "C" void DrawStatusMenuTabs(MenuStatus* menu)
 			continue;
 		f32 bob;
 		if (menu->mSelection == i && menu->mMode == 1)
-			bob = 4.0f * (f32)sin(0.017453292f * ((menu->mAnimationFrame * 20) % 360));
+			bob = 4.0f * (f32)sin(DEG2RAD * ((menu->mAnimationFrame * 20) % 360));
 		else
 			bob = 0.0f;
 		f32 x = 6.0f + (8.0f + ((menu->mTabs[i].mX - 52.0f) + menu->mOffsetX));
@@ -7390,7 +7352,7 @@ extern "C" void DrawStatusMenuTabs(MenuStatus* menu)
 		if (menu->mSelection == i && menu->mMode == 1) {
 			SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
 			SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 2, 0);
-			f32 pulse = menu->mAlpha * (0.2f * (f32)sin(3.1415927f * menu->mPulsePhase) + 0.2f);
+			f32 pulse = menu->mAlpha * (0.2f * (f32)sin(PI * menu->mPulsePhase) + 0.2f);
 			if (pulse < 0.0f)
 				pulse = 0.0f;
 			color = (u32)(255.0f * pulse) | 0xFFFFFF00;
@@ -7401,71 +7363,92 @@ extern "C" void DrawStatusMenuTabs(MenuStatus* menu)
 	}
 }
 
-/**
- * @note Address: 0x80054314 (item/status), 0x80037978 (save)
- * @note Size: 0x83C
- */
-// NONMATCHING: vertex initialization and register allocation
-template <PanelLayout layout>
-void DrawPanelBackground(f32 alpha)
-{
-	f32 t      = sin(1.5707964f * alpha);
-	f32 expand = (layout == SavePanel ? 44.4f : 42.0f) * t;
-	f32 spread = 20.0f * t + 60.0f;
-	f32 x      = 320.0f;
-	x += -2.2f * spread;
-	u32 opacity       = (u32)(160.0f * alpha);
-	f32 lowerAlpha    = 0.0f;
-	u32 bottomOpacity = (u32)lowerAlpha;
+struct MenuPanelBounds {
+	f32 expand, spread, x, upperY, lowerY;
 
-	// The original also prepares the lower strip, but submits only the upper three quads.
-	f32 lowerY = layout == SavePanel ? 248.0f : 252.0f, upperY = layout == SavePanel ? 224.0f : 228.0f;
-	u32 clear = 0;
-	PrimVertex vertices[24]
-	    = { { (Vec) { ((x - expand) - 2.0f * expand), ((upperY - expand) - 2.0f * expand), 0.0f }, clear },
-		    { (Vec) { (x - expand), ((upperY - expand) - 2.0f * expand), 0.0f }, opacity },
-		    { (Vec) { (x - expand), (2.0f * expand + (upperY + expand)), 0.0f }, opacity },
-		    { (Vec) { ((x - expand) - 2.0f * expand), (2.0f * expand + (upperY + expand)), 0.0f }, clear },
-		    { (Vec) { (x - expand), ((upperY - expand) - 2.0f * expand), 0.0f }, opacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), ((upperY - expand) - 2.0f * expand), 0.0f }, opacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), (2.0f * expand + (upperY + expand)), 0.0f }, opacity },
-		    { (Vec) { (x - expand), (2.0f * expand + (upperY + expand)), 0.0f }, opacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), ((upperY - expand) - 2.0f * expand), 0.0f }, opacity },
-		    { (Vec) { (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), ((upperY - expand) - 2.0f * expand), 0.0f }, clear },
-		    { (Vec) { (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), (2.0f * expand + (upperY + expand)), 0.0f }, clear },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), (2.0f * expand + (upperY + expand)), 0.0f }, opacity },
-		    { (Vec) { ((x - expand) - 2.0f * expand), lowerY, 0.0f }, clear },
-		    { (Vec) { (x - expand), lowerY, 0.0f }, bottomOpacity },
-		    { (Vec) { (x - expand), (2.0f * expand + (lowerY + expand)), 0.0f }, bottomOpacity },
-		    { (Vec) { ((x - expand) - 2.0f * expand), (2.0f * expand + (lowerY + expand)), 0.0f }, clear },
-		    { (Vec) { (x - expand), lowerY, 0.0f }, bottomOpacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), lowerY, 0.0f }, bottomOpacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), (2.0f * expand + (lowerY + expand)), 0.0f }, bottomOpacity },
-		    { (Vec) { (x - expand), (2.0f * expand + (lowerY + expand)), 0.0f }, bottomOpacity },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), lowerY, 0.0f }, bottomOpacity },
-		    { (Vec) { (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), lowerY, 0.0f }, clear },
-		    { (Vec) { (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), (2.0f * expand + (lowerY + expand)), 0.0f }, clear },
-		    { (Vec) { ((2.2f * spread + 320.0f) + expand), (2.0f * expand + (lowerY + expand)), 0.0f }, bottomOpacity } };
-	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, vertices, 4);
-	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, &vertices[4], 4);
-	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, &vertices[8], 4);
-	u32 color = (u32)(255.0f * alpha) | 0xFFFFFF00;
-	DrawGsLineSegment(&gGame.mGs, NULL, (x - expand), ((upperY - expand) - 2.0f * expand), 0.0f, color, ((2.2f * spread + 320.0f) + expand),
-	                  ((upperY - expand) - 2.0f * expand), 0.0f, color);
-	DrawGsLineSegment(&gGame.mGs, NULL, ((x - expand) - 2.0f * expand), ((upperY - expand) - 2.0f * expand), 0.0f, 0xFFFFFF00, (x - expand),
-	                  ((upperY - expand) - 2.0f * expand), 0.0f, color);
-	DrawGsLineSegment(&gGame.mGs, NULL, ((2.2f * spread + 320.0f) + expand), ((upperY - expand) - 2.0f * expand), 0.0f, color,
-	                  (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), ((upperY - expand) - 2.0f * expand), 0.0f, 0xFFFFFF00);
-	DrawGsLineSegment(&gGame.mGs, NULL, (x - expand), (2.0f * expand + (upperY + expand)), 0.0f, color, ((2.2f * spread + 320.0f) + expand),
-	                  (2.0f * expand + (upperY + expand)), 0.0f, color);
-	DrawGsLineSegment(&gGame.mGs, NULL, ((x - expand) - 2.0f * expand), (2.0f * expand + (upperY + expand)), 0.0f, 0xFFFFFF00, (x - expand),
-	                  (2.0f * expand + (upperY + expand)), 0.0f, color);
-	DrawGsLineSegment(&gGame.mGs, NULL, ((2.2f * spread + 320.0f) + expand), (2.0f * expand + (upperY + expand)), 0.0f, color,
-	                  (2.0f * expand + ((2.2f * spread + 320.0f) + expand)), (2.0f * expand + (upperY + expand)), 0.0f, 0xFFFFFF00);
+	MenuPanelBounds(f32 alpha, f32 height, f32 centerY, f32 lowerCenterY)
+	{
+		f32 t  = sin(HALF_PI * alpha);
+		expand = height * t;
+		spread = 20.0f * t + 60.0f;
+		x      = 320.0f;
+		x += -2.2f * spread;
+		upperY = centerY;
+		lowerY = lowerCenterY;
+	}
+
+	f32 Left() const { return x - expand; }
+	f32 Right() const { return (2.2f * spread + 320.0f) + expand; }
+	f32 OuterLeft() const { return Left() - 2.0f * expand; }
+	f32 OuterRight() const { return 2.0f * expand + Right(); }
+	f32 Top() const { return (upperY - expand) - 2.0f * expand; }
+	f32 Bottom() const { return 2.0f * expand + (upperY + expand); }
+	f32 LowerBottom() const { return 2.0f * expand + (lowerY + expand); }
+};
+
+static inline void DrawMenuPanelEdge(const MenuPanelBounds& bounds, f32 y, u32 color)
+{
+	DrawGsLineSegment(&gGame.mGs, NULL, bounds.Left(), y, 0.0f, color, bounds.Right(), y, 0.0f, color);
+	DrawGsLineSegment(&gGame.mGs, NULL, bounds.OuterLeft(), y, 0.0f, 0xFFFFFF00, bounds.Left(), y, 0.0f, color);
+	DrawGsLineSegment(&gGame.mGs, NULL, bounds.Right(), y, 0.0f, color, bounds.OuterRight(), y, 0.0f, 0xFFFFFF00);
 }
 
-template void DrawPanelBackground<ItemStatusPanel>(f32);
-template void DrawPanelBackground<SavePanel>(f32);
+static inline void DrawMenuPanel(PrimVertex* vertices, const MenuPanelBounds& bounds, f32 alpha)
+{
+	// only the upper three quads are drawn
+	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, vertices, 4);
+	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, vertices + 4, 4);
+	DrawGsTriangleVertices(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, vertices + 8, 4);
+	u32 color = (u32)(255.0f * alpha) | 0xFFFFFF00;
+	DrawMenuPanelEdge(bounds, bounds.Top(), color);
+	DrawMenuPanelEdge(bounds, bounds.Bottom(), color);
+}
+
+#define MENU_PANEL_QUAD(left, right, top, bottom, leftColor, rightColor)                                                                 \
+	{ (Vec) { left, top, 0.0f }, leftColor }, { (Vec) { right, top, 0.0f }, rightColor }, { (Vec) { right, bottom, 0.0f }, rightColor }, \
+	{                                                                                                                                    \
+		(Vec) { left, bottom, 0.0f }, leftColor                                                                                          \
+	}
+
+/**
+ * @note Address: 0x80054314
+ * @note Size: 0x83C
+ */
+void DrawStatusPanelBackground(f32 alpha)
+{
+	MenuPanelBounds b(alpha, 42.0f, 228.0f, 252.0f);
+	u32 opacity             = (u32)(160.0f * alpha);
+	PrimVertex vertices[24] = {
+		MENU_PANEL_QUAD(b.OuterLeft(), b.Left(), b.Top(), b.Bottom(), 0, opacity),
+		MENU_PANEL_QUAD(b.Left(), b.Right(), b.Top(), b.Bottom(), opacity, opacity),
+		MENU_PANEL_QUAD(b.Right(), b.OuterRight(), b.Top(), b.Bottom(), opacity, 0),
+		MENU_PANEL_QUAD(b.OuterLeft(), b.Left(), b.lowerY, b.LowerBottom(), 0, 0),
+		MENU_PANEL_QUAD(b.Left(), b.Right(), b.lowerY, b.LowerBottom(), 0, 0),
+		MENU_PANEL_QUAD(b.Right(), b.OuterRight(), b.lowerY, b.LowerBottom(), 0, 0),
+	};
+	DrawMenuPanel(vertices, b, alpha);
+}
+
+/**
+ * @note Address: 0x80037978
+ * @note Size: 0x83C
+ */
+void DrawSavePanelBackground(f32 alpha)
+{
+	MenuPanelBounds b(alpha, 44.4f, 224.0f, 248.0f);
+	u32 opacity             = (u32)(160.0f * alpha);
+	PrimVertex vertices[24] = {
+		MENU_PANEL_QUAD(b.OuterLeft(), b.Left(), b.Top(), b.Bottom(), 0, opacity),
+		MENU_PANEL_QUAD(b.Left(), b.Right(), b.Top(), b.Bottom(), opacity, opacity),
+		MENU_PANEL_QUAD(b.Right(), b.OuterRight(), b.Top(), b.Bottom(), opacity, 0),
+		MENU_PANEL_QUAD(b.OuterLeft(), b.Left(), b.lowerY, b.LowerBottom(), 0, 0),
+		MENU_PANEL_QUAD(b.Left(), b.Right(), b.lowerY, b.LowerBottom(), 0, 0),
+		MENU_PANEL_QUAD(b.Right(), b.OuterRight(), b.lowerY, b.LowerBottom(), 0, 0),
+	};
+	DrawMenuPanel(vertices, b, alpha);
+}
+
+#undef MENU_PANEL_QUAD
 
 #if defined(VERSION_JP)
 BOOL MenuRequestClear::Draw()
@@ -7841,12 +7824,12 @@ extern "C" void DrawSaveHelpText(MenuSave* menu)
 		CTexObj tex  = *GetFontGlyphTexture(&font, glyph->mText, &width);
 		f32 bob      = 2.0f * (f32)sin(glyph->mAngle0);
 		f32 rotation = sin(0.7f * glyph->mAngle1);
-		f32 s1       = sin(3.1415927f * alpha);
-		f32 s2       = sin(1.5707964f * alpha);
+		f32 s1       = sin(PI * alpha);
+		f32 s2       = sin(HALF_PI * alpha);
 		f32 scale    = 0.2f * s1 + s2;
 		f32 x        = 0.5f * spacing + (i * spacing + (320.0f - menu->mHelpCount * spacing * 0.5f));
 		f32 y        = 384.0f + bob;
-		rotation     = -(0.017453292f * (10.0f * rotation));
+		rotation     = -(DEG2RAD * (10.0f * rotation));
 		u32 color    = (u32)opacity | 0xFFFFFF00;
 		DrawGsTexturedQuad(&gGame.mGs, &blob, color, color, color, color, x, y, 1.0f, 30.0f * scale, 30.0f * scale, 0.0f, -zero, rotation);
 		scale       = 30.0f * (0.8f * scale);
@@ -8160,13 +8143,14 @@ extern "C" void DrawSaveStat(s32 icon, s32 value, u8, f32 x, f32 y, f32 alpha, f
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 }
 
-template <PCShopListKind kind>
-static inline void DrawPCListRow(MenuPCItem& row, f32 x, f32 y, f32 alpha, f32 scale)
+static inline void DrawPCItemShopRow(const MenuPCItem& row, f32 x, f32 y, f32 alpha, f32 scale)
 {
-	if (kind == ItemPriceList)
-		DrawPCItemPriceRow(row.mItem, row.mCount, row.mPrice, row.mIsAttachment, x, y, alpha, scale);
-	else
-		DrawPCPriceRow(row.mItem, row.mCount, row.mPrice, x, y, alpha, scale);
+	DrawPCItemPriceRow(row.mItem, row.mCount, row.mPrice, row.mIsAttachment, x, y, alpha, scale);
+}
+
+static inline void DrawPCScrapShopRow(const MenuPCItem& row, f32 x, f32 y, f32 alpha, f32 scale)
+{
+	DrawPCPriceRow(row.mItem, row.mCount, row.mPrice, x, y, alpha, scale);
 }
 
 static inline void DrawPCListMask(f32 top, f32 height, u32 color)
@@ -8178,29 +8162,15 @@ static inline void DrawPCListMask(f32 top, f32 height, u32 color)
 	DrawGsTrianglePrimitive(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, mask, color, 5);
 }
 
-template <PCShopListKind kind>
-#if defined(VERSION_JP)
-void DrawPCShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale)
-#else
-void DrawPCShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale, f32 scroll)
-#endif
+static inline void DrawPCListBackground(f32 left, f32 top, f32 width, f32 height, u32 opacity)
 {
-	CTexObj tex;
-#if !defined(VERSION_JP)
-	y -= scroll;
-#endif
-	f32 left;
-	f32 width = 296.0f * scale, height = 156.0f * scale;
-	left        = x - width / 2.0f;
-	Vec bg[5]   = { (Vec) { left, y - height * 0.5f, -10.0f }, (Vec) { width + left, y - height * 0.5f, -10.0f },
-		            (Vec) { width + left, height + (y - height * 0.5f), -10.0f }, (Vec) { left, height + (y - height * 0.5f), -10.0f },
-		            (Vec) { left, y - height * 0.5f, -10.0f } };
-	u32 opacity = (u32)(255.0f * alpha);
+	Vec bg[5] = { (Vec) { left, top, -10.0f }, (Vec) { width + left, top, -10.0f }, (Vec) { width + left, height + top, -10.0f },
+		          (Vec) { left, height + top, -10.0f }, (Vec) { left, top, -10.0f } };
 	DrawGsTrianglePrimitive(&gGame.mGs, GX_TRIANGLEFAN, gGame.mGs.mCamera->mViewMtx, bg, opacity, 5);
-	y += scale;
-	f32 step = 17.0f * scale;
-	f32 rowY = y - height * 0.5f;
-	f32 barX, barW;
+}
+
+static inline void GetPCListSelectionBounds(f32& barX, f32& barW, f32 x, f32 left, f32 width, f32 step, f32 scale)
+{
 	if (IsJapanese()) {
 		barX = (10.0f * step * 0.5f + (left + step)) - 8.0f * scale;
 		barW = 0.9f * (14.0f * step);
@@ -8209,27 +8179,86 @@ void DrawPCShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f3
 		barX           = x - 4.0f;
 		barW           = (0.7f * (scale * (1.1f * (2 * GXGetTexObjWidth(&label)))) + width) - 5.0f * scale;
 	}
+}
+
+static inline void DrawPCListMasks(u32 opacity, f32 scroll)
+{
+	DrawPCListMask(97.0f - scroll, 40.0f, opacity | 0x0A0A0A00);
+	DrawPCListMask(292.5f - scroll, 40.0f + scroll, opacity | 0x0A0A0A00);
+}
+
+#if defined(VERSION_JP)
+void DrawPCScrapShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale)
+#else
+void DrawPCScrapShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale, f32 scroll)
+#endif
+{
+	CTexObj tex;
+#if defined(VERSION_JP)
+	f32 scroll = 0.0f;
+#else
+	y -= scroll;
+#endif
+	f32 width = 296.0f * scale, height = 156.0f * scale;
+	f32 left    = x - width / 2.0f;
+	u32 opacity = (u32)(255.0f * alpha);
+	DrawPCListBackground(left, y - height * 0.5f, width, height, opacity);
+	f32 step = 17.0f * scale;
+	f32 rowY = (y + scale) - height * 0.5f;
+	f32 barX, barW;
+	GetPCListSelectionBounds(barX, barW, x, left, width, step, scale);
 	f32 barH     = step + scale;
 	u32 barColor = (u32)(200.0f * alpha) | 0x181CC600;
 	InitMenuSelectionBar(tex);
 	f32 barY = 2.0f + ((step * 0.5f + (step * selected + rowY)) - 2.0f * scale);
 	DrawMenuSelectionBar(tex, barX, barY, barW, barH, alpha, textureOffset, barColor);
-	MenuPCPage& page  = kind == ItemPriceList ? gShopHistoryPage : gShopCatalogPage;
-	MenuPCItem* items = kind == ItemPriceList ? sShopHistoryEntries : sShopCatalogEntries;
+
+	MenuPCItem* items = sScrapShopEntries;
 	for (int i = 0; i < 9; i++)
-		DrawPCListRow<kind>(page.mRows[i], left, step * i + rowY, alpha, scale);
-	if (page.mStart < PCShopMaxPage(items) - 1)
-		DrawPCListRow<kind>(page.mNext[0], left, 9.0f * step + rowY, alpha, scale);
-	CountPCShopItems(kind == ItemPriceList ? sShopHistoryEntries : sShopCatalogEntries);
-	if (page.mStart > 0)
-		DrawPCListRow<kind>(page.mPrev[0], left, rowY - step, alpha, scale);
+		DrawPCScrapShopRow(gScrapShopPage.mRows[i], left, step * i + rowY, alpha, scale);
+	if (gScrapShopPage.mStart < PCShopMaxPage(items) - 1)
+		DrawPCScrapShopRow(gScrapShopPage.mNext[0], left, 9.0f * step + rowY, alpha, scale);
+	CountPCShopItems(sScrapShopEntries);
+	if (gScrapShopPage.mStart > 0)
+		DrawPCScrapShopRow(gScrapShopPage.mPrev[0], left, rowY - step, alpha, scale);
+	DrawPCListMasks(opacity, scroll);
+}
+
 #if defined(VERSION_JP)
-	DrawPCListMask(97.0f, 40.0f, opacity | 0x0A0A0A00);
-	DrawPCListMask(292.5f, 40.0f, opacity | 0x0A0A0A00);
+void DrawPCItemShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale)
 #else
-	DrawPCListMask(97.0f - scroll, 40.0f, opacity | 0x0A0A0A00);
-	DrawPCListMask(292.5f - scroll, 40.0f + scroll, opacity | 0x0A0A0A00);
+void DrawPCItemShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha, f32 scale, f32 scroll)
 #endif
+{
+	CTexObj tex;
+#if defined(VERSION_JP)
+	f32 scroll = 0.0f;
+#else
+	y -= scroll;
+#endif
+	f32 width = 296.0f * scale, height = 156.0f * scale;
+	f32 left    = x - width / 2.0f;
+	u32 opacity = (u32)(255.0f * alpha);
+	DrawPCListBackground(left, y - height * 0.5f, width, height, opacity);
+	f32 step = 17.0f * scale;
+	f32 rowY = (y + scale) - height * 0.5f;
+	f32 barX, barW;
+	GetPCListSelectionBounds(barX, barW, x, left, width, step, scale);
+	f32 barH     = step + scale;
+	u32 barColor = (u32)(200.0f * alpha) | 0x181CC600;
+	InitMenuSelectionBar(tex);
+	f32 barY = 2.0f + ((step * 0.5f + (step * selected + rowY)) - 2.0f * scale);
+	DrawMenuSelectionBar(tex, barX, barY, barW, barH, alpha, textureOffset, barColor);
+
+	MenuPCItem* items = sItemShopEntries;
+	for (int i = 0; i < 9; i++)
+		DrawPCItemShopRow(gItemShopPage.mRows[i], left, step * i + rowY, alpha, scale);
+	if (gItemShopPage.mStart < PCShopMaxPage(items) - 1)
+		DrawPCItemShopRow(gItemShopPage.mNext[0], left, 9.0f * step + rowY, alpha, scale);
+	CountPCShopItems(sItemShopEntries);
+	if (gItemShopPage.mStart > 0)
+		DrawPCItemShopRow(gItemShopPage.mPrev[0], left, rowY - step, alpha, scale);
+	DrawPCListMasks(opacity, scroll);
 }
 
 static inline char* StatusTabHelp(s32 selection)
@@ -8342,8 +8371,8 @@ void MenuStatus::Open()
 	mHelp      = help;
 	mHelpCount = 0;
 	for (int i = 0; i < (int)ARRAY_SIZE(mHelpChars); i++) {
-		mHelpChars[i].mAngle0 = 0.017453292f * (rand() % 360);
-		mHelpChars[i].mAngle1 = 0.017453292f * (rand() % 360);
+		mHelpChars[i].mAngle0 = DEG2RAD * (rand() % 360);
+		mHelpChars[i].mAngle1 = DEG2RAD * (rand() % 360);
 	}
 }
 
@@ -8351,29 +8380,27 @@ extern "C" s16 GetAttachmentShopPrice(s32 index);
 extern "C" s16 GetItemShopPrice(s32 index);
 extern "C" s16 GetUtilibotPrice(s32 index);
 
-template <PCShopListKind kind>
-static inline void ClearPCShopPage()
+static inline void ClearPCShopPage(MenuPCPage& page, bool hasAttachments)
 {
-	MenuPCPage* page  = kind == ItemPriceList ? &gShopHistoryPage : &gShopCatalogPage;
-	page->mStart      = 0;
-	MenuPCItem* entry = page->mRows;
-	for (int i = 0; i < 20; i++, entry++) {
+	page.mStart       = 0;
+	MenuPCItem* entry = page.mRows;
+	for (int i = 0; i < (int)ARRAY_SIZE(page.mRows); i++, entry++) {
 		entry->mItem  = -1;
 		entry->mCount = -1;
 		entry->mPrice = -1;
-		if (kind == ItemPriceList)
+		if (hasAttachments)
 			entry->mIsAttachment = 0;
-		page->mIndex[i] = -1;
+		page.mIndex[i] = -1;
 	}
-	page->mPrev[0].mItem         = -1;
-	page->mPrev[0].mCount        = -1;
-	page->mPrev[0].mPrice        = -1;
-	page->mPrev[0].mIsAttachment = 0;
-	page->mNext[0].mItem         = -1;
-	page->mNext[0].mCount        = -1;
-	page->mNext[0].mPrice        = -1;
-	if (kind == ItemPriceList)
-		page->mNext[0].mIsAttachment = 0;
+	page.mPrev[0].mItem         = -1;
+	page.mPrev[0].mCount        = -1;
+	page.mPrev[0].mPrice        = -1;
+	page.mPrev[0].mIsAttachment = 0;
+	page.mNext[0].mItem         = -1;
+	page.mNext[0].mCount        = -1;
+	page.mNext[0].mPrice        = -1;
+	if (hasAttachments)
+		page.mNext[0].mIsAttachment = 0;
 }
 
 void MenuPC::Open()
@@ -8422,14 +8449,14 @@ void MenuPC::Open()
 		mShopOnly = FALSE;
 	FindStageIndexByName("shun");
 	// the shop's stock: item ids in event vars 600-619, their counts in 620-639
-	mHistoryStart = 600;
-	mHistoryCount = 20;
-	if (mHistoryCount > 0) {
-		for (int i = 0; i < mHistoryCount; i++) {
-			MenuPCItem* row = &sShopHistoryEntries[i];
-			s32 id          = gEventVars.mVars[mHistoryStart + i];
+	mItemShopBase  = 600;
+	mItemShopCount = 20;
+	if (mItemShopCount > 0) {
+		for (int i = 0; i < mItemShopCount; i++) {
+			MenuPCItem* row = &sItemShopEntries[i];
+			s32 id          = gEventVars.mVars[mItemShopBase + i];
 			row->mItem      = id;
-			row->mCount     = gEventVars.mVars[mHistoryStart + (mHistoryCount + i)];
+			row->mCount     = gEventVars.mVars[mItemShopBase + (mItemShopCount + i)];
 			if (id != -1) {
 				// 0x10000 marks an attachment rather than an item
 				if (id & 0x10000) {
@@ -8448,15 +8475,15 @@ void MenuPC::Open()
 	mChoiceCount++;
 	mCanSelect = TRUE;
 	// the Utilibot catalog: ids in event vars 560-579, their counts in 580-599
-	mCatalogBase  = 560;
-	mCatalogCount = 20;
-	int count     = 0;
-	if (mCatalogCount > 0) {
-		for (int i = 0; i < mCatalogCount; i++) {
-			MenuPCItem* row = &sShopCatalogEntries[i];
-			s32 id          = gEventVars.mVars[mCatalogBase + i];
+	mScrapShopBase  = 560;
+	mScrapShopCount = 20;
+	int count       = 0;
+	if (mScrapShopCount > 0) {
+		for (int i = 0; i < mScrapShopCount; i++) {
+			MenuPCItem* row = &sScrapShopEntries[i];
+			s32 id          = gEventVars.mVars[mScrapShopBase + i];
 			row->mItem      = id;
-			row->mCount     = gEventVars.mVars[mCatalogBase + (mCatalogCount + i)];
+			row->mCount     = gEventVars.mVars[mScrapShopBase + (mScrapShopCount + i)];
 			if (id != -1) {
 				row->mPrice = GetUtilibotPrice(id);
 				count++;
@@ -8483,10 +8510,10 @@ void MenuPC::Open()
 	}
 	mRankingEnd      = 0;
 	mGreetingVariant = rand() % 8;
-	ClearPCShopPage<ItemPriceList>();
-	PopulateShopHistoryPage(&gShopHistoryPage);
-	ClearPCShopPage<PriceList>();
-	PopulateShopCatalogPage(&gShopCatalogPage);
+	ClearPCShopPage(gItemShopPage, true);
+	PopulateItemShopPage(&gItemShopPage);
+	ClearPCShopPage(gScrapShopPage, false);
+	PopulateScrapShopPage(&gScrapShopPage);
 	mScroll             = 0;
 	mScrollTarget       = 0;
 	mMoneyDisplay.shown = mMoneyDisplay.target = GetMoney();
@@ -9206,7 +9233,7 @@ static inline void DrawSaveChoiceLabel(MenuSave* menu, s32 id, f32 x, f32 y)
 BOOL MenuSave::Draw()
 {
 	if (CMenu::Draw()) {
-		DrawPanelBackground<SavePanel>(mDrawAlpha);
+		DrawSavePanelBackground(mDrawAlpha);
 		switch (mMode) {
 		case 2:
 		case 3:
@@ -9646,7 +9673,7 @@ extern "C" void DrawStatusIconGrid(MenuStatus* menu)
 				tex = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[gStatusGridTextures[i].unlocked], 0);
 			else
 				tex = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[gStatusGridTextures[i].locked], 0);
-			f32 bob = (f32)sin(0.017453292f * (((s32)(frame * 20)) % 360)) * 4.0f;
+			f32 bob = (f32)sin(DEG2RAD * (((s32)(frame * 20)) % 360)) * 4.0f;
 			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 			f32 width, height;
 			if (selected == i)
@@ -9656,7 +9683,7 @@ extern "C" void DrawStatusIconGrid(MenuStatus* menu)
 			if (selected == i) {
 				SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
 				SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 2, 0);
-				f32 wave  = (f32)sin(3.1415927f * menu->mPulsePhase);
+				f32 wave  = (f32)sin(PI * menu->mPulsePhase);
 				f32 pulse = (0.2f * wave + 0.2f) * menu->mAlpha;
 				if (pulse < 0)
 					pulse = 0;
@@ -9770,7 +9797,7 @@ extern "C" void DrawPlayerStatusValue(s32 icon, s32 value, u8 selected, f32 x, f
 	if (selected) {
 		static u32 frame = 0;
 		++frame;
-		bob = 4.0f * (f32)sin(0.017453292f * (((s32)(frame * 20)) % 360));
+		bob = 4.0f * (f32)sin(DEG2RAD * (((s32)(frame * 20)) % 360));
 	}
 	s32 places = 1;
 	for (;; places++) {
@@ -9785,7 +9812,7 @@ extern "C" void DrawPlayerStatusValue(s32 icon, s32 value, u8 selected, f32 x, f
 	Vec outline[65];
 	f32 centerY = y - 6.0f * 1.2f;
 	for (int i = 0; i < 65; i++) {
-		f32 angle    = 0.09817477f * i - 1.5707964f;
+		f32 angle    = 0.09817477f * i - HALF_PI;
 		f32 sine     = (f32)sin(angle);
 		f32 cosine   = (f32)cos(angle);
 		outline[i].x = sine * (12.0f * 1.2f) + x;
@@ -9830,7 +9857,7 @@ extern "C" void DrawPlayerStatusValue(s32 icon, s32 value, u8 selected, f32 x, f
 	if (selected) {
 		SetGsBlendMode(gs.mCurRenderMode, 1, 2, 4, 15);
 		SetGsDepthMode(gs.mCurRenderMode, 1, 2, 0);
-		f32 pulse = alpha * (0.2f * (f32)sin(3.1415927f * phase) + 0.2f);
+		f32 pulse = alpha * (0.2f * (f32)sin(PI * phase) + 0.2f);
 		if (pulse < 0.0f)
 			pulse = 0.0f;
 		u32 highlight = (u32)(255.0f * pulse) | 0xFFFFFF00;
@@ -9952,13 +9979,13 @@ extern "C" void DrawStatusGauge(f32 value, f32 x, f32 y, f32 alpha)
 	f32 height = 0.85f * GXGetTexObjHeight(&tex);
 	SetGsTevMode(gs.mCurTevStage, 0);
 	f32 capY = (8.0f + y) - 0.5f;
-	DrawGsTexturedQuad(&gs, &tex, white, white, white, white, 2.0f + (left - width / 2.0f), capY, 0, width, height, 0, 0, 3.1415927f);
+	DrawGsTexturedQuad(&gs, &tex, white, white, white, white, 2.0f + (left - width / 2.0f), capY, 0, width, height, 0, 0, PI);
 	SetGsTevMode(gs.mCurTevStage, 4);
 	LoadOverviewTexture(tex, 241);
 	width  = 0.95f * GXGetTexObjWidth(&tex);
 	height = 0.95f * GXGetTexObjHeight(&tex);
 	SetGsTevMode(gs.mCurTevStage, 0);
-	DrawGsTexturedQuad(&gs, &tex, white, white, white, white, (width * 0.5f + right) - 4.0f, capY, 0, width, height, 0, 0, 3.1415927f);
+	DrawGsTexturedQuad(&gs, &tex, white, white, white, white, (width * 0.5f + right) - 4.0f, capY, 0, width, height, 0, 0, PI);
 	SetGsTevMode(gs.mCurTevStage, 4);
 
 	s32 current = (s32)(10000.0f * value);
@@ -9999,7 +10026,7 @@ extern "C" void DrawSeparatedStatusValue(s32 icon, s32 value, bool selected, f32
 	if (selected) {
 		static u32 frame = 0;
 		++frame;
-		bob = 4.0f * (f32)sin(0.017453292f * (((s32)(frame * 20)) % 360));
+		bob = 4.0f * (f32)sin(DEG2RAD * (((s32)(frame * 20)) % 360));
 	}
 	s32 places    = 4 + (value >= 1000);
 	bool skipTens = false;
@@ -10008,7 +10035,7 @@ extern "C" void DrawSeparatedStatusValue(s32 icon, s32 value, bool selected, f32
 	Vec outline[65];
 	f32 centerY = y - 6.0f * 1.2f;
 	for (int i = 0; i < 65; i++) {
-		f32 angle    = 0.09817477f * i - 1.5707964f;
+		f32 angle    = 0.09817477f * i - HALF_PI;
 		f32 sine     = (f32)sin(angle);
 		f32 cosine   = (f32)cos(angle);
 		outline[i].x = sine * (12.0f * 1.2f) + x;
@@ -10101,7 +10128,7 @@ static inline void DrawDiscardOutline(MenuStatus* menu, f32 x, f32 y)
 }
 extern "C" void DrawDiscardCountPanel(MenuStatus* menu)
 {
-	f32 wave = 2.0f * (f32)sin(0.017453292f * (((s32)((u32)menu->mAnimationFrame * 24)) % 360));
+	f32 wave = 2.0f * (f32)sin(DEG2RAD * (((s32)((u32)menu->mAnimationFrame * 24)) % 360));
 	f32 x    = (240.0f + ((menu->mDiscardPanelX - 52.0f) + menu->mOffsetX)) - 204.0f;
 	f32 y    = (144.0f + (((180.0f + menu->mDiscardPanelY) + menu->mOffsetY) - 96.0f)) - 36.0f;
 	DrawMenuRectWithShadow(menu, (u32)(255.0f * menu->mAlpha) | 0xFFB62800, x, y, 240.0f, 144.0f);
@@ -10118,14 +10145,14 @@ extern "C" void DrawDiscardCountPanel(MenuStatus* menu)
 	CTexObj tex;
 	f32 radius = 30.0f + wave;
 	for (s32 i = 0; i < 2; i++) {
-		f32 angle = 3.1415927f * i + 1.5707964f;
+		f32 angle = PI * i + HALF_PI;
 		f32 sine = (f32)sin(angle), cosine = (f32)cos(angle);
 		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 		LoadOverviewTexture(tex, 128);
 		u16 width = GXGetTexObjWidth(&tex), height = GXGetTexObjHeight(&tex);
 		u32 color = (u32)(255.0f * menu->mAlpha) | 0xFFEA0000;
 		DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, radius * sine + x, 16.0f + (radius * cosine + y), 0,
-		                   1.4f * (1.1f * width), 1.4f * height, 0, 0, 3.1415927f + angle);
+		                   1.4f * (1.1f * width), 1.4f * height, 0, 0, PI + angle);
 		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 	}
 
@@ -10166,7 +10193,7 @@ void MenuPC::State3(u32 frames)
 	MenuPC* menu = this;
 	s32 count;
 	CPad pad(0);
-	MenuPCItem* table = sShopHistoryEntries;
+	MenuPCItem* table = sItemShopEntries;
 	count             = CountPCShopItems(table);
 	ApproachHudValue(&menu->mPanelAlpha, &menu->mPanelTarget, 0.08f * frames);
 	switch (menu->mPhase) {
@@ -10182,7 +10209,7 @@ void MenuPC::State3(u32 frames)
 				}
 				if (pad.mPad->mRepeat & 0x10008) {
 					CountPCShopItems(table);
-					if (gShopHistoryPage.mStart > 0) {
+					if (gItemShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
 						break;
@@ -10195,7 +10222,7 @@ void MenuPC::State3(u32 frames)
 					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 				}
 				if (pad.mPad->mRepeat & 0x20004) {
-					if (gShopHistoryPage.mStart < PCShopMaxPage(table) - 1) {
+					if (gItemShopPage.mStart < PCShopMaxPage(table) - 1) {
 						menu->mScrollTarget = -17.0f;
 						menu->mPhase        = 10;
 						break;
@@ -10217,8 +10244,7 @@ void MenuPC::State3(u32 frames)
 			}
 		}
 		if (pad.mPad->mTrigger & 0x100) {
-			if (gShopHistoryPage.mRows[menu->mPurchaseSelection].mItem >= 0
-			    && gShopHistoryPage.mRows[menu->mPurchaseSelection].mCount > 0) {
+			if (gItemShopPage.mRows[menu->mPurchaseSelection].mItem >= 0 && gItemShopPage.mRows[menu->mPurchaseSelection].mCount > 0) {
 				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				menu->mPanelTarget = 1.0f;
 				menu->mPhase++;
@@ -10233,7 +10259,7 @@ void MenuPC::State3(u32 frames)
 			if (menu->mShopOnly) {
 				ResetPCText(menu, 11);
 				menu->mTargetFrameHeight = 0.0f;
-				RestorePCHistory(menu);
+				SavePCShopState(menu);
 			} else {
 				ResetPCText(menu, 2);
 				PlayGameSound(&gGame.mSound, 0x86, 0xFF);
@@ -10255,9 +10281,9 @@ void MenuPC::State3(u32 frames)
 		} else if (pad.mPad->mTrigger & 0x100) {
 			if (menu->mYesNo == 0) {
 				MenuPCItem* entry;
-				s32 entryIndex = gShopHistoryPage.mIndex[menu->mPurchaseSelection];
+				s32 entryIndex = gItemShopPage.mIndex[menu->mPurchaseSelection];
 				s32 money      = GetMoney();
-				entry          = &sShopHistoryEntries[entryIndex];
+				entry          = &sItemShopEntries[entryIndex];
 				if (entry->mPrice <= money) {
 					money -= entry->mPrice;
 					gGame.GetPlayer()->mParams.SetMoney(money);
@@ -10315,14 +10341,14 @@ void MenuPC::State3(u32 frames)
 			menu->mPanelTarget = 0.0f;
 			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 			menu->mTargetListAlpha = 1.0f;
-			PopulateShopHistoryPage(&gShopHistoryPage);
+			PopulateItemShopPage(&gItemShopPage);
 		}
 		break;
 	case 10:
 		if (menu->mScroll == menu->mScrollTarget) {
-			if (gShopHistoryPage.mStart < ResetPCShopPage(menu, table) - 1) {
-				gShopHistoryPage.mStart++;
-				PopulateShopHistoryPage(&gShopHistoryPage);
+			if (gItemShopPage.mStart < ResetPCShopPage(menu, table) - 1) {
+				gItemShopPage.mStart++;
+				PopulateItemShopPage(&gItemShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			}
 			menu->mScroll       = 0.0f;
@@ -10333,9 +10359,9 @@ void MenuPC::State3(u32 frames)
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
 			CountPCShopItems(table);
-			if (gShopHistoryPage.mStart > 0) {
-				gShopHistoryPage.mStart--;
-				PopulateShopHistoryPage(&gShopHistoryPage);
+			if (gItemShopPage.mStart > 0) {
+				gItemShopPage.mStart--;
+				PopulateItemShopPage(&gItemShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 			}
 			menu->mScroll       = 0.0f;
@@ -10651,19 +10677,17 @@ static inline void DrawPCShopCenteredText(const char* text, u32 color, f32 x, f3
 extern "C" u8* GetAttachmentDescription(s32 id);
 
 #if defined(VERSION_JP)
-template <PCShopListKind kind>
-static inline void DrawPCPriceUnit(CTexObj& tex, f32 scale, f32 left, f32 digitY, u32 white)
+static inline void DrawPCPriceUnit(CTexObj& tex, s32 textureId, f32 scale, f32 left, f32 digitY, u32 white)
 {
-	tex = InitPCPanelTexture(kind == ItemPriceList ? 144 : 148);
+	tex = InitPCPanelTexture(textureId);
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 	u16 unitW = GXGetTexObjWidth(&tex), unitH = GXGetTexObjHeight(&tex);
 	DrawOverviewTexture(tex, white, 287.0f * scale + (18.0f * scale + left), digitY, 1.1f * unitW, unitH);
 }
 #endif
 
-template <PCShopListKind kind>
-static inline f32 DrawPCPurchasePrice(CTexObj& tex, const MenuPCItem& row, f32 opacity, f32 left, f32 top, f32 scale, f32 extraW,
-                                      f32 extraH)
+static inline f32 DrawPCPurchasePrice(CTexObj& tex, u32 topColor, u32 bottomColor, const MenuPCItem& row, f32 opacity, f32 left, f32 top,
+                                      f32 scale, f32 extraW, f32 extraH)
 {
 	tex   = InitPCPanelTexture(125);
 	f32 w = scale * GXGetTexObjWidth(&tex), h = scale * (GXGetTexObjHeight(&tex) / 10);
@@ -10685,8 +10709,8 @@ static inline f32 DrawPCPurchasePrice(CTexObj& tex, const MenuPCItem& row, f32 o
 		PSMTXTrans(tex.mMtx[0], 0, 0.1f * (digit % 10), 0);
 		tex.mMtxDirty = TRUE;
 		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-		u32 upper  = (u8)opacity | (kind == ItemPriceList ? 0xEFEBC500 : 0xCECEFF00);
-		u32 lower  = (u8)opacity | (kind == ItemPriceList ? 0xEDA83600 : 0x5959FF00);
+		u32 upper  = (u8)opacity | topColor;
+		u32 lower  = (u8)opacity | bottomColor;
 		f32 digitX = 287.0f * scale + (left - i * w);
 #if !defined(VERSION_JP)
 		digitX = 18.0f * scale + digitX;
@@ -10733,7 +10757,7 @@ extern "C" void DrawPCScrapPurchasePanel(s32 selected, s32 choice, f32 x, f32 y,
 	f32 width = (246.0f + extraW) * scale, height = (153.0f + extraH) * scale;
 	f32 left              = (x - width / 2.0f) - 34.0f * scale;
 	f32 top               = ((y - extraH * 0.5f) - height / 2.0f) - 13.0f * scale;
-	const MenuPCItem& row = gShopCatalogPage.mRows[selected];
+	const MenuPCItem& row = gScrapShopPage.mRows[selected];
 	s16 id                = row.mItem;
 	f32 opacity           = 255.0f * alpha;
 	u32 color = (u32)opacity, white = color | 0xFFFFFF00;
@@ -10764,9 +10788,9 @@ extern "C" void DrawPCScrapPurchasePanel(s32 selected, s32 choice, f32 x, f32 y,
 	sprintf(text, "%s", GetUtilibotName(id));
 	DrawPCShopCenteredText(text, color | 0xFFAA0000, x, (rowY + (4.0f * size + top)) - 3.0f * scale, 2.0f * scale + size);
 	if (choice != 2) {
-		f32 digitY = DrawPCPurchasePrice<PriceList>(tex, row, opacity, left, top, scale, extraW, extraH);
+		f32 digitY = DrawPCPurchasePrice(tex, 0xCECEFF00, 0x5959FF00, row, opacity, left, top, scale, extraW, extraH);
 #if defined(VERSION_JP)
-		DrawPCPriceUnit<PriceList>(tex, scale, left, digitY, white);
+		DrawPCPriceUnit(tex, 148, scale, left, digitY, white);
 #endif
 
 		DrawPCPurchaseLabels(question, yes, no, left, top, size, scale, margin, offset, rowY, extraW, white);
@@ -10794,7 +10818,7 @@ extern "C" void DrawPCItemPurchasePanel(s32 selected, s32 choice, f32 x, f32 y, 
 	f32 width = (246.0f + extraW) * scale, height = (153.0f + extraH) * scale;
 	f32 left    = (x - width / 2.0f) - 34.0f * scale;
 	f32 top     = ((y - extraH / 2.0f) - height / 2.0f) - 13.0f * scale;
-	s16 id      = gShopHistoryPage.mRows[selected].mItem;
+	s16 id      = gItemShopPage.mRows[selected].mItem;
 	f32 opacity = 255.0f * alpha;
 	u32 color = (u32)opacity, white = color | 0xFFFFFF00;
 	DrawTexturedWindowFrame(color, white, x, top + 13.0f * scale, width, height, alpha, 1, 1);
@@ -10816,7 +10840,7 @@ extern "C" void DrawPCItemPurchasePanel(s32 selected, s32 choice, f32 x, f32 y, 
 		DrawPCChoiceCaps(tex, cx, cy + 2.0f * scale, barWidth, barHeight, scale, alpha);
 		DrawPCChoiceStripe(cx + 2.0f * scale, cy + 2.0f * scale, barWidth, barHeight - 4.0f * scale, alpha, scroll);
 	}
-	const MenuPCItem& row = gShopHistoryPage.mRows[selected];
+	const MenuPCItem& row = gItemShopPage.mRows[selected];
 	if (id < 0)
 		return;
 	if (row.mIsAttachment) {
@@ -10832,9 +10856,9 @@ extern "C" void DrawPCItemPurchasePanel(s32 selected, s32 choice, f32 x, f32 y, 
 	}
 	DrawPCShopCenteredText(text, color | 0xFFAA0000, x, (rowY + (4.0f * size + top)) - 3.0f * scale, 2.0f * scale + size);
 	if (choice != 2) {
-		f32 digitY = DrawPCPurchasePrice<ItemPriceList>(tex, row, opacity, left, top, scale, extraW, extraH);
+		f32 digitY = DrawPCPurchasePrice(tex, 0xEFEBC500, 0xEDA83600, row, opacity, left, top, scale, extraW, extraH);
 #if defined(VERSION_JP)
-		DrawPCPriceUnit<ItemPriceList>(tex, scale, left, digitY, white);
+		DrawPCPriceUnit(tex, 144, scale, left, digitY, white);
 #endif
 
 		DrawPCPurchaseLabels(question, yes, no, left, top, size, scale, margin, offset, rowY, extraW, white);
@@ -11046,7 +11070,7 @@ static inline void DrawInventoryHighlight(f32 x, f32 y, f32 w, f32 h, f32 alpha,
 	CGs& gs = gGame.mGs;
 	SetGsBlendMode(gs.mCurRenderMode, 1, 2, 4, 15);
 	SetGsDepthMode(gs.mCurRenderMode, 1, 2, 0);
-	f32 pulse = alpha * (0.2f * (f32)sin(3.1415927f * phase) + 0.2f);
+	f32 pulse = alpha * (0.2f * (f32)sin(PI * phase) + 0.2f);
 	if (pulse < 0)
 		pulse = 0;
 	u32 white = (u32)(255.0f * pulse) | 0xFFFFFF00;
@@ -11060,7 +11084,7 @@ static inline void DrawInventoryPreviewIcon(CTexObj& tex, s32 icon, u32 color, f
 	tex = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[icon], 0);
 	GXGetTexObjWidth(&tex);
 	GXGetTexObjHeight(&tex);
-	sin(0.017453292f * (((s32)(frame * 20)) % 360));
+	sin(DEG2RAD * (((s32)(frame * 20)) % 360));
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 	u16 w = GXGetTexObjWidth(&tex), h = GXGetTexObjHeight(&tex);
 	DrawOverviewTexture(tex, color, x, y, scale * w, scale * h);
@@ -11098,7 +11122,7 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 		if (id >= 0 && count > 0) {
 			f32 bob = 0;
 			if (selected == i)
-				bob = 4.0f * (f32)sin(0.017453292f * (((s32)(frame * 20)) % 360));
+				bob = 4.0f * (f32)sin(DEG2RAD * (((s32)(frame * 20)) % 360));
 			s32 icon = GetItemIconTextureIndex(id);
 			if (icon >= 0) {
 				f32 iw, ih;

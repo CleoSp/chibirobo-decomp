@@ -327,6 +327,7 @@ extern "C" CGame gGame;
 
 extern "C" {
 void ChangeGameStage(CGame* game, s32 stage, BOOL showName);
+void TryStartObjectEvent(CGame* game, u8* script, XObj* context, s16 useValue, s16 hitValue);
 s32 FindStageIndexByName(const char* name);
 }
 

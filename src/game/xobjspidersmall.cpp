@@ -1,6 +1,6 @@
 #include "game/xobjspidersmall.h"
 #include "game/hsd_jobj.h"
-#include "game/spiderplacement.h"
+#include "game/placement.h"
 #include "game/spidercontact.h"
 #include "game/cgame.h"
 #include "game/cgs.h"

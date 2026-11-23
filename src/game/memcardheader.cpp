@@ -22,7 +22,7 @@ extern "C" BOOL ReadValidatedSaveFileCopy(Memcard* card, SaveFile* file)
 			return ReadFailed(card);
 		SaveHeader* save = &file->mData.mHeader;
 		if (save->mSignature != SAVE_SIGNATURE)
-			card->mCard.mResult = -128;
+			card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY) {
 			if (copy == 1)
@@ -34,7 +34,7 @@ extern "C" BOOL ReadValidatedSaveFileCopy(Memcard* card, SaveFile* file)
 		for (u32 i = 0; i < sizeof(SaveData); ++i)
 			checksum += *data++;
 		if (checksum != file->mChecksum)
-			card->mCard.mResult = -128;
+			card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY) {
 			if (copy == 1)
@@ -43,7 +43,7 @@ extern "C" BOOL ReadValidatedSaveFileCopy(Memcard* card, SaveFile* file)
 		}
 		if (!IsValidSave(save)) {
 			if (copy == 1) {
-				card->mCard.mResult = -128;
+				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 				return ReadFailed(card);
 			}
 			continue;

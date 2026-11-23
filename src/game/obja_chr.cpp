@@ -6,7 +6,20 @@
 #include "game/xobjmap.h"
 #include "game/gmath.h"
 #include "game/video.h"
-#include <math.h>
+#include "game/xobjchrstate.h"
+#include "game/playeritemanim.h"
+#include "game/cmdline.h"
+#include "game/hsd_dobj.h"
+#include "game/texturecopy.h"
+#include "game/cvec.h"
+#include "game/cjobjinlineattach.h"
+#include "game/cjobjset.h"
+#include "game/globals.h"
+#include "game/pointptcl.h"
+#include "game/animframe.h"
+#include "game/drawhelptext.h"
+#include <stdlib.h>
+#include <string.h>
 
 extern "C" {
 s32 GetObjectAnimationId(const CXObj* object);
@@ -110,7 +123,7 @@ void SetPlayerRopeState(XObjChr* chr, s32 state, XObj* target);
 s32 GetObjectPoolUsedCount(const CGame* game, s32 index);
 void* GetObjectFromPool(const CGame* game, s32 pool, s32 index);
 CoordInfo* GetObjectCoordInfo(XObj* object);
-UnkStageObj* GetIndexedCoordPlacement(const CoordInfo* info, s32 index);
+StagePlacement* GetIndexedCoordPlacement(const CoordInfo* info, s32 index);
 s32 GetStageObjectCount(const CGame* game);
 f32 GetSelectedFloorHeight(const XObj* object);
 void DisablePlayerLook(XObjChrLook* look);
@@ -121,7 +134,7 @@ void SetLookTargetPosition(XObjChrLook* look, f32 x, f32 y, f32 z);
 BOOL IsObjectPushableFromBack(const XObj*);
 s32 GetSelectedFloorIndex(const XObj* object);
 f32 GetObjectEdgeOutwardYaw(const XObj* object, Vec* point, s32 index);
-s32 fn_800B1E04(void*);
+BOOL fn_800B1E04(const XObj* object);
 f32 GetObjectMaxFloorHeight(XObj* object);
 BOOL IsObjectClimbableFromHang(XObj* object);
 CVec* GetCameraAngles(CCamera* camera);
@@ -167,37 +180,47 @@ BOOL IsObjectLiftable(const XObj* object);
 s32 GetCharacterObjectApproachResult(const XObjChr* chr, const XObj* target);
 BOOL IsObjectPushable(const XObj* object);
 BOOL IsPositionBehindObject(void*, const Vec* pos, CXObj* object);
-u32 GetObjectMarkerOverride(XObj* object);
-u32 GetMaskedObjectMarkerOverride(XObj* object, u32 mask);
 Vec& __as__3VecFRC3Vec(Vec* dst, const Vec* src);
 u32 GetMaskedPlayerStatus(const XObjChr* chr, u32 mask);
 }
+
+enum GroundAction {
+	GroundActionNone      = -1,
+	GroundActionLowJump   = 1,
+	GroundActionMidJump   = 2,
+	GroundActionHighJump  = 3,
+	GroundActionGrabLedge = 4,
+	GroundActionClimbUp   = 5,
+	GroundActionLetGo     = 6,
+	GroundActionPush      = 9
+};
 
 struct PushContactBounds {
 	Vec center, rear, front;
 	f32 radius, height, depth;
 };
 
-// Update the player movement, contacts and context-sensitive actions.
-// one action marker over the object: shown when the player can do that action there, or when the object's placement
-// sets its own markers and includes it; allowed limits the markers to the ones this kind of contact can show
-#define ADD_OBJECT_MARKER(allowed, bit)                                                                              \
-	do {                                                                                                             \
-		if (((allowed) & (bit))                                                                                      \
-		    && ((GetObjectMarkerOverride(object) == 0x80000000 && (available & (bit)))                               \
-		        || (GetObjectMarkerOverride(object) != 0x80000000 && GetMaskedObjectMarkerOverride(object, (bit))))) \
-			marker |= (bit);                                                                                         \
+#define ADD_OBJECT_MARKER(allowed, bit)                                                                    \
+	do {                                                                                                   \
+		if (((allowed) & (bit))                                                                            \
+		    && ((object->GetMarkerOverride() == MarkerUseAvailable && (available & (bit)))                 \
+		        || (object->GetMarkerOverride() != MarkerUseAvailable && object->GetMarkerOverride(bit)))) \
+			marker |= (bit);                                                                               \
 	} while (0)
-#define ADD_OBJECT_MARKERS(allowed)   \
-	ADD_OBJECT_MARKER(allowed, 1);    \
-	ADD_OBJECT_MARKER(allowed, 2);    \
-	ADD_OBJECT_MARKER(allowed, 4);    \
-	ADD_OBJECT_MARKER(allowed, 8);    \
-	ADD_OBJECT_MARKER(allowed, 0x10); \
-	ADD_OBJECT_MARKER(allowed, 0x20); \
-	ADD_OBJECT_MARKER(allowed, 0x40); \
-	ADD_OBJECT_MARKER(allowed, 0x80)
+#define ADD_OBJECT_MARKERS(allowed)           \
+	ADD_OBJECT_MARKER(allowed, MarkerEvent);  \
+	ADD_OBJECT_MARKER(allowed, MarkerPush);   \
+	ADD_OBJECT_MARKER(allowed, MarkerLift);   \
+	ADD_OBJECT_MARKER(allowed, MarkerClimb);  \
+	ADD_OBJECT_MARKER(allowed, MarkerLadder); \
+	ADD_OBJECT_MARKER(allowed, MarkerRope);   \
+	ADD_OBJECT_MARKER(allowed, Marker40);     \
+	ADD_OBJECT_MARKER(allowed, MarkerPlugIn)
 
+/**
+ * @note Address: 0x800AC660
+ * @note Size: 0x54AC
+ */
 extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32 speed, f32 direction)
 {
 	if (GetMaskedPlayerStatus(player, 0x80000000))
@@ -1167,12 +1190,9 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 			}
 		}
 	}
-	// available: actions the objects around him offer, 1 event, 2 push, 4 lift, 8 climb (japan), 0x10 ladder, 0x20 rope,
-	// 0x40 never (fn_800B1E04), 0x80 plug in; marker: the ones whose marker shows. actionMode: what a full gauge on target
-	// starts, 1-3 jump up 4, 8 or 12.5, 4 grab a ledge, 5 climb up from a hang, 6 let go of it, 9 push (japan)
 	u32 available              = 0;
 	XObj* target               = NULL;
-	s32 actionMode             = -1;
+	GroundAction actionMode    = GroundActionNone;
 	u32 marker                 = 0;
 	player->mLook.mMarkerCount = 0;
 	if (IsPlayerLookMarkerVisible(&player->mLook))
@@ -1190,18 +1210,18 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 				XObj* object = GetGameObjectByIndex(&gGame, index);
 				if (!player->_A14 || !GetMaskedObjectStatus(object, 0x100000)) {
 					if (IsObjectLiftable(object))
-						available |= 4;
+						available |= MarkerLift;
 					else if (GetMaskedObjectStatus(object, 0x0000010000000000ULL))
-						available |= 1;
+						available |= MarkerEvent;
 				}
 				if (GetMaskedObjectStatus(object, 0x20) && IsLiftTargetPlug(&player->mLift)
 				    && GetCharacterObjectApproachResult(player, object))
-					available |= 0x80;
+					available |= MarkerPlugIn;
 			} else if (index >= 0 && player->mFloorContacts[2].objectIndex == player->mFloorContacts[0].objectIndex
 			           && player->mHitObjectIndex == player->mFloorContacts[2].objectIndex && !player->_A14) {
 				XObj* object = GetGameObjectByIndex(&gGame, player->mFloorContacts[2].objectIndex);
 				if (GetMaskedObjectStatus(object, 0x0000010000000000ULL) && !GetMaskedObjectStatus(object, 0x0000100000000000ULL))
-					available |= 1;
+					available |= MarkerEvent;
 			}
 		}
 		{
@@ -1209,15 +1229,15 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 			if (index >= 0) {
 				XObj* object = GetGameObjectByIndex(&gGame, index);
 				if (IsObjectLiftable(object) && index != player->mFloorContacts[0].objectIndex)
-					available |= 4;
+					available |= MarkerLift;
 				if (IsObjectPushable(object) && index != player->mFloorContacts[0].objectIndex) {
 					if (IsLiftActionState(&player->mLift, 0)
 					    || (IsLiftActionState(&player->mLift, 4) && IsLiftTargetPlug(&player->mLift))) {
-						available |= 2;
+						available |= MarkerPush;
 #if defined(VERSION_JP)
 						if (GetMaskedGameStatus(&gGame, 0x80000000000ULL) != 0) {
 							target     = object;
-							actionMode = 9;
+							actionMode = GroundActionPush;
 						}
 #endif
 					}
@@ -1227,11 +1247,11 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 					f32 angle = GetObjectEdgeOutwardYaw(object, GetObjectMoveTranslation(player), edge) - yaw;
 					// the edge he is at faces straight back, within 0.1 degrees
 					if (angle > 3.13984752f && angle < 3.14333797f) {
-						available |= 2;
+						available |= MarkerPush;
 #if defined(VERSION_JP)
 						if (GetMaskedGameStatus(&gGame, 0x80000000000ULL) != 0) {
 							target     = object;
-							actionMode = 9;
+							actionMode = GroundActionPush;
 						}
 #endif
 					}
@@ -1248,20 +1268,20 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 							        && !IsCarryingSquirter(&player->mLift))) {
 #if defined(VERSION_JP)
 								if (GetMaskedGameStatus(&gGame, 0x80000000000ULL) != 0)
-									available |= 8;
+									available |= MarkerClimb;
 #endif
 #if defined(VERSION_JP)
 								if (!GetMaskedGameStatus(&gGame, 0x80000000000ULL))
 #endif
 								{
 									target     = object;
-									actionMode = 4;
+									actionMode = GroundActionGrabLedge;
 								}
 							}
 						} else {
 #if defined(VERSION_JP)
 							if (GetMaskedGameStatus(&gGame, 0x80000000000ULL) != 0)
-								available |= 8;
+								available |= MarkerClimb;
 #endif
 							if (climbHeight > 1) {
 								if (climbHeight <= 4) {
@@ -1270,7 +1290,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 #endif
 									{
 										target     = object;
-										actionMode = 1;
+										actionMode = GroundActionLowJump;
 									}
 								} else if (climbHeight <= 8) {
 #if defined(VERSION_JP)
@@ -1278,7 +1298,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 #endif
 									{
 										target     = object;
-										actionMode = 2;
+										actionMode = GroundActionMidJump;
 									}
 								} else if (climbHeight <= 12.5f) {
 #if defined(VERSION_JP)
@@ -1286,7 +1306,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 #endif
 									{
 										target     = object;
-										actionMode = 3;
+										actionMode = GroundActionHighJump;
 									}
 								}
 							}
@@ -1307,7 +1327,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 							}
 						}
 						if (inReach)
-							available |= 0x10;
+							available |= MarkerLadder;
 					}
 				} else if (IsObjectRope(object)) {
 					{
@@ -1324,21 +1344,21 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 							}
 						}
 						if (inReach)
-							available |= 0x20;
+							available |= MarkerRope;
 					}
 				} else if (fn_800B1E04(object)) {
-					available |= 0x40;
+					available |= Marker40;
 				}
 				if ((GetMaskedObjectStatus(object, 0x20)) && IsLiftTargetPlug(&player->mLift)
 				    && index != player->mFloorContacts[0].objectIndex && GetCharacterObjectApproachResult(player, object))
-					available |= 0x80;
+					available |= MarkerPlugIn;
 				if (player->mGaugeTarget)
 					player->mHitObjectIndex = index;
 			}
 		}
 		{
 			if (player->mLetickerIndex >= 0)
-				available |= 0x80;
+				available |= MarkerPlugIn;
 			if (!available && player->mHitObjectIndex >= 0
 			    && !(player->mFloorContacts[4].objectIndex == player->mHitObjectIndex
 			         && player->mLastContactFloorIndex == GetSelectedFloorIndex(GetGameObjectByIndex(&gGame, player->mHitObjectIndex)))
@@ -1351,35 +1371,35 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 			}
 			if (player->mFloorContacts[2].objectIndex >= 0) {
 				XObj* object = GetGameObjectByIndex(&gGame, player->mFloorContacts[2].objectIndex);
-				ADD_OBJECT_MARKERS(0xff);
+				ADD_OBJECT_MARKERS(MarkerAll);
 			}
 			if (player->mHitObjectIndex >= 0) {
 				XObj* object = GetGameObjectByIndex(&gGame, player->mHitObjectIndex);
-				ADD_OBJECT_MARKERS(0xfe);
+				ADD_OBJECT_MARKERS(MarkerAll & ~MarkerEvent);
 			}
 			if (player->mLetickerIndex >= 0) {
 				XObj* object = GetGameObjectByIndex(&gGame, player->mLetickerIndex);
-				ADD_OBJECT_MARKERS(0x80);
+				ADD_OBJECT_MARKERS(MarkerPlugIn);
 			}
 		}
 	}
 	{
 		u32 count = 0;
-		if (marker & 0x1)
+		if (marker & MarkerEvent)
 			++count;
-		if (marker & 0x2)
+		if (marker & MarkerPush)
 			++count;
-		if (marker & 0x4)
+		if (marker & MarkerLift)
 			++count;
-		if (marker & 0x10)
+		if (marker & MarkerLadder)
 			++count;
-		if (marker & 0x20)
+		if (marker & MarkerRope)
 			++count;
-		if (marker & 0x40)
+		if (marker & Marker40)
 			++count;
-		if (marker & 0x80)
+		if (marker & MarkerPlugIn)
 			++count;
-		if (marker & 0x8)
+		if (marker & MarkerClimb)
 			++count;
 		if (count) {
 			EnablePlayerLook(&player->mLook);
@@ -1388,7 +1408,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 #else
 			const s32 normalMode = 0x70;
 #endif
-			if (marker & 0x80) {
+			if (marker & MarkerPlugIn) {
 				SetPlayerLookMode(&player->mLook, normalMode + 1);
 				SetLookTargetPosition(&player->mLook, 0, 0, 0);
 			} else {
@@ -1408,7 +1428,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 				// stick within 30 degrees of ahead climbs up, within 30 degrees of behind lets go
 				if ((angle < 0.52359879f || angle > 5.7595863f) && IsObjectClimbableFromHang(GetPlayerActionTarget(&player->mHang))) {
 					target     = GetPlayerActionTarget(&player->mHang);
-					actionMode = 5;
+					actionMode = GroundActionClimbUp;
 				}
 				if (angle > 2.61799383f && angle < 3.66519141f) {
 #if defined(VERSION_JP)
@@ -1416,7 +1436,7 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 #endif
 					{
 						target     = GetPlayerActionTarget(&player->mHang);
-						actionMode = 6;
+						actionMode = GroundActionLetGo;
 					}
 				}
 			}
@@ -1464,31 +1484,31 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 				}
 				if (player->mGaugeTime >= threshold) {
 					XObj* hit = GetGameObjectByIndex(&gGame, player->mHitObjectIndex);
-					if (actionMode == 1) {
+					if (actionMode == GroundActionLowJump) {
 						SetPlayerActionState(&player->mJump, 8);
 						SetPlayerActionTarget(&player->mJump, hit);
-					} else if (actionMode == 2) {
+					} else if (actionMode == GroundActionMidJump) {
 						SetPlayerActionState(&player->mJump, 11);
 						SetPlayerActionTarget(&player->mJump, hit);
-					} else if (actionMode == 3) {
+					} else if (actionMode == GroundActionHighJump) {
 						SetPlayerActionState(&player->mJump, 14);
 						SetPlayerActionTarget(&player->mJump, hit);
-					} else if (actionMode == 4) {
+					} else if (actionMode == GroundActionGrabLedge) {
 						if (IsPlayerCarryingPlug(player))
 							ReleasePlayerLiftTarget(player);
 						SetHangActionState(&player->mHang, 1);
 						SetPlayerActionTarget(&player->mHang, hit);
-					} else if (actionMode == 5) {
+					} else if (actionMode == GroundActionClimbUp) {
 						if (IsPlayerCarryingPlug(player))
 							ReleasePlayerLiftTarget(player);
 						TryLeaveHang(&player->mHang);
 						StopPlayerMotion(player);
-					} else if (actionMode == 6) {
+					} else if (actionMode == GroundActionLetGo) {
 						if (IsPlayerCarryingPlug(player))
 							ReleasePlayerLiftTarget(player);
 						SetHangActionState(&player->mHang, 9);
 						StopPlayerMotion(player);
-					} else if (actionMode == 9) {
+					} else if (actionMode == GroundActionPush) {
 						if (IsPlayerCarryingPlug(player))
 							ReleasePlayerLiftTarget(player);
 						StopPlayerMotion(player);
@@ -1510,64 +1530,16 @@ extern "C" void UpdatePlayerMovementAndContacts(XObjChr* player, u32 frames, f32
 	}
 }
 
-#include "game/video.h"
-#include "game/xobjchrstate.h"
-#include "game/playeritemanim.h"
-#include "game/cmdline.h"
-#include "game/hsd_dobj.h"
-#include "game/xobjmap.h"
-#include "game/texturecopy.h"
-#include "game/cvec.h"
-#include "game/cjobjinlineattach.h"
-#include "game/cjobjset.h"
-#include "game/globals.h"
-#include "game/pointptcl.h"
-#include "game/animframe.h"
-#include <stdlib.h>
-#include <string.h>
-#include "game/drawhelptext.h"
+#undef ADD_OBJECT_MARKERS
+#undef ADD_OBJECT_MARKER
 
 extern "C" {
-f32 GetHeadingBetweenPositions(const Vec* from, const Vec* to);
-HSD_JObj* GetObjectJointByPath(const CJObj* object, s32 depth, s32* path);
-s32 GetObjectPoolId(const XObj* object);
-BOOL IsEventScriptActive(const CGame* game);
-BOOL IsLiftActionState(const XActLift* act, s32 wanted);
-BOOL IsPlayerAttachmentEquipped(const XObjChr* chr, s32 wanted);
-BOOL IsPopperActionState(const XActPopper* act, s32 wanted);
-BOOL IsRadarActionState(const XActRadar* act, s32 wanted);
-BOOL IsTumbleActionState(const XActTumble* act, s32 wanted);
-void SetObjectVectorTarget(CObjVec* value, const Vec& target);
-void SetPlayerActionTarget(XAction* action, XObj* target);
-void SetPushActionState(XActPush* act, s32 state);
 void UpdatePlayerEquipmentRings(XObjChrMenu* menu, u32 frames);
-BOOL IsCopterActionState(const XAction* action, s32 state);
-BOOL IsJumpActionState(const XAction* action, s32 state);
-BOOL IsLadderActionState(const XAction* action, s32 state);
-BOOL IsRopeActionState(const XAction* action, s32 state);
-BOOL IsObjectActive(XObj* object);
-void SetPushTargetState(XActPush* act, s32 value);
-BOOL IsPlayerCarryingPlug(const XObjChr* chr);
-BOOL IsPositionBehindObject(void*, const Vec* pos, CXObj* object);
-BOOL IsObjectPushable(const XObj* object);
-BOOL IsObjectLiftable(const XObj* object);
-BOOL IsObjectRope(const XObj* object);
-BOOL IsObjectLadder(const XObj* object);
-void ReleasePlayerLiftTarget(XObjChr* chr);
-BOOL IsObjectClimbableLedge(const XObj* object);
-void SetCopterActionState(XAction* action, s32 state);
-f32 WrapPlayerActionAngle(f32 angle);
-BOOL IsHangActionState(const XActHang* act, s32 wanted);
-XObj* GetGameObjectByIndex(const CGame* game, s32 index);
-BOOL IsPushActionState(const XActPush* act, s32 wanted);
-u32 GetMaskedPlayerStatus(const XObjChr* chr, u32 mask);
 void UpdatePlayerAttachmentRequest(XObjChr* chr, f32* speed);
-void OpenPlayerEquipmentRings(XObjChr* chr);
 BOOL IsGameRunning(CGame*);
 void SetHangActionState(XActHang*, s32);
 void SetPlayerActionState(XAction*, s32);
 void UpdateOXMenuTransition(OXMenu*, u32);
-void TryStartObjectEvent(CGame*, const void*, void*, s16, s16);
 void SetLiftActionState(XActLift*, s32);
 void SetLadderActionState(XActLadder*, s32);
 void SetRopeActionState(XActRope*, s32);
@@ -1607,6 +1579,7 @@ static inline void StartInteractionEvent(XObj* target)
 {
 	TryStartObjectEvent(&gGame, target->GetEventScript(), target, -1, -1);
 }
+
 static inline void ChooseClimbAction(XObjChr* player, XObj* object, s32 mode, bool ladder)
 {
 	s32 dir = 0;
@@ -1646,6 +1619,7 @@ static inline void ChooseClimbAction(XObjChr* player, XObj* object, s32 mode, bo
 
 /**
  * @note Address: 0x800B35CC
+ * @note Size: 0x195C
  */
 extern "C" f32 UpdatePlayerActions(XObjChr* player, u32 frames)
 {
@@ -2002,7 +1976,6 @@ extern "C" f32 GetControlStickMagnitude(const CPadOne*);
 extern "C" s32 FindNearbyPlayerInteraction(XObjChr*, f32);
 extern "C" const Vec* GetCurrentEdgeWorldOffsetPosition(const XObj*);
 extern "C" void UpdatePlayerSuitChange(XObjChr*);
-extern "C" void UpdatePlayerMovementAndContacts(XObjChr*, u32, f32, f32);
 extern "C" void UpdatePlayerActionAnimations(XObjChr*, u32);
 extern "C" void UpdatePlayerHeadOffset(XObjChr*, u32);
 extern "C" void UpdatePlayerBattery(XObjChr*, u32);
@@ -5191,16 +5164,6 @@ extern "C" BOOL IsCopterActionState(const XAction* action, s32 state)
 
 // todo: weak copy
 /**
- * @note Address: 0x800A2C48
- * @note Size: 0x28
- */
-extern "C" CVec __ct__4CVecFRC3Vec(const Vec& value)
-{
-	return CVec(value);
-}
-
-// todo: weak copy
-/**
  * @note Address: 0x800A2C70
  * @note Size: 0x14
  */
@@ -5274,16 +5237,6 @@ extern "C" f32 GetJointAnimationCurrentFrame(CJObj* object)
 {
 	HSD_AObj* aobj = GetAObj(object->mJObj);
 	return aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-}
-
-// todo: weak copy
-/**
- * @note Address: 0x800A2E2C
- * @note Size: 0x28
- */
-extern "C" CVec __ct__4CVecFRC4CVec(const CVec& vector)
-{
-	return vector;
 }
 
 // todo: weak copy
@@ -5734,7 +5687,7 @@ void XObjChr::DrawScreenOverlay()
 static inline s32 ActionTargetPlacement(const XAction& action)
 {
 	if (action.mTarget != NULL) {
-		UnkStageObj* placement = action.mTarget->mCoord.mPlacement;
+		StagePlacement* placement = action.mTarget->mCoord.mPlacement;
 		return placement - GetStagePlacementByIndex(0);
 	}
 	return -1;
@@ -6062,6 +6015,10 @@ static inline void SetFrameParticleAtJoint(PlayerFrameParticle& particle, XObjCh
 	particle.mRotate    = player->mMoveRotate;
 }
 
+/**
+ * @note Address: 0x800A7E1C
+ * @note Size: 0x638
+ */
 extern "C" PlayerFrameParticle ProcessPlayerFrameEvents(XObj* object, const FrameEventTime* frames, const FrameEvent* table)
 {
 	PlayerFrameParticle particle = { -1 };
@@ -7226,28 +7183,28 @@ extern "C" void EnablePlayerLook(XObjChrLook* look)
  * @note Address: 0x800B1DF0
  * @note Size: 0xC
  */
-extern "C" u32 GetMaskedObjectMarkerOverride(XObj* object, u32 mask)
+u32 XObj::GetMarkerOverride(u32 mask) const
 {
-	return object->mMarkerOverride & mask;
+	return mMarkerOverride & mask;
 }
 
 /**
  * @note Address: 0x800B1DFC
  * @note Size: 0x8
  */
-extern "C" u32 GetObjectMarkerOverride(XObj* object)
+u32 XObj::GetMarkerOverride() const
 {
-	return object->mMarkerOverride;
+	return mMarkerOverride;
 }
 
 /**
  * @note Address: 0x800B1E04
  * @note Size: 0x8
  */
-// a fourth contact kind after ladder and rope; retail's check always says no, so marker 0x40 never shows
-extern "C" s32 fn_800B1E04(void*)
+// contact checks never offer marker 0x40, but event call -11 can still set it
+extern "C" BOOL fn_800B1E04(const XObj*)
 {
-	return 0;
+	return FALSE;
 }
 
 /**
@@ -7354,7 +7311,7 @@ extern "C" s32 GetObjectPoolUsedCount(const CGame* game, s32 index)
  * @note Address: 0x800B20B4
  * @note Size: 0x10
  */
-extern "C" UnkStageObj* GetIndexedCoordPlacement(const CoordInfo* info, s32 index)
+extern "C" StagePlacement* GetIndexedCoordPlacement(const CoordInfo* info, s32 index)
 {
 	return info->mPlacement + index;
 }
@@ -8449,15 +8406,6 @@ extern "C" BOOL IsPushActionState(const XActPush* act, s32 wanted)
 }
 
 /**
- * @note Address: 0x800B3190
- * @note Size: 0x1C
- */
-extern "C" CVec __ct__4CVecFfff(f32 x, f32 y, f32 z)
-{
-	return CVec(x, y, z);
-}
-
-/**
  * @note Address: 0x800B31AC
  * @note Size: 0xC
  */
@@ -8660,10 +8608,10 @@ extern "C" void SetLiftActionState(XActLift* act, s32 state)
  * @note Size: 0x130
  */
 // NONMATCHING: regalloc
-extern "C" void TryStartObjectEvent(CGame* game, const void* script, void* context, s16 useValue, s16 hitValue)
+extern "C" void TryStartObjectEvent(CGame* game, u8* script, XObj* context, s16 useValue, s16 hitValue)
 {
 	if (!IsEventBlocked(game->GetPlayer())) {
-		StartOrQueueEventScript(&game->mEvt, (u8*)script, (u32)context, useValue, hitValue);
+		StartOrQueueEventScript(&game->mEvt, script, (u32)context, useValue, hitValue);
 	}
 }
 

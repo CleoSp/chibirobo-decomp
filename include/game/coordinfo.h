@@ -4,7 +4,7 @@
 #include "types.h"
 
 // one 0x38 byte entry of the stage's object placement table
-struct UnkStageObj {
+struct StagePlacement {
 	s32 mObjectId; // _00, the object id, negative ends the table
 	s32 mPos[3];   // _04, in hundredths
 	s32 mRot[3];   // _10, rotation in whole degrees, x y z
@@ -16,17 +16,17 @@ struct UnkStageObj {
 	s32 mStartAnim; // _30, starting anim
 	u32 mFlags;     // _34, flags, 0x80000000 skips the read
 };
-STATIC_ASSERT(sizeof(UnkStageObj) == 0x38);
+STATIC_ASSERT(sizeof(StagePlacement) == 0x38);
 
 // name from __vt__9CoordInfo
 class CoordInfo {
 public:
-	UnkStageObj* mPlacement; // _00, the object's entry in the stage placement table
+	StagePlacement* mPlacement; // _00, the object's entry in the stage placement table
 	// _04 vtable
 
 	CoordInfo() { mPlacement = NULL; }
-	CoordInfo(void* value)
-	    : mPlacement((UnkStageObj*)value)
+	CoordInfo(StagePlacement* placement)
+	    : mPlacement(placement)
 	{
 	}
 	virtual ~CoordInfo() { } // _08
@@ -67,7 +67,7 @@ inline s32 GetObjDataFlags(const UnkObjData* data)
 class AttrInfo {
 public:
 	UnkObjData* mObjData; // _00, the object's data record from GetObjData (source, shadow size, look range, category, item), NULL until set
-	UnkStageObj* mPlacement; // _04, the placement CoordInfo points at
+	StagePlacement* mPlacement; // _04, the placement CoordInfo points at
 	// _08 vtable
 
 	AttrInfo() { mObjData = NULL; }
@@ -84,6 +84,6 @@ public:
 	virtual ~AttrInfo() { } // _08
 };
 
-extern "C" UnkStageObj* GetStagePlacementByIndex(s32 i);
+extern "C" StagePlacement* GetStagePlacementByIndex(s32 i);
 
 #endif

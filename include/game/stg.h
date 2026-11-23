@@ -536,8 +536,8 @@ public:
 	u8 _37D[0x380 - 0x37D];       // _37D
 	s32 mAmount;                  // _380
 	s32 mDepositBalance;          // _384
-	s32 mHistoryStart;            // _388
-	s32 mHistoryCount;            // _38C
+	s32 mItemShopBase;            // _388
+	s32 mItemShopCount;           // _38C
 	f32 mPanelAlpha;              // _390
 	f32 mPanelTarget;             // _394
 	f32 mListAlpha;               // _398
@@ -550,8 +550,8 @@ public:
 	s32 mRankingEnd;              // _3F8
 	f32 mScroll;                  // _3FC
 	f32 mScrollTarget;            // _400
-	s32 mCatalogBase;             // _404
-	s32 mCatalogCount;            // _408
+	s32 mScrapShopBase;           // _404
+	s32 mScrapShopCount;          // _408
 	PCAmount mMoneyDisplay;       // _40C
 	PCAmount mScrapDisplay;       // _414
 	PCAmount mDepositDisplay;     // _41C

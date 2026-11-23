@@ -1,5 +1,5 @@
 #include "game/xobjspiderboss.h"
-#include "game/spiderplacement.h"
+#include "game/placement.h"
 
 Vec gSpiderBossPosition, gSpiderBossScale, gSpiderBossRotation;
 

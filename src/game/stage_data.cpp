@@ -22,8 +22,8 @@ extern const char** gInterfaceTextByLanguage[];
 extern s32 gGlobalTextIdRemap[];
 // the globals file's name
 extern const char* gGlobalResourceFileName;
-extern UnkStageObj gStageObjectPlacements[];
-extern UnkStageObj spawnTable[];
+extern StagePlacement gStageObjectPlacements[];
+extern StagePlacement spawnTable[];
 extern UnkObjData objTable[];
 extern UnkObjData objTableEx[];
 extern XObjSource gObjectSources[];
@@ -53,7 +53,7 @@ BOOL LoadGameSoundBank(XSound* sound, s32 stage);
 #define GLOBAL_STATUS_ICONS         0x4C
 #define GLOBAL_STATUS_OVERVIEW      0x50
 
-UnkStageObj gStageObjectPlacements[] = {
+StagePlacement gStageObjectPlacements[] = {
 	{ 161, { 0, 0, 0 }, { 0, 0, 0 }, { 100, 100, 100 }, 0, 0, 0, 0x20012001 },
 	{ 59, { 0, 0, 0 }, { 0, 0, 0 }, { 100, 100, 100 }, 0, 0, 0, 0x20012001 },
 	{ 60, { 0, 0, 0 }, { 0, 0, 0 }, { 100, 100, 100 }, 0, 0, 0, 0x20012001 },
@@ -2701,7 +2701,7 @@ s32 gGlobalTextIdRemap[] = {
 #endif
 };
 
-UnkStageObj spawnTable[] = {
+StagePlacement spawnTable[] = {
 #if defined(VERSION_JP)
 	{ 10000, { 0, 0, 0 }, { 0, 0, 0 }, { 150, 150, 150 }, 0, 0, 0, 0x00000003 },
 	{ 10001, { 0, 0, 0 }, { 0, 0, 0 }, { 150, 150, 150 }, 0, 0, 0, 0x00000003 },
@@ -3374,7 +3374,7 @@ extern "C" s32 GetItemIconTextureIndex(s32 index)
  * @note Address: 0x8006EDB4
  * @note Size: 0x14
  */
-extern "C" UnkStageObj* GetStageObjectPlacementByIndex(s32 index)
+extern "C" StagePlacement* GetStageObjectPlacementByIndex(s32 index)
 {
 	return &gStageObjectPlacements[index];
 }
@@ -3383,7 +3383,7 @@ extern "C" UnkStageObj* GetStageObjectPlacementByIndex(s32 index)
  * @note Address: 0x8006EDC8
  * @note Size: 0x14
  */
-extern "C" UnkStageObj* GetSpawnData(s32 index)
+extern "C" StagePlacement* GetSpawnData(s32 index)
 {
 	return &spawnTable[index];
 }
@@ -3442,7 +3442,7 @@ extern "C" BOOL AdvanceStageLoad(Stage* stage, s32 index)
 		stage->mDataFile.CloseHandle();
 		u8* data                      = (u8*)stage->mDataFile.mBuffer;
 		stage->mEnvironment.mData     = data + ReadResourceOffset(data);
-		stage->mPlacements.mPlacement = (UnkStageObj*)(data + ReadResourceOffset(data + 4));
+		stage->mPlacements.mPlacement = (StagePlacement*)(data + ReadResourceOffset(data + 4));
 		stage->mScriptOffsets         = data + ReadResourceOffset(data + 8);
 		stage->mSetupScript           = data + ReadResourceOffset(data + 0xC);
 		if (stage->mSetupScript == data) // a zero script offset means no script
@@ -3616,7 +3616,7 @@ extern "C" u8* GetStageDataBuffer()
  * @note Address: 0x8006F4A0
  * @note Size: 0x18
  */
-extern "C" UnkStageObj* GetStagePlacementByIndex(s32 index)
+extern "C" StagePlacement* GetStagePlacementByIndex(s32 index)
 {
 	return gStageResources.mPlacements.mPlacement + index;
 }

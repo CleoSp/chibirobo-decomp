@@ -16,10 +16,13 @@ void ApplyPlayerHitReaction(XObjChr* player, BOOL react, BOOL stop, f32 time);
 }
 
 extern "C" {
-CVec GetStagePlacementScale(XObj* obj);
 void HSD_MtxGetScale(Mtx matrix, Vec* scale);
 }
 
+/**
+ * @note Address: 0x80103F54
+ * @note Size: 0x7E8
+ */
 extern "C" void UpdateSpiderBossAttachments(XObjSpiderBoss* spider, u32)
 {
 	CJObj joint;
@@ -79,6 +82,10 @@ static inline void DrainPlayerBattery(f32 amount)
 	gGame.GetPlayer()->mParams.SetBattery(battery);
 }
 
+/**
+ * @note Address: 0x8010473C
+ * @note Size: 0xA64
+ */
 extern "C" void UpdateSpiderBossDamage(XObjSpiderBoss* spider, u32 frames)
 {
 	CPad pad(0);

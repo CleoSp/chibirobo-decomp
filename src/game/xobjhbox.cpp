@@ -1,6 +1,6 @@
 #include "game/xobjflags.h"
 #include "game/xobjhbox.h"
-#include "game/cgame.h"
+#include "game/xobjevent.h"
 #include "game/cgs.h"
 #include <math.h>
 #include <stdlib.h>
@@ -8,7 +8,6 @@
 #include "game/csound.h"
 #include "game/globals.h"
 #include "game/stagedata.h"
-#include "game/evt.h"
 #include "game/xchr.h"
 
 extern "C" {
@@ -36,7 +35,7 @@ void XObjDust::ResetObjectState()
 	mEventArg = -1;
 	mMatAnim  = NULL;
 	if (mJObj != NULL && (mStatus.mFlags & 0x1000ULL)) {
-		UnkStageObj* placement = mCoord.mPlacement;
+		StagePlacement* placement = mCoord.mPlacement;
 		SetAnim(placement->mStartAnim, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
 	}
 }
@@ -64,10 +63,7 @@ extern "C" u32 OnPlayerContact__8XObjHBoxFll(XObjHBox* box, s32 unused, u32 flag
 	box->mStatus.mFlags |= 0x4000000000000000ULL;
 	box->mPart.mHit = 1.0f;
 	PlayGameSound(&gGame.mSound, 285, 255);
-	const void* script = box->GetEventScript();
-	if (!IsPlayerBlockingEvents(gGame.GetPlayer())) {
-		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)box, -1, -1);
-	}
+	box->TriggerEvent(-1, -1);
 	HSD_AudioSFXKeyOff(box->mPart.mSfx);
 	return 0;
 }

@@ -12,7 +12,6 @@ void PSMTXTrans(Mtx matrix, f32 x, f32 y, f32 z);
 void HSD_MtxGetRotation(Mtx matrix, Vec* rotation);
 void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 u8* GetGlobalTextEntry(s32 index);
-u8* GetStageScriptByIndex(s32 index);
 }
 
 static inline void PlayBoxAnim(XObj* object, s32 id)
@@ -66,7 +65,7 @@ void XObjHBox::UpdateObject(u32 frames)
 		mFloorMasks[1] = mFloorMasks[0] = 0;
 		s32 index                       = mCoord.mPlacement - GetStagePlacementByIndex(0);
 		if (index > 0)
-			mEventScript = (u32)GetStageScriptByIndex(index);
+			mEventScript = GetStageScriptByIndex(index);
 	} else if (mAnimId == 1) {
 		HSD_AObj* anim = GetAObj(mJObj);
 		if (anim && (anim->flags & 0x44000000)) // animation done

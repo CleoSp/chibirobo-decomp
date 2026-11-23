@@ -2,23 +2,13 @@
 extern "C" {
 #include <dolphin/mtx/vec.h>
 }
-#include "game/cgame.h"
+#include "game/xobjevent.h"
 #include "game/xchr.h"
 #include "game/gmath.h"
 #include "game/hsd_cobj.h"
 #include <stdlib.h>
-#include "game/evt.h"
-#include "game/xobjchr.h"
 
 extern "C" BOOL UpdateDustEvent(XObjDust* dust, u32 frames);
-
-// todo: cleanup, game/xobjfreeevent.cpp and game/xobjdustevent.cpp have the same
-static inline void TriggerEvent(XObj* object, u32 first, u32 second)
-{
-	const void* script = object->GetEventScript();
-	if (!IsPlayerBlockingEvents(gGame.GetPlayer()))
-		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)object, first, second);
-}
 
 /**
  * @note Address: 0x800DF0A0
@@ -83,7 +73,7 @@ extern "C" BOOL UpdateDriftingDust(XObjDust* dust, u32 frames)
 		PSVECScale((Vec*)&dust->mMoveScale, (Vec*)&dust->mMoveScale, 1.12f * dust->mFade);
 		if (0.0f == PSVECMag((Vec*)&dust->mMoveScale)) { // fully gone
 			if (dust->mStatus.mFlags & 0xC0000000000ULL) {
-				TriggerEvent(dust, dust->mEventId, dust->mEventArg); // flagged dust fires its event on removal
+				dust->TriggerEvent(dust->mEventId, dust->mEventArg); // flagged dust fires its event on removal
 			}
 			return TRUE;
 		}
@@ -137,8 +127,8 @@ BOOL XObjDust::LoadFromPlacement(const CoordInfo& info)
 		HSD_AObj* aobj = GetAObj(mJObj);
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		if (end > 0.0f) {
-			f32 frame              = fmod((f32)rand(), end); // a random start frame
-			UnkStageObj* placement = mCoord.mPlacement;
+			f32 frame                 = fmod((f32)rand(), end); // a random start frame
+			StagePlacement* placement = mCoord.mPlacement;
 			SetAnim(placement->mStartAnim, TRUE, NULL, NULL, NULL, frame, 1.0f, 1.0f, 10.0f);
 		}
 		mAnimId2   = mAnimId;

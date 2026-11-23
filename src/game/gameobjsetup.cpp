@@ -142,14 +142,11 @@ extern "C" {
 BOOL UpdateProgressiveScanPrompt(u32);
 BOOL LoadGameSoundBank(XSound*, s32);
 BOOL LoadMenuGroupResources(MenuEx*);
-BOOL LoadMemoryCardResources(Memcard*);
 BOOL LoadEventResources(CEvt*);
 BOOL LoadMessageCursorObject(CMsg*);
 BOOL HideHudPointCounters(InfoScrn*);
 BOOL LoadGlobalResourceData();
 void SetAttachmentCountById(AttachmentValues*, s32, s32);
-void RestoreGameSaveData(Memcard*);
-void RestoreSavedPlayerAndCamera(Memcard*);
 u32 CheckStageFlag(s32, u32);
 BOOL LoadStageByIndex(s32);
 void ApplyStageClearColor();

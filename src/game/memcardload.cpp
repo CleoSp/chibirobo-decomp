@@ -26,7 +26,7 @@ extern "C" BOOL ReadValidatedSaveIntoCardBuffer(Memcard* card)
 			return ReadFailed(card);
 		if (card->mFile.mData.mHeader.mSignature != SAVE_SIGNATURE) {
 			if (copy == 1) {
-				card->mCard.mResult = -128;
+				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 				return ReadFailed(card);
 			}
 			continue;
@@ -37,14 +37,14 @@ extern "C" BOOL ReadValidatedSaveIntoCardBuffer(Memcard* card)
 			checksum += *data++;
 		if (checksum != card->mFile.mChecksum) {
 			if (copy == 1) {
-				card->mCard.mResult = -128;
+				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 				return ReadFailed(card);
 			}
 			continue;
 		}
 		if (!IsValidSave(save)) {
 			if (copy == 1) {
-				card->mCard.mResult = -128;
+				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 				return ReadFailed(card);
 			}
 			continue;

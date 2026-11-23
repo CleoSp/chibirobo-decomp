@@ -2,10 +2,9 @@
 #include "game/gmath.h"
 #include "game/objectfloorquery.h"
 #include "game/cjobjset.h"
-#include "game/cgame.h"
+#include "game/xobjevent.h"
 #include "game/hsd_dobj.h"
 #include "game/globals.h"
-#include "game/xobjchr.h"
 #include "game/cobj.h"
 #include "game/cfile.h"
 
@@ -13,19 +12,6 @@ extern "C" CObjArchive* FindFreeObjectArchive(CObjArchive* archives);
 
 extern "C" {
 void GXProject(f32 x, f32 y, f32 z, const Mtx view, const f32* projection, const f32* viewport, f32* screenX, f32* screenY, f32* screenZ);
-}
-
-static inline const void* ObjectScript(CXObj* object)
-{
-	return ((XObj*)object)->GetEventScript();
-}
-
-static inline void TriggerObjectEvent(CXObj* object, u32 first, u32 second)
-{
-	const void* script = ObjectScript(object);
-	if (!IsPlayerBlockingEvents(gGame.GetPlayer())) {
-		StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)object, first, second);
-	}
 }
 
 /**
@@ -89,10 +75,7 @@ BOOL XObj::OnItemUsed(const Vec* position, s32 value)
 	if (mStatus.mFlags & 0x0000040000000000ULL) { // flag means: has an item-use event
 		if (value == 56)
 			return FALSE; // item 56 never triggers it
-		const void* script = ObjectScript(this);
-		if (!IsPlayerBlockingEvents(gGame.GetPlayer())) {
-			StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)this, (s16)value, -1);
-		}
+		TriggerEvent(value, -1);
 		return TRUE;
 	}
 	return FALSE;
@@ -105,11 +88,7 @@ BOOL XObj::OnItemUsed(const Vec* position, s32 value)
 void XObj::OnSquirterHit(const Vec* contact, s32 value, s32 tint)
 {
 	if (mStatus.mFlags & 0x0000080000000000ULL) { // flag means: has a hit event
-		const void* script = ObjectScript(this);
-		if (!IsPlayerBlockingEvents(gGame.GetPlayer())) {
-			StartOrQueueEventScript(&gGame.mEvt, (u8*)script, (u32)this, -1,
-			                        (s16)((u32)value + 3000)); // squirts reach the script as 3000 + value
-		}
+		TriggerEvent(-1, (u32)value + 3000);      // squirts reach the script as 3000 + value
 	}
 }
 
@@ -122,9 +101,9 @@ void XObj::OnHitFromPosition(const Vec& position, f32 strength)
 	if (mStatus.mFlags & 0x0000080000000000ULL) {
 		// a hit of the required force raises event 2001, less raises 2000
 		if (strength >= (s32)GetPlayerActionParameter(31) / 100.0f) {
-			TriggerObjectEvent(this, -1, 2001);
+			TriggerEvent(-1, 2001);
 		} else {
-			TriggerObjectEvent(this, -1, 2000);
+			TriggerEvent(-1, 2000);
 		}
 	}
 }
@@ -402,10 +381,10 @@ static inline void CountCrossedEdge(Vec& from, Vec& to, Vec* a, Vec* b, s32& out
 	}
 }
 
-// Polygon rotation rounds to single precision before adding the object yaw.
+// floor rotation rounds to single precision before adding the object yaw
 static inline f32 FloorRotationRadians(const s32& degrees)
 {
-	return 0.017453292f * degrees;
+	return DEG2RAD * degrees;
 }
 
 BOOL XObj::TestFloorCrossing(const Vec& start, const Vec& end)

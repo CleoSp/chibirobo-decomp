@@ -52,7 +52,6 @@ void SetPlugCordSpeed(XObjPlug*, f32);
 void SetLiftActionState(XActLift*, s32);
 void SetLiftTargetState(XActLift*, s32);
 XObj* GetGameObjectByIndex(const CGame*, s32);
-void TryStartObjectEvent(CGame*, const void*, void*, s16, s16);
 BOOL IsEventScriptActive(const CGame*);
 Params* GetPlayerParamsByIndex(CGame*, s32);
 s32 GetInventoryCountByIndex(Params*, u32);
@@ -152,6 +151,10 @@ static inline void UseToolCharge(XActLift* act, s16 count, s32 level)
 	SetOrAddInventoryItemCount(&act->mOwner->mParams.mInventory, 0x38, count, FALSE);
 }
 
+/**
+ * @note Address: 0x800D0F4C
+ * @note Size: 0x2B10
+ */
 void UpdateLiftActionAnimation(XActLift* act, s32 anim, HSD_AObj* aobj, u32 frames, f32 frame, f32)
 {
 	s32 placement     = act->mTarget ? act->mTarget->mCoord.mPlacement - GetStagePlacementByIndex(0) : -1;
@@ -850,6 +853,10 @@ static inline f32 FacingPushEdge(XObj* edgeObject, XObjChr* owner)
 	GetOutwardPerpendicularToEdge(&player, &a, &b, &normal);
 	return WrapAngle(atan2(normal.x, normal.z));
 }
+/**
+ * @note Address: 0x800C494C
+ * @note Size: 0x924
+ */
 void UpdatePushedObject(XActPush* act)
 {
 	if (!act->mTargetState)
@@ -2608,7 +2615,6 @@ BOOL CheckCarriedObjectContacts(XActLift* act, const Vec* pos, f32 radius, f32 h
 void UpdateCarriedObjectPosition(XActLift*, XObj*);
 void HSD_JObjCopyMtx__FP9_HSD_JObjPA4_f(HSD_JObj*, MtxPtr);
 void HSD_JObjClearMtxFlags__FP9_HSD_JObj(HSD_JObj*);
-CVec GetStagePlacementScale(XObj*);
 void GetJointScale(CJObj*, HSD_JObj*, Vec*);
 f32 GetFirstFloorCollisionRadius(const XObj*);
 extern const s32 lbl_8020A5E8[];
@@ -3018,6 +3024,10 @@ void HSD_JObjClearMtxFlags__FP9_HSD_JObj(HSD_JObj* jobj)
 }
 
 // Both retail call sites read the result before the next call.
+/**
+ * @note Address: 0x800CDAB4
+ * @note Size: 0xF4
+ */
 extern "C" const Vec* GetScaledTargetFloorExtent(const XAction* act)
 {
 	const XObj* target = act->mTarget;
@@ -3503,6 +3513,10 @@ static inline u32 CheckHangClearance(XObj* obj, const CVec& from, const CVec& to
 	return obj->TestFloorCollision(&from, &to, radius, height, &push, &contact, 0, 0);
 }
 
+/**
+ * @note Address: 0x800CDBA8
+ * @note Size: 0x578
+ */
 void TryLeaveHang(XActHang* act)
 {
 	const Vec& radiusExtent = GetFloorExtent(act->mOwner->mFloors);

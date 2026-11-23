@@ -14,7 +14,7 @@
 #include "game/gmath.h"
 #include "game/animframe.h"
 #include "game/video.h"
-#include "game/spiderplacement.h"
+#include "game/placement.h"
 #include <sysdolphin/rumble.h>
 #include <stdlib.h>
 
@@ -30,7 +30,6 @@ void HideMoolahCounter(void* mgr);
 void ShowMoolahCounter(void* mgr);
 void HideHappyPointCounter(void* mgr);
 void ShowHappyPointCounter(void* mgr);
-CVec GetStagePlacementScale(XObj* obj);
 void HSD_MtxGetScale(Mtx mat, Vec* vec);
 void PSMTXRotRad(Mtx m, char axis, f32 rad);
 void LaunchSpiderBossPart(XObjActor3* actor);
@@ -48,12 +47,7 @@ s32 gActor3Kind15ActivationCounter;
 
 static inline Vec ActorPlacementRotation(const XObjActor3* actor)
 {
-	Vec rot              = gActor3PlacementRotation;
-	const UnkStageObj* p = actor->mCoord.mPlacement;
-	rot.x                = DEG2RAD * p->mRot[0];
-	rot.y                = DEG2RAD * p->mRot[1];
-	rot.z                = DEG2RAD * p->mRot[2];
-	return rot;
+	return PlacementRotation(actor->mCoord, gActor3PlacementRotation);
 }
 
 // the robot is out of reach, past the front edge or in one of its climbing anims

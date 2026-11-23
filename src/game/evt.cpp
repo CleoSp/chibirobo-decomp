@@ -6409,7 +6409,7 @@ s32 CEvt::_cmd_KILL(u8, s32)
 			index = id;
 		}
 		CEvt_ForgetObjId(id);
-		UnkStageObj* entry = GetStagePlacementByIndex(index);
+		StagePlacement* entry = GetStagePlacementByIndex(index);
 		CoordInfo info(entry);
 		entry->mFlags |= 0x80000000ULL;
 	}
@@ -11286,17 +11286,17 @@ static inline XObj* CEvt_Born(s32 index)
  */
 s32 CEvt::_cmd_BORN(u8, s32)
 {
-	s16 id    = CEvt_Evaluate(this);
-	s16 type  = CEvt_Evaluate(this);
-	f32 x     = CEvt_Evaluate(this) / 100.0f;
-	f32 y     = CEvt_Evaluate(this) / 100.0f;
-	f32 z     = CEvt_Evaluate(this) / 100.0f;
-	s16 rot   = CEvt_Evaluate(this);
-	f32 sx    = CEvt_Evaluate(this) / 100.0f;
-	f32 sy    = CEvt_Evaluate(this) / 100.0f;
-	f32 sz    = CEvt_Evaluate(this) / 100.0f;
-	s32 arg   = CEvt_Evaluate(this);
-	XObj* obj = CEvt_FindObj(id);
+	s16 id     = CEvt_Evaluate(this);
+	s16 type   = CEvt_Evaluate(this);
+	f32 x      = CEvt_Evaluate(this) / 100.0f;
+	f32 y      = CEvt_Evaluate(this) / 100.0f;
+	f32 z      = CEvt_Evaluate(this) / 100.0f;
+	s16 rot    = CEvt_Evaluate(this);
+	f32 sx     = CEvt_Evaluate(this) / 100.0f;
+	f32 sy     = CEvt_Evaluate(this) / 100.0f;
+	f32 sz     = CEvt_Evaluate(this) / 100.0f;
+	u8* script = (u8*)CEvt_Evaluate(this);
+	XObj* obj  = CEvt_FindObj(id);
 	if (obj == NULL) {
 		obj = CEvt_Born(type + 0x16);
 		if (obj != NULL) {
@@ -11309,7 +11309,7 @@ s32 CEvt::_cmd_BORN(u8, s32)
 		obj->SetScale(sx, sy, sz, 0);
 		UpdateObjectFloorHeights(obj);
 		UpdateObjectFloorXZExtent(obj);
-		obj->mEventScript = arg;
+		obj->mEventScript = script;
 		s16 index         = FindStageObjectIndex(&gGame.mXObjs, (CXObj*)obj);
 		if (CEvt_FindObj(id) == NULL) {
 			gEventObjectIds.mEntry[gEventObjectIds.mCount].mId    = id;
@@ -12082,20 +12082,6 @@ s32 CEvt::_cmd_ATTACH(u8 command, s32)
     blr
 */
 
-// puts an anim in the first free slot after the one playing
-static inline void CEvt_QueueAnim(XObj* obj, s32 anim, u16 frame, s16 rate)
-{
-	for (int i = 0; i < 16; i++) {
-		int index = (obj->mAnmQueue.mNext + i) % 16;
-		if (obj->mAnmQueue.mEntry[index].mId == -1) {
-			obj->mAnmQueue.mEntry[index].mId    = anim;
-			obj->mAnmQueue.mEntry[index].mFrame = frame;
-			obj->mAnmQueue.mEntry[index].mRate  = rate;
-			return;
-		}
-	}
-}
-
 /**
  * @note Address: 0x8007AE5C
  * @note Size: 0x630
@@ -12132,7 +12118,7 @@ s32 CEvt::_cmd_ANIM2(u8 command, s32)
 				}
 				obj->UpdateAnim(1);
 			} else {
-				CEvt_QueueAnim(obj, anim, frame, rate);
+				obj->PushAnim(anim, frame, rate);
 			}
 		} else {
 			CEvt_Warn(FormatToStaticBuffer("anim2(%d, %d,%d,%d) ... obj(%d) killed!", id, anim, frame, rate, id));
@@ -17099,10 +17085,10 @@ s32 CEvt::_cmd_CALL(u8, s32)
 		if (flags == -1) {
 			XObj* obj            = CEvt_GetObj(this, id);
 			obj->mMarkerOverride = 0;
-			obj->mMarkerOverride |= 0x80000000;
+			obj->mMarkerOverride |= MarkerUseAvailable;
 		} else {
 			XObj* obj = CEvt_GetObj(this, id);
-			obj->mMarkerOverride &= ~0x80000000;
+			obj->mMarkerOverride &= ~MarkerUseAvailable;
 			obj->mMarkerOverride |= flags;
 		}
 		break;

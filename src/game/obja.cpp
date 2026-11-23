@@ -58,6 +58,10 @@ static inline void StepColor(f32& current, f32& target, f32& speed, u32 frames)
 
 extern "C" void PSMTXMultVecArray(const Mtx m, const Vec* src, Vec* dst, u32 count);
 
+/**
+ * @note Address: 0x8008C8A4
+ * @note Size: 0x97C
+ */
 extern "C" void UpdateObjectFloorHeights(XObj* object)
 {
 	for (u32 i = 0; i < ARRAY_SIZE(object->mFloorHeights); ++i)
@@ -126,6 +130,10 @@ static inline void ExpandRadius(f32 x, f32 z, f32& maxX, f32& maxZ)
 		maxZ = ABS(z);
 }
 
+/**
+ * @note Address: 0x8008D220
+ * @note Size: 0xCA0
+ */
 extern "C" void UpdateObjectFloorXZExtent(XObj* object)
 {
 	object->mFloorXZExtent = NAN;
@@ -250,6 +258,10 @@ static inline void FloorNormalAngle(const CVec& normal, Vec* out, f32& angle)
 		*out = normal;
 }
 
+/**
+ * @note Address: 0x8008DF34
+ * @note Size: 0xE1C
+ */
 extern "C" f32 GetFloorFacingAngle(XObj* object, const Vec* pos, s32 index, s32 requireSegment, Vec* contact, Vec* normalOut)
 {
 	const XObjFloor& floorRecord = object->mFloors[index];
@@ -580,7 +592,7 @@ u32 XObj::TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 hei
 			    && (!(gGame.mStatus.mFlags & 0x40000000) || !IsPlayerStopped(player) || !player->mBatteryDrains
 			        || (mStatus.mFlags & 0x8000))) {
 				mStatus.mFlags |= 0x8000000000000000ULL;
-				StartOrQueueEventScript(&gGame.mEvt, (u8*)GetEventScript(), (u32)this, -1, -1);
+				StartOrQueueEventScript(&gGame.mEvt, GetEventScript(), (u32)this, -1, -1);
 			}
 		}
 		if (flags & 1) { // let the object's own handler react and adjust the result

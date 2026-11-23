@@ -37,7 +37,7 @@ void FbSubwin::Draw()
 	SetupAll(TRUE);
 
 	f32 amount = mAmount;
-	f32 fade   = sin(0.5f * (3.1415927f * amount));
+	f32 fade   = sin(0.5f * (PI * amount));
 	if (fpclassify(mRectWidth) == FP_NAN || fpclassify(mRectHeight) == FP_NAN) {
 		CTexObj frame = WindowFrameTexture();
 		f32 w         = fade * GXGetTexObjWidth(&frame);

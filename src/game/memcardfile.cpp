@@ -47,7 +47,7 @@ extern "C" BOOL OpenOrCreateSaveFile(Memcard* card, char* name, BOOL create)
 		return TRUE;
 	}
 	if (!create && card->mStat.length != 0xC000) {
-		card->mCard.mResult = -128;
+		card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
 		card->mCard.Close();
 		card->mCard.Unmount();
 		return TRUE;

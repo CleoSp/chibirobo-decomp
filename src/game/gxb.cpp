@@ -69,6 +69,10 @@ static inline BOOL ProjectRoboeyesItem(XObj* object, f32* width, f32* height)
 	return object->ProjectVisibleBounds(width, height, NULL, r, h);
 }
 
+/**
+ * @note Address: 0x8001FCF4
+ * @note Size: 0xAD4
+ */
 extern "C" void DrawRoboeyesItemLabels(CScrnRoboeyes* eyes, CBase* base)
 {
 	if (!(gGame.mStatus.mFlags & 0x100))
@@ -1368,10 +1372,9 @@ s32 XObj::HandleEventCommand(s32 count, s32* args)
  * @note Address: 0x80025A98
  * @note Size: 0x8
  */
-// XObj's GetEventScript
-extern "C" s32 GetEventScript__4XObjFv(XObj* object)
+u8* XObj::GetEventScript()
 {
-	return object->mEventScript;
+	return mEventScript;
 }
 
 /**
@@ -1736,7 +1739,7 @@ extern "C" void UpdateBootLogos(Logo* logo, u32 frames)
 	case 4:
 		logo->mTimer += frames;
 		if (logo->mTimer >= 1.5f * FRAME_RATE) {
-			if ((logo->mAngle += (DEG2RAD * (180.0f / FRAME_RATE)) * frames) >= 3.1415927f) {
+			if ((logo->mAngle += (DEG2RAD * (180.0f / FRAME_RATE)) * frames) >= PI) {
 				logo->mAngle = 0.0f;
 			}
 			BOOL done = logo->mTimer >= 60.0f * FRAME_RATE ? TRUE : (&gGame.mPad.mPad[0])->mTrigger != 0;
@@ -2067,6 +2070,10 @@ void XObjDemo::ResetObjectState()
 	}
 }
 
+/**
+ * @note Address: 0x80028544
+ * @note Size: 0x668
+ */
 extern "C" void DrawTitleHelpText(Title* menu)
 {
 	f32 alpha   = menu->mMenuAlpha * menu->mHelpAlpha;
@@ -2423,6 +2430,10 @@ static inline void DrawLoadChoice(Title* title, s32 label, f32 center, f32 y)
 }
 #endif
 
+/**
+ * @note Address: 0x80029DFC
+ * @note Size: 0xE6C
+ */
 extern "C" void DrawTitleLoadScreen(Title* title)
 {
 	switch (title->mMode) {
@@ -2802,6 +2813,10 @@ static inline f32 TitleOptionWidth(s32 first)
 }
 #endif
 
+/**
+ * @note Address: 0x8002AC68
+ * @note Size: 0xF14
+ */
 extern "C" void DrawTitleScreen(Title* title)
 {
 #if defined(VERSION_JP)
@@ -2865,7 +2880,7 @@ extern "C" void DrawTitleScreen(Title* title)
 		DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, 320.0f, 398.0f, 0, .6f * w, .6f * h, 0, 0, 0);
 		SetGsTevMode(gs.mCurTevStage, 4);
 	}
-	DrawPanelBackground<SavePanel>(title->mLoadAlpha + title->mOptionAlpha);
+	DrawSavePanelBackground(title->mLoadAlpha + title->mOptionAlpha);
 	DrawTitleHelpText(title);
 	DrawTitleLoadScreen(title);
 	DrawTitleOptions(title);
@@ -4084,6 +4099,7 @@ static inline void TitleSelectionConfirmed(Title* title)
 
 /**
  * @note Address: 0x8002E8D0
+ * @note Size: 0x2418
  */
 // NONMATCHING: retail reaches the card's busy and found flags in two steps and turns the result of
 // the shift-jis test into 0 or 1 before it tests it

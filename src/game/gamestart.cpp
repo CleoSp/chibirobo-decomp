@@ -18,7 +18,6 @@ extern "C" {
 
 extern "C" {
 void InitGameSound(XSound*);
-void InitMemoryCardManager(Memcard*);
 s32 GetDefaultStageIndex();
 s32 GetStageNum();
 void LoadBootConfig();
