@@ -809,7 +809,7 @@ static inline void PutAway(XActLift* act)
 		chr->SetAnim(8, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 	}
 	act->mState              = 0;
-	act->mOwner->mAttachment = 0;
+	act->mOwner->mAttachment = AttachmentNone;
 	act->mTarget->mStatus.mFlags &= ~0x0200000000000000ULL;
 	act->mTarget->SetAnim(7, TRUE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
 	act->mTargetState = 20;
@@ -1000,38 +1000,38 @@ void UpdatePushActionAnimation(XActPush* act, s32 anim, HSD_AObj* aobj, u32 fram
  * @note Address: 0x800C56D4
  * @note Size: 0x248
  */
-void HandlePushActionInput(XActPush* act, const CPadOne* pad, f32* weight)
+void XActPush::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	if (act->mState == 2) {
+	if (mState == 2) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
 #if defined(VERSION_JP)
 			if (gGame.mStatus.mFlags & 0x0000080000000000ULL) {
-				if (pad->mTrigger & PAD_BUTTON_B) {
-					Release(act);
-					act->mState = 3;
-					*weight     = 0.0f;
+				if (pad.mTrigger & PAD_BUTTON_B) {
+					Release(this);
+					mState     = 3;
+					moveWeight = 0.0f;
 				}
 			} else
 #endif
-			    if (!(pad->mButton & PAD_BUTTON_A)) {
-				Release(act);
-				act->mState = 3;
-				*weight     = 0.0f;
+			    if (!(pad.mButton & PAD_BUTTON_A)) {
+				Release(this);
+				mState     = 3;
+				moveWeight = 0.0f;
 			}
 		}
-	} else if (act->mState != 0) {
-		if (act->mState != 3 && !(pad->mButton & PAD_BUTTON_A)
+	} else if (mState != 0) {
+		if (mState != 3 && !(pad.mButton & PAD_BUTTON_A)
 #if defined(VERSION_JP)
 		    && !(gGame.mStatus.mFlags & 0x0000080000000000ULL)
 #endif
 		) {
-			Release(act);
-			XObjChr* chr = act->mOwner;
+			Release(this);
+			XObjChr* chr = mOwner;
 			chr->SetAnim(17, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 			chr->mIdleLoops = 3;
-			act->mState     = 0;
+			mState          = 0;
 		}
-		*weight = 0.0f;
+		moveWeight = 0.0f;
 	}
 }
 
@@ -1303,7 +1303,7 @@ void UpdatePlayerRopeAction(XActRope* act, s32 anim, HSD_AObj* aobj, u32 frames,
 		if (anim != 0x25)
 			RopeAnim(act, 0x25, 0);
 		else if (aobj->flags & 0x44000000) {
-			if (act->mOwner->GetAttachment() == 1) {
+			if (act->mOwner->GetAttachment() == AttachmentCopter) {
 				act->mState                 = 0;
 				act->mOwner->mCopter.mState = 7;
 			} else {
@@ -1374,20 +1374,20 @@ void PositionPlayerAroundRopeTarget(XActRope* act, f32 angle)
  * @note Address: 0x800C7AC4
  * @note Size: 0x100
  */
-void HandleRopeActionInput(XActRope* act, const CPadOne* pad, f32* weight)
+void XActRope::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	if (act->mState == 5) {
+	if (mState == 5) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
 			// b lets go of the rope
-			if (pad->mTrigger & PAD_BUTTON_B) {
-				act->mState = 8;
+			if (pad.mTrigger & PAD_BUTTON_B) {
+				mState = 8;
 			}
-			if (act->mOwner->mAnimId == 0x8A || act->mOwner->mAnimId == 0x8C) {
-				*weight = 0.0f;
+			if (mOwner->mAnimId == 0x8A || mOwner->mAnimId == 0x8C) {
+				moveWeight = 0.0f;
 			}
 		}
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 
@@ -1727,7 +1727,7 @@ void UpdateLadderActionAnimation(XActLadder* act, s32 anim, HSD_AObj* aobj, u32 
 			RecordObjectPositionAndHeightChange(act->mOwner);
 			s32 path2[] = { 0 };
 			SetObjectJointTranslationByPath(act->mOwner, 1, path2, 0.0f, 0.0f, 0.0f);
-			if (act->mOwner->GetAttachment() == 1) {
+			if (act->mOwner->GetAttachment() == AttachmentCopter) {
 				act->mState                 = 0;
 				act->mOwner->mCopter.mState = 4;
 			} else {
@@ -1918,7 +1918,7 @@ void UpdatePlayerHangAction(XActHang* act, s32 anim, HSD_AObj* aobj, u32, f32 fr
 		}
 		act->mOwner->SetPos(act->mTarget->mMoveTranslate + act->mHangStartOffset, 0);
 		RecordObjectPositionAndHeightChange(act->mOwner);
-		if (act->mOwner->GetAttachment() == 2 || act->mOwner->mLift.mState) {
+		if (act->mOwner->GetAttachment() == AttachmentPopper || act->mOwner->mLift.mState) {
 			act->mOwner->mJump.mState = 2;
 			act->mState               = 0;
 			act->mTarget              = NULL;
@@ -2095,7 +2095,7 @@ void UpdatePlayerHangAction(XActHang* act, s32 anim, HSD_AObj* aobj, u32, f32 fr
 				HangAnim(act, 0x1b);
 				act->mState = 11;
 			}
-		} else if (act->mOwner->GetAttachment() == 1) {
+		} else if (act->mOwner->GetAttachment() == AttachmentCopter) {
 			act->mState                 = 0;
 			act->mOwner->mCopter.mState = 8;
 		}
@@ -2134,15 +2134,15 @@ void RecordObjectPositionAndHeightChange(XObj* obj)
  * @note Address: 0x800C9C70
  * @note Size: 0xE4
  */
-void HandleLadderActionInput(XActLadder* act, const CPadOne* pad, f32* weight)
+void XActLadder::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	act->mBPressed = FALSE;
-	if (act->mState == 5) {
-		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL && (pad->mTrigger & PAD_BUTTON_B)) {
-			act->mBPressed = TRUE;
+	mBPressed = FALSE;
+	if (mState == 5) {
+		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL && (pad.mTrigger & PAD_BUTTON_B)) {
+			mBPressed = TRUE;
 		}
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 
@@ -2507,10 +2507,10 @@ void ApplyPlayerJumpStrength(XActJump* act, f32 strength)
  * @note Address: 0x800CBDB4
  * @note Size: 0x18
  */
-void SuppressMovementDuringJump(XActJump* act, const CPadOne* pad, f32* weight)
+void XActJump::HandleInput(const CPadOne&, f32& moveWeight)
 {
-	if (act->mState != 0) {
-		*weight = 0.0f;
+	if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 
@@ -2518,34 +2518,34 @@ void SuppressMovementDuringJump(XActJump* act, const CPadOne* pad, f32* weight)
  * @note Address: 0x800CE120
  * @note Size: 0x214
  */
-void HandleHangActionInput(XActHang* act, const CPadOne* pad, f32* weight)
+void XActHang::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	act->mStickAway = FALSE;
-	if (act->mState == 4) {
-		f32 stick = -(f32)atan2(pad->mStickX, pad->mStickY);
-		f32 angle = WrapAngle(stick + gGame.mMotionControlCamera.mCamera.mAngle.y - act->mOwner->mMoveRotate.y);
+	mStickAway = FALSE;
+	if (mState == 4) {
+		f32 stick = -(f32)atan2(pad.mStickX, pad.mStickY);
+		f32 angle = WrapAngle(stick + gGame.mMotionControlCamera.mCamera.mAngle.y - mOwner->mMoveRotate.y);
 		// the stick points anywhere but within 30 degrees of where he faces
 		if (!(angle < 30 * DEG2RAD) && !(angle > 330 * DEG2RAD)) {
-			act->mStickAway = TRUE;
+			mStickAway = TRUE;
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 5) {
+		moveWeight = 0.0f;
+	} else if (mState == 5) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
 			// a climbs up if there is room, b lets go (9)
-			if (pad->mTrigger & PAD_BUTTON_A) {
-				if (act->mTarget == NULL || (act->mTarget->mStatus.mFlags & 0x400000000ULL)) {
-					TryLeaveHang(act);
-					act->mMoveDirection = 0;
+			if (pad.mTrigger & PAD_BUTTON_A) {
+				if (mTarget == NULL || (mTarget->mStatus.mFlags & 0x400000000ULL)) {
+					TryLeaveHang(this);
+					mMoveDirection = 0;
 				}
-				*weight = 0.0f;
-			} else if (pad->mTrigger & PAD_BUTTON_B) {
-				act->mState         = 9;
-				act->mMoveDirection = 0;
-				*weight             = 0.0f;
+				moveWeight = 0.0f;
+			} else if (pad.mTrigger & PAD_BUTTON_B) {
+				mState         = 9;
+				mMoveDirection = 0;
+				moveWeight     = 0.0f;
 			}
 		}
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 
@@ -3265,10 +3265,10 @@ s16 GetObjectItemId(XObj* obj)
  * @note Address: 0x800D4368
  * @note Size: 0x48C
  */
-void HandleLiftActionInput(XActLift* act, const CPadOne* pad, f32* weight)
+void XActLift::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	if (act->mState == 4) {
-		XObjChr* chr = act->mOwner;
+	if (mState == 4) {
+		XObjChr* chr = mOwner;
 		if (chr->mJump.mState != 0) {
 			return;
 		}
@@ -3285,67 +3285,67 @@ void HandleLiftActionInput(XActLift* act, const CPadOne* pad, f32* weight)
 			return;
 		}
 		if (chr->mAnimId == 0x895 || chr->mAnimId == 0x8AE || chr->mAnimId == 0x8AF) {
-			*weight = 0.0f;
+			moveWeight = 0.0f;
 			return;
 		}
 		// a sets it down (6), b puts an item away (19) and sets anything else down
-		if (pad->mTrigger & PAD_BUTTON_A) {
-			if (act->mTarget == NULL) {
+		if (pad.mTrigger & PAD_BUTTON_A) {
+			if (mTarget == NULL) {
 				return;
 			}
-			if (act->mTarget->GetCategory() == 8) {
+			if (mTarget->GetCategory() == 8) {
 				return;
 			}
 			if (chr->mFloorContacts[4].objectIndex >= 0 && (gGame.GetObject(chr->mFloorContacts[4].objectIndex)->mStatus.mFlags & 0x20)) {
-				*weight = 0.0f;
+				moveWeight = 0.0f;
 				return;
 			}
-			if (act->mTarget->GetCategory() == 0x18) {
+			if (mTarget->GetCategory() == 0x18) {
 				return;
 			}
-			act->mState = 6;
-			*weight     = 0.0f;
-		} else if (pad->mTrigger & PAD_BUTTON_B) {
-			if (act->mTarget != NULL) {
-				if (act->mTarget->GetCategory() == 8) {
-					if (chr->GetAttachment() == 0) {
-						act->mState = 19;
+			mState     = 6;
+			moveWeight = 0.0f;
+		} else if (pad.mTrigger & PAD_BUTTON_B) {
+			if (mTarget != NULL) {
+				if (mTarget->GetCategory() == 8) {
+					if (chr->GetAttachment() == AttachmentNone) {
+						mState = 19;
 					}
 				} else {
-					act->mState = 6;
+					mState = 6;
 				}
 			}
-			*weight = 0.0f;
+			moveWeight = 0.0f;
 		}
-	} else if (act->mState == 12 || act->mState == 13) {
+	} else if (mState == 12 || mState == 13) {
 		// a or b stops giving power and pulls the plug (14)
-		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL && ((pad->mTrigger & PAD_BUTTON_A) || (pad->mTrigger & PAD_BUTTON_B))) {
-			act->mState = 14;
-			act->mTimer = 0.0f;
+		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL && ((pad.mTrigger & PAD_BUTTON_A) || (pad.mTrigger & PAD_BUTTON_B))) {
+			mState = 14;
+			mTimer = 0.0f;
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 15) {
+		moveWeight = 0.0f;
+	} else if (mState == 15) {
 		if (gGame.IsRunning()) {
-			if (pad->mStickX > 0.8f) {
-				act->mState = 16;
-				act->mTimer = 0.0f;
-			} else if (pad->mTrigger & PAD_BUTTON_B) {
-				act->mState = 17;
-				act->mTimer = 0.0f;
+			if (pad.mStickX > 0.8f) {
+				mState = 16;
+				mTimer = 0.0f;
+			} else if (pad.mTrigger & PAD_BUTTON_B) {
+				mState = 17;
+				mTimer = 0.0f;
 			}
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 27) {
+		moveWeight = 0.0f;
+	} else if (mState == 27) {
 		// the first frames of a toothbrush stroke leave the stick alone
-	} else if (act->mState == 28) {
-	} else if (act->mState == 31 || act->mState == 32) {
+	} else if (mState == 28) {
+	} else if (mState == 31 || mState == 32) {
 		// he uses the mug for as long as a is held
-		if (!(pad->mButton & PAD_BUTTON_A)) {
-			act->mState = 33;
+		if (!(pad.mButton & PAD_BUTTON_A)) {
+			mState = 33;
 		}
-		*weight = 0.0f;
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+		moveWeight = 0.0f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 

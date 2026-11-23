@@ -26,7 +26,6 @@ static inline void ResetRingMode(OctaMenu& ring)
  * @note Address: 0x800BBDAC
  * @note Size: 0x338
  */
-// NONMATCHING: retail writes gPlayerSuitChangeEffect without the extra compare/branch this source produces
 void XObjChr::ResetForNewGame()
 {
 	ResetPlayerStats(&mParams);
@@ -65,20 +64,9 @@ void XObjChr::ResetForNewGame()
 		GetHudPointParticleOrigin(&gGame.mInfoScrn, &p.mStartY, &p.mStartX);
 		p.display.mState = p.burst.mState = 0;
 	}
-	gPlayerSuitChangeEffect.active = FALSE;
-	// NONMATCHING: retail emits the clear as two branch-free straight-line runs
-	// (one base for rings[0], a second base at +0xf0 for rings[1]). Nested loops
-	// and two separate loops both keep a bound check under MWCC, so the flat
-	// loop stays as the honest form.
-	for (s32 i = 0; i < 20; ++i) {
-		gPlayerSuitChangeEffect.rings[0][i].scale = 0.0f;
-		gPlayerSuitChangeEffect.rings[0][i].angle = 0.0f;
-	}
-	mPlayerStatus.mFlags = 0;
-	mPlayerStatus.mFlags = 0;
-	mPlayerStatus.mFlags |= 0x20000000;
-	mPlayerStatus.mFlags |= 7; // the give-control-back flags
-	mPad.mReset = TRUE;
+	gPlayerSuitChangeEffect.Reset();
+	mPlayerStatus.mFlags = 0; // new-game reset clears these before handing control back
+	RestoreControl();
 }
 
 static inline void SetupPlayerRing(OctaMenu& ring, XObjChr* owner, f32 direction)

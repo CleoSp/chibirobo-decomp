@@ -45,4 +45,6 @@ public:
 };
 STATIC_ASSERT(sizeof(ARPreCache) == 0x1E8);
 
+extern "C" ARPreCache gAramPrecache;
+
 #endif

@@ -44,10 +44,7 @@ game/gamecobjarchive.cpp:
 	.text       start:0x80008E30 end:0x80008E90
 
 game/gamecmsg.cpp:
-	.text       start:0x80008E90 end:0x80008F7C
-
-game/gamemsgcursor.cpp:
-	.text       start:0x80008F7C end:0x80008FD0
+	.text       start:0x80008E90 end:0x8000904C
 
 game/gameinterval.cpp:
 	.text       start:0x8000A4D8 end:0x8000A580
@@ -86,7 +83,7 @@ game/game.cpp:
 	.text       start:0x800078A0 end:0x80008364
 
 game/gameccameraactions.cpp:
-	.text       start:0x80008FD0 end:0x8000A4D8
+	.text       start:0x8000904C end:0x8000A4D8
 
 game/gameccameraset.cpp:
 	.text       start:0x8000DFE4 end:0x8000FA9C
@@ -282,7 +279,7 @@ game/cfilearchivedtor.cpp:
 	.text       start:0x8001BB04 end:0x8001BB60
 
 game/cbasector.cpp:
-	.text       start:0x8001BB60 end:0x8001BC3C
+	.text       start:0x8001BB60 end:0x8001BC78
 
 game/cgsctor.cpp:
 	.text       start:0x8001BC78 end:0x8001BE1C
@@ -295,9 +292,6 @@ game/cgschannelctor.cpp:
 
 game/cgamector.cpp:
 	.text       start:0x80019A64 end:0x8001B15C
-
-game/ccameractor.cpp:
-	.text       start:0x8001BC3C end:0x8001BC78
 
 game/fbmirrorex.cpp:
 	.text       start:0x8001BEF4 end:0x8001CBDC
@@ -372,12 +366,14 @@ game/msg.cpp:
 
 game/msgdataformat.cpp:
 	.text       start:0x800888A8 end:0x80088E80
+	.data       start:0x8022BFF8 end:0x8022C05C
 
 game/memcardcheck.cpp:
 	.text       start:0x80088E80 end:0x800890EC
 
 game/memcardheader.cpp:
 	.text       start:0x800890EC end:0x80089464
+	.sdata2     start:0x80664270 end:0x80664278
 
 game/memcardload.cpp:
 	.text       start:0x80089464 end:0x800897B0
@@ -745,6 +741,7 @@ game/xobjspiderbossdtor.cpp:
 
 game/xobjspiderbossse.cpp:
 	.text       start:0x80102B44 end:0x80102C98
+	.sdata2     start:0x80665138 end:0x8066513C
 
 game/xobjspiderbossstates34.cpp:
 	.text       start:0x80102C98 end:0x8010639C
@@ -757,6 +754,7 @@ game/xobjspiderbossgetup.cpp:
 
 game/xobjspiderbossstate.cpp:
 	.text       start:0x80106734 end:0x801067C8
+	.sdata2     start:0x806651C8 end:0x806651D4
 
 game/xobjspiderbossattack.cpp:
 	.text       start:0x801067C8 end:0x80107A28
@@ -798,6 +796,7 @@ game/xobjactorground.cpp:
 
 game/xobjactorstop.cpp:
 	.text       start:0x801098C4 end:0x801098FC
+	.sdata2     start:0x80665230 end:0x80665234
 
 game/xobjactorevent.cpp:
 	.text       start:0x801098FC end:0x80109D60
@@ -1925,7 +1924,7 @@ game/cfont.cpp:
 	extabindex  start:0x80006DAC end:0x80006DC4
 	.text       start:0x801A116C end:0x801A1BF0
 	.rodata     start:0x802153B0 end:0x80215540
-	.data       start:0x8023E5C0 end:0x8025F228
+	.data       start:0x8023E5C0 end:0x8025F228 align:32
 	.sdata      start:0x80661C00 end:0x80661C08
 	.sbss       start:0x80662700 end:0x80662718
 	.sdata2     start:0x806667C8 end:0x806667F0

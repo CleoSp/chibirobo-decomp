@@ -92,6 +92,18 @@ struct XObjChrIdleJoint {
 };
 STATIC_ASSERT(sizeof(XObjChrIdleJoint) == 0xC);
 
+enum PlayerAttachment {
+	AttachmentNone       = 0,
+	AttachmentCopter     = 1,
+	AttachmentPopper     = 2,
+	AttachmentRadar      = 3,
+	AttachmentToothbrush = 4,
+	AttachmentSpoon      = 5,
+	AttachmentMug        = 6,
+	AttachmentSquirter   = 7,
+	AttachmentUnequip    = 8
+};
+
 // a count per attachment, id then value for each of the 9
 struct AttachmentValue {
 	s32 mId;    // _00
@@ -160,6 +172,11 @@ STATIC_ASSERT(sizeof(PlayerHeadTurn) == 0x40);
 
 class XObjChr : public XObj {
 public:
+	enum ControlFlag {
+		PlayerControlled = 0x20000000,
+		ControlLocked    = 0x40000000,
+	};
+
 	// _00-_980 = XObj
 	CStatus mPlayerStatus;  // _980
 	CObjVec mMotion;        // _988, cleared whenever he stops
@@ -226,9 +243,8 @@ public:
 	s32 mBatteryWarningFrames;           // _9AB4
 	f32 mBatteryWarningFade;             // _9AB8
 	f32 mBatteryWarningAngle;            // _9ABC
-	s32 mGaugeTarget; // _9AC0, the object (XObj* held as s32) whose hold time mGaugeTime counts toward the auto action; 0 for none, reset
-	                  // when the target changes or the action fires
-	f32 mGaugeTime;   // _9AC4, time shown on the player gauge
+	XObj* mGaugeTarget;                  // _9AC0, the object the player is holding the stick toward for an automatic action
+	f32 mGaugeTime;                      // _9AC4, time shown on the player gauge
 	s32 mLoadStep;
 	u8 _9ACC[4];                   // _9AC8
 	XObjPlug mPlug;                // _9AD0
@@ -278,7 +294,23 @@ public:
 	// how far above the floor he is
 	f32 GetHeight() const { return mInAir ? mMoveTranslate.y - mFloorHit.mHeight : 0.0f; }
 
-	// todo: cleanup
+	void LockControl()
+	{
+		mPlayerStatus.mFlags = 0;
+		mPlayerStatus.mFlags |= ControlLocked;
+		mPad.mReset = FALSE;
+	}
+
+	void RestoreControl()
+	{
+		mPlayerStatus.mFlags = 0;
+		mPlayerStatus.mFlags |= PlayerControlled;
+		mPlayerStatus.mFlags |= 7;
+		mPad.mReset = TRUE;
+	}
+
+	void UpdateAttachmentRequest(f32& moveWeight);
+	BOOL IsAttachmentEquipped(PlayerAttachment attachment) const;
 	s32 GetAttachment() const { return mAttachmentRequest >= 0 ? mAttachmentRequest : mAttachment; }
 
 	XObjChr();

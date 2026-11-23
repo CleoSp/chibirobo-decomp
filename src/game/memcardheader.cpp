@@ -1,50 +1,38 @@
-#include "Dolphin/mtx.h"
-#include "game/ccard.h"
+#include "Dolphin/vec.h"
 #include "game/memcard.h"
-
-static inline BOOL ReadFailed(Memcard* card)
-{
-	card->mCard.Close();
-	return TRUE;
-}
 
 /**
  * @note Address: 0x80087190
  * @note Size: 0x378
  */
-extern "C" BOOL ReadValidatedSaveFileCopy(Memcard* card, SaveFile* file)
+BOOL Memcard::ReadSavePreview(SaveFile* file)
 {
-	card->mState = 12;
+	mState = 12;
 	for (s32 copy = 0; copy < 2; ++copy) {
-		card->mCard.Read(file, sizeof(SaveFile), copy * (s32)sizeof(SaveFile));
-		card->LogResult();
-		if (card->mCard.mResult != CARD_RESULT_READY)
-			return ReadFailed(card);
-		SaveHeader* save = &file->mData.mHeader;
-		if (save->mSignature != SAVE_SIGNATURE)
-			card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-		card->LogResult();
-		if (card->mCard.mResult != CARD_RESULT_READY) {
+		if (ReadSaveCopy(file, copy * (s32)sizeof(SaveFile)) != CARD_RESULT_READY)
+			return FailSaveRead(FALSE);
+		SaveData* save = &file->mData;
+		if (!save->HasValidSignature())
+			mCard.mResult = CARD_RESULT_FATAL_ERROR;
+		LogResult();
+		if (mCard.mResult != CARD_RESULT_READY) {
 			if (copy == 1)
-				return ReadFailed(card);
+				return FailSaveRead(FALSE);
 			continue;
 		}
-		u32 checksum   = 0;
-		const u8* data = reinterpret_cast<const u8*>(save);
-		for (u32 i = 0; i < sizeof(SaveData); ++i)
-			checksum += *data++;
+		u32 checksum = save->CalculateChecksum();
 		if (checksum != file->mChecksum)
-			card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-		card->LogResult();
-		if (card->mCard.mResult != CARD_RESULT_READY) {
+			mCard.mResult = CARD_RESULT_FATAL_ERROR;
+		LogResult();
+		if (mCard.mResult != CARD_RESULT_READY) {
 			if (copy == 1)
-				return ReadFailed(card);
+				return FailSaveRead(FALSE);
 			continue;
 		}
-		if (!IsValidSave(save)) {
+		if (!ValidateSaveHeader(&save->mHeader)) {
 			if (copy == 1) {
-				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-				return ReadFailed(card);
+				mCard.mResult = CARD_RESULT_FATAL_ERROR;
+				return FailSaveRead(FALSE);
 			}
 			continue;
 		}

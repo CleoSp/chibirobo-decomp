@@ -176,11 +176,11 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 	case 11:
 		++mLoadStep;
 	case 12:
-		if (GetAttachment() == 1)
+		if (GetAttachment() == AttachmentCopter)
 			ShowIdlePlayerCopter(&mCopterObj);
-		else if (GetAttachment() == 2)
+		else if (GetAttachment() == AttachmentPopper)
 			mPopper.mState = 3;
-		else if (GetAttachment() == 3)
+		else if (GetAttachment() == AttachmentRadar)
 			ShowIdlePlayerRadar(&mRadarObj);
 		++mLoadStep;
 	}

@@ -499,12 +499,12 @@ public:
 	f32 mSpeed;                   // _168
 	s32 mTextPhase;               // _16C
 	s32 mChoice;                  // _170
-	s32 mPurchaseSelection;       // _174
+	s32 mItemShopSelection;       // _174
 	s32 _178;                     // _178, written 0 in Open, never read
 	s32 _17C;                     // _17C, written 0 in Open, never read
 	s32 mYesNo;                   // _180
 	s32 mMoneyDigit;              // _184
-	s32 mShopSelection;           // _188
+	s32 mScrapShopSelection;      // _188
 	s32 mScrapDigit;              // _18C
 	f32 mProgress;                // _190
 	f32 mTargetProgress;          // _194
@@ -729,11 +729,13 @@ STATIC_ASSERT(sizeof(MenuPCItem) == 8);
 
 // the nine rows on screen and the ones just off either end
 struct MenuPCPage {
-	s32 mStart;           // _00, list index of the first row
-	MenuPCItem mRows[20]; // _04
-	s32 mIndex[20];       // _A4, list index of each row
-	MenuPCItem mPrev[1];  // _F4
-	MenuPCItem mNext[1];  // _FC
+	enum { Capacity = 20, VisibleRows = 9 };
+
+	s32 mStart;                 // _00, list index of the first row
+	MenuPCItem mRows[Capacity]; // _04
+	s32 mIndex[Capacity];       // _A4, list index of each row
+	MenuPCItem mPrev[1];        // _F4
+	MenuPCItem mNext[1];        // _FC
 };
 STATIC_ASSERT(sizeof(MenuPCPage) == 0x104);
 

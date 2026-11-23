@@ -24,7 +24,7 @@ extern "C" void ApplyPlayerSuit(XObjChr* player)
 		return;
 	player->ClearAnim();
 	player->ApplyTransform();
-	if (player->GetAttachment() == 2)
+	if (player->GetAttachment() == AttachmentPopper)
 		SetPlayerPopperMountHidden(player, FALSE);
 	s32 suitPath[]  = { 0, 1, 0 };
 	HSD_JObj* mount = FindJointByPath(player->mJObj, suitPath, 3);
@@ -69,7 +69,7 @@ extern "C" void ApplyPlayerSuit(XObjChr* player)
 	BindRotationJoint(player->mHeadTurn.mHead);
 	if (!(gGame.mStatus.mFlags & 0x100))
 		SetPlayerEyeCameraJointsHidden(player, FALSE);
-	if (player->GetAttachment() == 2) // hide the popper mount again
+	if (player->GetAttachment() == AttachmentPopper) // hide the popper mount again
 		SetPlayerPopperMountHidden(player, TRUE);
 	player->SetAnim(17, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 1.0f, 10.0f);
 	player->mIdleLoops = 3;

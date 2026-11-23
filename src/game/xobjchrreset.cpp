@@ -10,10 +10,7 @@
 // puts him back to a clean state, keeps what he was holding to pick it up again after
 void XObjChr::Release()
 {
-	mPlayerStatus.mFlags = 0;
-	mPlayerStatus.mFlags |= 0x20000000;
-	mPlayerStatus.mFlags |= 7;
-	mPad.mReset    = TRUE;
+	RestoreControl();
 	HSD_JObj* jobj = mJObj;
 	if (jobj != NULL) {
 		HSD_JObjClearMtxFlags(jobj);
@@ -30,11 +27,11 @@ void XObjChr::Release()
 		}
 	} else {
 		switch (GetAttachment()) {
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-			mAttachment = 0;
+		case AttachmentToothbrush:
+		case AttachmentSpoon:
+		case AttachmentMug:
+		case AttachmentSquirter:
+			mAttachment = AttachmentNone;
 			break;
 		}
 	}

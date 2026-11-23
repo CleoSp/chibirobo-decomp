@@ -429,7 +429,7 @@ void XObjSpiderBoss::State3(u32 frames)
 	case 13: // the grab: holding the stick in any direction drains the escape meter
 		if (gGame.IsRunning() && (pad.mPad->mButton & 0xf0000)) {
 			mEscapeRemaining -= mEscapeInputStrength;
-			mEscapeInputStrength = 8;
+			mEscapeInputStrength = sEscapeInputStrength;
 		}
 		if (mEscapeInputStrength > 1)
 			mEscapeInputStrength -= 1;
@@ -441,11 +441,8 @@ void XObjSpiderBoss::State3(u32 frames)
 			}
 			mStatus.mFlags &= ~0x100000ULL;
 			mSpiderStatus.mFlags &= ~0x20000;
-			XObjChr* chr              = gGame.GetPlayer();
-			chr->mPlayerStatus.mFlags = 0;
-			chr->mPlayerStatus.mFlags |= 0x20000000; // released, as in ReleasePlayerAt
-			chr->mPlayerStatus.mFlags |= 7;
-			chr->mPad.mReset    = TRUE;
+			XObjChr* chr = gGame.GetPlayer();
+			chr->RestoreControl();
 			mGrabIntervalFrames = 0;
 			SetAttackAnim(this, 7);
 			mStep = 0;

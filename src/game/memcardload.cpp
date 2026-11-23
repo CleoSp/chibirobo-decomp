@@ -1,51 +1,38 @@
-#include "Dolphin/mtx.h"
-#include "game/ccard.h"
+#include "Dolphin/vec.h"
 #include "game/memcard.h"
-
-static inline BOOL ReadFailed(Memcard* card)
-{
-	card->mCard.Close();
-	card->mCard.Unmount();
-	return TRUE;
-}
 
 /**
  * @note Address: 0x80087508
  * @note Size: 0x34C
  */
-extern "C" BOOL ReadValidatedSaveIntoCardBuffer(Memcard* card)
+BOOL Memcard::ReadSaveFile()
 {
-	card->mState     = 12;
-	s32 offset       = 0;
-	s32 copy         = 0;
-	SaveHeader* save = &card->mFile.mData.mHeader;
+	mState         = 12;
+	s32 offset     = 0;
+	s32 copy       = 0;
+	SaveData* save = &mFile.mData;
 	for (; copy < 2; ++copy, offset += sizeof(SaveFile)) {
-		card->mCard.Read(card->mBuffer, sizeof(SaveFile), offset);
-		card->LogResult();
-		if (card->mCard.mResult != CARD_RESULT_READY)
-			return ReadFailed(card);
-		if (card->mFile.mData.mHeader.mSignature != SAVE_SIGNATURE) {
+		if (ReadSaveCopy(&mFile, offset) != CARD_RESULT_READY)
+			return FailSaveRead(TRUE);
+		if (!mFile.mData.HasValidSignature()) {
 			if (copy == 1) {
-				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-				return ReadFailed(card);
+				mCard.mResult = CARD_RESULT_FATAL_ERROR;
+				return FailSaveRead(TRUE);
 			}
 			continue;
 		}
-		u32 checksum   = 0;
-		const u8* data = reinterpret_cast<const u8*>(save);
-		for (u32 i = 0; i < sizeof(SaveData); ++i)
-			checksum += *data++;
-		if (checksum != card->mFile.mChecksum) {
+		u32 checksum = save->CalculateChecksum();
+		if (checksum != mFile.mChecksum) {
 			if (copy == 1) {
-				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-				return ReadFailed(card);
+				mCard.mResult = CARD_RESULT_FATAL_ERROR;
+				return FailSaveRead(TRUE);
 			}
 			continue;
 		}
-		if (!IsValidSave(save)) {
+		if (!ValidateSaveHeader(&save->mHeader)) {
 			if (copy == 1) {
-				card->mCard.mResult = CARD_RESULT_FATAL_ERROR;
-				return ReadFailed(card);
+				mCard.mResult = CARD_RESULT_FATAL_ERROR;
+				return FailSaveRead(TRUE);
 			}
 			continue;
 		}

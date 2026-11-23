@@ -434,17 +434,17 @@ XObj* FindNearestRadarTarget(XActRadar* act)
  * @note Address: 0x800BFC04
  * @note Size: 0x68
  */
-void ApplyRadarMovementWeight(XActRadar* act, const CPadOne* pad, f32* weight)
+void XActRadar::HandleInput(const CPadOne&, f32& moveWeight)
 {
 	// with the radar out (attachment 3) he stands still while it comes out, goes away or scans
-	if (act->mOwner->GetAttachment() == 3) {
-		const s32 state = act->mState;
+	if (mOwner->GetAttachment() == AttachmentRadar) {
+		const s32 state = mState;
 		if (state == 1 || state == 2) {
-			*weight = 0.0f;
+			moveWeight = 0.0f;
 		} else {
 			if (state != 3 && state != 4 && state != 5)
 				return;
-			*weight = 0.0f;
+			moveWeight = 0.0f;
 		}
 	}
 }
@@ -604,10 +604,10 @@ void UpdatePlayerPopperAction(XActPopper* act, s32 anim, HSD_AObj* aobj, u32 fra
 	BOOL canCharge           = FindOwnedInventoryItemIndex(act->mOwner->mParams.mInventory.mItems, 0x35) >= 0;
 	XActPopperCharge& charge = act->mCharge;
 	// with the popper out (attachment 2), holding A charges a shot
-	if (act->mOwner->GetAttachment() == 2) {
+	if (act->mOwner->GetAttachment() == AttachmentPopper) {
 		CPad pad(0);
 		XObjChr* p = act->mOwner;
-		if ((pad.mPad->mButton & 0x100) && canCharge && p->mPopperObj.mAnimId == 4 && !gGame.mEvt.mData.mScript
+		if ((pad.mPad->mButton & PAD_BUTTON_A) && canCharge && p->mPopperObj.mAnimId == 4 && !gGame.mEvt.mData.mScript
 		    && !(gGame.mStatus.mFlags & 0x400) && !p->mLift.mState && !p->mHang.mState && !p->mJump.mState && !p->mLadder.mState
 		    && !p->mRope.mState && !p->mPush.mState && !p->mTumble.mState) {
 			if (!(gGame.mStatus.mFlags & 0x20)) {
@@ -735,7 +735,7 @@ void UpdatePlayerPopperAction(XActPopper* act, s32 anim, HSD_AObj* aobj, u32 fra
 					if (p->mParams.mBattery > p->mParams.mMaxBattery)
 						p->mParams.mBattery = p->mParams.mMaxBattery;
 				}
-				s32 kind = GetAttachmentCountById(&act->mOwner->mAttachments, 2);
+				s32 kind = GetAttachmentCountById(&act->mOwner->mAttachments, AttachmentPopper);
 				if (target)
 					StartAvailablePopperShot(act, origin, kind, target, yaw, pitch, power, speed, range);
 				else
@@ -813,17 +813,17 @@ CVec AddScalarToVectorComponents(const CVec& v, f32 d)
  * @note Address: 0x800C1610
  * @note Size: 0x64
  */
-void ApplyPopperMovementWeight(XActPopper* act, const CPadOne* pad, f32* weight)
+void XActPopper::HandleInput(const CPadOne&, f32& moveWeight)
 {
-	s32 state = act->mState;
+	s32 state = mState;
 	if (state == 4) {
-		*weight = 1.0f;
+		moveWeight = 1.0f;
 	} else if (state == 6) {
-		*weight = 1.0f;
-	} else if (act->mState == 7 || act->mState == 8 || act->mState == 5) {
-		*weight = 1.0f;
+		moveWeight = 1.0f;
+	} else if (mState == 7 || mState == 8 || mState == 5) {
+		moveWeight = 1.0f;
 	} else if (state != 0) {
-		*weight = 0.0f;
+		moveWeight = 0.0f;
 	}
 }
 
@@ -1207,22 +1207,22 @@ CVec GetPlayerFloorSlope(XObjChr* chr)
  * @note Address: 0x800C361C
  * @note Size: 0xC8
  */
-void HandleCopterActionInput(XActCopter* act, const CPadOne* pad, f32* weight)
+void XActCopter::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
-	if (act->mState == 3) {
+	if (mState == 3) {
 		// B or standing still ends the flight
-		if ((pad->mTrigger & 0x200) || IsPlayerStopped(act->mOwner)) {
-			act->mState = 4;
-			PlayCopterDescentAnimation(&act->mOwner->mCopterObj);
+		if ((pad.mTrigger & PAD_BUTTON_B) || IsPlayerStopped(mOwner)) {
+			mState = 4;
+			PlayCopterDescentAnimation(&mOwner->mCopterObj);
 		}
-		*weight = 1.0f;
-	} else if (act->mState == 4 || act->mState == 7 || act->mState == 8) {
-		if (!(pad->mTrigger & 0x200)) {
-			IsPlayerStopped(act->mOwner);
+		moveWeight = 1.0f;
+	} else if (mState == 4 || mState == 7 || mState == 8) {
+		if (!(pad.mTrigger & PAD_BUTTON_B)) {
+			IsPlayerStopped(mOwner);
 		}
-		*weight = 1.0f;
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+		moveWeight = 1.0f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 
@@ -1415,34 +1415,34 @@ void UpdatePlayerTumbleAnimation(XActTumble* act, s32 anim, HSD_AObj* aobj, u32 
  * @note Address: 0x800C4468
  * @note Size: 0x4A4
  */
-void HandleTumbleActionInput(XActTumble* act, const CPadOne* pad, f32* weight)
+void XActTumble::HandleInput(const CPadOne& pad, f32& moveWeight)
 {
 	// lying down (2, 16) A, B or the stick gets him up; after the battery ran out (5) only A or B
-	if (act->mState == 2) {
+	if (mState == 2) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
-			if ((pad->mTrigger & 0x100) || (pad->mTrigger & 0x200) || StickLength(pad) > 0.0f) {
-				act->mState = 3;
+			if ((pad.mTrigger & PAD_BUTTON_A) || (pad.mTrigger & PAD_BUTTON_B) || StickLength(&pad) > 0.0f) {
+				mState = 3;
 			}
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 16) {
+		moveWeight = 0.0f;
+	} else if (mState == 16) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
-			if ((pad->mTrigger & 0x100) || (pad->mTrigger & 0x200) || StickLength(pad) > 0.0f) {
-				act->mState = 17;
+			if ((pad.mTrigger & PAD_BUTTON_A) || (pad.mTrigger & PAD_BUTTON_B) || StickLength(&pad) > 0.0f) {
+				mState = 17;
 			}
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 5) {
+		moveWeight = 0.0f;
+	} else if (mState == 5) {
 		if (gGame.IsRunning() && gGame.mEvt.mData.mScript == NULL) {
-			if ((pad->mTrigger & 0x100) || (pad->mTrigger & 0x200)) {
-				act->mState = 6;
+			if ((pad.mTrigger & PAD_BUTTON_A) || (pad.mTrigger & PAD_BUTTON_B)) {
+				mState = 6;
 			}
 		}
-		*weight = 0.0f;
-	} else if (act->mState == 7) {
-		*weight = 0.8f;
-	} else if (act->mState != 0) {
-		*weight = 0.0f;
+		moveWeight = 0.0f;
+	} else if (mState == 7) {
+		moveWeight = 0.8f;
+	} else if (mState != 0) {
+		moveWeight = 0.0f;
 	}
 }
 

@@ -44,10 +44,7 @@ game/gamecobjarchive.cpp:
 	.text       start:0x80008E14 end:0x80008E74
 
 game/gamecmsg.cpp:
-	.text       start:0x80008E74 end:0x80008F60
-
-game/gamemsgcursor.cpp:
-	.text       start:0x80008F60 end:0x80008FB4
+	.text       start:0x80008E74 end:0x80009030
 
 game/gameinterval.cpp:
 	.text       start:0x8000A4BC end:0x8000A564
@@ -86,7 +83,7 @@ game/game.cpp:
 	.text       start:0x80007880 end:0x80008348
 
 game/gameccameraactions.cpp:
-	.text       start:0x80008FB4 end:0x8000A4BC
+	.text       start:0x80009030 end:0x8000A4BC
 
 game/gameccameraset.cpp:
 	.text       start:0x8000DF7C end:0x8000FA14
@@ -282,7 +279,7 @@ game/cfilearchivedtor.cpp:
 	.text       start:0x8001B7C0 end:0x8001B81C
 
 game/cbasector.cpp:
-	.text       start:0x8001B81C end:0x8001B8F8
+	.text       start:0x8001B81C end:0x8001B934
 
 game/cgsctor.cpp:
 	.text       start:0x8001B934 end:0x8001BAD8
@@ -295,9 +292,6 @@ game/cgschannelctor.cpp:
 
 game/cgamector.cpp:
 	.text       start:0x80019728 end:0x8001AE18
-
-game/ccameractor.cpp:
-	.text       start:0x8001B8F8 end:0x8001B934
 
 game/fbmirrorex.cpp:
 	.text       start:0x8001BBB0 end:0x8001C79C
@@ -378,6 +372,7 @@ game/memcardcheck.cpp:
 
 game/memcardheader.cpp:
 	.text       start:0x80088F8C end:0x80089304
+	.sdata2     start:0x80637420 end:0x80637428
 
 game/memcardload.cpp:
 	.text       start:0x80089304 end:0x80089650
@@ -739,6 +734,7 @@ game/xobjspiderbossdtor.cpp:
 
 game/xobjspiderbossse.cpp:
 	.text       start:0x8010201C end:0x80102170
+	.sdata2     start:0x806382F0 end:0x806382F4
 
 game/xobjspiderbossstates34.cpp:
 	.text       start:0x80102170 end:0x80105868
@@ -751,6 +747,7 @@ game/xobjspiderbossgetup.cpp:
 
 game/xobjspiderbossstate.cpp:
 	.text       start:0x80105C00 end:0x80105C94
+	.sdata2     start:0x80638380 end:0x8063838C
 
 game/xobjspiderbossattack.cpp:
 	.text       start:0x80105C94 end:0x80106EE0
@@ -792,6 +789,7 @@ game/xobjactorground.cpp:
 
 game/xobjactorstop.cpp:
 	.text       start:0x80108DAC end:0x80108DE4
+	.sdata2     start:0x806383E8 end:0x806383EC
 
 game/xobjactorevent.cpp:
 	.text       start:0x80108DE4 end:0x8010927C

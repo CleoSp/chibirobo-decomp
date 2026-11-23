@@ -156,7 +156,7 @@ s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 		case 4: // pick an object up
 			mAttachedId = mCmd[1];
 			mState      = &XObjActorDeca::StatePickUp;
-			ResetActorMovementStep(this);
+			ResetMovementStep();
 			mCmd[0] = 0;
 			break;
 		case 5: // let it go
@@ -178,9 +178,7 @@ s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 			switch (mCmd[1]) {
 			case 1:
 				mActorStatus.mFlags |= 0x100;
-				player->mPlayerStatus.mFlags = 0;
-				player->mPlayerStatus.mFlags |= 0x40000000;
-				player->mPad.mReset = FALSE;
+				player->LockControl();
 				break;
 			default: { // or set him down
 
@@ -192,10 +190,7 @@ s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 				CVec target(position);
 				target.y = 0.0f;
 				player->SetPos(target, 0);
-				player->mPlayerStatus.mFlags = 0;
-				player->mPlayerStatus.mFlags |= 0x20000000;
-				player->mPlayerStatus.mFlags |= 7;
-				player->mPad.mReset = TRUE;
+				player->RestoreControl();
 				HSD_JObjClearMtxFlags(player->mJObj);
 				break;
 			}
@@ -305,7 +300,7 @@ void XObjActorDeca::StatePickUp(u32 frames)
 		}
 		mActorStatus.mFlags &= ~0x2000;
 		mState = &XObjActorDeca::StateHold;
-		ResetActorMovementStep(this);
+		ResetMovementStep();
 		break;
 	}
 }
@@ -368,7 +363,7 @@ void XObjActorDeca::UpdateAfterAnim(u32 frames)
 	s32 head[5] = { 0, 1, 0, 0, 0 };
 	joint.Attach(FindJointByPath(mJObj, head, 5));
 	joint.SetRotationY(mJointYaw, 0);
-	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & 0x40000000)) { // the player rides the mount joint
+	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) { // the player rides the mount joint
 
 		s32 mount[2] = { 0, 3 };
 		joint.Attach(FindJointByPath(mJObj, mount, 2));
@@ -440,7 +435,7 @@ void XObjActorDeca::ResetActorState()
 	mJointYaw           = PI; // the joint starts yawed around
 	mJointYawTarget     = PI;
 	mState              = &XObjActorDeca::StateHold;
-	ResetActorMovementStep(this);
+	ResetMovementStep();
 	for (u32 i = 0; i < 20; i++) {
 		mCmd[i] = 0;
 	}

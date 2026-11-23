@@ -271,7 +271,7 @@ void XObjActorMama::UpdateAfterAnim(u32 frames)
 				break;
 			}
 	}
-	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & 0x40000000)) { // she carries the player
+	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) { // she carries the player
 		s32 hold[6] = { 0, 4, 2, 0, 0, 0 };
 		hand.Attach(FindJointByPath(mJObj, hold, 6));
 		CVec pos = hand.GetPos();

@@ -34,6 +34,8 @@ extern "C" {
 // the memory card jobs run on this one
 extern CThread gMemoryCardThread;
 extern u8 gMemoryCardThreadStack[0x1000];
+extern CThread gMovieUpdateThread;
+extern u8 gMovieUpdateThreadStack[0x1000];
 }
 
 #endif

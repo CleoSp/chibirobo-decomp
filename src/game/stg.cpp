@@ -136,9 +136,9 @@ MenuPCPage gItemShopPage;
 MenuPCPage gScrapShopPage;
 u8 gStatusIconUnlocked[24];
 u8 gStatusEntryAvailable[16];
-static MenuPCItem sItemShopEntries[20];
+static MenuPCItem sItemShopEntries[MenuPCPage::Capacity];
 PCRankingRow gPCRankingRows[10];
-static MenuPCItem sScrapShopEntries[20];
+static MenuPCItem sScrapShopEntries[MenuPCPage::Capacity];
 
 extern "C" CTexObj* CopyMenuTextureObject(CTexObj* dst, const CTexObj* src);
 extern "C" s32 CountScrapShopEntries(const MenuPCPage*);
@@ -467,7 +467,7 @@ BOOL MenuPC::Draw()
 			const f32 scroll = 8.0f;
 #endif
 			MenuPCPage* page = &gItemShopPage;
-			s32 selected     = this->mPurchaseSelection;
+			s32 selected     = this->mItemShopSelection;
 			f32 alpha        = this->mListAlpha;
 #if defined(VERSION_JP)
 			DrawPCItemShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f);
@@ -475,7 +475,7 @@ BOOL MenuPC::Draw()
 			DrawPCItemShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, alpha, 1.0f, scroll);
 #endif
 			DrawPCGoldNumber(true, 339.0f, 316.0f, this->mAlpha, 1.0f, this->mMoneyDisplay.shown);
-			s32 positions = CountItemShopEntries(page) - 8;
+			s32 positions = CountItemShopEntries(page) - (MenuPCPage::VisibleRows - 1);
 			f32 first, last;
 			if (positions <= 1) {
 				first = 0.f;
@@ -499,14 +499,14 @@ BOOL MenuPC::Draw()
 			const f32 scroll = 8.0f;
 #endif
 			MenuPCPage* page = &gScrapShopPage;
-			s32 selected     = this->mShopSelection;
+			s32 selected     = this->mScrapShopSelection;
 #if defined(VERSION_JP)
 			DrawPCScrapShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f);
 #else
 			DrawPCScrapShopList(selected, 320.0f, 215.0f + this->mScroll, this->mTexScroll, 1.0f, 1.0f, scroll);
 #endif
 			DrawPCBlueNumber(true, 339.0f, 316.0f, this->mAlpha, 1.0f, this->mScrapDisplay.shown);
-			s32 positions = CountScrapShopEntries(page) - 8;
+			s32 positions = CountScrapShopEntries(page) - (MenuPCPage::VisibleRows - 1);
 			f32 first, last;
 			if (positions <= 1) {
 				first = 0.f;
@@ -1146,7 +1146,7 @@ BOOL MenuPC::Draw()
 					text = GetPCDialogueText(2) + this->mCharIndex;
 					break;
 				case 3:
-					DrawPCItemPurchasePanel(this->mPurchaseSelection, this->mYesNo, 320.0f, 215.0f + this->mScroll, this->mTexScroll,
+					DrawPCItemPurchasePanel(this->mItemShopSelection, this->mYesNo, 320.0f, 215.0f + this->mScroll, this->mTexScroll,
 					                        this->mAlpha, this->mPanelAlpha);
 					text = GetPCDialogueText(15) + this->mCharIndex;
 					break;
@@ -1154,7 +1154,7 @@ BOOL MenuPC::Draw()
 					text = GetPCDialogueText(16) + this->mCharIndex;
 					break;
 				case 7:
-					DrawPCScrapPurchasePanel(this->mShopSelection, this->mYesNo, 320.0f, 215.0f + this->mScroll, this->mTexScroll,
+					DrawPCScrapPurchasePanel(this->mScrapShopSelection, this->mYesNo, 320.0f, 215.0f + this->mScroll, this->mTexScroll,
 					                         this->mAlpha, this->mPanelAlpha);
 					text = GetPCDialogueText(17) + this->mCharIndex;
 					break;
@@ -3017,7 +3017,7 @@ extern "C" s32 IndexOfLargestOfThree(s64 a, s64 b, s64 c)
 extern "C" s32 CountScrapShopEntries(const MenuPCPage*)
 {
 	s32 count = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 stock               = entry->mCount;
 		if (entry->mItem >= 0 && stock >= 0)
@@ -3033,13 +3033,20 @@ extern "C" s32 CountScrapShopEntries(const MenuPCPage*)
 extern "C" s32 CountItemShopEntries(const MenuPCPage*)
 {
 	s32 count = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 stock               = entry->mCount;
 		if (entry->mItem >= 0 && stock >= 0)
 			count++;
 	}
 	return count;
+}
+
+static inline void SetShopRow(MenuPCItem& row, s16 item, s16 count, s16 price)
+{
+	row.mItem  = item;
+	row.mCount = count;
+	row.mPrice = price;
 }
 
 /**
@@ -3054,48 +3061,38 @@ extern "C" void PopulateScrapShopPage(MenuPCPage* list)
 	s32 n;
 	s16 price;
 	int i;
-	for (i = 0; i < 20; i++) {
-		list->mRows[i].mItem  = -1;
-		list->mRows[i].mCount = -1;
-		list->mRows[i].mPrice = -1;
-		list->mIndex[i]       = -1;
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
+		SetShopRow(list->mRows[i], -1, -1, -1);
+		list->mIndex[i] = -1;
 	}
 	count = 0;
 	n     = 0;
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart && count < list->mStart + 9 && n < 9) {
-				list->mRows[n].mItem  = itemId;
-				list->mRows[n].mCount = stock;
-				list->mRows[n].mPrice = price;
-				list->mIndex[n]       = i;
+				SetShopRow(list->mRows[n], itemId, stock, price);
+				list->mIndex[n] = i;
 				n++;
 			}
 			count++;
 		}
 	}
-	list->mPrev[0].mItem  = -1;
-	list->mPrev[0].mCount = -1;
-	list->mPrev[0].mPrice = -1;
-	list->mNext[0].mItem  = -1;
-	list->mNext[0].mCount = -1;
-	list->mNext[0].mPrice = -1;
-	n                     = 0;
-	count                 = 0;
-	for (i = 0; i < 20; i++) {
+	SetShopRow(list->mPrev[0], -1, -1, -1);
+	SetShopRow(list->mNext[0], -1, -1, -1);
+	n     = 0;
+	count = 0;
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart + 9 && count < list->mStart + 10) {
-				list->mNext[n].mItem  = itemId;
-				list->mNext[n].mCount = stock;
-				list->mNext[n].mPrice = price;
+				SetShopRow(list->mNext[n], itemId, stock, price);
 				if (++n >= 1) {
 					break;
 				}
@@ -3105,16 +3102,14 @@ extern "C" void PopulateScrapShopPage(MenuPCPage* list)
 	}
 	n     = 0;
 	count = 0;
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sScrapShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart - 1 && count < list->mStart) {
-				list->mPrev[n].mItem  = itemId;
-				list->mPrev[n].mCount = stock;
-				list->mPrev[n].mPrice = price;
+				SetShopRow(list->mPrev[n], itemId, stock, price);
 				if (++n >= 1) {
 					break;
 				}
@@ -3126,10 +3121,8 @@ extern "C" void PopulateScrapShopPage(MenuPCPage* list)
 
 static inline void ClearItemShopRows(MenuPCPage* list)
 {
-	for (int i = 0; i < 20; i++) {
-		list->mRows[i].mItem         = -1;
-		list->mRows[i].mCount        = -1;
-		list->mRows[i].mPrice        = -1;
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
+		SetShopRow(list->mRows[i], -1, -1, -1);
 		list->mRows[i].mIsAttachment = 0;
 		list->mIndex[i]              = -1;
 	}
@@ -3148,17 +3141,15 @@ extern "C" void PopulateItemShopPage(MenuPCPage* list)
 	ClearItemShopRows(list);
 	count = 0;
 	n     = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart && count < list->mStart + 9 && n < 9) {
-				list->mRows[n].mItem  = itemId;
-				list->mRows[n].mCount = stock;
-				list->mRows[n].mPrice = price;
-				list->mIndex[n]       = i;
+				SetShopRow(list->mRows[n], itemId, stock, price);
+				list->mIndex[n] = i;
 				if (entry->mIsAttachment)
 					list->mRows[n].mIsAttachment = 1;
 				n++;
@@ -3166,26 +3157,20 @@ extern "C" void PopulateItemShopPage(MenuPCPage* list)
 			count++;
 		}
 	}
-	list->mPrev[0].mItem         = -1;
-	list->mPrev[0].mCount        = -1;
-	list->mPrev[0].mPrice        = -1;
+	SetShopRow(list->mPrev[0], -1, -1, -1);
 	list->mPrev[0].mIsAttachment = 0;
-	list->mNext[0].mItem         = -1;
-	list->mNext[0].mCount        = -1;
-	list->mNext[0].mPrice        = -1;
+	SetShopRow(list->mNext[0], -1, -1, -1);
 	list->mNext[0].mIsAttachment = 0;
 	count                        = 0;
 	n                            = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart + 9 && count < list->mStart + 10) {
-				list->mNext[n].mItem  = itemId;
-				list->mNext[n].mCount = stock;
-				list->mNext[n].mPrice = price;
+				SetShopRow(list->mNext[n], itemId, stock, price);
 				if (entry->mIsAttachment)
 					list->mNext[n].mIsAttachment = 1;
 				if (++n >= 1) {
@@ -3197,16 +3182,14 @@ extern "C" void PopulateItemShopPage(MenuPCPage* list)
 	}
 	count = 0;
 	n     = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < MenuPCPage::Capacity; i++) {
 		const MenuPCItem* entry = sItemShopEntries + i;
 		s16 itemId              = entry->mItem;
 		s16 stock               = entry->mCount;
 		price                   = entry->mPrice;
 		if (itemId >= 0 && stock >= 0) {
 			if (count >= list->mStart - 1 && count < list->mStart) {
-				list->mPrev[n].mItem  = itemId;
-				list->mPrev[n].mCount = stock;
-				list->mPrev[n].mPrice = price;
+				SetShopRow(list->mPrev[n], itemId, stock, price);
 				if (entry->mIsAttachment)
 					list->mPrev[n].mIsAttachment = 1;
 				if (++n >= 1) {
@@ -5605,8 +5588,6 @@ extern "C" CVec GetStagePlacementPosition(XObj* obj)
 	return PlacementPosition(obj->mCoord, lbl_8036203C);
 }
 
-extern "C" void PopulateScrapShopPage(MenuPCPage*);
-
 static inline s32 CountPCShopItems(MenuPCItem* table)
 {
 	s16 item;
@@ -5614,7 +5595,7 @@ static inline s32 CountPCShopItems(MenuPCItem* table)
 	int i;
 	s32 count;
 	count = 0;
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
 		item     = table[i].mItem;
 		quantity = table[i].mCount;
 		if (item >= 0 && quantity >= 0)
@@ -5623,43 +5604,43 @@ static inline s32 CountPCShopItems(MenuPCItem* table)
 	return count;
 }
 // how many rows the nine-row list can start at: the filled rows less eight, at least one
-static inline s32 PCShopMaxPage(MenuPCItem*& table)
+static inline s32 CountShopScrollPositions(MenuPCItem* table)
 {
 	s16 item, quantity;
 	int i;
 	s32 pages = 0;
-	for (i = 0; i < 20; table++, i++) {
-		item     = table->mItem;
-		quantity = table->mCount;
+	for (i = 0; i < MenuPCPage::Capacity; i++) {
+		item     = table[i].mItem;
+		quantity = table[i].mCount;
 		if (item >= 0 && quantity >= 0)
 			pages++;
 	}
-	pages -= 8;
+	pages -= MenuPCPage::VisibleRows - 1;
 	if (pages < 1)
 		pages = 1;
 	return pages;
 }
-static inline s32 ResetPCShopPage(MenuPC* menu, MenuPCItem*& table)
-{
-	s16 item, quantity;
-	int i;
-	s32 pages    = 0;
-	i            = 0;
-	menu->mPhase = 0;
-	for (; i < 20; table++, i++) {
-		item     = table->mItem;
-		quantity = table->mCount;
-		if (item >= 0 && quantity >= 0)
-			pages++;
-	}
-	pages -= 8;
-	if (pages < 1)
-		pages = 1;
-	return pages;
-}
+
 static inline s16 PCShopEntryId(s32 index)
 {
 	return gScrapShopPage.mRows[index].mItem;
+}
+
+static inline void SelectPreviousShopRow(s32& selection)
+{
+	if (--selection < 0)
+		selection = MenuPCPage::Capacity - 1;
+	PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+}
+
+static inline void SelectNextShopRow(s32& selection, const MenuPCPage& page, bool allowEmptyRows)
+{
+	s32 next = selection + 1;
+	if (next <= MenuPCPage::Capacity - 1) {
+		selection = next;
+		if (allowEmptyRows || page.mRows[selection].mItem >= 0)
+			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+	}
 }
 
 /**
@@ -5671,69 +5652,54 @@ void MenuPC::State7(u32 frames)
 	MenuPC* menu = this;
 	s32 count;
 	CPad pad(0);
-	MenuPCItem* table = sScrapShopEntries;
-	count             = CountPCShopItems(table);
+	count = CountPCShopItems(sScrapShopEntries);
 	ApproachHudValue(&menu->mPanelAlpha, &menu->mPanelTarget, 0.08f * frames);
 	switch (menu->mPhase) {
 	case 0: // browsing the catalog: up and down pick a row, A asks to buy it, B goes back
 		if (count > 1) {
-			if (menu->mShopSelection == 0) {
-				if (pad.mPad->mRepeat & 0x20004) {
-					s32 next = menu->mShopSelection + 1;
-					if (next <= 19) {
-						menu->mShopSelection = next;
-						PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-					}
+			if (menu->mScrapShopSelection == 0) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					SelectNextShopRow(menu->mScrapShopSelection, gScrapShopPage, true);
 				}
-				if (pad.mPad->mRepeat & 0x10008) {
-					CountPCShopItems(table);
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					CountPCShopItems(sScrapShopEntries);
 					if (gScrapShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
 						break;
 					}
 				}
-			} else if (menu->mShopSelection == 8) {
-				if (pad.mPad->mRepeat & 0x10008) {
-					if (--menu->mShopSelection < 0)
-						menu->mShopSelection = 19;
-					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+			} else if (menu->mScrapShopSelection == MenuPCPage::VisibleRows - 1) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					SelectPreviousShopRow(menu->mScrapShopSelection);
 				}
-				if (pad.mPad->mRepeat & 0x20004) {
-					if (gScrapShopPage.mStart < PCShopMaxPage(table) - 1) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					if (gScrapShopPage.mStart < CountShopScrollPositions(sScrapShopEntries) - 1) {
 						menu->mScrollTarget = -17.0f;
 						menu->mPhase        = 10;
 						break;
 					}
 				}
 			} else {
-				if (pad.mPad->mRepeat & 0x10008) {
-					if (--menu->mShopSelection < 0)
-						menu->mShopSelection = 19;
-					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					SelectPreviousShopRow(menu->mScrapShopSelection);
 				}
-				if (pad.mPad->mRepeat & 0x20004) {
-					s32 next = menu->mShopSelection + 1;
-					if (next <= 19) {
-						menu->mShopSelection = next;
-						s16 id               = gScrapShopPage.mRows[menu->mShopSelection].mItem;
-						if (id >= 0)
-							PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-					}
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					SelectNextShopRow(menu->mScrapShopSelection, gScrapShopPage, false);
 				}
 			}
 		}
 		// on an empty row, step back to the last filled one
-		if (PCShopEntryId(menu->mShopSelection) < 0) {
+		if (PCShopEntryId(menu->mScrapShopSelection) < 0) {
 			do {
-				menu->mShopSelection--;
-				s16 id = gScrapShopPage.mRows[menu->mShopSelection].mItem;
+				menu->mScrapShopSelection--;
+				s16 id = gScrapShopPage.mRows[menu->mScrapShopSelection].mItem;
 				if (id >= 0)
 					break;
-			} while (menu->mShopSelection != 0);
+			} while (menu->mScrapShopSelection != 0);
 		}
-		if (pad.mPad->mTrigger & 0x100) {
-			if (PCShopEntryId(menu->mShopSelection) >= 0 && gScrapShopPage.mRows[menu->mShopSelection].mCount > 0) {
+		if (pad.mPad->mTrigger & PAD_BUTTON_A) {
+			if (PCShopEntryId(menu->mScrapShopSelection) >= 0 && gScrapShopPage.mRows[menu->mScrapShopSelection].mCount > 0) {
 				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				menu->mPanelTarget = 1.0f;
 				menu->mPhase++;
@@ -5743,27 +5709,27 @@ void MenuPC::State7(u32 frames)
 			PlayGameSound(&gGame.mSound, 0x85, 0xFF);
 			break;
 		}
-		if (pad.mPad->mTrigger & 0x200) {
+		if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 			ResetPCText(menu, 2);
 			PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			menu->mPanelTarget = 0.0f;
 		}
 		break;
 	case 1: // the yes/no asking whether to buy the selected item
-		if (pad.mPad->mRepeat & 0x10008) {
+		if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
 			menu->mYesNo--;
 			if (menu->mYesNo < 0)
 				menu->mYesNo = 1;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-		} else if (pad.mPad->mRepeat & 0x20004) {
+		} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
 			menu->mYesNo++;
 			if (menu->mYesNo > 1)
 				menu->mYesNo = 0;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-		} else if (pad.mPad->mTrigger & 0x100) {
+		} else if (pad.mPad->mTrigger & PAD_BUTTON_A) {
 			if (menu->mYesNo == 0) {
 				MenuPCItem* entry;
-				s32 item  = gScrapShopPage.mIndex[menu->mShopSelection];
+				s32 item  = gScrapShopPage.mIndex[menu->mScrapShopSelection];
 				s32 scrap = GetScrap();
 				entry     = &sScrapShopEntries[item];
 				s16 price = entry->mPrice;
@@ -5791,14 +5757,14 @@ void MenuPC::State7(u32 frames)
 				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				menu->mTargetListAlpha = 1.0f;
 			}
-		} else if (pad.mPad->mTrigger & 0x200) {
+		} else if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 			PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			menu->mPhase       = 0;
 			menu->mPanelTarget = 0.0f;
 		}
 		break;
 	case 2: // bought: A or B closes the PC, and State11 passes mExitState to the script
-		if (pad.mPad->mTrigger & 0x300) {
+		if (pad.mPad->mTrigger & (PAD_BUTTON_A | PAD_BUTTON_B)) {
 			menu->mPhase       = 0;
 			menu->mPanelTarget = 0.0f;
 			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
@@ -5810,7 +5776,8 @@ void MenuPC::State7(u32 frames)
 		break;
 	case 10: // sliding to the next row; once there the list starts a row later
 		if (menu->mScroll == menu->mScrollTarget) {
-			if (gScrapShopPage.mStart < ResetPCShopPage(menu, table) - 1) {
+			menu->mPhase = 0;
+			if (gScrapShopPage.mStart < CountShopScrollPositions(sScrapShopEntries) - 1) {
 				gScrapShopPage.mStart++;
 				PopulateScrapShopPage(&gScrapShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
@@ -5822,7 +5789,7 @@ void MenuPC::State7(u32 frames)
 	case 20: // sliding to the previous row; once there the list starts a row earlier
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
-			CountPCShopItems(table);
+			CountPCShopItems(sScrapShopEntries);
 			if (gScrapShopPage.mStart > 0) {
 				gScrapShopPage.mStart--;
 				PopulateScrapShopPage(&gScrapShopPage);
@@ -8213,11 +8180,10 @@ void DrawPCScrapShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alph
 	f32 barY = 2.0f + ((step * 0.5f + (step * selected + rowY)) - 2.0f * scale);
 	DrawMenuSelectionBar(tex, barX, barY, barW, barH, alpha, textureOffset, barColor);
 
-	MenuPCItem* items = sScrapShopEntries;
-	for (int i = 0; i < 9; i++)
+	for (int i = 0; i < MenuPCPage::VisibleRows; i++)
 		DrawPCScrapShopRow(gScrapShopPage.mRows[i], left, step * i + rowY, alpha, scale);
-	if (gScrapShopPage.mStart < PCShopMaxPage(items) - 1)
-		DrawPCScrapShopRow(gScrapShopPage.mNext[0], left, 9.0f * step + rowY, alpha, scale);
+	if (gScrapShopPage.mStart < CountShopScrollPositions(sScrapShopEntries) - 1)
+		DrawPCScrapShopRow(gScrapShopPage.mNext[0], left, MenuPCPage::VisibleRows * step + rowY, alpha, scale);
 	CountPCShopItems(sScrapShopEntries);
 	if (gScrapShopPage.mStart > 0)
 		DrawPCScrapShopRow(gScrapShopPage.mPrev[0], left, rowY - step, alpha, scale);
@@ -8250,11 +8216,10 @@ void DrawPCItemShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha
 	f32 barY = 2.0f + ((step * 0.5f + (step * selected + rowY)) - 2.0f * scale);
 	DrawMenuSelectionBar(tex, barX, barY, barW, barH, alpha, textureOffset, barColor);
 
-	MenuPCItem* items = sItemShopEntries;
-	for (int i = 0; i < 9; i++)
+	for (int i = 0; i < MenuPCPage::VisibleRows; i++)
 		DrawPCItemShopRow(gItemShopPage.mRows[i], left, step * i + rowY, alpha, scale);
-	if (gItemShopPage.mStart < PCShopMaxPage(items) - 1)
-		DrawPCItemShopRow(gItemShopPage.mNext[0], left, 9.0f * step + rowY, alpha, scale);
+	if (gItemShopPage.mStart < CountShopScrollPositions(sItemShopEntries) - 1)
+		DrawPCItemShopRow(gItemShopPage.mNext[0], left, MenuPCPage::VisibleRows * step + rowY, alpha, scale);
 	CountPCShopItems(sItemShopEntries);
 	if (gItemShopPage.mStart > 0)
 		DrawPCItemShopRow(gItemShopPage.mPrev[0], left, rowY - step, alpha, scale);
@@ -8408,28 +8373,28 @@ void MenuPC::Open()
 	CMenu::Open();
 	mWindow.SetSize(0, 0);
 	mWindow.SetPos(0, 0);
-	mMode              = 0;
-	mPrevMode          = mMode;
-	mPhase             = 0;
-	mTextPhase         = 0;
-	mChoice            = 0;
-	mPurchaseSelection = 0;
-	_178               = 0;
-	_17C               = 0;
-	mMoneyDigit        = 0;
-	mShopSelection     = 0;
-	mScrapDigit        = 0;
-	mProgress          = 0;
-	mTargetProgress    = 0;
-	mSpeed             = 1;
-	_198               = -10;
-	mFrameHeight       = 0;
-	_1A0               = -10;
-	mTargetFrameHeight = 60;
-	mTextX             = 210;
-	mTextY             = 129;
-	mTargetX           = mTextX;
-	mTargetY           = mTextY;
+	mMode               = 0;
+	mPrevMode           = mMode;
+	mPhase              = 0;
+	mTextPhase          = 0;
+	mChoice             = 0;
+	mItemShopSelection  = 0;
+	_178                = 0;
+	_17C                = 0;
+	mMoneyDigit         = 0;
+	mScrapShopSelection = 0;
+	mScrapDigit         = 0;
+	mProgress           = 0;
+	mTargetProgress     = 0;
+	mSpeed              = 1;
+	_198                = -10;
+	mFrameHeight        = 0;
+	_1A0                = -10;
+	mTargetFrameHeight  = 60;
+	mTextX              = 210;
+	mTextY              = 129;
+	mTargetX            = mTextX;
+	mTargetY            = mTextY;
 	ResetPCCharacters(this);
 	mAmount          = 0;
 	mListAlpha       = 1;
@@ -10193,58 +10158,45 @@ void MenuPC::State3(u32 frames)
 	MenuPC* menu = this;
 	s32 count;
 	CPad pad(0);
-	MenuPCItem* table = sItemShopEntries;
-	count             = CountPCShopItems(table);
+	count = CountPCShopItems(sItemShopEntries);
 	ApproachHudValue(&menu->mPanelAlpha, &menu->mPanelTarget, 0.08f * frames);
 	switch (menu->mPhase) {
 	case 0:
 		if (count > 1) {
-			if (menu->mPurchaseSelection == 0) {
-				if (pad.mPad->mRepeat & 0x20004) {
-					s32 next = menu->mPurchaseSelection + 1;
-					if (next <= 19) {
-						menu->mPurchaseSelection = next;
-						PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-					}
+			if (menu->mItemShopSelection == 0) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					SelectNextShopRow(menu->mItemShopSelection, gItemShopPage, true);
 				}
-				if (pad.mPad->mRepeat & 0x10008) {
-					CountPCShopItems(table);
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					CountPCShopItems(sItemShopEntries);
 					if (gItemShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
 						break;
 					}
 				}
-			} else if (menu->mPurchaseSelection == 8) {
-				if (pad.mPad->mRepeat & 0x10008) {
-					if (--menu->mPurchaseSelection < 0)
-						menu->mPurchaseSelection = 19;
-					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+			} else if (menu->mItemShopSelection == MenuPCPage::VisibleRows - 1) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					SelectPreviousShopRow(menu->mItemShopSelection);
 				}
-				if (pad.mPad->mRepeat & 0x20004) {
-					if (gItemShopPage.mStart < PCShopMaxPage(table) - 1) {
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					if (gItemShopPage.mStart < CountShopScrollPositions(sItemShopEntries) - 1) {
 						menu->mScrollTarget = -17.0f;
 						menu->mPhase        = 10;
 						break;
 					}
 				}
 			} else {
-				if (pad.mPad->mRepeat & 0x10008) {
-					if (--menu->mPurchaseSelection < 0)
-						menu->mPurchaseSelection = 19;
-					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
+					SelectPreviousShopRow(menu->mItemShopSelection);
 				}
-				if (pad.mPad->mRepeat & 0x20004) {
-					s32 next = menu->mPurchaseSelection + 1;
-					if (next <= 19) {
-						menu->mPurchaseSelection = next;
-						PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-					}
+				if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
+					SelectNextShopRow(menu->mItemShopSelection, gItemShopPage, true);
 				}
 			}
 		}
-		if (pad.mPad->mTrigger & 0x100) {
-			if (gItemShopPage.mRows[menu->mPurchaseSelection].mItem >= 0 && gItemShopPage.mRows[menu->mPurchaseSelection].mCount > 0) {
+		if (pad.mPad->mTrigger & PAD_BUTTON_A) {
+			if (gItemShopPage.mRows[menu->mItemShopSelection].mItem >= 0 && gItemShopPage.mRows[menu->mItemShopSelection].mCount > 0) {
 				PlayGameSound(&gGame.mSound, 0x88, 0xFF);
 				menu->mPanelTarget = 1.0f;
 				menu->mPhase++;
@@ -10255,7 +10207,7 @@ void MenuPC::State3(u32 frames)
 			PlayGameSound(&gGame.mSound, 0x85, 0xFF);
 			break;
 		}
-		if (pad.mPad->mTrigger & 0x200) {
+		if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 			if (menu->mShopOnly) {
 				ResetPCText(menu, 11);
 				menu->mTargetFrameHeight = 0.0f;
@@ -10268,20 +10220,20 @@ void MenuPC::State3(u32 frames)
 		}
 		break;
 	case 1:
-		if (pad.mPad->mRepeat & 0x10008) {
+		if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
 			menu->mYesNo--;
 			if (menu->mYesNo < 0)
 				menu->mYesNo = 1;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-		} else if (pad.mPad->mRepeat & 0x20004) {
+		} else if (pad.mPad->mRepeat & (HSD_PAD_STICK_DOWN | HSD_PAD_DPADDOWN)) {
 			menu->mYesNo++;
 			if (menu->mYesNo > 1)
 				menu->mYesNo = 0;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
-		} else if (pad.mPad->mTrigger & 0x100) {
+		} else if (pad.mPad->mTrigger & PAD_BUTTON_A) {
 			if (menu->mYesNo == 0) {
 				MenuPCItem* entry;
-				s32 entryIndex = gItemShopPage.mIndex[menu->mPurchaseSelection];
+				s32 entryIndex = gItemShopPage.mIndex[menu->mItemShopSelection];
 				s32 money      = GetMoney();
 				entry          = &sItemShopEntries[entryIndex];
 				if (entry->mPrice <= money) {
@@ -10290,32 +10242,47 @@ void MenuPC::State3(u32 frames)
 					menu->mMoneyDisplay.target = money;
 					menu->mYesNo               = 2;
 					PlayGameSound(&gGame.mSound, 0x30009, 0xFF);
-					s16 id = entry->mItem;
 					if (entry->mIsAttachment) {
+						s32 id = entry->mItem;
 						if (id >= 0 && id < 9) {
 							s32 level = GetAttachmentCountById(&gGame.GetPlayer()->mAttachments, id) + 1;
 							if (level >= 3)
 								level = 3;
 							SetAttachmentCountById(&gGame.GetPlayer()->mAttachments, id, level);
 						}
-					} else if (id >= 0 && id < 0x9F) {
-						s32 index            = FindOwnedInventoryItemIndex(gGame.GetPlayer()->mParams.mInventory.mItems, id);
-						Inventory& inventory = gGame.GetPlayer()->mParams.mInventory;
-						s16 quantity         = index < 0 ? 0 : inventory.mItems[index].mCount;
-						SetOrAddInventoryItemCount(&inventory, id, quantity + 1, FALSE);
+					} else {
+						s16 id = entry->mItem;
+						if (id >= 0 && id < 0x9F) {
+							s32 index            = FindOwnedInventoryItemIndex(gGame.GetPlayer()->mParams.mInventory.mItems, id);
+							Inventory& inventory = gGame.GetPlayer()->mParams.mInventory;
+							s32 quantity         = index >= 0 ? inventory.mItems[index].mCount : 0;
+							SetOrAddInventoryItemCount(&inventory, id, quantity + 1, FALSE);
+						}
 					}
-					if (entry->mCount > 0)
-						entry->mCount--;
-					// items 0x57, 0x59 and 0x5A replace each other: buying one clears the others from the shop and the inventory
-					if (entry->mItem != 0x58 && entry->mItem >= 0x57 && entry->mItem < 0x5B) {
-						for (s32 i = 0; i < 20; i++) {
-							MenuPCItem& other = table[i];
-							if (other.mItem >= 0 && !other.mIsAttachment && other.mItem != 0x58 && other.mItem >= 0x57 && other.mItem < 0x5B
-							    && other.mItem != entry->mItem) {
-								other.mCount = 0;
-								SetOrAddInventoryItemCount(&gGame.GetPlayer()->mParams.mInventory, other.mItem, 0, FALSE);
+					s16 stock     = entry->mCount;
+					entry->mCount = stock > 0 ? stock - 1 : stock;
+					// buying one removes the other two from the shop and inventory
+					switch (entry->mItem) {
+					case 0x57:
+					case 0x59:
+					case 0x5A:
+						for (s32 i = 0; i < MenuPCPage::Capacity; i++) {
+							MenuPCItem& other = sItemShopEntries[i];
+							s16 otherId       = other.mItem;
+							if (otherId < 0 || other.mIsAttachment)
+								continue;
+							switch (otherId) {
+							case 0x57:
+							case 0x59:
+							case 0x5A:
+								if (otherId != entry->mItem) {
+									other.mCount = 0;
+									SetOrAddInventoryItemCount(&gGame.GetPlayer()->mParams.mInventory, otherId, 0, FALSE);
+								}
+								break;
 							}
 						}
+						break;
 					}
 					menu->mPhase++;
 					return;
@@ -10328,7 +10295,7 @@ void MenuPC::State3(u32 frames)
 				menu->mTargetListAlpha = 1.0f;
 			}
 		}
-		if (pad.mPad->mTrigger & 0x200) {
+		if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 			PlayGameSound(&gGame.mSound, 0x86, 0xFF);
 			menu->mPhase           = 0;
 			menu->mPanelTarget     = 0.0f;
@@ -10336,7 +10303,7 @@ void MenuPC::State3(u32 frames)
 		}
 		break;
 	case 2:
-		if (pad.mPad->mTrigger & 0x300) {
+		if (pad.mPad->mTrigger & (PAD_BUTTON_A | PAD_BUTTON_B)) {
 			menu->mPhase       = 0;
 			menu->mPanelTarget = 0.0f;
 			PlayGameSound(&gGame.mSound, 0x88, 0xFF);
@@ -10346,7 +10313,8 @@ void MenuPC::State3(u32 frames)
 		break;
 	case 10:
 		if (menu->mScroll == menu->mScrollTarget) {
-			if (gItemShopPage.mStart < ResetPCShopPage(menu, table) - 1) {
+			menu->mPhase = 0;
+			if (gItemShopPage.mStart < CountShopScrollPositions(sItemShopEntries) - 1) {
 				gItemShopPage.mStart++;
 				PopulateItemShopPage(&gItemShopPage);
 				PlayGameSound(&gGame.mSound, 0x87, 0xFF);
@@ -10358,7 +10326,7 @@ void MenuPC::State3(u32 frames)
 	case 20:
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
-			CountPCShopItems(table);
+			CountPCShopItems(sItemShopEntries);
 			if (gItemShopPage.mStart > 0) {
 				gItemShopPage.mStart--;
 				PopulateItemShopPage(&gItemShopPage);

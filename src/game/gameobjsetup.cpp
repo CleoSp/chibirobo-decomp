@@ -152,7 +152,6 @@ BOOL LoadStageByIndex(s32);
 void ApplyStageClearColor();
 const s32* GetStageEventObjectPairs();
 void RegisterEventObjectId(CEvt*, s16, s16);
-extern ARPreCache gAramPrecache;
 u32 TakeNextCounterValue(void*, u32*);
 s32 HSD_DevComRequest(s32, u32, void*, u32, s32, s32, u32 (*)(void*, u32*), void*);
 u32 ARGetSize();

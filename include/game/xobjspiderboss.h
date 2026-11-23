@@ -64,6 +64,20 @@ public:
 
 	XObjSpiderBoss();
 
+	static const f32 sEscapeInputStrength;
+	static const f32 sDefaultPatrolMin;
+	static const f32 sDefaultPatrolSize;
+	static const f32 sZero;
+
+	void ResetPatrolArea()
+	{
+		mAreaPos.x = sDefaultPatrolMin;
+		mAreaPos.y = sZero;
+		mAreaPos.z = sDefaultPatrolMin;
+		mAreaWidth = sDefaultPatrolSize;
+		mAreaDepth = sDefaultPatrolSize;
+	}
+
 	void State0(u32 frames);
 	void State1(u32 frames);
 	void State2(u32 frames);

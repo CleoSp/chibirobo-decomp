@@ -226,10 +226,7 @@ extern "C" void UpdateSpiderBossDamage(XObjSpiderBoss* spider, u32 frames)
 	if (InfoScrn_IsBatteryGaugeEmpty(&gGame.mInfoScrn) && (spider->mSpiderStatus.mFlags & 0x20000)) { // an empty battery drops the player
 		InfoScrn_ApplyScoreHudCommand(&gGame.mInfoScrn, 0, 1);
 		spider->mSpiderStatus.mFlags &= ~0x20000;
-		XObjChr* player              = gGame.GetPlayer();
-		player->mPlayerStatus.mFlags = 0;
-		player->mPlayerStatus.mFlags |= 0x20000000;
-		player->mPlayerStatus.mFlags |= 7;
-		player->mPad.mReset = TRUE;
+		XObjChr* player = gGame.GetPlayer();
+		player->RestoreControl();
 	}
 }

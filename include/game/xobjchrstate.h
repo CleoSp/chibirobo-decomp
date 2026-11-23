@@ -14,6 +14,17 @@ struct SuitParticle {
 struct SuitChangeEffect {
 	BOOL active;
 	SuitParticle rings[2][10];
+
+	void Reset()
+	{
+		active = FALSE;
+		for (u32 ring = 0; ring < ARRAY_SIZE(rings); ++ring) {
+			for (u32 particle = 0; particle < ARRAY_SIZE(rings[ring]); ++particle) {
+				rings[ring][particle].scale = 0.0f;
+				rings[ring][particle].angle = 0.0f;
+			}
+		}
+	}
 };
 
 // joints that follow an item's own anim

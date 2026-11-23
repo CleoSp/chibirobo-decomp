@@ -295,7 +295,7 @@ void XObjActorJenny::UpdateAfterAnim(u32 frames)
 		}
 	}
 	// flag 0x200: the player rides along, three units to the side of the joint
-	if ((mActorStatus.mFlags & 0x200) && (player->mPlayerStatus.mFlags & 0x40000000)) {
+	if ((mActorStatus.mFlags & 0x200) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		s32 hand[6] = { 0, 3, 2, 0, 0, 0 };
 		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
 		CVec pos = joint.GetPos();
@@ -314,7 +314,7 @@ void XObjActorJenny::UpdateAfterAnim(u32 frames)
 		player->SetRotateY(atan2(pos.x - player->mMoveTranslate.x, pos.z - player->mMoveTranslate.z), 0);
 	}
 	// flag 0x100: the player rides at the joint
-	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & 0x40000000)) {
+	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		s32 hand[6] = { 0, 3, 2, 0, 0, 0 };
 		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
 		CVec pos = joint.GetPos();
@@ -379,19 +379,14 @@ void XObjActorJenny::Drop()
 
 static inline void HoldPlayerForJenny(XObjChr* player)
 {
-	player->mPlayerStatus.mFlags = 0;
-	player->mPlayerStatus.mFlags |= 0x40000000;
-	player->mPad.mReset = FALSE;
+	player->LockControl();
 	player->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 }
 
 static inline void ReleasePlayerAt(XObjChr* player, const Vec& position)
 {
 	player->SetPos(position, 0);
-	player->mPlayerStatus.mFlags = 0;
-	player->mPlayerStatus.mFlags |= 0x20000000;
-	player->mPlayerStatus.mFlags |= 7;
-	player->mPad.mReset = TRUE;
+	player->RestoreControl();
 }
 
 /**
@@ -531,11 +526,8 @@ void XObjActorJenny::ProcessPendingEvents(u32)
 void XObjActorJenny::ResetActorState()
 {
 	XObjChr* player = gGame.GetPlayer();
-	if (player->mPlayerStatus.mFlags & 0x40000000) {
-		player->mPlayerStatus.mFlags = 0;
-		player->mPlayerStatus.mFlags |= 0x20000000;
-		player->mPlayerStatus.mFlags |= 7;
-		player->mPad.mReset = TRUE;
+	if (player->mPlayerStatus.mFlags & XObjChr::ControlLocked) {
+		player->RestoreControl();
 	}
 	mActorStatus.mFlags = 0;
 	mJointFlags.mFlags  = 0;
@@ -548,7 +540,7 @@ void XObjActorJenny::ResetActorState()
 	_C8C                = 0;
 	mJointHidden        = 0;
 	mState              = &XObjActorJenny::StateNone;
-	ResetActorMovementStep(this);
+	ResetMovementStep();
 	for (u32 i = 0; i < 20; i++) {
 		mCmd[i] = 0;
 	}

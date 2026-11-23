@@ -91,9 +91,7 @@ void XObjActorMama::ProcessPendingEvents(u32)
 		switch (mCmd[1]) {
 		case 1: {
 			mActorStatus.mFlags |= 0x100;
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x40000000;
-			player->mPad.mReset = FALSE;
+			player->LockControl();
 			player->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 
 			break;
@@ -105,10 +103,7 @@ void XObjActorMama::ProcessPendingEvents(u32)
 			pos   = CVec(jobj.GetPos());
 			pos.y = mMoveTranslate.y;
 			player->SetPos(pos, 0);
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x20000000;
-			player->mPlayerStatus.mFlags |= 7;
-			player->mPad.mReset = TRUE;
+			player->RestoreControl();
 			break;
 		}
 		}

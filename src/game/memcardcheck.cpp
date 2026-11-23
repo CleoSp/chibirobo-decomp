@@ -10,5 +10,5 @@ extern "C" BOOL IsValidSavePreview(SavePreviewRecord* slot)
 {
 	if (!HasSaveFileLayout(slot->mStat))
 		return FALSE;
-	return IsValidSave(&slot->mHeader) != FALSE;
+	return ValidateSaveHeader(&slot->mHeader) != FALSE;
 }

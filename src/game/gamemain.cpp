@@ -5,11 +5,6 @@
 extern "C" {
 void HSD_VISetBlack(u8 black);
 void HSD_VICopyXFBAsync(s32 pri);
-void OSInitStopwatch(void* sw, char* name);
-void OSResetStopwatch(void* sw);
-void OSStartStopwatch(void* sw);
-void OSStopStopwatch(void* sw);
-s64 OSCheckStopwatch(void* sw);
 void InitGameRuntime();
 void InitGameRenderState(CBase* base);
 void InitGameARAM();

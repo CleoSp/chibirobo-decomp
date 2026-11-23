@@ -4,8 +4,6 @@
 
 extern "C" {
 void* UpdateMovie(void* arg);
-extern CThread gMovieUpdateThread;
-extern u8 gMovieUpdateThreadStack[0x1000];
 }
 
 #if defined(VERSION_JP)

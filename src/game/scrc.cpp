@@ -2020,7 +2020,7 @@ extern "C" void CarryRiderAtActorJoint(XObjActor3* actor, u32 frames)
 {
 	CJObj joint;
 	XObjChr* player = gGame.GetPlayer();
-	if ((actor->mActorFlags.mFlags & 0x40) && (player->mPlayerStatus.mFlags & 0x40000000)) {
+	if ((actor->mActorFlags.mFlags & 0x40) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		Mtx scaleMtx;
 		Mtx rotMtx;
 		Mtx transMtx;
@@ -2121,9 +2121,7 @@ extern "C" void HandleActorRiderCommand(XObjActor3* actor)
 		switch (actor->mEventArg1) {
 		case 1:
 			actor->mActorFlags.mFlags |= 0x40;
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x40000000;
-			player->mPad.mReset = 0;
+			player->LockControl();
 			break;
 		default:
 			actor->mActorFlags.mFlags &= ~0x40;
@@ -2131,10 +2129,7 @@ extern "C" void HandleActorRiderCommand(XObjActor3* actor)
 			joint.Attach(GetJointFromRoot(actor->mJObj, 2, path));
 			CVec pos(GetJointPosition(joint.mJObj));
 			player->SetPos(pos, 0);
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x20000000;
-			player->mPlayerStatus.mFlags |= 7;
-			player->mPad.mReset = 1;
+			player->RestoreControl();
 			HSD_JObjClearMtxFlags(player->mJObj);
 			break;
 		}

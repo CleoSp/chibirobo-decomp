@@ -60,10 +60,10 @@ extern "C" void ResetSpiderBossState(XObj* object)
 	}
 	spider->_A1C = 0.0f;
 	spider->SetColor(1, 0, 0, 0, 0.0f);
-	spider->_A48                 = 0.0f;
-	spider->mEscapeInputStrength = 0.0f;
+	spider->_A48                 = XObjSpiderBoss::sZero;
+	spider->mEscapeInputStrength = XObjSpiderBoss::sZero;
 	spider->mDrainTimer          = 0;
-	spider->mEscapeRemaining     = 0.0f;
+	spider->mEscapeRemaining     = XObjSpiderBoss::sZero;
 	{
 		Vec value    = { 0.0f, 0.0f, 0.0f };
 		spider->_A58 = value;
@@ -73,11 +73,7 @@ extern "C" void ResetSpiderBossState(XObj* object)
 #else
 	spider->mGrabIntervalFrames = 180;
 #endif
-	spider->mAreaPos.x  = -200.0f;
-	spider->mAreaPos.y  = 0.0f;
-	spider->mAreaPos.z  = -200.0f;
-	spider->mAreaWidth  = 400.0f;
-	spider->mAreaDepth  = 400.0f;
+	spider->ResetPatrolArea();
 	spider->mDamageStep = 0;
 	spider->mBlinkTimer = 0;
 	for (u32 i = 0; i < 8; ++i) {

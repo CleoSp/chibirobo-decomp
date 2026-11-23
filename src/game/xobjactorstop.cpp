@@ -1,15 +1,14 @@
-#include "game/xobjactor.h"
+#include "game/xobjactorbase.h"
 
 /**
  * @note Address: 0x8010706C
  * @note Size: 0x18
  */
-extern "C" void ResetActorMovementStep(void* object)
+void XObjActor::ResetMovementStep()
 {
-	XObjActor* actor    = (XObjActor*)object;
-	actor->mKindStep    = 0;
-	actor->mKindCounter = 0;
-	actor->mMoveSpeed   = 0.0f;
+	mKindStep    = 0;
+	mKindCounter = 0;
+	mMoveSpeed   = sZero;
 }
 
 /**
@@ -28,3 +27,5 @@ Vec XObjActor::GetCameraTarget()
 void XObjActor::OnPushDisplacement(const Vec& displacement)
 {
 }
+
+DECL_SECT(".sdata2") const f32 XObjActor::sZero = 0.0f;

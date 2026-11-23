@@ -164,18 +164,13 @@ s32 XObjSpiderBoss::HandleEventCommand(s32 count, s32* args)
 	case 17: // 1 hands the player to the script, else gives control back
 		if (mArgs[0] == 1) {
 			mSpiderStatus.mFlags |= 0x20000;
-			XObjChr* player              = gGame.GetPlayer();
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x40000000;
-			player->mPad.mReset = FALSE;
+			XObjChr* player = gGame.GetPlayer();
+			player->LockControl();
 			gGame.GetPlayer()->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		} else {
 			mSpiderStatus.mFlags &= ~0x20000;
-			XObjChr* player              = gGame.GetPlayer();
-			player->mPlayerStatus.mFlags = 0;
-			player->mPlayerStatus.mFlags |= 0x20000000;
-			player->mPlayerStatus.mFlags |= 7;
-			player->mPad.mReset = TRUE;
+			XObjChr* player = gGame.GetPlayer();
+			player->RestoreControl();
 		}
 		mCommand = 0;
 		break;

@@ -68,7 +68,7 @@ void XObjActorToy::ProcessPendingEvents(u32 frames)
 			toy->_9AC = 20.0f;
 			if (!toy->mActorStatus.Check(0x40) && !toy->mKindFlags.Check(2)) {
 				toy->mState = &XObjActorToy::StateHitRecovery;
-				ResetActorMovementStep(toy);
+				toy->ResetMovementStep();
 				toy->mActorStatus.mFlags |= 0x40;
 			}
 			break;
@@ -673,7 +673,7 @@ void XObjActorToy::StateHitRecovery(u32 frames)
 		mActorStatus.mFlags &= ~4;
 		mActorStatus.mFlags &= ~0x40;
 		mState = &XObjActorToy::StateCarry;
-		ResetActorMovementStep(this);
+		ResetMovementStep();
 		break;
 	}
 }
@@ -768,7 +768,7 @@ void XObjActorToy::StatePickUp(u32 frames)
 		}
 		mActorStatus.mFlags &= ~0x2000;
 		mState = &XObjActorToy::StateCarry;
-		ResetActorMovementStep(this);
+		ResetMovementStep();
 		break;
 	}
 }
@@ -1316,7 +1316,7 @@ extern "C" void HandleToyKind25ECommand(XObjActorToy* object, u32 frames)
 	case 1:
 		object->mAttachedId = object->mCmd[1];
 		object->mState      = &XObjActorToy::StatePickUp;
-		ResetActorMovementStep(object);
+		object->ResetMovementStep();
 		object->mCmd[0] = 0;
 		break;
 	case 2:
@@ -1410,7 +1410,7 @@ extern "C" void HandleToyKind159Command(XObjActorToy* object, u32 frames)
 	case 1:
 		object->mAttachedId = object->mCmd[1];
 		object->mState      = &XObjActorToy::StatePickUp;
-		ResetActorMovementStep(object);
+		object->ResetMovementStep();
 		object->mCmd[0] = 0;
 		break;
 	case 2:
@@ -1471,7 +1471,7 @@ extern "C" void HandleToyKind156Command(XObjActorToy* object, u32 frames)
 	case 4:
 		object->mAttachedId = object->mCmd[1];
 		object->mState      = &XObjActorToy::StatePickUp;
-		ResetActorMovementStep(object);
+		object->ResetMovementStep();
 		object->mCmd[0] = 0;
 		break;
 	case 5:
@@ -1604,7 +1604,7 @@ extern "C" void HandleToyKind0FCommand(XObjActorToy* object, u32 frames)
 	case 5:
 		object->mAttachedId = object->mCmd[1];
 		object->mState      = &XObjActorToy::StatePickUp;
-		ResetActorMovementStep(object);
+		object->ResetMovementStep();
 		object->mCmd[0] = 0;
 		break;
 	case 6:
@@ -1727,7 +1727,7 @@ void XObjActorToy::ResetActorState()
 	mMoveSpeed          = 0.0f;
 	mFacing             = 0.0f;
 	mState              = &XObjActorToy::StateCarry;
-	ResetActorMovementStep(this);
+	ResetMovementStep();
 
 	mMoveTranslate.x = PlacementPosition(mCoord, gToyPlacementPosition).x;
 	mMoveTranslate.y = PlacementPosition(mCoord, gToyPlacementPosition).y;

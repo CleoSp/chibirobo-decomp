@@ -1,5 +1,9 @@
 #include "game/xobjspiderboss.h"
 
+const f32 XObjSpiderBoss::sEscapeInputStrength = 8.0f;
+const f32 XObjSpiderBoss::sDefaultPatrolMin    = -200.0f;
+const f32 XObjSpiderBoss::sDefaultPatrolSize   = 400.0f;
+
 /**
  * @note Address: 0x80103EC0
  * @note Size: 0x94
@@ -16,11 +20,7 @@ void XObjSpiderBoss::State0(u32 frames)
 		mTimer     = 0;
 		mPrevState = mState;
 		mState     = 4;
-		mAreaPos.x = -200.0f;
-		mAreaPos.y = 0.0f;
-		mAreaPos.z = -200.0f;
-		mAreaWidth = 400.0f;
-		mAreaDepth = 400.0f;
+		ResetPatrolArea();
 	} else {
 		mStep      = 0;
 		mTimer     = 0;
