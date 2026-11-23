@@ -9,7 +9,10 @@ CCameraActionAreaEx::~CCameraActionAreaEx()
 {
 }
 
-// 0x80138230, CamAreaSlot's dtor, the compiler emits it here
+// 0x80138230
+CamAreaSlot::~CamAreaSlot()
+{
+}
 
 /**
  * @note Address: 0x80138284

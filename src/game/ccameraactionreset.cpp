@@ -16,7 +16,7 @@ extern "C" {
 
 // pal goes by the current refresh rate, 50 or 60
 #if defined(VERSION_PAL)
-#define FRAME_TIME (1.0f / lbl_80660D4C)
+#define FRAME_TIME (1.0f / gVideoFramesPerSecond)
 #else
 #define FRAME_TIME (1.0f / 60.0f)
 #endif
@@ -25,16 +25,28 @@ extern "C" {
  * @note Address: 0x80147630
  * @note Size: 0x8
  */
+u32 CCameraActionReset::GetInterestMode()
+{
+	return mInterestMode;
+}
 
 /**
  * @note Address: 0x80147638
  * @note Size: 0x8
  */
+f32 CCameraActionReset::GetFollowDivisor()
+{
+	return 4.0f;
+}
 
 /**
  * @note Address: 0x80147640
  * @note Size: 0x8
  */
+XObj* CCameraActionReset::GetTarget()
+{
+	return mTarget;
+}
 
 /**
  * @note Address: 0x80147648
@@ -45,12 +57,13 @@ void CCameraActionReset::Update(u32 step)
 	if (mTarget == NULL) {
 		return;
 	}
-	if (mState == 100) {
+	if (mState == 100) { // hold for one frame after taking the camera
 		mState = 0;
 		return;
 	}
 
 	SetInterest(mTarget->GetCameraTarget());
+	// an interpolator that answers true is done
 	if (mEyeInterp != NULL) {
 		if (!mEyeInterp->Update(step, FRAME_TIME)) {
 			SetEye(mEyeInterp->Get());
@@ -76,75 +89,78 @@ void CCameraActionReset::PreviousUpdate()
 	Vec eye;
 
 	if (mState == 100) {
-		if (0.0f != mAngle.z) {
-			_38       = 0x40010;
-			Vec angle = mAngle;
-			angle.z   = 0.0f;
+		if (mAngle.z) { // drop any roll it came in with
+			mCameraFlags = 0x40010;
+			Vec angle    = mAngle;
+			angle.z      = 0.0f;
 			SetAngle(angle);
 		}
 		return;
 	}
-	if (mState == 1) {
+	if (mState == 1) { // hand over once the interpolators ran out
 		if (mEyeInterp == NULL && mFovInterp == NULL) {
-			lbl_8025C400.mMotionControlCamera.ChangeAction(_50);
+			gGame.mMotionControlCamera.ChangeAction(mNextCameraAction);
 		}
 		return;
 	}
 
-	_38 = 0xB;
-	fn_80137D00(&lbl_805A054C, 0);
-	s32 arg = lbl_805A054C._0C;
-	_50     = fn_80135D28(&lbl_805A054C);
-	if (_4C == TRUE) {
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
-		camera->ChangeAction(_50);
-		if (_50 == 1) {
-			fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
+	mCameraFlags = 0xB;
+	UpdateCameraAreaIndexAndBaseFov(&gCameraAreaState, 0);
+	s32 arg           = gCameraAreaState.mActiveArea;
+	mNextCameraAction = GetCameraAreaMode(&gCameraAreaState);
+	if (mImmediate == TRUE) {
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
+		camera->ChangeAction(mNextCameraAction);
+		if (mNextCameraAction == 1) {
+			SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
 		} else {
-			fn_8013C510((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], lbl_805A054C._14, 15.0f);
-			fn_8013BCE4((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7]);
+			SetMapCameraFovStep((CCameraActionMap*)gGame.mCameraActions.mTable[7], gCameraAreaState.mZoomLevel, 15.0f);
+			RefreshMapCameraArea((CCameraActionMap*)gGame.mCameraActions.mTable[7]);
 			f32 dy = camera->mCamera.mInterest.y - mTarget->GetCameraTarget().y;
 			if (0.0f != dy) {
-				fn_8013A204((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
+				StartMapCameraTargetHeightInterpolation((CCameraActionMap*)gGame.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
 			}
 		}
-		_4C = FALSE;
+		mImmediate = FALSE;
 		return;
 	}
 
-	if (_50 == 1) {
-		CMotionControlCamera* camera = &lbl_8025C400.mMotionControlCamera;
-		camera->ChangeAction(_50);
-		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
-		fn_80138CA4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], mMode, mTime, arg);
-		if (mMode == 3) {
+	// the action ids are the slots in mTable: 1 is the area camera, 7 the map camera
+	if (mNextCameraAction == 1) {
+		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
+		camera->ChangeAction(mNextCameraAction);
+		SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
+		SelectAreaCameraEntryByViewDirection((CCameraActionArea*)gGame.mCameraActions.mTable[1], mMode, mTime, arg);
+		if (mMode == 3) { // mode 3 snaps instead of interpolating
 			camera->ApplyAction();
 		}
 		return;
 	}
 
-	if (_50 == 7) {
-		fn_8013BD28((CCameraActionMap*)lbl_8025C400.mCameraActions.mTable[7], eye, 1);
-		if (fpclassify(eye.x) == FP_NAN || fpclassify(eye.y) == FP_NAN || fpclassify(eye.z) == FP_NAN) {
-			CVec cameraEye      = lbl_8025C400.mMotionControlCamera.mCamera.mEye;
-			CVec cameraInterest = lbl_8025C400.mMotionControlCamera.mCamera.mInterest;
+	if (mNextCameraAction == 7) {
+		GetMapCameraEyeBehindTarget((CCameraActionMap*)gGame.mCameraActions.mTable[7], eye, 1);
+		if (fpclassify(eye.x) == FP_NAN || fpclassify(eye.y) == FP_NAN || fpclassify(eye.z) == FP_NAN) { // a NaN eye is fatal
+
+			CVec cameraEye      = gGame.mMotionControlCamera.mCamera.mEye;
+			CVec cameraInterest = gGame.mMotionControlCamera.mCamera.mInterest;
 			OSPanic(__FILE__, 157, "%s%s",
-			        fn_801911B4("CCameraActionReset ...\nEye(%f, %f, %f)\nInt(%f, %f, %f)\n", cameraEye.x, cameraEye.y, cameraEye.z,
-			                    cameraInterest.x, cameraInterest.y, cameraInterest.z),
+			        FormatToStaticBuffer("CCameraActionReset ...\nEye(%f, %f, %f)\nInt(%f, %f, %f)\n", cameraEye.x, cameraEye.y,
+			                             cameraEye.z, cameraInterest.x, cameraInterest.y, cameraInterest.z),
 			        __FUNCTION__);
 		}
 
+		f32 time   = mTime;
 		Vec target = eye;
-		SetEye_Interp(mMode, target, mTime);
+		SetEye_Interp(mMode, target, time);
 
-		f32 fov = fn_801353E4(&lbl_805A054C, lbl_805A054C._14);
+		f32 fov = GetAreaCameraFovForHeightLevel(&gCameraAreaState, gCameraAreaState.mZoomLevel);
 		SetFov_Interp(mMode, fov, mTime);
 
-		fn_801382D4((CCameraActionArea*)lbl_8025C400.mCameraActions.mTable[1], lbl_805A054C._14);
-		if (mMode == 3 || 0.0f == mTime) {
-			_58 = 0;
+		SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
+		if (mMode == 3 || 0.0f == mTime) { // no time to blend the interest
+			mInterestMode = 0;
 		} else {
-			_58 = 2;
+			mInterestMode = 2;
 		}
 	}
 	mState = 1;
@@ -190,31 +206,31 @@ void CCameraActionReset::PreviousUpdate()
     lwz      r0, 0x60(r31)
     cmplwi   r0, 0x0
     bne      .L_80147D50
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x50(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     addi     r3, r3, 0x5d38
     bl       fn_8014946C
     b        .L_80147D50
 .L_8014784C:
     li       r0, 0xb
-    lis      r3, lbl_805A054C@ha
+    lis      r3, gCameraAreaState@ha
     stw      r0, 0x38(r31)
-    addi     r3, r3, lbl_805A054C@l
+    addi     r3, r3, gCameraAreaState@l
     li       r4, 0x0
-    bl       fn_80137D00
-    lis      r3, lbl_805A054C@ha
-    addi     r3, r3, lbl_805A054C@l
+    bl       UpdateCameraAreaIndexAndBaseFov
+    lis      r3, gCameraAreaState@ha
+    addi     r3, r3, gCameraAreaState@l
     lwz      r30, 0xc(r3)
-    bl       fn_80135D28
+    bl       GetCameraAreaMode
     stw      r3, 0x50(r31)
     lwz      r0, 0x4c(r31)
     cmpwi    r0, 0x1
     bne      .L_80147944
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x50(r31)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r29, r3, 0xe
     addi     r29, r29, 0x5d38
     mr       r3, r29
@@ -222,27 +238,27 @@ void CCameraActionReset::PreviousUpdate()
     lwz      r0, 0x50(r31)
     cmpwi    r0, 0x1
     bne      .L_801478D0
-    lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    lis      r3, gCameraAreaState@ha
+    addi     r4, r4, gGame@l
     addis    r5, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraAreaState@l
     lwz      r3, 0x7df0(r5)
     lwz      r4, 0x14(r4)
-    bl       fn_801382D4
+    bl       SetAreaCameraHeightIndices
     b        .L_80147938
 .L_801478D0:
-    lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    lis      r3, gCameraAreaState@ha
+    addi     r4, r4, gGame@l
     lfs      f1, lbl_8065EC2C@sda21(r0)
     addis    r30, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraAreaState@l
     lwz      r3, 0x7e08(r30)
     lwz      r4, 0x14(r4)
-    bl       fn_8013C510
+    bl       SetMapCameraFovStep
     lwz      r3, 0x7e08(r30)
-    bl       fn_8013BCE4
+    bl       RefreshMapCameraArea
     lwz      r4, 0x40(r31)
     addi     r3, r1, 0x44
     lwz      r12, 0x34(r4)
@@ -257,7 +273,7 @@ void CCameraActionReset::PreviousUpdate()
     beq      .L_80147938
     lwz      r3, 0x7e08(r30)
     lfs      f3, lbl_8065EC30@sda21(r0)
-    bl       fn_8013A204
+    bl       StartMapCameraTargetHeightInterpolation
 .L_80147938:
     li       r0, 0x0
     stw      r0, 0x4c(r31)
@@ -266,25 +282,25 @@ void CCameraActionReset::PreviousUpdate()
     lwz      r4, 0x50(r31)
     cmpwi    r4, 0x1
     bne      .L_801479B4
-    lis      r3, lbl_8025C400@ha
-    addi     r3, r3, lbl_8025C400@l
+    lis      r3, gGame@ha
+    addi     r3, r3, gGame@l
     addis    r28, r3, 0xe
     addi     r28, r28, 0x5d38
     mr       r3, r28
     bl       fn_8014946C
-    lis      r4, lbl_8025C400@ha
-    lis      r3, lbl_805A054C@ha
-    addi     r4, r4, lbl_8025C400@l
+    lis      r4, gGame@ha
+    lis      r3, gCameraAreaState@ha
+    addi     r4, r4, gGame@l
     addis    r29, r4, 0xe
-    addi     r4, r3, lbl_805A054C@l
+    addi     r4, r3, gCameraAreaState@l
     lwz      r3, 0x7df0(r29)
     lwz      r4, 0x14(r4)
-    bl       fn_801382D4
+    bl       SetAreaCameraHeightIndices
     lwz      r3, 0x7df0(r29)
     mr       r5, r30
     lwz      r4, 0x44(r31)
     lfs      f1, 0x48(r31)
-    bl       fn_80138CA4
+    bl       SelectAreaCameraEntryByViewDirection
     lwz      r0, 0x44(r31)
     cmpwi    r0, 0x3
     bne      .L_80147D50
@@ -294,13 +310,13 @@ void CCameraActionReset::PreviousUpdate()
 .L_801479B4:
     cmpwi    r4, 0x7
     bne      .L_80147D48
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     addi     r4, r1, 0x70
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     li       r5, 0x1
     addis    r3, r3, 0xe
     lwz      r3, 0x7e08(r3)
-    bl       fn_8013BD28
+    bl       GetMapCameraEyeBehindTarget
     lfs      f0, 0x70(r1)
     lis      r0, 0x7f80
     stfs     f0, 0x10(r1)
@@ -398,9 +414,9 @@ void CCameraActionReset::PreviousUpdate()
     cmpwi    r0, 0x1
     bne      .L_80147BB8
 .L_80147B10:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lis      r4, __vt__4CVec@ha
-    addi     r5, r3, lbl_8025C400@l
+    addi     r5, r3, gGame@l
     addis    r10, r5, 0xe
     addi     r6, r4, __vt__4CVec@l
     lwz      r9, 0x5dcc(r10)
@@ -426,7 +442,7 @@ void CCameraActionReset::PreviousUpdate()
     lfs      f6, 0x58(r1)
     stw      r6, 0x5c(r1)
     crset    cr1eq
-    bl       fn_801911B4
+    bl       FormatToStaticBuffer
     lis      r7, lbl_8020D05C@ha
     lis      r5, lbl_8022EB20@ha
     mr       r6, r3
@@ -492,11 +508,11 @@ void CCameraActionReset::PreviousUpdate()
     mtctr    r12
     bctrl
 .L_80147C78:
-    lis      r3, lbl_805A054C@ha
-    addi     r30, r3, lbl_805A054C@l
+    lis      r3, gCameraAreaState@ha
+    addi     r30, r3, gCameraAreaState@l
     lwz      r4, 0x14(r30)
     mr       r3, r30
-    bl       fn_801353E4
+    bl       GetAreaCameraFovForHeightLevel
     lwz      r0, 0x44(r31)
     lfs      f3, 0x48(r31)
     cmpwi    r0, 0x3
@@ -529,12 +545,12 @@ void CCameraActionReset::PreviousUpdate()
     mtctr    r12
     bctrl
 .L_80147D00:
-    lis      r3, lbl_8025C400@ha
+    lis      r3, gGame@ha
     lwz      r4, 0x14(r30)
-    addi     r3, r3, lbl_8025C400@l
+    addi     r3, r3, gGame@l
     addis    r3, r3, 0xe
     lwz      r3, 0x7df0(r3)
-    bl       fn_801382D4
+    bl       SetAreaCameraHeightIndices
     lwz      r0, 0x44(r31)
     cmpwi    r0, 0x3
     beq      .L_80147D34
@@ -574,9 +590,9 @@ void CCameraActionReset::SetCamera(CCamera* camera)
 	SetDistance(camera->mDistance);
 	SetFov(camera->mFov);
 	SetAngle(camera->mAngle);
-	mTarget = lbl_8025C400.GetPlayer();
-	mState  = 100;
-	_58     = 2;
+	mTarget       = gGame.GetPlayer();
+	mState        = 100; // hold until the first update
+	mInterestMode = 2;
 }
 
 /**
@@ -585,10 +601,10 @@ void CCameraActionReset::SetCamera(CCamera* camera)
  */
 void CCameraActionReset::Init()
 {
-	mMode = 1;
-	mTime = 2.0f;
-	_4C   = FALSE;
-	fn_8013801C(&lbl_805A054C);
+	mMode      = 1; // ease in-out, like the tables below
+	mTime      = 2.0f;
+	mImmediate = FALSE;
+	InitCameraAreaEntries(&gCameraAreaState);
 	mEyeInterps[0] = &mEyeLinear;
 	mEyeInterps[1] = &mEyeEaseInOut;
 	mEyeInterps[2] = &mEyeEaseOut;

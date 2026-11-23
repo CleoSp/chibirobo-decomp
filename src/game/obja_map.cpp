@@ -14,7 +14,7 @@ static inline s32 GetLightMode()
 static inline u32 MakeRGB(s32 r, s32 g, s32 b)
 {
 	s32 cr = r;
-	if (cr >= 256) {
+	if (cr >= 256) { // the table writes 256 for full
 		cr = 255;
 	}
 	s32 cg = g;
@@ -33,7 +33,7 @@ static inline u32 MakeRGB(s32 r, s32 g, s32 b)
  * @note Address: 0x80093210
  * @note Size: 0x48C
  */
-extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
+extern "C" s32 GetMapTriangleFloorType(XObjMap* map, s32 trigon, s32 tri)
 {
 	static u32 sColors[13] = {
 		MakeRGB(0, 0, 0),       MakeRGB(256, 256, 128), MakeRGB(256, 0, 0), MakeRGB(0, 0, 0), MakeRGB(256, 256, 0),
@@ -42,21 +42,21 @@ extern "C" s32 fn_80093210(XObjMap* map, s32 trigon, s32 tri)
 	};
 	u32 color = map->mTrigon[trigon].mTri[tri].mColor;
 	for (s32 i = 1; i < 13; i++) {
-		if (color == sColors[i]) {
+		if (color == sColors[i]) { // vertex color i means floor type i
 			return i;
 		}
 	}
-	return 0;
+	return 0; // colors in no slot are type 0 (black matches slot 3)
 }
 
 /**
  * @note Address: 0x8009369C
  * @note Size: 0xCC
  */
-void XObjMap::vfA4(u32 frames)
+void XObjMap::UpdateObject(u32 frames)
 {
 	// NONMATCHING: induction pointer difference, see XObjLight::Update
-	vfA4__4XObjFUl(this, frames);
+	UpdateObject__4XObjFUl(this, frames);
 	if (GetLightMode() == 1) {
 		for (int i = 0; i < mLightNum; i++) {
 			if (GetLightDesc(i) != NULL && GetLightAnimNum(i) > 0) {
@@ -83,7 +83,7 @@ void XObjMap::Release()
 			}
 		}
 	}
-	Release__4XObjFv(this);
+	XObj::Release();
 }
 
 // a floor for every child of the root joint that has triangles, sorted from the highest down
@@ -91,10 +91,10 @@ void XObjMap::Release()
  * @note Address: 0x80093828
  * @note Size: 0x298
  */
-BOOL XObjMap::vf9C(const CoordInfo& info)
+BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
 {
 	// NONMATCHING: the dol copies a zero path template before storing the index
-	if (vf9C__4XObjFRC9CoordInfo(this, &info)) {
+	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
 		int i;
 		int j;
 		int n = 0;
@@ -126,6 +126,7 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
 			CLight* prev = NULL;
 			for (i = 0; i < 8; i++) {
 				if (GetLightDesc(i) != NULL) {
+					// env slot 5 picks which lights cast shadows
 					mLights[i].Init(GetLightDesc(i)->mDesc, GetEnvData()[5] & (1 << (7 - i)));
 					if (GetLightAnimNum(i) > 0) {
 						mLightAnims[i] = 0;
@@ -151,16 +152,16 @@ BOOL XObjMap::vf9C(const CoordInfo& info)
  * @note Address: 0x80093AC0
  * @note Size: 0x9C
  */
-void XObjMap::vf98()
+void XObjMap::ResetObjectState()
 {
-	vf98__4XObjFv(this);
+	ResetObjectState__4XObjFv(this);
 	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
 		mTrigonOrder[i] = 0;
 	}
 	mLightNum = 0;
 	for (int i = 0; i < 8; i++) {
-		mLightAnims[i] = -1;
+		mLightAnims[i] = -1; // -1: no anim
 	}
 }
 
@@ -168,7 +169,7 @@ void XObjMap::vf98()
  * @note Address: 0x80093B5C
  * @note Size: 0x20
  */
-void XObjMap::vf90(u32 id)
+void XObjMap::InitializeObject(u32 id)
 {
-	vf90__4XObjFUl(this, id);
+	InitializeObject__4XObjFUl(this, id);
 }

@@ -29,13 +29,13 @@ static s32 hsd_DVDScheNStreaming;
 static s32 lbl_8065BB5C;
 static s32 hsd_DVDScheNStreamingMax;
 
-void fn_801EBC5C(void);
+void ServiceNextDvdStreamingSlot(void);
 
 /**
  * @note Address: 0x801EB614
  * @note Size: 0x44
  */
-void fn_801EB614(s32 max, s32 key)
+void SetDvdStreamingLimits(s32 max, s32 key)
 {
 	u32 enabled              = OSDisableInterrupts();
 	hsd_DVDScheNStreamingMax = max;
@@ -47,7 +47,7 @@ void fn_801EB614(s32 max, s32 key)
  * @note Address: 0x801EB658
  * @note Size: 0x26C
  */
-s32 fn_801EB658(void (*callback)(s32), s32 param)
+s32 AcquireDvdStreamingSlot(void (*callback)(s32), s32 param)
 {
 	s32 newid;
 	u32 enabled;
@@ -83,13 +83,13 @@ s32 fn_801EB658(void (*callback)(s32), s32 param)
 			lbl_80655F30[i] = lbl_80655F30[i - 1];
 		}
 		lbl_80655F30[0] = newid;
-		fn_801EBC5C();
+		ServiceNextDvdStreamingSlot();
 	}
 	OSRestoreInterrupts(enabled);
 	return newid;
 }
 
-// stripped helper inlined into fn_801EB8C4, its assert string lands before the caller's in .data
+// stripped helper inlined into ReleaseDvdStreamingSlot, its assert string lands before the caller's in .data
 static void remove_order(s32 id)
 {
 	s32 i;
@@ -109,7 +109,7 @@ static void remove_order(s32 id)
 	}
 	DVDSCHE_ASSERT(0x6A, orderix != -1);
 	if (lbl_8065BB70 == orderix) {
-		fn_801EBC5C();
+		ServiceNextDvdStreamingSlot();
 	} else if (lbl_8065BB70 > orderix) {
 		lbl_8065BB70--;
 	}
@@ -119,7 +119,7 @@ static void remove_order(s32 id)
  * @note Address: 0x801EB8C4
  * @note Size: 0x1EC
  */
-void fn_801EB8C4(s32 id)
+void ReleaseDvdStreamingSlot(s32 id)
 {
 	u32 enabled;
 
@@ -135,7 +135,7 @@ void fn_801EB8C4(s32 id)
  * @note Address: 0x801EBAB0
  * @note Size: 0xE0
  */
-void fn_801EBAB0(s32 id, s32 key)
+void SetDvdStreamingSlotKey(s32 id, s32 key)
 {
 	u32 enabled;
 
@@ -144,7 +144,7 @@ void fn_801EBAB0(s32 id, s32 key)
 	enabled              = OSDisableInterrupts();
 	lbl_80655F00[id].key = key;
 	if (lbl_8065BB68 == -1) {
-		fn_801EBC5C();
+		ServiceNextDvdStreamingSlot();
 	}
 	OSRestoreInterrupts(enabled);
 }
@@ -153,7 +153,7 @@ void fn_801EBAB0(s32 id, s32 key)
  * @note Address: 0x801EBB90
  * @note Size: 0xCC
  */
-void fn_801EBB90(s32 id, void (*callback)(s32))
+void SetDvdStreamingSlotCallback(s32 id, void (*callback)(s32))
 {
 	u32 enabled;
 
@@ -168,7 +168,7 @@ void fn_801EBB90(s32 id, void (*callback)(s32))
  * @note Address: 0x801EBC5C
  * @note Size: 0x650
  */
-void fn_801EBC5C(void)
+void ServiceNextDvdStreamingSlot(void)
 {
 	s32 i;
 	s32 found;
@@ -187,7 +187,7 @@ void fn_801EBC5C(void)
 	lbl_8065BB64 = lbl_8065BB5C;
 	lbl_8065BB70++;
 	if (lbl_8065BB70 < hsd_DVDScheNStreaming) {
-		fn_801EBC5C();
+		ServiceNextDvdStreamingSlot();
 	} else {
 		lbl_8065BB70 = 0;
 		if (!hsd_DVDScheNStreaming) {
@@ -200,7 +200,7 @@ void fn_801EBC5C(void)
 				}
 			}
 			if (found) {
-				fn_801EBC5C();
+				ServiceNextDvdStreamingSlot();
 			} else {
 				lbl_8065BB68 = -1;
 			}

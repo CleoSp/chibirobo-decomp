@@ -12,7 +12,7 @@ public:
 	HSD_LObj* mLoadedLObj;  // _D4, the light Init made from a desc
 	CVec mPosition;         // _D8
 	CVec mInterest;         // _E8
-	CVec _F8;               // _F8
+	CVec _F8;               // _F8, CVec between mInterest and mColor; only constructed and destroyed, nothing reads or writes its value
 	CColor mColor;          // _108
 	CColor mSpecColor;      // _110
 	HSD_WObj mPositionWObj; // _118, what position points at when Init built the light by hand
@@ -54,8 +54,8 @@ typedef char CLight_size_check[sizeof(CLight) == 0x358 ? 1 : -1];
 
 extern "C" {
 // set up CBase's two light lists, cbasesetup.cpp
-CLight* fn_8001CFD0(CLight* lights);
-CLight* fn_8001CEFC(CLight* lights);
+CLight* InitFourLightSet(CLight* lights);
+CLight* InitTwoLightSet(CLight* lights);
 }
 
 #endif

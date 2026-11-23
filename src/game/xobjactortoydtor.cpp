@@ -50,37 +50,37 @@ bool XObjActorToy::IsFree() const
 	if (!(mStatus.mFlags & 1)) {
 		return true;
 	}
-	return !_998.Check(0x2000);
+	return !mActorStatus.Check(0x2000);
 }
 
 /**
  * @note Address: 0x801156B0
  * @note Size: 0x2D0
  */
-void XObjActorToy::vf164(f32 frame)
+void XObjActorToy::UpdateAnimationSounds(f32 frame)
 {
 	switch (GetKind()) {
 	case 0x1FC:
-		if (mAnimId == 0x3F6) {
+		if (mAnimId == 0x3F6) { // its frame comes from the fifth dobj's tex anim
 			s32 path[3]    = { 0, 2, 0 };
 			HSD_AObj* aobj = GetTexAObj(GetJointByPath(mJObj, path, 3), 4);
 			frame          = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		}
-		if (fn_8001E6C8(&lbl_8025C400.mSound, 0x10001F)) {
-			if (mAnimId != 0x10) {
-				fn_8001E660(&lbl_8025C400.mSound, 0x10001F);
+		if (IsGameSoundPlaying(&gGame.mSound, 0x10001F)) {
+			if (mAnimId != 0x10) { // the loop only runs in anim 0x10
+				StopGameSfx(&gGame.mSound, 0x10001F);
 			} else {
-				fn_8001E468(&lbl_8025C400.mSound, 0x10001F, fn_8001DF00(&lbl_8025C400.mSound, &mMoveTranslate, 0), 0);
+				SetGameSfxVolume(&gGame.mSound, 0x10001F, GetSoundVolumeAtPosition(&gGame.mSound, &mMoveTranslate, 0), 0);
 			}
 		}
 		break;
 	case 0x159:
-		if (fn_8001E6C8(&lbl_8025C400.mSound, 0xE0008) && mAnimId != 7) {
-			fn_8001E660(&lbl_8025C400.mSound, 0xE0008);
+		if (IsGameSoundPlaying(&gGame.mSound, 0xE0008) && mAnimId != 7) { // the loop stops outside anim 7
+			StopGameSfx(&gGame.mSound, 0xE0008);
 		}
 		break;
 	}
-	vf164__9XObjActorFf(this, frame);
+	XObjActor::UpdateAnimationSounds(frame);
 }
 
 /**
@@ -88,7 +88,7 @@ void XObjActorToy::vf164(f32 frame)
  * @note Size: 0x598
  */
 // the 0x157 toy carries the 0x156 ones along, with what they hold in their hand
-void XObjActorToy::vf130()
+void XObjActorToy::OnPushDisplacement(const Vec& displacement)
 {
 	switch (GetKind()) {
 	case 0xF:
@@ -102,13 +102,13 @@ void XObjActorToy::vf130()
 	case 0x156:
 		break;
 	case 0x157:
-		_2098.mFlags |= 2;
+		mKindFlags.mFlags |= 2; // flag 2: being pushed
 		for (s32 i = 0; i < 15; i++) {
 			XObjActorToy* toy = GetToy(i);
-			if (toy->GetKind() == 0x156 && (toy->_2098.mFlags & 1)) {
+			if (toy->GetKind() == 0x156 && (toy->mKindFlags.mFlags & 1)) { // flag 1: carries along
 				toy->SetTranslateX(mMoveTranslate.x, 0);
 				toy->SetTranslateZ(mMoveTranslate.z, 0);
-				if (toy->_A4C >= 0 && toy->_A50 != NULL) {
+				if (toy->mAttachedId >= 0 && toy->mAttached != NULL) {
 					CJObj joint;
 					s32 path[4] = { 0, 2, 4, 0 };
 					Mtx hand;
@@ -116,16 +116,16 @@ void XObjActorToy::vf130()
 					Mtx rot;
 					Mtx mtx;
 					joint.Attach(GetJointFromRoot(toy->mJObj, 4, path));
-					toy->_A50->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+					toy->mAttached->SetAnim(1, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 					PSMTXCopy(joint.GetMtx(), hand);
 					PSMTXRotRad(rot, 'z', 0.0f);
 					PSMTXConcat(hand, rot, mtx);
-					PSMTXTrans(trans, 0.0f, 2.0f, 2.0f);
+					PSMTXTrans(trans, 0.0f, 2.0f, 2.0f); // held slightly up and out
 					PSMTXConcat(mtx, trans, mtx);
-					HSD_JObj* jobj = toy->_A50->mJObj;
+					HSD_JObj* jobj = toy->mAttached->mJObj;
 					MtxPtr m       = mtx;
 					HSD_JObjCopyMtx(jobj, m);
-					if (mStatus.mFlags & 0x10000) {
+					if (mStatus.mFlags & 0x10000) { // the drawn flag follows the pusher's
 						toy->mStatus.mFlags |= 0x10000ULL;
 					} else {
 						toy->mStatus.mFlags &= ~0x10000ULL;

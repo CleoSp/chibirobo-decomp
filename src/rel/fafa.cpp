@@ -4,7 +4,7 @@
 // linked into both shun and stage07
 
 // CGame
-extern "C" u8 lbl_8025C400[];
+extern "C" u8 gGame[];
 
 struct ObjDesc {
 	s32 mId; // _00
@@ -41,7 +41,7 @@ typedef char FafaGame_size_check[sizeof(FafaGame) == 0x9728 ? 1 : -1];
 #else
 typedef char FafaGame_size_check[sizeof(FafaGame) == 0x9770 ? 1 : -1];
 #endif
-#define SHUN_ITEMS() (&((FafaGame*)lbl_8025C400)->mItems)
+#define SHUN_ITEMS() (&((FafaGame*)gGame)->mItems)
 
 // three levels, child then N siblings at each
 // todo: cleanup
@@ -85,72 +85,72 @@ extern "C" void SetFafaPartVisibility(s32 mode)
 		if (item->GetType() != 0x117) {
 			continue;
 		}
-		switch (mode) {
+		switch (mode) { // mode 4, 7 or 6 shows part 2, 3 or 4; any other mode hides all three
 		case 4: {
 			s32 path[3] = { 0, 0, 2 };
 			obj.Attach(FafaFindPart(item->mJObj, path));
-			HSD_JObjClearFlags(obj.mJObj, 0x10);
+			HSD_JObjClearFlags(obj.mJObj, HIDDEN);
 		}
 			{
 				s32 path[3] = { 0, 0, 3 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			{
 				s32 path[3] = { 0, 0, 4 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			break;
 		case 7: {
 			s32 path[3] = { 0, 0, 2 };
 			obj.Attach(FafaFindPart(item->mJObj, path));
-			HSD_JObjSetFlags(obj.mJObj, 0x10);
+			HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 		}
 			{
 				s32 path[3] = { 0, 0, 3 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjClearFlags(obj.mJObj, 0x10);
+				HSD_JObjClearFlags(obj.mJObj, HIDDEN);
 			}
 			{
 				s32 path[3] = { 0, 0, 4 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			break;
 		case 6: {
 			s32 path[3] = { 0, 0, 2 };
 			obj.Attach(FafaFindPart(item->mJObj, path));
-			HSD_JObjSetFlags(obj.mJObj, 0x10);
+			HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 		}
 			{
 				s32 path[3] = { 0, 0, 3 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			{
 				s32 path[3] = { 0, 0, 4 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjClearFlags(obj.mJObj, 0x10);
+				HSD_JObjClearFlags(obj.mJObj, HIDDEN);
 			}
 			break;
 		default: {
 			s32 path[3] = { 0, 0, 2 };
 			obj.Attach(FafaFindPart(item->mJObj, path));
-			HSD_JObjSetFlags(obj.mJObj, 0x10);
+			HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 		}
 			{
 				s32 path[3] = { 0, 0, 3 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			{
 				s32 path[3] = { 0, 0, 4 };
 				obj.Attach(FafaFindPart(item->mJObj, path));
-				HSD_JObjSetFlags(obj.mJObj, 0x10);
+				HSD_JObjSetFlags(obj.mJObj, HIDDEN);
 			}
 			break;
 		}
-		break;
+		break; // only the first 0x117 item
 	}
 }

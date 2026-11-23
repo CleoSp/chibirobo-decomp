@@ -30,7 +30,7 @@ public:
 	CFileArchive* mArchive; // _D4
 	ARCFileInfo mArcInfo;   // _D8
 	s32 mState;             // _E4, ReadEx step
-	// _E8 vtable
+	                        // _E8 vtable
 
 	virtual ~CFile() { }                                                          // _08 (weak)
 	virtual void* Alloc(u32 size);                                                // _0C

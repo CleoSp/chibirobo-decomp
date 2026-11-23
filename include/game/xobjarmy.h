@@ -28,10 +28,11 @@ public:
 	typedef void (XObjArmy::*Func)();
 
 	// _00-_980 = XObj
-	Func mFunc;             // _980
-	s32 mStep;              // _98C, the step of mFunc
-	s32 mTimer;             // _990
-	f32 _994;               // _994
+	Func mFunc; // _980
+	s32 mStep;  // _98C, the step of mFunc
+	s32 mTimer; // _990
+	f32 _994;   // _994, set to 0 in OnHitFromPosition right before the `<= 0` test, so a hit always knocks or fells it and never takes the
+	            // StateWait branch; nothing else uses it
 	u8 _998[0x9A0 - 0x998]; // _998
 	CStatus mFlags;         // _9A0, 1 ignores hits, 2 lies down, 0x80 shoots quietly, 0x100 plays its sounds at full volume
 	CVec mGuardPos;         // _9A8, where it aims while on guard
@@ -42,11 +43,14 @@ public:
 
 	XObjArmy();
 
-	virtual void vf98();                                 // _98
-	virtual void vfA4(u32 frames);                       // _A4
-	virtual void vfC0();                                 // _C0
-	virtual void vf138(const Vec& position, f32 amount); // _138
-	virtual void vf148();                                // _148, plays the anim's sounds
+	virtual void ResetObjectState();                                 // _98
+	virtual void UpdateObject(u32 frames);                           // _A4
+	virtual void DrawObjectEffects();                                // _C0
+	virtual s32 HandleEventCommand(s32 count, s32* args);            // _124
+	virtual void OnHitFromPosition(const Vec& position, f32 amount); // _138
+	virtual void UpdateAnimationSounds();                            // _148
+
+	virtual ~XObjArmy();
 
 	void StateGuard();
 	void StateFall();

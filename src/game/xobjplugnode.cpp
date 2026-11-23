@@ -16,7 +16,7 @@ static inline void CopyPosition(XObjPlugCordNode* node, XObjPlugCordPoint* point
  * @note Address: 0x800DC43C
  * @note Size: 0x1F0
  */
-extern "C" void fn_800DC43C(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32 time, s32 mode)
+extern "C" void StartPlugCordNode(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32 time, s32 mode)
 {
 	node->mMode = mode;
 	switch (node->mMode) {

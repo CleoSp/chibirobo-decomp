@@ -1,11 +1,15 @@
 #include "game/xobjspiderboss.h"
 #include "game/video.h"
 
+u32 gSpiderBossCoinBounceContext; // the boss's coin bounce token, the callbacks never touch it; its real type is unknown
+
 /**
  * @note Address: 0x8010660C
  * @note Size: 0x2C8
  */
-extern "C" void fn_8010660C(XObj* object)
+// NONMATCHING: retail copies the six zero Vecs from +0x48 of the file's .rodata, behind the header-made
+// block of six Vecs this split unit lacks, so every load from them has another offset; the code is otherwise the same
+extern "C" void ResetSpiderBossState(XObj* object)
 {
 	XObjSpiderBoss* spider       = (XObjSpiderBoss*)object;
 	spider->mHeading             = 0.0f;
@@ -20,7 +24,7 @@ extern "C" void fn_8010660C(XObj* object)
 	spider->mStep                = 0;
 	spider->mTimer               = 0;
 	spider->mSpiderStatus.mFlags = 0;
-	spider->_9C0                 = 0;
+	spider->mActionTimer         = 0;
 	spider->_9C4                 = 1.0f;
 	spider->_9C8                 = 1.0f;
 	{
@@ -32,14 +36,14 @@ extern "C" void fn_8010660C(XObj* object)
 		spider->mBasePos = value;
 	}
 	{
-		Vec value    = { 0.0f, 0.0f, 0.0f };
-		spider->_9F0 = value;
+		Vec value             = { 0.0f, 0.0f, 0.0f };
+		spider->mPatrolTarget = value;
 	}
 	spider->mHitStrength = 0.0f;
-	spider->_9EC         = 23;
-	spider->mNextAction  = spider->_9EC;
-	spider->_A2C         = 0;
-	spider->_A30         = 0;
+	spider->mMaxHits     = 23;
+	spider->mHits        = spider->mMaxHits;
+	spider->mCommand     = 0;
+	spider->mArgs[0]     = 0;
 	spider->_A44         = 0;
 	spider->_994         = 1.0f;
 	spider->mStatus.mFlags |= 8ULL;
@@ -51,41 +55,41 @@ extern "C" void fn_8010660C(XObj* object)
 	spider->mAreaWidth = 0.0f;
 	spider->mAreaDepth = 0.0f;
 	{
-		Vec value    = { 0.0f, 0.0f, 0.0f };
-		spider->_A10 = value;
+		Vec value         = { 0.0f, 0.0f, 0.0f };
+		spider->mStartPos = value;
 	}
 	spider->_A1C = 0.0f;
-	spider->vf12C(1, 0, 0, 0, 0.0f);
-	spider->_A48 = 0.0f;
-	spider->_A4C = 0.0f;
-	spider->_A50 = 0;
-	spider->_A54 = 0.0f;
+	spider->SetColor(1, 0, 0, 0, 0.0f);
+	spider->_A48                 = 0.0f;
+	spider->mEscapeInputStrength = 0.0f;
+	spider->mDrainTimer          = 0;
+	spider->mEscapeRemaining     = 0.0f;
 	{
 		Vec value    = { 0.0f, 0.0f, 0.0f };
 		spider->_A58 = value;
 	}
 #if defined(VERSION_PAL)
-	spider->_A64 = 3 * lbl_80660D4C; // 3 seconds
+	spider->mGrabIntervalFrames = 3 * gVideoFramesPerSecond; // 3 seconds
 #else
-	spider->_A64 = 180;
+	spider->mGrabIntervalFrames = 180;
 #endif
 	spider->mAreaPos.x  = -200.0f;
 	spider->mAreaPos.y  = 0.0f;
 	spider->mAreaPos.z  = -200.0f;
 	spider->mAreaWidth  = 400.0f;
 	spider->mAreaDepth  = 400.0f;
-	spider->_A68        = 0;
+	spider->mDamageStep = 0;
 	spider->mBlinkTimer = 0;
 	for (u32 i = 0; i < 8; ++i) {
-		spider->mParts[i]._04 = 0;
-		spider->mParts[i]._00 = 0;
+		spider->mParts[i].mObj   = NULL;
+		spider->mParts[i].mJoint = NULL;
 	}
-	if (spider->_258 == 0) {
-		fn_800EA99C(&lbl_8065B2E8);
+	if (spider->mPoolIndex == 0) {
+		ResetSpiderCoinBounces(&gSpiderBossCoinBounceContext);
 	}
-	spider->_A20       = 0;
-	spider->mAltAnimId = 0;
-	spider->_A28       = 5;
+	spider->mPatrolSelection = 0;
+	spider->mAltAnimId       = 0;
+	spider->mGrabCooldown    = 5;
 	spider->mStatus.mFlags |= 4ULL;
-	spider->_A95 = 0;
+	spider->mPatrolEffectActive = 0;
 }
