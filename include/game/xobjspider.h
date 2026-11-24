@@ -118,21 +118,21 @@ public:
 	void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend, f32 blendRate);
 #endif
 	virtual ~XObjSpider();
-	virtual void InitializeObject(u32 id);                           // _90
-	virtual void ResetForNewGame();                                  // _94
-	virtual void ResetObjectState();                                 // _98
-	virtual BOOL LoadFromPlacement(const CoordInfo& info);           // _9C
-	virtual void UpdateObject(u32 frames);                           // _A4
-	virtual void DrawObject();                                       // _AC
-	virtual void DrawGroundShadow();                                 // _B8
-	virtual void DrawGroundShadowAt(const Vec* origin, f32 opacity); // _BC
-	virtual void DrawObjectEffects();                                // _C0
-	virtual void DrawScreenOverlay();                                // _C8
-	virtual void DrawDebugStatus();                                  // _CC
-	virtual s32 OnPlayerContact(s32 unused, s32 value);              // _100
-	virtual s32 HandleEventCommand(s32 count, s32* args);            // _124
-	virtual void OnHitFromPosition(const Vec& from, f32 strength);   // _138
-	virtual void UpdateAnimationSounds();                            // _148, plays the sounds along the anim
+	virtual void InitializeObject(u32 id);                            // _90
+	virtual void ResetForNewGame();                                   // _94
+	virtual void ResetObjectState();                                  // _98
+	virtual BOOL LoadFromPlacement(const CoordInfo& info);            // _9C
+	virtual void UpdateObject(u32 frames);                            // _A4
+	virtual void DrawObject();                                        // _AC
+	virtual void DrawGroundShadow();                                  // _B8
+	virtual void DrawGroundShadowAt(const Vec* origin, f32 opacity);  // _BC
+	virtual void DrawObjectEffects();                                 // _C0
+	virtual void DrawScreenOverlay();                                 // _C8
+	virtual void DrawDebugStatus();                                   // _CC
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value); // _100
+	virtual s32 HandleEventCommand(s32 count, s32* args);             // _124
+	virtual void OnHitFromPosition(const Vec& from, f32 strength);    // _138
+	virtual void UpdateAnimationSounds();                             // _148, plays the sounds along the anim
 
 	// the states, Update calls them by number
 	void State0(u32 frames);

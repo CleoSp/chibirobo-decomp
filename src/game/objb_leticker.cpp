@@ -1,6 +1,6 @@
 #include "game/xobjleticker.h"
 #include "game/xchr.h"
-#include "game/ccameraaction.h"
+#include "game/leticker_camera.h"
 #include "game/cmotioncontrolcamera.h"
 #include "game/cgame.h"
 #include "game/cgs.h"
@@ -9,6 +9,7 @@
 #include "game/gmath.h"
 #include "game/animframe.h"
 #include <math.h>
+#include <sysdolphin/axdriver.h>
 extern "C" {
 #include <dolphin/mtx/mtx.h>
 #include <dolphin/mtx/vec.h>
@@ -16,19 +17,12 @@ extern "C" {
 }
 #include <sysdolphin/controller.h>
 
-// XObjLeticker, and the camera that turns around it in steps, CCameraActionLeticker
-
 extern "C" {
-BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
-BOOL TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle);
-BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle);
+bool TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle);
+bool TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle);
 bool IsLetickerJointClearOfObjects(XObj* obj, HSD_JObj* jobj);
 void SelectHighestActiveFloor(XObj* obj);
-extern CCameraActionLeticker gLetickerCameraAction;
 }
-
-// nothing reads it, the table many units start their .data with
-static s32 sUnused[26] = { 0, 3, 0, 0, 3, 0, 0, 2, 0, 0, 2, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 3, 0 };
 
 static XObjFloor sLetickerLiftFloor0[2] = {
 	{ 2, 0, { 0, 0, 0 }, 0, { 1200, 5000, 1200 } },
@@ -158,33 +152,13 @@ static inline s32 GetSide(f32 angle)
 	return side;
 }
 
-// whether the eye at that angle stays inside the room
-static inline bool CanTurn(CCameraActionLeticker* camera, f32 angle)
-{
-	if (!camera->mBounded) {
-		return true;
-	}
-	Vec eye;
-	camera->CalcEye(&eye, angle);
-#if !defined(VERSION_PAL)
-	OSReport("%4.2f %4.2f\n", eye.x, eye.z);
-#endif
-	if (eye.x < camera->mMinX || camera->mMaxX < eye.x || eye.z < camera->mMinZ || camera->mMaxZ < eye.z) {
-#if !defined(VERSION_PAL)
-		OSReport("CCameraActionLeticker::Update %4.2f %4.2f %d\n", eye.x, eye.z, (s32)(RAD2DEG * camera->mTurnTo));
-#endif
-		return false;
-	}
-	return true;
-}
-
 // turns the first linked object to the angle, then puts mStackTopPosition at the top of its stack
 /**
  * @note Address: 0x800E260C
  * @note Size: 0x3AC
  */
 // NONMATCHING: regalloc
-BOOL TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle)
+bool TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle)
 {
 	XObj* part = gGame.GetObject(leticker->mLinked[0]);
 	f32 my     = HSD_JObjGetRotationY(leticker->mJObj);
@@ -198,7 +172,7 @@ BOOL TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle)
 		}
 	}
 	if (GetAnimFrame(part->mJObj) < GetAnimEndFrame(part->mJObj)) {
-		return TRUE;
+		return true;
 	}
 	s32 path[9]    = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	HSD_JObj* jobj = FindJointByPath(part->mJObj, path, leticker->mCurrentLevel + 1);
@@ -208,14 +182,14 @@ BOOL TurnLetickerLinkedPartAndTrackJoint(XObjLeticker* leticker, f32 angle)
 		pos.x = pos.y = pos.z = 0.0f;
 		PSMTXMultVec(mtx, &pos, &leticker->mStackTopPosition);
 	}
-	return TRUE;
+	return true;
 }
 
 /**
  * @note Address: 0x800E29B8
  * @note Size: 0x4F4
  */
-BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle)
+bool TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle)
 {
 	CPad pad(0);
 	XObj* first    = gGame.GetObject(lift->mLinked[0]);
@@ -224,7 +198,7 @@ BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle)
 	first->SetRotateY(angle + HSD_JObjGetRotationY(lift->mJObj), 0.1f);
 	second->SetRotateY(angle + HSD_JObjGetRotationY(lift->mJObj), 0.1f);
 	if (pad.mPad->mButton & HSD_PAD_STICK_DOWN)
-		return TRUE;
+		return true;
 
 	CVec pos(second->mMoveTranslate);
 	f32 offset = 4.0f * (s32)(lift->mLevelProgress / 3.0f) + 0.5f;
@@ -235,8 +209,8 @@ BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle)
 			continue;
 		if (target->mId == lift->mId || target->mId == first->mId || target->mId == second->mId)
 			continue;
-		u32 attr = target->mAttr.mObjData != NULL ? target->mAttr.mObjData->_00 : 0;
-		if (attr == 0)
+		const UnkObjData* data = target->mAttr.mObjData;
+		if (data == NULL || data->mSource == NULL)
 			continue;
 		f32 dx = target->mMoveTranslate.x - pos.x;
 		f32 dz = target->mMoveTranslate.z - pos.z;
@@ -245,16 +219,16 @@ BOOL TurnLetickerAndCheckClearance(XObjLeticker* lift, f32 angle)
 		CVec hit, normal;
 		u32 flags = target->TestFloorCollision(&pos, &pos, 5.5f, 6.0f, &hit, &normal, 0, 0);
 		if (flags & 2)
-			return FALSE;
+			return false;
 		if (flags & 1) {
 			f32 floor = target->mFloorHeights[target->mHitFloorIndex];
 			if (__fpclassifyf(floor) == FP_NAN)
-				return FALSE;
+				return false;
 			if (pos.y <= floor)
-				return FALSE;
+				return false;
 		}
 	}
-	return TRUE;
+	return true;
 }
 
 /**
@@ -344,7 +318,7 @@ BOOL XObjLeticker::ReceivePlugPower(f32 amount)
 				camera.mMaxX    = mCameraMaxX;
 				camera.mMinZ    = mCameraMinZ;
 				camera.mMaxZ    = mCameraMaxZ;
-				for (s32 i = 0; i < 4 && !CanTurn(&camera, camera.mAngle); ++i)
+				for (s32 i = 0; i < 4 && !CanTurnLetickerCamera(camera, camera.mAngle); ++i)
 					camera.mTurnTo = camera.mAngle += HALF_PI;
 			}
 		} else {
@@ -374,7 +348,7 @@ BOOL XObjLeticker::ReceivePlugPower(f32 amount)
 	BOOL starting = mPowerTimer < 40;
 	switch (mState) {
 	case 1: // the lift
-		if (!(u8)TurnLetickerAndCheckClearance(this, angle)) {
+		if (!TurnLetickerAndCheckClearance(this, angle)) {
 			if (mHeight == 4.0f * (s32)(mLevelProgress / 3.0f) + 0.5f) {
 				XObj* part = gGame.GetObject(mLinked[1]);
 				PlayGameSound(&gGame.mSound, 0x191, 255);
@@ -389,7 +363,7 @@ BOOL XObjLeticker::ReceivePlugPower(f32 amount)
 		}
 		break;
 	case 2: // the counter
-		if (!(u8)TurnLetickerLinkedPartAndTrackJoint(this, angle))
+		if (!TurnLetickerLinkedPartAndTrackJoint(this, angle))
 			return starting;
 		break;
 	case 3: // the ride
@@ -688,114 +662,7 @@ bool IsLetickerJointClearOfObjects(XObj* obj, HSD_JObj* jobj)
 	return true;
 }
 
-/**
- * @note Address: 0x800E4AAC
- * @note Size: 0x3AC
- */
-s32 GetClearLetickerApproachSide(XObj* obj, const Vec* pos)
-{
-	f32 angle = WrapAngle((f32)atan2(pos->x - obj->mMoveTranslate.x, pos->z - obj->mMoveTranslate.z) - obj->mMoveRotate.y);
-	if (3.0f + obj->mMoveTranslate.y < gGame.GetPlayer()->mMoveTranslate.y) {
-		return 0;
-	}
-	if (Cos(0.7853982f) < Cos(angle)) { // 45 degrees
-		s32 path[2] = { 0, 2 };
-		if (IsLetickerJointClearOfObjects(obj, FindJointByPath(obj->mJObj, path, 2))) {
-			return -1;
-		}
-	} else if (Cos(angle) < Cos(3.9269907f)) { // 225 degrees
-		s32 path[2] = { 0, 6 };
-		if (IsLetickerJointClearOfObjects(obj, FindJointByPath(obj->mJObj, path, 2))) {
-			return -2;
-		}
-	} else if (0.0f < Sin(angle)) {
-		s32 path[2] = { 0, 4 };
-		if (IsLetickerJointClearOfObjects(obj, FindJointByPath(obj->mJObj, path, 2))) {
-			return -3;
-		}
-	} else {
-		s32 path[2] = { 0, 8 };
-		if (IsLetickerJointClearOfObjects(obj, FindJointByPath(obj->mJObj, path, 2))) {
-			return -4;
-		}
-	}
-	return 0;
-}
-
 } // extern "C"
-
-/**
- * @note Address: 0x800E4E58
- * @note Size: 0x364
- */
-void XObjLeticker::DrawObjectEffects()
-{
-	XObj* part = gGame.GetObject(mLinked[0]);
-	switch (mState) {
-	case 3:
-		if (!(0.0f < mLevelProgress) || (!mPowered && part->mAnimId != 1)) {
-			break;
-		}
-		Mtx mtx;
-		u32 colors[50];
-		Vec pts[50];
-		Vec pos = mMoveTranslate;
-		PSMTXTrans(mtx, pos.x, pos.y, pos.z);
-		f32 twist = 6.0f * (mLevelProgress / mMaxLevelProgress) * (f32)sin(DEG2RAD * (mFuncTime * 5)) + 72.0f;
-		u32 i;
-		for (i = 0; i < 50; i++) { // a helix of points rising and twisting with progress
-			f32 angle = DEG2RAD * mFuncTime + DEG2RAD * (twist * (s32)i);
-			f32 y     = 12.0f + 0.2f * (24.0f * (s32)i / 50.0f) * mLevelProgress / mMaxLevelProgress;
-			pts[i].x  = 7.1f * (f32)sin(angle);
-			pts[i].y  = y;
-			pts[i].z  = 7.1f * (f32)cos(angle);
-			colors[i] = ((48 - (s32)i) * 32 / 48 + 32) | 0x40F000; // the low channel fades along the strip
-		}
-		pts[49].x = pts[44].x;
-		pts[49].y = pts[44].y;
-		pts[49].z = pts[44].z;
-		PSMTXMultVecArray(mtx, pts, pts, 50);
-		DrawGsColoredLineStrip(&gGame.mGs, pts, colors, 50);
-		if (!IsGameSoundPlaying(&gGame.mSound, 0xB0)) {
-			PlayGameSound(&gGame.mSound, 0xB0, 0xFF);
-			HSD_AudioSFXSetPitchByID(0xB0, 600.0f * (mSpeedScale - 1.0f));
-		} else {
-			SetGameSfxVolume(&gGame.mSound, 0xB0, GetSoundVolumeAtPosition(&gGame.mSound, &part->mMoveTranslate, 0), 0);
-		}
-		break;
-	}
-}
-
-/**
- * @note Address: 0x800E51BC
- * @note Size: 0x324
- */
-// NONMATCHING: control flow
-void XObjLeticker::DrawObject()
-{
-	DrawWithView(0);
-	switch (mState) {
-	case 1: {
-		XObj* part     = gGame.GetObject(mLinked[0]);
-		s32 path[8]    = { 0, 0, 0, 0, 0, 0, 0, 0 };
-		HSD_JObj* jobj = FindJointByPath(part->mJObj, path, 7);
-		HSD_JObjClearFlags(jobj, HIDDEN);
-		f32 y;
-		for (s32 i = 0; 0.0f < (y = mHeight - 24.0f * i); i++) { // a segment every 24 units
-			HSD_JObjSetTranslateY(jobj, y);
-			HSD_JObjDispAll(jobj, NULL, 7, 0);
-		}
-		HSD_JObjSetFlags(jobj, HIDDEN);
-		HSD_JObjSetTranslateY(jobj, 0.0f);
-		break;
-	}
-	case 2:
-		gGame.GetObject(mLinked[0])->mStatus.mFlags &= ~0x80000000ULL;
-		break;
-	case 3:
-		break;
-	}
-}
 
 /**
  * @note Address: 0x800E5688
@@ -927,7 +794,7 @@ void XObjLeticker::UpdateObject(u32 frames)
 			SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		}
 	}
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	mFuncTime += frames;
 	if (mFunc) {
 		(this->*mFunc)();
@@ -947,7 +814,7 @@ void XObjLeticker::UpdateObject(u32 frames)
  */
 void XObjLeticker::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mLinkedCount   = 0;
 	mFunc          = NULL;
 	mCurrentLevel  = 0;
@@ -963,67 +830,3 @@ void XObjLeticker::ResetObjectState()
 	mBox[1].mId    = -1;
 	mSfx.mEvents   = sLetickerAnimSfxEvents;
 }
-
-/**
- * @note Address: 0x800E64A8
- * @note Size: 0x2E8
- */
-void CCameraActionLeticker::Update(u32 step)
-{
-	CPad pad(0);
-	u64 buttons     = gGame.mStatus.mFlags & 0x80000000;
-	u32 leftButton  = buttons ? HSD_PAD_DPADLEFT : HSD_PAD_CSTICK_LEFT;
-	u32 rightButton = buttons ? HSD_PAD_DPADRIGHT : HSD_PAD_CSTICK_RIGHT;
-
-	if (mTurnFrames == 0) {
-		if (pad.mPad->mTrigger & leftButton) {
-			if (CanTurn(this, mTurnTo - HALF_PI)) {
-				mTurnTo -= HALF_PI;
-				mTurnSpeed  = -0.08726646f; // five degrees a frame, a quarter in 18
-				mTurnFrames = 18;
-			}
-		} else if (pad.mPad->mTrigger & rightButton) {
-			if (CanTurn(this, HALF_PI + mTurnTo)) {
-				mTurnTo += HALF_PI;
-				mTurnSpeed  = 0.08726646f;
-				mTurnFrames = 18;
-			}
-		}
-	} else {
-		mTurnFrames -= step;
-		if (mTurnFrames <= 0) {
-			mAngle      = mTurnTo;
-			mTurnFrames = 0;
-		} else {
-			mAngle += mTurnSpeed * step;
-		}
-	}
-	CCameraActionLadr::Update(step);
-}
-
-/**
- * @note Address: 0x800E6790
- * @note Size: 0x68
- */
-void CCameraActionLeticker::Reset()
-{
-#if !defined(VERSION_PAL)
-	OSReport("CCameraActionLeticker::Reset\n");
-#endif
-	CCameraActionLadr::Reset();
-	mTurnTo     = 0.0f;
-	mTurnFrames = 0;
-	mBounded    = false;
-	gGame.mStatus.mFlags |= 0x80;
-}
-
-/**
- * @note Address: 0x800E67F8
- * @note Size: 0x20
- */
-Vec CCameraActionLeticker::GetCameraTarget()
-{
-	return *mTarget;
-}
-
-CCameraActionLeticker gLetickerCameraAction;

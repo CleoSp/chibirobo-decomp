@@ -15,7 +15,7 @@ static const Vec sSpiderBossPatrolPoints[]
 	    { -120, 0, 120 }, { 0, 0, -80 },    { 80, 0, -80 },   { 160, 0, -80 },  { -80, 0, -80 }, { -160, 0, -80 }, { 0, 0, -160 },
 	    { 80, 0, -160 },  { 120, 0, -120 }, { -80, 0, -160 }, { -120, 0, -120 } };
 
-static inline void PlayPatrolAnim(XObjSpiderBoss* boss, s32 id)
+static void PlayPatrolAnim(XObjSpiderBoss* boss, s32 id)
 {
 	HSD_AnimJoint* joint      = boss->GetJointAnimation(id);
 	HSD_MatAnimJoint* mat     = boss->GetMaterialAnimation(0x17);
@@ -24,7 +24,7 @@ static inline void PlayPatrolAnim(XObjSpiderBoss* boss, s32 id)
 	boss->mAltAnimId = id;
 }
 
-static inline void FacePatrolPoint(XObjSpiderBoss* boss, const Vec& target, s32 turningStep, s32 readyStep)
+static void FacePatrolPoint(XObjSpiderBoss* boss, const Vec& target, s32 turningStep, s32 readyStep)
 {
 	boss->mHeading = atan2(target.x - boss->mMoveTranslate.x, target.z - boss->mMoveTranslate.z);
 	f32 delta      = boss->mHeading - boss->mTargetRotY;
@@ -42,7 +42,7 @@ static inline void FacePatrolPoint(XObjSpiderBoss* boss, const Vec& target, s32 
 	}
 }
 
-static inline void TurnTowardPoint(XObjSpiderBoss* boss, s32 readyStep)
+static void TurnTowardPoint(XObjSpiderBoss* boss, s32 readyStep)
 {
 	f32 diff = boss->mTargetRotY - boss->mHeading;
 	if (diff > PI)
@@ -56,13 +56,25 @@ static inline void TurnTowardPoint(XObjSpiderBoss* boss, s32 readyStep)
 	}
 }
 
-// NONMATCHING: retail's frame is 0x20 smaller, it builds each patrol effect's rotation straight in the copy it passes to
-// CreateSRT where this build makes the local and copies it (same in xobjspiderbosshit, no source form found). The patrol
-// points and effect vectors also sit at other .rodata offsets because this unit holds only part of the file.
+static bool AnimationEnding(HSD_JObj* joint, u32 frames)
+{
+	HSD_AObj* anim    = GetAObj(joint);
+	const f32 end     = anim != NULL ? HSD_AObjGetEndFrame(anim) : 0.0f;
+	const f32 current = anim != NULL ? HSD_AObjGetCurrentFrame(anim) : 0.0f;
+	return end - frames <= current;
+}
+
+static void StartPatrolEffect(XObjSpiderBoss* boss)
+{
+	const Vec scale    = { 1, 1, 1 };
+	const Vec rotation = { 0, boss->mTargetRotY, 0 };
+	gGame.mParticle.CreateSRT(0xb6, 1, boss->mMoveTranslate, scale, rotation, TRUE);
+	boss->mPatrolEffectActive = 1;
+}
+
 void XObjSpiderBoss::State4(u32 frames)
 {
-	CPad pad(0);
-	CVec player = gGame.GetPlayer()->mMoveTranslate;
+	const Vec player = gGame.GetPlayer()->mMoveTranslate;
 	if (InfoScrn_IsBatteryGaugeEmpty(&gGame.mInfoScrn) && mStep != 30) {
 		PlayPatrolAnim(this, 0x17);
 		mSpeed = 0;
@@ -74,14 +86,12 @@ void XObjSpiderBoss::State4(u32 frames)
 		mSpeed = 0;
 		PlayPatrolAnim(this, 0x17);
 		mSpiderStatus.mFlags |= 0x1000;
-		Vec candidates[25];
-		Vec* next = candidates;
-		// skips the point at the stored index (pick indexes the shortened list, so not always the last target)
-		for (s32 i = 0; i < 25; ++i)
-			if (mPatrolSelection != i)
-				*next++ = sSpiderBossPatrolPoints[i];
-		s32 pick         = rand() % 24;
-		mPatrolTarget    = candidates[pick];
+		const s32 count    = sizeof(sSpiderBossPatrolPoints) / sizeof(sSpiderBossPatrolPoints[0]);
+		const s32 previous = mPatrolSelection;
+		const s32 pick     = rand() % (count - 1);
+		// The stored index is in the list with the previous selection skipped.
+		const s32 point  = previous >= 0 && previous <= pick ? pick + 1 : pick;
+		mPatrolTarget    = sSpiderBossPatrolPoints[point];
 		mPatrolSelection = pick;
 		FacePatrolPoint(this, mPatrolTarget, 1, 2);
 		break;
@@ -93,27 +103,16 @@ void XObjSpiderBoss::State4(u32 frames)
 		if (--mTimer < 0) {
 			mSpeed = 1;
 			PlayPatrolAnim(this, 0x18);
-			{ // the move-start effect
-				Vec scale    = { 1, 1, 1 };
-				Vec rotation = {};
-				rotation.y   = mTargetRotY;
-				gGame.mParticle.CreateSRT(0xb6, 1, mMoveTranslate, scale, rotation, TRUE);
-				mPatrolEffectActive = 1;
-			}
+			StartPatrolEffect(this);
 			mTimer = rand() % 30 + 30;
 			++mStep;
 		}
 		break;
 	case 3:
 		if (mAltAnimId == 0x18) {
-			if (!mPatrolEffectActive) {
-				Vec scale    = { 1, 1, 1 };
-				Vec rotation = {};
-				rotation.y   = mTargetRotY;
-				gGame.mParticle.CreateSRT(0xb6, 1, mMoveTranslate, scale, rotation, TRUE);
-				mPatrolEffectActive = 1;
-			}
-			if (GetAnimEndFrame(mJObj) - frames <= GetAnimFrame(mJObj)) {
+			if (!mPatrolEffectActive)
+				StartPatrolEffect(this);
+			if (AnimationEnding(mJObj, frames)) {
 				mPatrolEffectActive = 0;
 				gGame.mParticle.Kill(0xb6);
 			}
@@ -146,7 +145,7 @@ void XObjSpiderBoss::State4(u32 frames)
 		}
 		break;
 	case 7:
-		if (GetAnimEndFrame(mJObj) - frames <= GetAnimFrame(mJObj))
+		if (AnimationEnding(mJObj, frames))
 			mStep = 4;
 		break;
 	case 30: // waits until the battery is back and no script runs
@@ -157,7 +156,7 @@ void XObjSpiderBoss::State4(u32 frames)
 }
 
 extern "C" {
-f32 gSpiderBossSavedTargetYaw;
+extern f32 gSpiderBossSavedTargetYaw;
 void PlaySpiderBossAttachmentAnimation(s32);
 void ResetSpiderBossAttachment();
 BOOL IsUsingMug(XActLift*);
@@ -169,23 +168,41 @@ BOOL IsUsingMug(XActLift*);
 #define BOSS_FPS 60U
 #endif
 
-static inline void SetAttackAnim(XObjSpiderBoss* boss, s32 id, BOOL restart = FALSE)
+static void SetAttackAnim(XObjSpiderBoss* boss, s32 id, BOOL restart = FALSE)
 {
 	boss->SetAnim(id, restart, NULL, NULL, NULL, 0, 1, 0, 10);
 }
 
-static inline bool AttackAnimEnding(XObjSpiderBoss* boss, u32 frames)
+static void FaceAttackTarget(XObjSpiderBoss* boss, const Vec& target, u32 frames, s32 idleAnim, s32 turnLeftAnim, s32 turnRightAnim)
 {
-	return GetAnimEndFrame(boss->mJObj) - frames <= GetAnimFrame(boss->mJObj);
+	boss->mHeading  = atan2(target.x - boss->mMoveTranslate.x, target.z - boss->mMoveTranslate.z);
+	const f32 delta = boss->mTargetRotY - boss->mHeading;
+	if (delta > PI)
+		boss->mHeading += TWO_PI;
+	else if (delta < -PI)
+		boss->mHeading -= TWO_PI;
+	ApproachHudValue(&boss->mTargetRotY, &boss->mHeading, .018f);
+	if (boss->mHeading > boss->mTargetRotY)
+		SetAttackAnim(boss, turnLeftAnim, AnimationEnding(boss->mJObj, frames));
+	else if (boss->mHeading < boss->mTargetRotY)
+		SetAttackAnim(boss, turnRightAnim, AnimationEnding(boss->mJObj, frames));
+	else
+		SetAttackAnim(boss, idleAnim);
 }
 
-static inline void ShakeSpiderArena()
+static void SetupGrabJoint(XObjSpiderBoss* boss)
+{
+	s32 path[] = { 0, 2, 0, 1, 1, 0, 0 };
+	HSD_JObjSetupMatrix(FindJointByPath(boss->mJObj, path, sizeof(path) / sizeof(path[0])));
+}
+
+static void ShakeSpiderArena()
 {
 	if (!(gGame.mStatus.mFlags & 0x100))
 		StartScreenShake(&gGame.mQuake, 0, 3, 0, 0, 0, 0, .4f);
 }
 
-static inline void PulseSpiderArena(XObjSpiderBoss* boss)
+static void PulseSpiderArena(XObjSpiderBoss* boss)
 {
 	if ((s32)--boss->mActionTimer < 0) {
 		boss->mActionTimer = rand() % 60 + 60;
@@ -194,7 +211,7 @@ static inline void PulseSpiderArena(XObjSpiderBoss* boss)
 	}
 }
 
-static inline bool IsGrabBlocked(s32 anim)
+static bool IsGrabBlocked(s32 anim)
 {
 	switch (anim) { // these player anims make him ungrabbable
 
@@ -227,15 +244,10 @@ static inline bool IsGrabBlocked(s32 anim)
 	return false;
 }
 
-// NONMATCHING: same code; retail keeps the zero from the prologue in r6 (here r0), takes r4 for the second path
-// pointer and has r29 and r30 the other way round in the whole function. The path arrays and the joint string sit
-// at other .rodata offsets because this unit holds only part of the file.
 void XObjSpiderBoss::State3(u32 frames)
 {
 	CPad pad(0);
-	Vec player = gGame.GetPlayer()->mMoveTranslate;
-	CVec position(player);
-	CJObj joint;
+	const Vec position = gGame.GetPlayer()->mMoveTranslate;
 	switch (mStep) {
 	case 100:
 		mTimer = 3 * BOSS_FPS / frames; // three seconds
@@ -243,27 +255,8 @@ void XObjSpiderBoss::State3(u32 frames)
 		gSpiderBossSavedTargetYaw = mTargetRotY;
 		mStep                     = 101;
 		break;
-	case 101: {
-		mHeading  = atan2(position.x - mMoveTranslate.x, position.z - mMoveTranslate.z);
-		f32 delta = mTargetRotY - mHeading;
-		if (delta > PI)
-			mHeading = TWO_PI + mHeading;
-		else if (delta < -PI)
-			mHeading -= TWO_PI;
-		ApproachHudValue(&mTargetRotY, &mHeading, .018f);
-		if (mHeading > mTargetRotY) {
-			if (AttackAnimEnding(this, frames))
-				SetAttackAnim(this, 9, TRUE);
-			else
-				SetAttackAnim(this, 9);
-		} else if (mHeading < mTargetRotY) {
-			if (AttackAnimEnding(this, frames))
-				SetAttackAnim(this, 8, TRUE);
-			else
-				SetAttackAnim(this, 8);
-		} else
-			SetAttackAnim(this, 7);
-	}
+	case 101:
+		FaceAttackTarget(this, position, frames, 7, 9, 8);
 		if (--mTimer < 0)
 			mStep = 0;
 		break;
@@ -276,37 +269,13 @@ void XObjSpiderBoss::State3(u32 frames)
 		break;
 	case 1:
 		mGrabIntervalFrames += frames;
-		{
-			mHeading  = atan2(position.x - mMoveTranslate.x, position.z - mMoveTranslate.z);
-			f32 delta = mTargetRotY - mHeading;
-			if (delta > PI)
-				mHeading = TWO_PI + mHeading;
-			else if (delta < -PI)
-				mHeading -= TWO_PI;
-			ApproachHudValue(&mTargetRotY, &mHeading, .018f);
-			if (mHeading > mTargetRotY) {
-				if (AttackAnimEnding(this, frames))
-					SetAttackAnim(this, 9, TRUE);
-				else
-					SetAttackAnim(this, 9);
-			} else if (mHeading < mTargetRotY) {
-				if (AttackAnimEnding(this, frames))
-					SetAttackAnim(this, 8, TRUE);
-				else
-					SetAttackAnim(this, 8);
-			} else
-				SetAttackAnim(this, 7);
-		}
+		FaceAttackTarget(this, position, frames, 7, 9, 8);
 		if (SpiderContactDistance(&position, &mMoveTranslate) <= 220) {
 			// after three seconds spent approaching, counted across rounds until a grab ends
 			if (mGrabIntervalFrames >= (s32)(3 * BOSS_FPS)) {
-
 				mStep = 10;
 				SetAttackAnim(this, 16);
-				s32 path[] = { 0, 2, 0, 1, 1, 0, 0 };
-				joint.Attach(FindJointByPath(mJObj, path, 7));
-				// Retail updates the joint matrix here and discards the resulting position.
-				joint.GetPos();
+				SetupGrabJoint(this);
 			}
 			PulseSpiderArena(this);
 		} else if (--mTimer < 0) {
@@ -317,7 +286,7 @@ void XObjSpiderBoss::State3(u32 frames)
 		}
 		break;
 	case 10:
-		if (AttackAnimEnding(this, frames)) {
+		if (AnimationEnding(mJObj, frames)) {
 			PlaySpiderBossAttachmentAnimation(1);
 			mTimer = BOSS_FPS / frames;
 			SetAttackAnim(this, 17);
@@ -325,69 +294,25 @@ void XObjSpiderBoss::State3(u32 frames)
 			++mStep;
 		}
 		break;
-	case 11: {
-		mHeading  = atan2(position.x - mMoveTranslate.x, position.z - mMoveTranslate.z);
-		f32 delta = mTargetRotY - mHeading;
-		if (delta > PI)
-			mHeading = TWO_PI + mHeading;
-		else if (delta < -PI)
-			mHeading -= TWO_PI;
-		ApproachHudValue(&mTargetRotY, &mHeading, .018f);
-		if (mHeading > mTargetRotY) {
-			if (AttackAnimEnding(this, frames))
-				SetAttackAnim(this, 18, TRUE);
-			else
-				SetAttackAnim(this, 18);
-		} else if (mHeading < mTargetRotY) {
-			if (AttackAnimEnding(this, frames))
-				SetAttackAnim(this, 19, TRUE);
-			else
-				SetAttackAnim(this, 19);
-		} else
-			SetAttackAnim(this, 17);
-	}
+	case 11:
+		FaceAttackTarget(this, position, frames, 17, 18, 19);
 		if (--mTimer < 0) {
 			mTimer       = 3 * BOSS_FPS / frames + (BOSS_FPS / frames) / 2; // three and a half seconds
 			mActionTimer = rand() % 30 + 30;
-			s32 path[]   = { 0, 2, 0, 1, 1, 0, 0 };
-			joint.Attach(FindJointByPath(mJObj, path, 7));
-			// Retail updates the joint matrix here and discards the resulting position.
-			joint.GetPos();
+			SetupGrabJoint(this);
 			PlaySpiderBossAttachmentAnimation(2);
 			PlayGameSound(&gGame.mSound, 0x16001f, 255);
 			++mStep;
 		}
 		break;
 	case 12: {
-		{
-			mHeading  = atan2(position.x - mMoveTranslate.x, position.z - mMoveTranslate.z);
-			f32 delta = mTargetRotY - mHeading;
-			if (delta > PI)
-				mHeading = TWO_PI + mHeading;
-			else if (delta < -PI)
-				mHeading -= TWO_PI;
-			ApproachHudValue(&mTargetRotY, &mHeading, .018f);
-			if (mHeading > mTargetRotY) {
-				if (AttackAnimEnding(this, frames))
-					SetAttackAnim(this, 18, TRUE);
-				else
-					SetAttackAnim(this, 18);
-			} else if (mHeading < mTargetRotY) {
-				if (AttackAnimEnding(this, frames))
-					SetAttackAnim(this, 19, TRUE);
-				else
-					SetAttackAnim(this, 19);
-			} else
-				SetAttackAnim(this, 17);
-		}
+		FaceAttackTarget(this, position, frames, 17, 18, 19);
 		if (--mGrabCooldown < 0)
 			mGrabCooldown = 0;
 		if (IsGrabBlocked(gGame.GetPlayer()->mAnimId))
 			mGrabCooldown = 5;
 		f32 distance = SpiderContactDistance(&position, &mMoveTranslate);
-		// the grab: within 70, the mug not raised, a grab-able anim and no cooldown
-		if (distance <= 70 && !IsUsingMug(&gGame.GetPlayer()->mLift) && !IsGrabBlocked(gGame.GetPlayer()->mAnimId)
-		    && gGame.GetPlayer()->mAttachmentRequest < 0 && mGrabCooldown == 0) {
+		if (distance <= 70 && !IsUsingMug(&gGame.GetPlayer()->mLift) && gGame.GetPlayer()->mAttachmentRequest < 0 && mGrabCooldown == 0) {
 			mStatus.mFlags |= 0x100000; // flags 0x100000/0x20000 mark the grab
 			ShakeSpiderArena();
 			mSpiderStatus.mFlags |= 0x20000;

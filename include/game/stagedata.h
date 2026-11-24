@@ -3,10 +3,20 @@
 
 #include "types.h"
 
-// what stage.cpp hands out of the loaded stage file. apart from stage.h, which drags in
-// the sdk os headers through CModule
+// Views into resources owned by the loaded stage.
+class EnvInfo {
+public:
+	u8* mData; // _00
+	// _04 vtable
 
-class EnvInfo;
+	EnvInfo(u8* data)
+	    : mData(data)
+	{
+	}
+	virtual ~EnvInfo() { } // _08
+};
+STATIC_ASSERT(sizeof(EnvInfo) == 8);
+
 struct StagePlacement;
 struct CamInfoData;
 struct CamAreaRecord;
@@ -27,7 +37,14 @@ u8* GetStageTimerExpiredScript(void);
 u8* GetStageScriptByIndex(s32 index);
 u8* GetStageDataBuffer(void);
 EnvInfo* GetStageEnvironment(void);
+u8* GetGlobalTextEntry(s32 index);
+BOOL IsStageDataLoaded(void);
 s32 FindStageIndexByName(const char* name);
+}
+
+inline const u8* GetEnvData()
+{
+	return GetStageEnvironment()->mData;
 }
 
 #endif

@@ -14,7 +14,7 @@ BOOL XObjCoin::LoadFromPlacement(const CoordInfo& info)
 	mPlacementParam1 = info.mPlacement->mParam1;
 	if (IsFlagSet())
 		return TRUE;
-	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		mStatus.mFlags |= 0x10000000ULL;
 		return TRUE;
 	}
@@ -27,7 +27,7 @@ BOOL XObjCoin::LoadFromPlacement(const CoordInfo& info)
  */
 void XObjCoin::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	s32 sign       = rand() & 1 ? 1 : -1;
 	mSpin          = (DEG2RAD * (rand() % 360)) * sign;
 	HSD_AObj* aobj = GetAObj(mJObj);
@@ -58,7 +58,7 @@ s32 XObjCoin::GetFlagIndex()
  */
 BOOL XObjItem::LoadFromPlacement(const CoordInfo& info)
 {
-	BOOL result = LoadFromPlacement__4XObjFRC9CoordInfo(this, &info);
+	BOOL result = XObj::LoadFromPlacement(info);
 	if (result && IsFlagSet())
 		mStatus.mFlags &= ~0x10000ULL;
 	return result;

@@ -6,77 +6,12 @@
 // other way (-inline deferred)
 
 #include "game/hsd_jobj.h"
+#include "game/cgame.h"
+#include "game/csound.h"
 #include "game/ut.h"
-#include "game/xobj.h"
+#include "game/xchr.h"
 
-extern "C" {
-void PSMTXCopy(Mtx src, Mtx dst);
-void PSMTXConcat(Mtx a, Mtx b, Mtx ab);
-void PSMTXScale(Mtx m, f32 xS, f32 yS, f32 zS);
-void PSMTXTrans(Mtx m, f32 xT, f32 yT, f32 zT);
-void PSMTXMultVec(Mtx m, Vec* src, Vec* dst);
-}
-
-// CGame, accessed by offset
-extern "C" u8 gGame[];
-#define GAME_AT(off) (gGame + (off))
-// an offset into CGame: japan lays it out differently from the others
-#if defined(VERSION_JP)
-#define GAME_OFS(other, japan) (japan)
-#else
-#define GAME_OFS(other, japan) (other)
-#endif
-
-class CCamera;
-
-class CInterfaceCameraAction {
-public:
-	CVec mEye;      // _00, eye position
-	CVec mInterest; // _10, interest (look-at) point
-	CVec mAngle;    // _20, camera angle
-	f32 mDistance;  // _30, camera distance
-	f32 mFov;       // _34, field of view
-	s32 _38;        // _38
-
-	virtual ~CInterfaceCameraAction() { }       // _08
-	virtual void PreviousUpdate() { }           // _0C
-	virtual void Update() = 0;                  // _10
-	virtual void Reset() { }                    // _14
-	virtual void SetCamera(CCamera* camera) { } // _18
-	virtual void Init() { }                     // _1C
-	virtual void Draw() { }                     // _20
-	virtual void DrawDebug2d() { }              // _24
-	virtual void DrawDebug3d() { }              // _28
-	virtual void SetEye(f32 x, f32 y, f32 z)    // _2C
-	{
-		mEye.x = x;
-		mEye.y = y;
-		mEye.z = z;
-	}
-	virtual void SetInterest(f32 x, f32 y, f32 z) // _30
-	{
-		mInterest.x = x;
-		mInterest.y = y;
-		mInterest.z = z;
-	}
-	virtual void SetAngle(f32 x, f32 y, f32 z) // _34
-	{
-		mAngle.x = x;
-		mAngle.y = y;
-		mAngle.z = z;
-	}
-	virtual void SetEye(const Vec& v) { SetEye(v.x, v.y, v.z); }           // _38
-	virtual void SetInterest(const Vec& v) { SetInterest(v.x, v.y, v.z); } // _3C
-	virtual void SetAngle(const Vec& v) { SetAngle(v.x, v.y, v.z); }       // _40
-	virtual void SetDistance(f32 v) { mDistance = v; }                     // _44
-	virtual void SetFov(f32 v) { mFov = v; }                               // _48
-	virtual void SetAngleZ(f32 v) { mAngle.z = v; }                        // _4C
-	virtual s32 GetMode() { return 0; }                                    // _50
-	virtual s32 GetFlags() { return _38; }                                 // _54
-	virtual f32 GetEaseDivisor() { return 12.0f; }                         // _58
-	virtual s32 GetInterestMode() { return 0; }                            // _5C
-	virtual s32 GetTarget() { return 0; }                                  // _60
-};
+#include <dolphin/mtx/mtx.h>
 
 namespace Car {
 
@@ -86,22 +21,19 @@ public:
 	{
 		mCarMtx           = NULL;
 		mInterestOffset.x = mInterestOffset.y = mInterestOffset.z = 0.0f;
-		_50.x = _50.y = _50.z = 0.0f;
 	}
 	virtual ~CCameraActionCar() { }
 
-	void SetTarget(Vec pos) { _50 = pos; }
 	void SetOffset(Vec pos) { mInterestOffset = pos; }
 
-	virtual void Update();
-	virtual s32 GetMode() { return 0; }
-	virtual s32 GetFlags() { return 11; }
-	virtual f32 GetEaseDivisor() { return 0.1f; }
+	virtual void Update(u32 step);
+	virtual u32 GetMode() { return 0; }
+	virtual u32 GetCameraFlags() { return 11; }
+	virtual f32 GetFollowDivisor() { return 0.1f; }
 
 	MtxPtr mCarMtx;      // _40, matrix of the car the camera follows, NULL stops it
 	Vec mInterestOffset; // _44, interest point in the car's space, set by SetOffset
-	Vec _50;             // _50, set by SetTarget (0,30,-120 in StartCarCamera) and zeroed in the ctor; never read
-	u8 _5C[0xC];         // _5C
+	u8 _50[0x18];        // _50
 };
 
 class CarRoot {
@@ -138,31 +70,7 @@ void Init(void);
 
 } // namespace Car
 
-struct RoboView {
-#if defined(VERSION_JP)
-	u8 _00[0x970];     // _00
-	u32 mPlayerStatus; // _970
-	u8 _984[0x12380];  // _974
-	s32 mPadReset;     // _12CF4
-#else
-	u8 _00[0x980];     // _00
-	u32 mPlayerStatus; // _980, XObjChr::mPlayerStatus.mFlags (JP _970); 0x40000000 hands him to a script, 0x20000000 | 7 gives control back
-	u8 _984[0x12470];  // _984
-	s32 mPadReset;     // _12DF4, XObjChr::mPad.mReset (XPad at _12DA0, mReset at +0x54; JP _12CF4); 1 with the give-back flags, 0 with the
-	                   // script flags
-#endif
-};
-
-#define GAME_OBJ() (*(RoboView**)GAME_AT(GAME_OFS(0x96BC, 0x9674)))
-#define SOUND()    GAME_AT(GAME_OFS(0xE7E24, 0xE713C))
-
 static Car::CCameraActionCar carCamera;
-
-// see game/cmotioncontrolcamera.h
-class CMotionControlCamera {
-public:
-	void ChangeAction(CInterfaceCameraAction* action);
-};
 
 static Car::PlayerCarRoot playerCar;
 static Car::CarRoot racerCar;
@@ -173,9 +81,6 @@ static u8* carParams;
 static u8* carSoundCues;
 
 extern "C" {
-void PlayGameSound(void* p, s32 id, s32 v);
-void StopGameSfx(void* p, s32 id);
-void FadeOutGameSfx(void* p, s32 a, s32 b);
 
 void RestoreDefaultCamera(void);
 void Terminate(void);
@@ -183,7 +88,7 @@ s32 GetPlayerCarFrame(void);
 s32 GetPlayerCarResult(void);
 void SetCarSoundCues(u8* data);
 void SetCarParams(u8* data);
-void DrawCarHud(void* arg);
+void DrawCarHud(s32 frames);
 void UpdateCars(u32 frames);
 void StartCars(void);
 void StartCarCamera(void);
@@ -196,21 +101,16 @@ s32 RegisterCar(XObj* car, XObj* path, XObj* attached);
 #define CAR_PARAM_BRAKE_JUDGE 0x8 // braking before this frame plays 0x2000E, after it 0x20011
 #define CAR_PARAM_RACER_BRAKE 0xC // the frame the rival's car brakes at
 
-// little endian ints out of a loaded data file
-inline s32 ReadS32LE(u8* p)
+static s32 ReadS32LE(const u8* data, u32 offset)
 {
-	if (p != NULL) {
-		return p[0] + p[1] * 0x100 + p[2] * 0x10000 + p[3] * 0x1000000;
+	if (data == NULL) {
+		return 0;
 	}
-	return 0;
-}
 
-// clears the three user matrix bits copy_mtx sets, real name unknown
-inline void JObjInline1199(HSD_JObj* jobj)
-{
-	JOBJ_H_ASSERT(1199, jobj);
-	jobj->flags &= ~0x3800000;
-	HSD_JObjSetMtxDirty(jobj);
+	const u8* bytes = data + offset;
+	const u32 value = static_cast<u32>(bytes[0]) | (static_cast<u32>(bytes[1]) << 8) | (static_cast<u32>(bytes[2]) << 16)
+	                | (static_cast<u32>(bytes[3]) << 24);
+	return static_cast<s32>(value);
 }
 
 inline void Car::CarRoot::Register(XObj* car, XObj* path, XObj* attached)
@@ -230,27 +130,10 @@ inline void Car::CarRoot::Register(XObj* car, XObj* path, XObj* attached)
 	mStarted   = 0;
 }
 
-// what Brake does. the copy retail has of the virtual holds this one inline level down
-inline void CarRoot_Brake(Car::CarRoot* car)
-{
-	car->mBraking = 1;
-	car->mCar->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
-	XObj* obj = car->mCar;
-	obj->PushAnim(3, 0, 100);
-}
-
 // the one virtual that is inline: retail has its copy at the end, with the camera's
 inline void Car::CarRoot::Start()
 {
 	mStarted = 1;
-}
-
-inline void RoboView_ResetFlags(RoboView* game)
-{
-	game->mPlayerStatus = 0;
-	game->mPlayerStatus |= 0x20000000;
-	game->mPlayerStatus |= 7;
-	game->mPadReset = 1;
 }
 
 /**
@@ -262,13 +145,13 @@ inline void RoboView_ResetFlags(RoboView* game)
  * @note Address: stage02 .text 0x8658
  * @note Size: 0xC
  */
-// Car::CCameraActionCar::GetEaseDivisor, inline in the class
+// Car::CCameraActionCar::GetFollowDivisor, inline in the class
 
 /**
  * @note Address: stage02 .text 0x8650
  * @note Size: 0x8
  */
-// Car::CCameraActionCar::GetFlags, inline in the class
+// Car::CCameraActionCar::GetCameraFlags, inline in the class
 
 /**
  * @note Address: stage02 .text 0x8648
@@ -292,7 +175,7 @@ inline void RoboView_ResetFlags(RoboView* game)
  * @note Address: stage02 .text 0x8530
  * @note Size: 0x74
  */
-void Car::CCameraActionCar::Update()
+void Car::CCameraActionCar::Update(u32 step)
 {
 	Vec pos;
 
@@ -336,7 +219,7 @@ void Car::CarRoot::Update(u32 frames)
 		return;
 	}
 	if (0.0f < mSpeed) {
-		f32 rate = mSpeed - ReadS32LE(carParams + CAR_PARAM_BRAKE_DECEL) / 1000.0f;
+		f32 rate = mSpeed - ReadS32LE(carParams, CAR_PARAM_BRAKE_DECEL) / 1000.0f;
 		if (rate < 0.0f) {
 			rate = 0.0f;
 		}
@@ -675,7 +558,9 @@ void Car::CarRoot::Update(u32 frames)
  */
 void Car::CarRoot::Brake()
 {
-	CarRoot_Brake(this);
+	mBraking = 1;
+	mCar->SetAnim(2, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
+	mCar->PushAnim(3, 0, 100);
 }
 
 // Brake__Q23Car7CarRootFv
@@ -761,7 +646,7 @@ void Car::PlayerCarRoot::Clear()
 void Car::PlayerCarRoot::Start()
 {
 	mStarted = 1;
-	PlayGameSound(SOUND(), 0x2000D, 0xFF);
+	PlayGameSound(&gGame.mSound, 0x2000D, 0xFF);
 }
 
 /**
@@ -770,30 +655,31 @@ void Car::PlayerCarRoot::Start()
  */
 void Car::PlayerCarRoot::Update(u32 frames)
 {
-	s32 i;
-
 	CarRoot::Update(frames);
 	if (!mStarted) {
 		return;
 	}
 	CPad pad(0);
-	void* sound;
+	XSound* sound;
 	if (!mBraking && (pad.mPad->mTrigger & 0x200)) { // B brakes
 		Brake();
 		mBrakeFrame = mFrame;
-		sound       = SOUND();
+		sound       = &gGame.mSound;
 		StopGameSfx(sound, 0x2000D);
-		if (mBrakeFrame < ReadS32LE(carParams + CAR_PARAM_BRAKE_JUDGE)) {
+		if (mBrakeFrame < ReadS32LE(carParams, CAR_PARAM_BRAKE_JUDGE)) {
 			PlayGameSound(sound, 0x2000E, 0xFF);
 		} else {
 			PlayGameSound(sound, 0x20011, 0xFF);
 		}
 	}
-	sound = SOUND();
+	sound = &gGame.mSound;
 	// cue records of (frame, sound id); a non-positive frame ends the list
-	for (i = 0; ReadS32LE(carSoundCues + i * 8) > 0; i++) {
-		s32 frame = ReadS32LE(carSoundCues + i * 8);
-		s32 id    = ReadS32LE(carSoundCues + (i * 2 + 1) * 4);
+	for (u32 offset = 0;; offset += 8) {
+		const s32 frame = ReadS32LE(carSoundCues, offset);
+		if (frame <= 0) {
+			break;
+		}
+		const s32 id = ReadS32LE(carSoundCues, offset + 4);
 		if (mPrevFrame < frame && frame <= mFrame) {
 			PlayGameSound(sound, id, 0xFF);
 			if (id == 0x2001F) { // starting 0x2001F fades the music (track 0xFFFF0000) out
@@ -803,7 +689,7 @@ void Car::PlayerCarRoot::Update(u32 frames)
 			}
 		}
 	}
-	if (ReadS32LE(carParams + CAR_PARAM_FINISH) <= mFrame) {
+	if (ReadS32LE(carParams, CAR_PARAM_FINISH) <= mFrame) {
 		mSpeed = 1.0f;
 		if (mBraking && mCar->mAnimId != 4) {
 			mCar->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
@@ -854,21 +740,10 @@ extern "C" s32 RegisterCar(XObj* car, XObj* path, XObj* attached)
  */
 extern "C" void StartCarCamera(void)
 {
-	RoboView* game = GAME_OBJ();
-	Vec v;
-
-	game->mPlayerStatus = 0;
-	game->mPlayerStatus |= 0x40000000;
-	game->mPadReset = 0;
-	((CMotionControlCamera*)GAME_AT(GAME_OFS(0xE5D38, 0xE5050)))->ChangeAction(&carCamera);
-	v.x = 0.0f;
-	v.y = 30.0f;
-	v.z = -120.0f;
-	carCamera.SetTarget(v);
-	v.x = 0.0f;
-	v.y = 0.0f;
-	v.z = 60.0f;
-	carCamera.SetOffset(v); // the interest sits 60 out on the car's z
+	gGame.GetPlayer()->LockControl();
+	gGame.mMotionControlCamera.ChangeAction(&carCamera);
+	const Vec offset = { 0.0f, 0.0f, 60.0f };
+	carCamera.SetOffset(offset);
 	carCamera.mCarMtx = playerCar.mCarMtx;
 }
 
@@ -889,7 +764,6 @@ extern "C" void StartCars(void)
  */
 extern "C" void UpdateCars(u32 frames)
 {
-	CPad pad(0);
 	bool done;
 
 	if (!carsStarted) {
@@ -906,20 +780,15 @@ extern "C" void UpdateCars(u32 frames)
 	if (!playerCar.mStarted) {
 		done = false;
 	} else {
-		done = ReadS32LE(carParams + CAR_PARAM_FINISH) <= playerCar.mFrame;
+		done = ReadS32LE(carParams, CAR_PARAM_FINISH) <= playerCar.mFrame;
 	}
 	if (done) {
 		carCamera.mCarMtx = NULL; // the camera lets go
 	} else {
-		Vec pos;
-		s32 prev;
-		pos.y = 0.0f;
-		pos.z = 0.0f;
-		pos.x = 0.0f;
-		pos.y = 20.0f; // the camera rides 20 above the car
+		Vec pos = { 0.0f, 20.0f, 0.0f }; // the camera rides 20 above the car
 		PSMTXMultVec(playerCar.mCarMtx, &pos, &pos);
 		carCameraTrail[carCameraTrailIndex] = pos;
-		prev                                = carCameraTrailIndex - 10; // the eye trails 10 positions back
+		s32 prev                            = carCameraTrailIndex - 10; // the eye trails 10 positions back
 		if (prev < 0) {
 			prev += 32;
 		}
@@ -929,7 +798,7 @@ extern "C" void UpdateCars(u32 frames)
 			carCameraTrailIndex = 0;
 		}
 	}
-	if (!racerCar.mBraking && ReadS32LE(carParams + CAR_PARAM_RACER_BRAKE) <= racerCar.mFrame) {
+	if (!racerCar.mBraking && ReadS32LE(carParams, CAR_PARAM_RACER_BRAKE) <= racerCar.mFrame) {
 		racerCar.Brake();
 	}
 }
@@ -1188,7 +1057,7 @@ extern "C" void UpdateCars(u32 frames)
  * @note Address: stage02 .text 0x7490
  * @note Size: 0x4
  */
-extern "C" void DrawCarHud(void* arg)
+extern "C" void DrawCarHud(s32 frames)
 {
 }
 
@@ -1216,7 +1085,6 @@ extern "C" void SetCarSoundCues(u8* data)
  */
 extern "C" s32 GetPlayerCarResult(void)
 {
-	CPad pad(0);
 	HSD_AObj* aobj;
 	f32 end;
 
@@ -1250,22 +1118,21 @@ extern "C" void Terminate(void)
 #if !defined(VERSION_PAL)
 	OSReport("Terminate\n");
 #endif
-	JObjInline1199(playerCar.mCar->mJObj);
+	HSD_JObjClearMtxFlags(playerCar.mCar->mJObj);
 	if (playerCar.mAttached != NULL) {
-		JObjInline1199(playerCar.mAttached->mJObj);
+		HSD_JObjClearMtxFlags(playerCar.mAttached->mJObj);
 	}
 	playerCar.mStarted = 0;
 	playerCar.mBraking = 0;
-	JObjInline1199(racerCar.mCar->mJObj);
+	HSD_JObjClearMtxFlags(racerCar.mCar->mJObj);
 	if (racerCar.mAttached != NULL) {
-		JObjInline1199(racerCar.mAttached->mJObj);
+		HSD_JObjClearMtxFlags(racerCar.mAttached->mJObj);
 	}
 	racerCar.mStarted = 0;
 	racerCar.mBraking = 0;
-	RoboView_ResetFlags(GAME_OBJ());
-	JObjInline1199(((XObj*)GAME_OBJ())->mJObj);
-	((CMotionControlCamera*)GAME_AT(GAME_OFS(0xE5D38, 0xE5050)))
-	    ->ChangeAction(*(CInterfaceCameraAction**)GAME_AT(GAME_OFS(0xE5F0C, 0xE5224)));
+	gGame.GetPlayer()->RestoreControl();
+	HSD_JObjClearMtxFlags(gGame.GetPlayer()->mJObj);
+	gGame.mMotionControlCamera.ChangeAction(gGame.mMotionControlCamera.mPrevAction);
 	Car::Init();
 }
 
@@ -1546,7 +1413,6 @@ extern "C" void Terminate(void)
  */
 extern "C" void RestoreDefaultCamera(void)
 {
-	JObjInline1199(((XObj*)GAME_OBJ())->mJObj);
-	((CMotionControlCamera*)GAME_AT(GAME_OFS(0xE5D38, 0xE5050)))
-	    ->ChangeAction(*(CInterfaceCameraAction**)GAME_AT(GAME_OFS(0xE5F0C, 0xE5224)));
+	HSD_JObjClearMtxFlags(gGame.GetPlayer()->mJObj);
+	gGame.mMotionControlCamera.ChangeAction(gGame.mMotionControlCamera.mPrevAction);
 }

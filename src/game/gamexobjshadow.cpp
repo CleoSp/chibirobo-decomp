@@ -8,23 +8,19 @@
 #include "game/fbtexeff.h"
 #include "game/cshadow.h"
 
-extern "C" void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, f32* limits);
+extern "C" void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, void* context, s32);
 
 // an object that is drawn into the shadow, or onto it with the mask
 static inline bool IsShadowObj(XObj* obj, u64 mask)
 {
-	bool on = false;
-	if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & mask)) {
-		on = true;
-	}
-	return on;
+	const u64 flags = obj->mStatus.mFlags;
+	return (flags & 1) && (flags & 0x10000) && (flags & mask);
 }
 
 /**
  * @note Address: 0x8000C450
  * @note Size: 0x6FC
  */
-// NONMATCHING: the shadow object and the first loop's registers rotate
 // renders the shadow of the first light that casts one, from above the main camera's
 // interest. the player's shadow object gets the height of its highest joint under the player
 extern "C" void RenderSceneShadow(CGame* game)
@@ -34,12 +30,8 @@ extern "C" void RenderSceneShadow(CGame* game)
 	s32 i;
 	XObj* obj;
 	if (game->mStatus.mFlags & 1) {
-		player = gGame.GetPlayer();
-		if (player->mFloorContacts[3].object) {
-			target = player->mFloorContacts[3].object;
-		} else {
-			target = NULL;
-		}
+		player        = gGame.GetPlayer();
+		target        = player->mFloorContacts[3].object;
 		f32 limits[2] = { 1.0f + player->mMoveTranslate.y, NAN }; // a unit over the player; nan = none found
 		for (i = 0; i < game->mDrawLists[1].mCount; i++) {
 			obj = game->mDrawLists[1].mObjects[i];
@@ -47,10 +39,10 @@ extern "C" void RenderSceneShadow(CGame* game)
 				if (obj == target) {
 					limits[1] = NAN;
 					if (obj->mJObj != NULL) {
-						HSD_JObjWalkTree(obj->mJObj, (HSD_JObjWalkTreeCallback)FindHighestJointBelowHeightLimit, (f32**)limits);
+						HSD_JObjWalkTree(obj->mJObj, FindHighestJointBelowHeightLimit, limits);
 					}
 				} else if (obj->mJObj != NULL) { // every other object loses the mark
-					HSD_JObjWalkTree(obj->mJObj, JObjClearMObjFlags, (f32**)0x4000000);
+					HSD_JObjWalkTree(obj->mJObj, JObjClearMObjFlags, reinterpret_cast<void*>(0x04000000));
 				}
 			}
 		}
@@ -152,8 +144,9 @@ void XObj::RegisterShadowObjects(CShadow* shadow)
  */
 // a joint walk: finds the highest joint at or under the limit in limits[0] and keeps it in
 // limits[1], nan to start, and marks the materials of those joints
-extern "C" void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, f32* limits)
+extern "C" void FindHighestJointBelowHeightLimit(HSD_JObj* jobj, void* context, s32)
 {
+	f32* limits = static_cast<f32*>(context);
 	Vec pos;
 	HSD_MtxGetTranslate(HSD_JObjGetMtxPtr(jobj), &pos);
 	BOOL under = pos.y <= limits[0];
@@ -259,7 +252,6 @@ f32 XObj::GetFloorXZExtent()
  * @note Address: 0x8000D118
  * @note Size: 0x5EC
  */
-// NONMATCHING: the second loop's registers rotate
 // clears the screen's alpha from the second camera, draws the 0x40 objects and the two the
 // player is busy with into it, then sets the 0x40 objects back up for the main pass
 extern "C" void DrawObjectAlphaMask(CGame* game)
@@ -289,14 +281,8 @@ extern "C" void DrawObjectAlphaMask(CGame* game)
 
 		game->mGs.mCamera = game->GetCamera();
 		if (BeginGsCamera(game)) {
-			XObj* targets[2] = { NULL, NULL };
-			player           = (XObjChr*)game->mXObjs.mPools[2].First();
-			if (targets[0] == NULL) {
-				targets[0] = player->mLift.mPlugTarget;
-			}
-			if (targets[1] == NULL) {
-				targets[1] = player->mLift.mTarget;
-			}
+			player           = static_cast<XObjChr*>(game->mXObjs.mPools[2].First());
+			XObj* targets[2] = { player->mLift.mPlugTarget, player->mLift.mTarget };
 			if (targets[1] == NULL) {
 				targets[1] = player->mPush.mTarget;
 			}
@@ -349,7 +335,8 @@ static inline void CopyToTexture(FbMirrorEx* effect)
 			height = effect->mTexture.mHeight;
 		}
 		GXSetTexCopySrc(0, 0, width, height);
-		GXSetTexCopyDst(effect->mTexture.mWidth, effect->mTexture.mHeight, effect->mTexture.mFormat, effect->mTexture.mMipmap);
+		GXSetTexCopyDst(effect->mTexture.mWidth, effect->mTexture.mHeight, static_cast<GXTexFmt>(effect->mTexture.mFormat),
+		                effect->mTexture.mMipmap);
 		GXCopyTex(effect->mTexture.mImage, GX_TRUE);
 		GXPixModeSync();
 		InvalidateAll();
@@ -360,7 +347,6 @@ static inline void CopyToTexture(FbMirrorEx* effect)
  * @note Address: 0x8000D704
  * @note Size: 0x34C
  */
-// NONMATCHING: the mirror, its view and the object list pointer rotate registers
 // draws what each mirror shows into its texture
 extern "C" void RenderMirrorTextures(CGame* game)
 {

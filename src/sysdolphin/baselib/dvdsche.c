@@ -1,10 +1,6 @@
 #include <global.h>
-#include <dolphin/types.h>
-
-u32 OSDisableInterrupts(void);
-u32 OSRestoreInterrupts(u32 level);
-void OSReport(const char*, ...);
-void OSPanic(const char*, s32, const char*, ...);
+#include <dolphin/os.h>
+#include <sysdolphin/dvdsche.h>
 
 #define DVDSCHE_ASSERT(line, cond)                 \
 	if (!(cond)) {                                 \
@@ -14,22 +10,26 @@ void OSPanic(const char*, s32, const char*, ...);
 
 typedef struct DVDScheSlot {
 	s32 key;               // _00
-	void (*callback)(s32); // _04
+	DvdStreamingSlotCallback callback; // _04
 	s32 param;             // _08
 } DVDScheSlot;
 
-static DVDScheSlot lbl_80655F00[4];
-static s32 lbl_80655F30[4];
+static DVDScheSlot sStreamingSlots[4];
+static s32 sStreamingOrder[4];
 
-static s32 lbl_8065BB70;
+enum {
+	DVD_STREAM_WAITING = -1,
+	DVD_STREAM_IDLE = 0,
+	DVD_STREAM_ACTIVE = 1,
+};
+
+static s32 sStreamingOrderIndex;
 static u32 hsd_DVDScheStreamingFlag;
-static s32 lbl_8065BB68;
-static s32 lbl_8065BB64;
+static s32 sStreamingState;
+static s32 sStreamingBudget;
 static s32 hsd_DVDScheNStreaming;
-static s32 lbl_8065BB5C;
+static s32 sStreamingKeyLimit;
 static s32 hsd_DVDScheNStreamingMax;
-
-void ServiceNextDvdStreamingSlot(void);
 
 /**
  * @note Address: 0x801EB614
@@ -37,9 +37,9 @@ void ServiceNextDvdStreamingSlot(void);
  */
 void SetDvdStreamingLimits(s32 max, s32 key)
 {
-	u32 enabled              = OSDisableInterrupts();
+	u32 enabled = OSDisableInterrupts();
 	hsd_DVDScheNStreamingMax = max;
-	lbl_8065BB5C             = key;
+	sStreamingKeyLimit = key;
 	OSRestoreInterrupts(enabled);
 }
 
@@ -47,7 +47,7 @@ void SetDvdStreamingLimits(s32 max, s32 key)
  * @note Address: 0x801EB658
  * @note Size: 0x26C
  */
-s32 AcquireDvdStreamingSlot(void (*callback)(s32), s32 param)
+s32 AcquireDvdStreamingSlot(DvdStreamingSlotCallback callback, s32 param)
 {
 	s32 newid;
 	u32 enabled;
@@ -64,7 +64,7 @@ s32 AcquireDvdStreamingSlot(void (*callback)(s32), s32 param)
 		if (!(hsd_DVDScheStreamingFlag & (1 << i))) {
 			hsd_DVDScheStreamingFlag |= 1 << i;
 			newid = i;
-			slot  = &lbl_80655F00[i];
+			slot  = &sStreamingSlots[i];
 			break;
 		}
 	}
@@ -72,17 +72,17 @@ s32 AcquireDvdStreamingSlot(void (*callback)(s32), s32 param)
 	slot->key      = 0;
 	slot->callback = callback;
 	slot->param    = param;
-	if (lbl_8065BB68 == 1) {
-		for (i = hsd_DVDScheNStreaming; i > lbl_8065BB70; i--) {
-			lbl_80655F30[i] = lbl_80655F30[i - 1];
+	if (sStreamingState == DVD_STREAM_ACTIVE) {
+		for (i = hsd_DVDScheNStreaming; i > sStreamingOrderIndex; i--) {
+			sStreamingOrder[i] = sStreamingOrder[i - 1];
 		}
-		lbl_80655F30[i] = newid;
-		lbl_8065BB70 += 1;
+		sStreamingOrder[i] = newid;
+		sStreamingOrderIndex += 1;
 	} else {
 		for (i = hsd_DVDScheNStreaming; i > 0; i--) {
-			lbl_80655F30[i] = lbl_80655F30[i - 1];
+			sStreamingOrder[i] = sStreamingOrder[i - 1];
 		}
-		lbl_80655F30[0] = newid;
+		sStreamingOrder[0] = newid;
 		ServiceNextDvdStreamingSlot();
 	}
 	OSRestoreInterrupts(enabled);
@@ -99,19 +99,19 @@ static void remove_order(s32 id)
 	orderix = -1;
 	n       = --hsd_DVDScheNStreaming;
 	for (i = 0; i <= n; i++) {
-		if (lbl_80655F30[i] == id) {
+		if (sStreamingOrder[i] == id) {
 			orderix = i;
 			for (; i < n; i++) {
-				lbl_80655F30[i] = lbl_80655F30[i + 1];
+				sStreamingOrder[i] = sStreamingOrder[i + 1];
 			}
 			break;
 		}
 	}
 	DVDSCHE_ASSERT(0x6A, orderix != -1);
-	if (lbl_8065BB70 == orderix) {
+	if (sStreamingOrderIndex == orderix) {
 		ServiceNextDvdStreamingSlot();
-	} else if (lbl_8065BB70 > orderix) {
-		lbl_8065BB70--;
+	} else if (sStreamingOrderIndex > orderix) {
+		sStreamingOrderIndex--;
 	}
 }
 
@@ -141,9 +141,9 @@ void SetDvdStreamingSlotKey(s32 id, s32 key)
 
 	DVDSCHE_ASSERT(0x8E, id >= 0 && id < hsd_DVDScheNStreamingMax);
 	DVDSCHE_ASSERT(0x90, hsd_DVDScheStreamingFlag & (1 << id));
-	enabled              = OSDisableInterrupts();
-	lbl_80655F00[id].key = key;
-	if (lbl_8065BB68 == -1) {
+	enabled = OSDisableInterrupts();
+	sStreamingSlots[id].key = key;
+	if (sStreamingState == DVD_STREAM_WAITING) {
 		ServiceNextDvdStreamingSlot();
 	}
 	OSRestoreInterrupts(enabled);
@@ -153,14 +153,14 @@ void SetDvdStreamingSlotKey(s32 id, s32 key)
  * @note Address: 0x801EBB90
  * @note Size: 0xCC
  */
-void SetDvdStreamingSlotCallback(s32 id, void (*callback)(s32))
+void SetDvdStreamingSlotCallback(s32 id, DvdStreamingSlotCallback callback)
 {
 	u32 enabled;
 
 	DVDSCHE_ASSERT(0x9F, id >= 0 && id < hsd_DVDScheNStreamingMax);
 	DVDSCHE_ASSERT(0xA1, hsd_DVDScheStreamingFlag & (1 << id));
-	enabled                   = OSDisableInterrupts();
-	lbl_80655F00[id].callback = callback;
+	enabled = OSDisableInterrupts();
+	sStreamingSlots[id].callback = callback;
 	OSRestoreInterrupts(enabled);
 }
 
@@ -174,35 +174,35 @@ void ServiceNextDvdStreamingSlot(void)
 	s32 found;
 	DVDScheSlot* slot;
 
-	if (lbl_8065BB70 < hsd_DVDScheNStreaming && lbl_8065BB64) {
-		slot = &lbl_80655F00[lbl_80655F30[lbl_8065BB70]];
-		if (slot->key <= lbl_8065BB5C) {
-			lbl_8065BB68 = 1;
+	if (sStreamingOrderIndex < hsd_DVDScheNStreaming && sStreamingBudget) {
+		slot = &sStreamingSlots[sStreamingOrder[sStreamingOrderIndex]];
+		if (slot->key <= sStreamingKeyLimit) {
+			sStreamingState = DVD_STREAM_ACTIVE;
 			slot->callback(slot->param);
-			lbl_8065BB64 -= 1;
+			sStreamingBudget -= 1;
 			return;
 		}
 	}
 
-	lbl_8065BB64 = lbl_8065BB5C;
-	lbl_8065BB70++;
-	if (lbl_8065BB70 < hsd_DVDScheNStreaming) {
+	sStreamingBudget = sStreamingKeyLimit;
+	sStreamingOrderIndex++;
+	if (sStreamingOrderIndex < hsd_DVDScheNStreaming) {
 		ServiceNextDvdStreamingSlot();
 	} else {
-		lbl_8065BB70 = 0;
+		sStreamingOrderIndex = 0;
 		if (!hsd_DVDScheNStreaming) {
-			lbl_8065BB68 = 0;
+			sStreamingState = DVD_STREAM_IDLE;
 		} else {
 			found = 0;
 			for (i = 0; i < hsd_DVDScheNStreaming; i++) {
-				if (lbl_80655F00[lbl_80655F30[i]].key <= lbl_8065BB5C) {
+				if (sStreamingSlots[sStreamingOrder[i]].key <= sStreamingKeyLimit) {
 					found = 1;
 				}
 			}
 			if (found) {
 				ServiceNextDvdStreamingSlot();
 			} else {
-				lbl_8065BB68 = -1;
+				sStreamingState = DVD_STREAM_WAITING;
 			}
 		}
 	}

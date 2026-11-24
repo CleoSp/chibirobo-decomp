@@ -1,166 +1,19 @@
+#include "game/fighter.h"
 #include "game/hsd_jobj.h"
-#include "game/ut.h"
-#include "game/coordinfo.h"
+#include "game/cgame.h"
+#include "game/csound.h"
+#include "game/globals.h"
 #include "game/gmath.h"
+#include "game/xchr.h"
+#include "game/xobjactor.h"
 
-extern "C" {
+#include <Dolphin/pad.h>
 #include <dolphin/mtx/mtx.h>
-#include <dolphin/mtx/vec.h>
-#include <dolphin/pad.h>
+extern "C" {
 #include <sysdolphin/random.h>
 }
 
-// dol functions
-extern "C" u8 gGame[];
-extern "C" s32 IsGameSoundPlaying(void* se, s32 id);
-extern "C" void PlayGameSound(void* se, s32 id, s32 vol);
-extern "C" void SetGsBlendMode(void* gx, s32 a, s32 b, s32 c, s32 d);
-extern "C" void DrawGsCircle(void* game, s32 kind, s32 color, s32 color2, f32 x, f32 y, f32 z, f32 w, f32 h, f32 vx, f32 vy, f32 vz);
-
-// CGame, with the fields past the symbol's 0xA6C30 size
-#define GAME_FIELD(type, offset) (*(type*)(gGame + (offset)))
-// an offset into CGame: japan lays it out differently from the others
-#if defined(VERSION_JP)
-#define GAME_OFS(other, japan) (japan)
-#else
-#define GAME_OFS(other, japan) (other)
-#endif
-// CGame::mStage
-#if defined(VERSION_JP)
-#define GAME_STAGE 0x342C
-#elif defined(VERSION_PAL)
-#define GAME_STAGE 0x344C
-#else
-#define GAME_STAGE 0x3444
-#endif
-// CGs::mCurRenderMode, mCurTevStage and mBillboardEnabled; europe's CGsScreen is 4 bytes longer
-#if defined(VERSION_PAL)
-#define GS_RENDER_MODE 0x294
-#define GS_TEV_STAGE   0x298
-#define GS_BILLBOARD   0x2A0
-#else
-#define GS_RENDER_MODE 0x290
-#define GS_TEV_STAGE   0x294
-#define GS_BILLBOARD   0x29C
-#endif
-
-struct _GXTexObj {
-	u32 dummy[8]; // _00
-};
-
-// copied as one block, so it's its own struct
-struct UnkTexMtxs {
-	Mtx mTrans;   // _00, mMtx[0] of the dol CTexObj, the translation part of the texture matrix
-	Mtx mScale;   // _30, mMtx[1] of the dol CTexObj, the scale part of the texture matrix
-	u8 _60[0x60]; // _60
-};
-
-struct TPLDescriptor;
-
-class CTexObj : public _GXTexObj {
-public:
-	u32 mImage;      // _20, TPLHeader* in the dol CTexObj, kept as u32 here, unused in the REL
-	u32 mClut;       // _24, TPLClutHeader* in the dol CTexObj, kept as u32 here, unused in the REL
-	u32 _28;         // _28, first word of the dol CTexObj's GXTlutObj mTlutObj (_28-_33), unused in the REL
-	u32 _2C;         // _2C, second word of the dol CTexObj's GXTlutObj mTlutObj (_28-_33), unused in the REL
-	u32 _30;         // _30, third word of the dol CTexObj's GXTlutObj mTlutObj (_28-_33), unused in the REL
-	u32 mTlutName;   // _34, the palette's tlut name, as in the dol CTexObj. Unused in the REL
-	s32 mMtxDirty;   // _38, set to 1 after the matrices change so the next draw rebuilds mMtx[3]
-	UnkTexMtxs mMtx; // _3C, the four texture matrices (Mtx mMtx[4] in the dol CTexObj); here a struct because it is copied as one block
-
-	CTexObj() { }
-	virtual ~CTexObj() { }
-
-	CTexObj& Init(TPLDescriptor* desc, u32 tlutName);
-};
-
-// xobj style actor from the dol
-struct UnkDolObjVtbl {
-	u8 _00[0x80];                                                                                            // _00
-	void (*mSetAnim)(void* obj, f32 frame, f32 rate, f32 start, f32 end, s32 a, s32 b, s32 c, s32 d, s32 e); // _80, XObj::SetAnim
-	u8 _84[0x88];                                                                                            // _84
-	void (*mProjectOffsetToScreen)(void* obj, Vec* pos, f32* x, f32* y, f32* z, s32 flag);  // _10C, XObj::ProjectOffsetToScreen
-	f32 (*mGetFloorXZExtent)(void* obj);                                                    // _110, XObj::GetFloorXZExtent
-	f32 (*mGetCollisionHeight)(void* obj);                                                  // _114, XObj::GetCollisionHeight
-	BOOL (*mProjectVisibleBounds)(void* obj, f32 a, f32 b, f32* outA, f32* outB, s32 flag); // _118, XObj::ProjectVisibleBounds
-};
-
-struct UnkDolObj {
-	HSD_JObj* mJObj;     // _00, the object's root HSD_JObj (CJObj::mJObj)
-	u8 _04[0x30];        // _04
-	UnkDolObjVtbl* vtbl; // _34
-#if defined(VERSION_JP)
-	u8 _38[0x88]; // _38
-#else
-	u8 _38[0x90]; // _38
-#endif
-	CVec mMoveTranslate;        // _C8, japan has it and what follows 8 bytes earlier
-	u8 _D8[0x150];              // _D8
-	u64 mStatus;                // _228, _228: XObj::mStatus flags (CStatus64): 1 in use, 0x10000 drawn
-	u8 _230[0x14];              // _230
-	StagePlacement* mPlacement; // _244, XObj::mAttr.mPlacement
-#if defined(VERSION_JP)
-	u8 _248[0x7FC]; // _248, japan's is 8 bytes shorter
-#else
-	u8 _248[0x804]; // _248
-#endif
-	u32* mPanelTplBuffer; // _A4C, _A4C: the buffer of XObjActor3's CTpl _980 (CFile::mBuffer at CTpl+_CC), the TPLPalette read from
-	                      // tpl/stage02.tpl
-	u8 _A50[0x1C];        // _A50
-	u8 _A6C[0x100];       // _A6C, the CTexObj the stage02 panel textures are Init'ed into
-	s32 mPanelTplBound;   // _B6C, _B6C: CTpl::mBound of XObjActor3's _980, TRUE once stage02.tpl is read and bound
-};
-
-class CCamera;
-
-class CInterfaceCameraAction {
-public:
-	CVec mEye;      // _00, eye position
-	CVec mInterest; // _10, interest (look-at) point
-	CVec mAngle;    // _20, camera angle
-	f32 mDistance;  // _30, camera distance
-	f32 mFov;       // _34, field of view
-	s32 _38;        // _38
-
-	virtual ~CInterfaceCameraAction() { }       // _08
-	virtual void PreviousUpdate() { }           // _0C
-	virtual void Update() = 0;                  // _10
-	virtual void Reset() { }                    // _14
-	virtual void SetCamera(CCamera* camera) { } // _18
-	virtual void Init() { }                     // _1C
-	virtual void Draw() { }                     // _20
-	virtual void DrawDebug2d() { }              // _24
-	virtual void DrawDebug3d() { }              // _28
-	virtual void SetEye(f32 x, f32 y, f32 z)    // _2C
-	{
-		mEye.x = x;
-		mEye.y = y;
-		mEye.z = z;
-	}
-	virtual void SetInterest(f32 x, f32 y, f32 z) // _30
-	{
-		mInterest.x = x;
-		mInterest.y = y;
-		mInterest.z = z;
-	}
-	virtual void SetAngle(f32 x, f32 y, f32 z) // _34
-	{
-		mAngle.x = x;
-		mAngle.y = y;
-		mAngle.z = z;
-	}
-	virtual void SetEye(const Vec& v) { SetEye(v.x, v.y, v.z); }           // _38
-	virtual void SetInterest(const Vec& v) { SetInterest(v.x, v.y, v.z); } // _3C
-	virtual void SetAngle(const Vec& v) { SetAngle(v.x, v.y, v.z); }       // _40
-	virtual void SetDistance(f32 v) { mDistance = v; }                     // _44
-	virtual void SetFov(f32 v) { mFov = v; }                               // _48
-	virtual void SetAngleZ(f32 v) { mAngle.z = v; }                        // _4C
-	virtual s32 GetMode() { return 0; }                                    // _50
-	virtual s32 GetFlags() { return _38; }                                 // _54
-	virtual f32 GetEaseDivisor() { return 12.0f; }                         // _58
-	virtual s32 GetInterestMode() { return 0; }                            // _5C
-	virtual s32 GetTarget() { return 0; }                                  // _60
-};
+extern "C" void GXProject(f32 x, f32 y, f32 z, const Mtx view, const f32* proj, const f32* viewport, f32* sx, f32* sy, f32* sz);
 
 inline Vec MakeVec(f32 x, f32 y, f32 z)
 {
@@ -192,11 +45,11 @@ public:
 		mTargetMtx      = mtx;
 	}
 
-	virtual void Update();
+	virtual void Update(u32 step);
 	virtual void Init() { mCenterView = false; }
-	virtual s32 GetMode() { return 0; }
-	virtual s32 GetFlags() { return 11; }
-	virtual f32 GetEaseDivisor() { return 0.1f; }
+	virtual u32 GetMode() { return 0; }
+	virtual u32 GetCameraFlags() { return 11; }
+	virtual f32 GetFollowDivisor() { return 0.1f; }
 
 	MtxPtr mTargetMtx; // _40, matrix the eye and interest offsets are carried by each frame; the fighter's model matrix (fighterWork._0C);
 	                   // Update does nothing while NULL
@@ -221,7 +74,7 @@ struct Mato {
 	CVec GetPos() const { return mObj->mMoveTranslate; }
 
 	s32 mId;           // _00, id the stage script passed to AddMato; -1 when unused; returned by TakeDestroyedMatoId
-	UnkDolObj* mObj;   // _04, the dol actor this target is (UnkDolObj, an XObj); its mStatus bit 0x10000 marks it live
+	XObj* mObj;        // _04, the dol actor this target is (XObj, an XObj); its mStatus bit 0x10000 marks it live
 	f32 mScreenX;      // _08, screen x of the target's marker, from XObj::ProjectOffsetToScreen
 	f32 mScreenY;      // _0C, screen y of the target's marker, raised by half the projected size
 	f32 mScreenZ;      // _10, screen z (depth) from ProjectOffsetToScreen; written, never read
@@ -310,7 +163,7 @@ struct ShotList {
 		}
 		if (i < 5) {
 			mShots[i].Start(from, to, item);
-			PlayGameSound(gGame + GAME_OFS(0xE7E24, 0xE713C), 11, 0xFF);
+			PlayGameSound(&gGame.mSound, 11, 0xFF);
 		}
 	}
 
@@ -322,12 +175,12 @@ struct ShotList {
 struct Fighter {
 	~Fighter() { }
 
-	UnkDolObj* mBody; // _00, first object passed to StartFighter, drawn; its jobj takes mBodyMtx and the player is seated on its joint {0};
-	                  // NULL while no fighter is running
-	UnkDolObj* mPath; // _04, hidden object whose animation is the flight: its joint {0,0} gives mBodyMtx, its end frame is mEndFrame,
-	                  // mFrame is played on it
-	UnkDolObj* mExtra; // _08, optional third object from StartFighter (may be NULL), placed at mBodyMtx moved by (0, 4.11, -1)
-	                   // through mExtraMtx; what it shows is unknown
+	XObj* mBody;  // _00, first object passed to StartFighter, drawn; its jobj takes mBodyMtx and the player is seated on its joint {0};
+	              // NULL while no fighter is running
+	XObj* mPath;  // _04, hidden object whose animation is the flight: its joint {0,0} gives mBodyMtx, its end frame is mEndFrame,
+	              // mFrame is played on it
+	XObj* mExtra; // _08, optional third object from StartFighter (may be NULL), placed at mBodyMtx moved by (0, 4.11, -1)
+	              // through mExtraMtx; what it shows is unknown
 	Mtx mBodyMtx; // _0C, world matrix of the fighter: mPath's joint {0,0} scaled by 0.5, copied to mBody's jobj; aim point, shot direction
 	              // and camera use it
 	Mtx mPlayerMtx;  // _3C, the player's matrix: mBody's joint {0} * trans(0,-1.89,-7.16) * rotY(mPlayerRotY), copied to the player's jobj
@@ -360,17 +213,17 @@ struct Fighter {
 };
 
 struct PilotNwing {
-	UnkDolObj* mCarriedObj; // _00, first object from CmdRegisterFighterLink, drawn (status 0x10000 set); its jobj gets mCarriedMtx, the
-	                        // joint 0/0 of mPathObj at half scale
-	UnkDolObj* mPathObj;    // _04, hidden object (XObj status 0x10000 'drawn' cleared) whose animation 0 is played at mAnimFrame; its joint
-	                        // 0/0 carries mCarriedObj
-	UnkDolObj* mAttachedObj0; // _08, optional third object, drawn; placed at (0, -1.89, -1) from mCarriedMtx
-	UnkDolObj* mAttachedObj1; // _0C, optional fourth object, drawn; placed at (0, -1.89, -7.16) from mCarriedMtx, the offset Fighter_Update
-	                          // seats the player at
-	Mtx mCarriedMtx;          // _10, mPathObj's joint 0/0 matrix scaled by 0.5, copied to mCarriedObj and the base for both attachments
-	Mtx mAttachedMtx0;        // _40, mCarriedMtx moved by (0, -1.89, -1), copied to mAttachedObj0
-	Mtx mAttachedMtx1;        // _70, mCarriedMtx moved by (0, -1.89, -7.16), copied to mAttachedObj1
-	f32 mAnimFrame;           // _A0, frame mPathObj's animation is set to, taken from the fighter's frame (fighterWork._A0) each update
+	XObj* mCarriedObj;   // _00, first object from CmdRegisterFighterLink, drawn (status 0x10000 set); its jobj gets mCarriedMtx, the
+	                     // joint 0/0 of mPathObj at half scale
+	XObj* mPathObj;      // _04, hidden object (XObj status 0x10000 'drawn' cleared) whose animation 0 is played at mAnimFrame; its joint
+	                     // 0/0 carries mCarriedObj
+	XObj* mAttachedObj0; // _08, optional third object, drawn; placed at (0, -1.89, -1) from mCarriedMtx
+	XObj* mAttachedObj1; // _0C, optional fourth object, drawn; placed at (0, -1.89, -7.16) from mCarriedMtx, the offset Fighter_Update
+	                     // seats the player at
+	Mtx mCarriedMtx;     // _10, mPathObj's joint 0/0 matrix scaled by 0.5, copied to mCarriedObj and the base for both attachments
+	Mtx mAttachedMtx0;   // _40, mCarriedMtx moved by (0, -1.89, -1), copied to mAttachedObj0
+	Mtx mAttachedMtx1;   // _70, mCarriedMtx moved by (0, -1.89, -7.16), copied to mAttachedObj1
+	f32 mAnimFrame;      // _A0, frame mPathObj's animation is set to, taken from the fighter's frame (fighterWork._A0) each update
 	f32 _A4; // _A4, set to 1.0f in InitPilotNwing and never read; Fighter's matching field (_AC, also 1.0f at init) is its frame step
 };
 
@@ -387,67 +240,6 @@ struct FighterPanels {
 	s32 mCenterVariant;    // _20, which center panel animation plays, the script's second argument: 0 uses the 6 textures from 12, anything
 	                       // else the 7 from 18
 };
-
-// little endian words out of a loaded file
-#define READ_LE32(p) (((u8*)(p))[0] + (((u8*)(p))[1] * 0x100) + (((u8*)(p))[2] * 0x10000) + (((u8*)(p))[3] * 0x1000000))
-#define GET_LE32(p)  ((p) != NULL ? READ_LE32(p) : 0)
-
-// todo: copied inline, clean up
-inline f32 HSD_AObjGetEndFrame(void* aobj)
-{
-	((aobj) ? ((void)0) : __assert("aobj.h", 171, "aobj"));
-	return ((f32*)aobj)[3];
-}
-
-extern "C" void GXProject(f32 x, f32 y, f32 z, Mtx mtx, f32* pm, f32* vp, f32* sx, f32* sy, f32* sz);
-extern "C" u16 GXGetTexObjWidth(_GXTexObj* obj);
-extern "C" u16 GXGetTexObjHeight(_GXTexObj* obj);
-extern "C" void SetGsLineWidth(void* gx, s32 a, s32 b);
-extern "C" void SetGsTevMode(void* gx, s32 mode);
-extern "C" void DrawGsLineStrip(void* game, Vec* pts, s32 color, s32 n);
-extern "C" void DrawGsLineSegment(void* game, s32 a, s32 color, s32 color2, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
-extern "C" void DrawGsTexturedQuad(void* game, CTexObj* tex, s32 c0, s32 c1, s32 c2, s32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u,
-                                   f32 v, f32 rot);
-extern "C" s32 FindStageIndexByName(const char* name);
-extern "C" const char* GetLocalizedInterfaceText(s32 id);
-extern "C" f32 MeasureGameTextWidth(void* game, const char* text, s32 a, f32 size);
-extern "C" void DrawGsQuad(void* game, s32 r, s32 g, s32 b, s32 a, f32 x, f32 y, f32 z, f32 w, f32 h, f32 u, f32 v, f32 rot);
-class CGs;
-extern "C" void DrawGsProportionalTextFormat(CGs* game, s32 color, const char* text, f32 x, f32 y, f32 z, f32 sx, f32 sy, ...);
-extern "C" f64 sin(f64 x);
-extern "C" f64 cos(f64 x);
-
-extern "C" void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
-extern "C" void PSMTXRotRad(Mtx m, char axis, f32 rad);
-extern "C" f64 atan2(f64 y, f64 x);
-
-// hangs off CGame, stage model jobj at _00
-struct UnkGame_96BC {
-	HSD_JObj* mJObj; // _00, the player's (XObjChr, first object of pool 2 at CGame 0x96BC) CJObj::mJObj
-#if defined(VERSION_JP)
-	u8 _04[0x96C]; // _04
-#else
-	u8 _04[0x97C]; // _04
-#endif
-	u32 mPlayerStatus; // _980, _970 in japan
-	u8 _984[0x8CD4];   // _984
-	f32 mBattery;      // _9658, XObjChr::mParams.mBattery (Params at _964C + 0xC); each shot takes batteryCost off it
-	f32 mMaxBattery;   // _965C, XObjChr::mParams.mMaxBattery (Params at _964C + 0x10)
-#if defined(VERSION_JP)
-	u8 _9660[0x96A4]; // _9660
-#else
-	u8 _9660[0x9794]; // _9660
-#endif
-	s32 mPadReset; // _12DF4, _12CF4 in japan
-};
-
-inline void ResetModelFlags(UnkGame_96BC* player)
-{
-	player->mPlayerStatus = 0;
-	player->mPlayerStatus |= 0x20000000;
-	player->mPlayerStatus |= 7;
-	player->mPadReset = 1;
-}
 
 // shadow offsets for the hud captions
 f32 captionShadowX[4] = { -2.0f, 2.0f, 2.0f, -2.0f };
@@ -469,25 +261,10 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge);
 extern "C" void Fighter_Fire(Fighter* work, s32 batteryCost);
 extern "C" void Fighter_Update(Fighter* work, u32 dt);
 extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 animFrame);
-extern "C" void Fighter_Init(Fighter* work, UnkDolObj* body, UnkDolObj* path, void* extra);
-// see game/cmotioncontrolcamera.h
-class CMotionControlCamera {
-public:
-	void ChangeAction(CInterfaceCameraAction* action);
-};
-extern "C" void StopGameSfx(void* se, s32 id);
+extern "C" void Fighter_Init(Fighter* work, XObj* body, XObj* path, XObj* extra);
 extern "C" void FighterPanels_Draw(FighterPanels* fade);
 extern "C" void FighterPanels_Update(FighterPanels* fade, u32 dt);
-// game camera
-struct UnkGame_E5D38 {
-	u8 _00[0xE8];       // _00
-	Mtx mViewMtx;       // _E8, CCamera::mViewMtx of CGame::mMotionControlCamera.mCamera (CGame _E5D38)
-	u8 _118[0x44];      // _118
-	f32 mProjection[7]; // _15C, CCamera::mProjection, the saved GX projection
-	f32 mViewport[6];   // _178, CCamera::mViewport, the saved GX viewport
-};
-
-extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighterMtx);
+extern "C" void FighterAim_Draw(FighterAim* aim, CCamera* camera, Mtx fighterMtx);
 extern "C" void ShotList_Update(ShotList* shots, u32 dt);
 
 /**
@@ -681,15 +458,15 @@ inline void DrawCaption(s32 id, f32 x, f32 y)
 	f32 cx;
 	f32 cy;
 
-	DrawGsQuad(gGame, 0xFF, 0xFF, 0xFF, 0xFF, x, y, 0.0f,
-	           1.0f * (MeasureGameTextWidth(gGame, GetLocalizedInterfaceText(id), 1, 20.0f) - 4.0f), 12.0f, 0.0f, 0.0f, 0.0f);
-	cx = x - MeasureGameTextWidth(gGame, GetLocalizedInterfaceText(id), 1, 20.0f) * 0.5f;
+	DrawGsQuad(&gGame.mGs, 0xFF, 0xFF, 0xFF, 0xFF, x, y, 0.0f,
+	           MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(id), 1, 20.0f) - 4.0f, 12.0f, 0.0f, 0.0f, 0.0f);
+	cx = x - MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(id), 1, 20.0f) * 0.5f;
 	cy = y - 13.0f;
 	for (i = 0; i < 4; i++) {
-		DrawGsProportionalTextFormat((CGs*)gGame, 0xFF, GetLocalizedInterfaceText(id), cx + captionShadowX[i], cy + captionShadowY[i], 0.0f,
+		DrawGsProportionalTextFormat(&gGame.mGs, 0xFF, GetLocalizedInterfaceText(id), cx + captionShadowX[i], cy + captionShadowY[i], 0.0f,
 		                             20.0f, 20.0f);
 	}
-	DrawGsProportionalTextFormat((CGs*)gGame, -1, GetLocalizedInterfaceText(id), cx, cy, 0.0f, 20.0f, 20.0f);
+	DrawGsProportionalTextFormat(&gGame.mGs, -1, GetLocalizedInterfaceText(id), cx, cy, 0.0f, 20.0f, 20.0f);
 }
 
 extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
@@ -703,46 +480,42 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 	f32 digH;
 	f32 onesOffset;
 	f32 w;
-	u32 base;
-	s32 hi;
-	s32 lo;
+	u32 hi;
+	u32 lo;
 
 	if (time >= 100) {
 		time = 99;
 	}
-	if (FindStageIndexByName("stage02") == GAME_FIELD(s32, GAME_STAGE)) {
+	if (FindStageIndexByName("stage02") == gGame.mStage) {
 		for (i = 0; i < 48; i++) {
-			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, GAME_OFS(0x96F8, 0x96B0)) + i * GAME_FIELD(s32, GAME_OFS(0x9708, 0x96C0)));
-			s32 kind       = obj->mPlacement != NULL ? obj->mPlacement->mObjectId : -1;
-			if (kind != 0x149) {
+			XObj* obj = gGame.mXObjs.mPools[5].Get(i);
+			if (obj->GetKind() != 0x149) {
 				continue;
 			}
-			if (obj->mPanelTplBound == 0) {
+			CTpl& tpl = static_cast<XObjActor3*>(obj)->mPanelTpl;
+			if (!tpl.mBound) {
 				break;
 			}
+			TPLDescriptor* textures = static_cast<TPLPalette*>(tpl.mBuffer)->descriptorArray;
 
 			// score
-			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x18), 0);
-			w   = 1.0f * GXGetTexObjWidth(&tex);
+			tex = tpl.mTex.Init(&textures[3], 0);
+			w   = GXGetTexObjWidth(&tex);
 			x   = 640.0f - w * 0.5f - 40.0f;
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, x, 40.0f, 0.0f, w, 1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, x, 40.0f, 0.0f, w, GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 #if !defined(VERSION_JP)
-			{
-				CTexObj unused;
-				DrawCaption(0x5A, x, 40.0f);
-			}
+			DrawCaption(0x5A, x, 40.0f);
 #endif
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 8), 0);
+			tex  = tpl.mTex.Init(&textures[1], 0);
 			left = 20.0f + (x - 12.0f - 88.0f);
-			digW = 0.8f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 0.8f * (1.0f * GXGetTexObjHeight(&tex));
-			PSMTXScale(tex.mMtx.mScale, 0.09090909f, 1.0f, 1.0f);
+			digW = 0.8f * (GXGetTexObjWidth(&tex) / 11);
+			digH = 0.8f * GXGetTexObjHeight(&tex);
+			PSMTXScale(tex.mMtx[1], 0.09090909f, 1.0f, 1.0f);
 			tex.mMtxDirty = 1;
-			base          = 255.0f;
-			hi            = base | 0xFAE0CF00;
-			lo            = base | 0xE9813A00;
+			hi            = 0xFAE0CFFF;
+			lo            = 0xE9813AFF;
 			onesOffset    = 7.0f * digW;
 			for (d = 0; d < 4; d++) {
 				f32 div = 1.0f;
@@ -753,38 +526,35 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 				}
 				digit = score / div;
 				if (d == 0 || digit != 0) {
-					PSMTXTrans(tex.mMtx.mTrans, 0.09090909f * (digit % 10), 0.0f, 0.0f);
+					PSMTXTrans(tex.mMtx[0], 0.09090909f * (digit % 10), 0.0f, 0.0f);
 					tex.mMtxDirty = 1;
-					SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-					DrawGsTexturedQuad(gGame, &tex, hi, hi, lo, lo, onesOffset + (left - d * digW) - 32.0f, 68.0f, 0.0f, digW, digH, 0.0f,
-					                   0.0f, 0.0f);
-					SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+					SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+					DrawGsTexturedQuad(&gGame.mGs, &tex, hi, hi, lo, lo, onesOffset + (left - d * digW) - 32.0f, 68.0f, 0.0f, digW, digH,
+					                   0.0f, 0.0f, 0.0f);
+					SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 				}
 			}
 
 			// time
-			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x20), 0);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 320.0f, 40.0f, 0.0f, 1.0f * GXGetTexObjWidth(&tex),
-			                   1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			tex = tpl.mTex.Init(&textures[4], 0);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, 320.0f, 40.0f, 0.0f, GXGetTexObjWidth(&tex), GXGetTexObjHeight(&tex), 0.0f,
+			                   0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 #if !defined(VERSION_JP)
-			{
-				CTexObj unused;
-				DrawCaption(0x5B, 320.0f, 40.0f);
-			}
+			DrawCaption(0x5B, 320.0f, 40.0f);
 #endif
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 8), 0);
-			digW = 1.4f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 1.4f * (1.0f * GXGetTexObjHeight(&tex));
+			tex  = tpl.mTex.Init(&textures[1], 0);
+			digW = 1.4f * (GXGetTexObjWidth(&tex) / 11);
+			digH = 1.4f * GXGetTexObjHeight(&tex);
 #if defined(VERSION_JP)
 			left = 110.0f;
 #else
 			left = 110.0f + 11.0f;
 #endif
-			PSMTXScale(tex.mMtx.mScale, 0.09090909f, 1.0f, 1.0f);
-			hi            = base | 0x1F33FF00;
-			lo            = base | 0xFFFFFF00;
+			PSMTXScale(tex.mMtx[1], 0.09090909f, 1.0f, 1.0f);
+			hi            = 0x1F33FFFF;
+			lo            = 0xFFFFFFFF;
 			onesOffset    = 7.0f * digW;
 			tex.mMtxDirty = 1;
 			for (d = 0; d < 2; d++) {
@@ -796,54 +566,51 @@ extern "C" void DrawScoreHud(u32 score, u32 time, u32 gauge)
 				}
 				digit = time / div;
 				if (d == 0 || digit != 0) {
-					PSMTXTrans(tex.mMtx.mTrans, 0.09090909f * (digit % 10), 0.0f, 0.0f);
+					PSMTXTrans(tex.mMtx[0], 0.09090909f * (digit % 10), 0.0f, 0.0f);
 					tex.mMtxDirty = 1;
-					SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-					DrawGsTexturedQuad(gGame, &tex, lo, lo, hi, hi, onesOffset + (left - d * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW,
+					SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+					DrawGsTexturedQuad(&gGame.mGs, &tex, lo, lo, hi, hi, onesOffset + (left - d * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW,
 					                   digH, 0.0f, 0.0f, 0.0f);
-					SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+					SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 				}
 			}
-			digW = 1.4f * (1.0f * (GXGetTexObjWidth(&tex) / 11));
-			digH = 1.4f * (1.0f * GXGetTexObjHeight(&tex));
+			digW = 1.4f * (GXGetTexObjWidth(&tex) / 11);
+			digH = 1.4f * GXGetTexObjHeight(&tex);
 #if defined(VERSION_JP)
 			left = 110.0f;
 #else
 			left = 110.0f + 11.0f;
 #endif
-			PSMTXTrans(tex.mMtx.mTrans, 0.90909094f, 0.0f, 0.0f);
+			PSMTXTrans(tex.mMtx[0], 0.90909094f, 0.0f, 0.0f);
 			tex.mMtxDirty = 1;
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 			s32 lead = 2;
 			if (time < 10)
 				lead = 1;
-			DrawGsTexturedQuad(gGame, &tex, lo, lo, hi, hi, 7.0f * digW + (left - lead * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW, digH,
-			                   0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, lo, lo, hi, hi, 7.0f * digW + (left - lead * (digW - 8.0f)) - 32.0f, 76.0f, 0.0f, digW,
+			                   digH, 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 
 			// gauge
-			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x28), 0);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 44.0f, 0.0f, 1.0f * GXGetTexObjWidth(&tex),
-			                   1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			tex = tpl.mTex.Init(&textures[5], 0);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, 100.0f, 44.0f, 0.0f, GXGetTexObjWidth(&tex), GXGetTexObjHeight(&tex), 0.0f,
+			                   0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 #if !defined(VERSION_JP)
-			{
-				CTexObj unused;
-				DrawCaption(0x5C, 100.0f, 44.0f);
-			}
+			DrawCaption(0x5C, 100.0f, 44.0f);
 #endif
-			tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x30), 0);
-			w    = 1.0f * GXGetTexObjWidth(&tex);
-			digH = 1.0f * GXGetTexObjHeight(&tex);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 72.0f, 0.0f, w, digH, 0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-			tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x38), 0);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f - w * 0.5f + gauge * w / 100.0f, 72.0f, 0.0f,
-			                   1.0f * GXGetTexObjWidth(&tex), 1.0f * GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			tex  = tpl.mTex.Init(&textures[6], 0);
+			w    = GXGetTexObjWidth(&tex);
+			digH = GXGetTexObjHeight(&tex);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, 100.0f, 72.0f, 0.0f, w, digH, 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+			tex = tpl.mTex.Init(&textures[7], 0);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, 100.0f - w * 0.5f + gauge * w / 100.0f, 72.0f, 0.0f,
+			                   GXGetTexObjWidth(&tex), GXGetTexObjHeight(&tex), 0.0f, 0.0f, 0.0f);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 			break;
 		}
 	}
@@ -2370,35 +2137,35 @@ extern "C" void DrawFighterHud(void)
 	targets->mAimPos.y = fighterWork.mAim.mPos.y;
 	targets->mAimPos.z = fighterWork.mAim.mPos.z;
 	for (i = 0; i < targets->mCount; i++) {
-		Mato* item     = &targets->mMatos[i];
-		UnkDolObj* obj = item->mObj;
+		Mato* item = &targets->mMatos[i];
+		XObj* obj  = item->mObj;
 		f32 halfW;
 		f32 height;
-		if (obj == NULL || !(obj->mStatus & 1) || item->mPending) {
+		if (obj == NULL || !(obj->mStatus.mFlags & 1) || item->mPending) {
 			continue;
 		}
-		halfW = 0.5f * obj->vtbl->mGetFloorXZExtent(obj);
+		halfW = 0.5f * obj->GetFloorXZExtent();
 		if (halfW < 1.0f) {
 			halfW = 1.0f;
 		}
-		height = item->mObj->vtbl->mGetCollisionHeight(item->mObj);
+		height = item->mObj->GetCollisionHeight();
 		if (height < 1.0f) {
 			height = 1.0f;
 		}
-		if (item->mObj->vtbl->mProjectVisibleBounds(item->mObj, halfW, height, &projW, &projH, 0)) {
+		if (item->mObj->ProjectVisibleBounds(&projW, &projH, NULL, halfW, height)) {
 			Vec zero        = { 0.0f, 0.0f, 0.0f };
 			item->mOnScreen = true;
 			if (projW > projH) {
 				projW = projH;
 			}
-			item->mObj->vtbl->mProjectOffsetToScreen(item->mObj, &zero, &item->mScreenX, &item->mScreenY, &item->mScreenZ, 0);
+			item->mObj->ProjectOffsetToScreen(&zero, &item->mScreenX, &item->mScreenY, &item->mScreenZ, NULL);
 			item->mScreenY -= projW * 0.5f; // raise the marker by half the smaller projected extent
 		} else {
 			item->mOnScreen = false;
 		}
 	}
 	DrawScoreHud(matoList.mScore, matoList.mTimeLeft, 100.0f * matoList.mProgress);
-	FighterAim_Draw(&fighterWork.mAim, (UnkGame_E5D38*)(gGame + GAME_OFS(0xE5D38, 0xE5050)), fighterWork.mBodyMtx);
+	FighterAim_Draw(&fighterWork.mAim, &gGame.mMotionControlCamera.mCamera, fighterWork.mBodyMtx);
 	FighterPanels_Draw(&panels);
 }
 
@@ -2576,31 +2343,21 @@ extern "C" void DrawShots(void)
 		if (!entry->mActive) {
 			continue;
 		}
-		GAME_FIELD(s32, GS_BILLBOARD) = 1; // the circles draw as billboards
-		SetGsBlendMode(GAME_FIELD(void*, GS_RENDER_MODE), 1, 4, 5, 15);
+		gGame.mGs.mBillboardEnabled = 1; // the circles draw as billboards
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
 		for (j = 0; j < 10; j++) { // the trail as circles, older positions dimmer
-			Vec* pos  = &entry->mTrail[j];
-			Vec up    = { 0.0f, 1.0f, 0.0f };
-			u32 alpha = 96.0f * (1.0f - 0.1f * j);
-			DrawGsCircle(gGame, 16, alpha | 0xFFFFFF00, 0xFFFFFF00, pos->x, pos->y, pos->z, 4.0f, 4.0f, up.x, up.y, up.z);
+			const Vec& pos = entry->mTrail[j];
+			u32 alpha      = 96.0f * (1.0f - 0.1f * j);
+			DrawGsCircle(&gGame.mGs, 16, alpha | 0xFFFFFF00, 0xFFFFFF00, pos.x, pos.y, pos.z, 4.0f, 4.0f, 0.0f, 0.0f, 0.0f);
 		}
 		// the head: two white circles under a green one
-		Vec* pos = &entry->mPos;
-		SetGsBlendMode(GAME_FIELD(void*, GS_RENDER_MODE), 1, 2, 4, 15);
-		{
-			Vec up = { 0.0f, 1.0f, 0.0f };
-			DrawGsCircle(gGame, 16, 0xFFFFFF80, 0xFFFFFF00, pos->x, pos->y, pos->z, 4.0f, 4.0f, up.x, up.y, up.z);
-		}
-		{
-			Vec up = { 0.0f, 1.0f, 0.0f };
-			DrawGsCircle(gGame, 16, 0xFFFFFF80, 0xFFFFFF00, pos->x, pos->y, pos->z, 5.0f, 5.0f, up.x, up.y, up.z);
-		}
-		SetGsBlendMode(GAME_FIELD(void*, GS_RENDER_MODE), 1, 4, 5, 15);
-		{
-			Vec up = { 0.0f, 1.0f, 0.0f };
-			DrawGsCircle(gGame, 16, 0x64FF64C8, 0x64FF6400, pos->x, pos->y, pos->z, 5.0f, 5.0f, up.x, up.y, up.z);
-		}
-		GAME_FIELD(s32, GS_BILLBOARD) = 0;
+		const Vec& pos = entry->mPos;
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
+		DrawGsCircle(&gGame.mGs, 16, 0xFFFFFF80, 0xFFFFFF00, pos.x, pos.y, pos.z, 4.0f, 4.0f, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, 0xFFFFFF80, 0xFFFFFF00, pos.x, pos.y, pos.z, 5.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		DrawGsCircle(&gGame.mGs, 16, 0x64FF64C8, 0x64FF6400, pos.x, pos.y, pos.z, 5.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+		gGame.mGs.mBillboardEnabled = 0;
 	}
 }
 
@@ -2823,7 +2580,7 @@ extern "C" void UpdateFighter(u32 dt)
 	Mato* best;
 	f32 bestDist;
 	s32 i;
-	void* sfx;
+	XSound* sfx;
 
 	if (fighterWork.mBody == NULL) {
 		return;
@@ -2861,7 +2618,7 @@ extern "C" void UpdateFighter(u32 dt)
 			item->mMarkerPhase += 1.0f;
 		}
 	}
-	sfx = gGame + GAME_OFS(0xE7E24, 0xE713C);
+	sfx = &gGame.mSound;
 	// re-lock the aim only once the flight is past its first percent and the lock-on sound 0x20006 isn't playing
 	if (IsGameSoundPlaying(sfx, 0x20006) == 0 && 0.01f < fighterWork.mFrame / fighterWork.mEndFrame) {
 		Vec pos;
@@ -2873,15 +2630,16 @@ extern "C" void UpdateFighter(u32 dt)
 			Mato* item = &matoList.mMatos[i];
 			f32 dist;
 			f32 range;
-			if (!(item->mObj->mStatus & 0x10000) || item->mShotsLeft <= 0) {
+			if (!(item->mObj->mStatus.mFlags & 0x10000) || item->mShotsLeft <= 0) {
 				continue;
 			}
-			dist = PSVECDistance(&item->GetPos(), &pos);
+			CVec targetPos = item->GetPos();
+			dist           = PSVECDistance(&targetPos, &pos);
 			// the lock range: param word 0xC / 100, default 75
 			if (fighterWork.mParams == NULL) {
 				range = 75.0f;
 			} else {
-				range = (s32)READ_LE32(fighterWork.mParams + 0xC) / 100.0f;
+				range = (s32)ReadResourceOffset(fighterWork.mParams + 0xC) / 100.0f;
 			}
 			if (range >= dist && (best == NULL || dist < bestDist)) {
 				best     = item;
@@ -2889,7 +2647,7 @@ extern "C" void UpdateFighter(u32 dt)
 			}
 		}
 		if (best != NULL && !best->mPending) {
-			if (best != NULL && fighterWork.mLastTarget != best) {
+			if (fighterWork.mLastTarget != best) {
 				PlayGameSound(sfx, 0x20006, 0xFF); // the lock-on sound; mLastTarget is always NULL, so it plays on every lock
 			}
 			fighterWork.mAim.mTarget = best;
@@ -2897,9 +2655,9 @@ extern "C" void UpdateFighter(u32 dt)
 	}
 	FighterPanels_Update(&panels, dt);
 	// cue records {frame, sound id}; a cue fires when the flight frame crosses its frame
-	for (i = 0; i < GET_LE32(soundCueTable[0] + i * 8); i++) {
-		s32 frame = GET_LE32(soundCueTable[0] + i * 8);
-		s32 id    = GET_LE32(soundCueTable[0] + i * 8 + 4);
+	for (i = 0; soundCueTable[0] != NULL && i < (s32)ReadResourceOffset(soundCueTable[0] + i * 8); i++) {
+		s32 frame = ReadResourceOffset(soundCueTable[0] + i * 8);
+		s32 id    = ReadResourceOffset(soundCueTable[0] + i * 8 + 4);
 		if (fighterWork.mPrevFrame < (f32)frame && (f32)frame <= fighterWork.mFrame) {
 			PlayGameSound(sfx, id, 0xFF);
 		}
@@ -3314,7 +3072,7 @@ extern "C" void ShowLowerPanel(bool on)
  * @note Address: stage02 .text 0x2480
  * @note Size: 0xA0
  */
-extern "C" void InitPilotNwing(UnkDolObj* carried, UnkDolObj* path, UnkDolObj* attached0, UnkDolObj* attached1)
+extern "C" void InitPilotNwing(XObj* carried, XObj* path, XObj* attached0, XObj* attached1)
 {
 	if (carried == NULL || path == NULL) {
 		return;
@@ -3323,10 +3081,10 @@ extern "C" void InitPilotNwing(UnkDolObj* carried, UnkDolObj* path, UnkDolObj* a
 	pilotNwing.mPathObj      = path;
 	pilotNwing.mAttachedObj0 = attached0;
 	pilotNwing.mAttachedObj1 = attached1;
-	carried->mStatus |= 0x10000;
-	pilotNwing.mPathObj->mStatus &= ~0x10000ULL;
-	pilotNwing.mAttachedObj0->mStatus |= 0x10000;
-	pilotNwing.mAttachedObj1->mStatus |= 0x10000;
+	carried->mStatus.mFlags |= 0x10000;
+	pilotNwing.mPathObj->mStatus.mFlags &= ~0x10000ULL;
+	pilotNwing.mAttachedObj0->mStatus.mFlags |= 0x10000;
+	pilotNwing.mAttachedObj1->mStatus.mFlags |= 0x10000;
 	pilotNwing.mAnimFrame = 0.0f;
 	pilotNwing._A4        = 1.0f;
 }
@@ -3362,13 +3120,12 @@ extern "C" void EndFighter(void)
 	if (fighterWork.mBody == NULL) {
 		return;
 	}
-	ResetModelFlags(GAME_FIELD(UnkGame_96BC*, GAME_OFS(0x96BC, 0x9674)));
-	HSD_JObjClearMtxFlags(GAME_FIELD(UnkGame_96BC*, GAME_OFS(0x96BC, 0x9674))->mJObj);
+	gGame.GetPlayer()->RestoreControl();
+	HSD_JObjClearMtxFlags(gGame.GetPlayer()->mJObj);
 	// back to the game's own camera action, and stop sound 0x20004 if it is still playing
-	((CMotionControlCamera*)(gGame + GAME_OFS(0xE5D38, 0xE5050)))
-	    ->ChangeAction(GAME_FIELD(CInterfaceCameraAction*, GAME_OFS(0xE5F0C, 0xE5224)));
-	if (IsGameSoundPlaying(gGame + GAME_OFS(0xE7E24, 0xE713C), 0x20004)) {
-		StopGameSfx(gGame + GAME_OFS(0xE7E24, 0xE713C), 0x20004);
+	gGame.mMotionControlCamera.ChangeAction(gGame.mMotionControlCamera.mPrevAction);
+	if (IsGameSoundPlaying(&gGame.mSound, 0x20004)) {
+		StopGameSfx(&gGame.mSound, 0x20004);
 	}
 	if (fighterWork.mBody != NULL) {
 		HSD_JObjClearMtxFlags(fighterWork.mBody->mJObj);
@@ -3745,13 +3502,13 @@ extern "C" void SetSoundCueTable(u8* data)
 extern "C" void SetFighterParams(u8* data)
 {
 	fighterWork.mParams       = data;
-	fighterWork.mMinSpeed     = (s32)READ_LE32(data + 0x10) / 100.0f;
-	fighterWork.mMaxSpeed     = (s32)READ_LE32(data + 0x14) / 100.0f;
-	fighterWork.mAccel        = (s32)READ_LE32(data + 0x18) / 100.0f;
-	fighterWork.mFireSlowdown = (s32)READ_LE32(data + 0x1C) / 100.0f;
-	fighterWork.mTimeLimit    = READ_LE32(data + 0x20) * 60 + 59;
-	matoList.mKindPoints[0]   = READ_LE32(data + 0x24);
-	matoList.mKindPoints[1]   = READ_LE32(data + 0x28);
+	fighterWork.mMinSpeed     = (s32)ReadResourceOffset(data + 0x10) / 100.0f;
+	fighterWork.mMaxSpeed     = (s32)ReadResourceOffset(data + 0x14) / 100.0f;
+	fighterWork.mAccel        = (s32)ReadResourceOffset(data + 0x18) / 100.0f;
+	fighterWork.mFireSlowdown = (s32)ReadResourceOffset(data + 0x1C) / 100.0f;
+	fighterWork.mTimeLimit    = ReadResourceOffset(data + 0x20) * 60 + 59;
+	matoList.mKindPoints[0]   = ReadResourceOffset(data + 0x24);
+	matoList.mKindPoints[1]   = ReadResourceOffset(data + 0x28);
 }
 
 /**
@@ -3767,7 +3524,7 @@ extern "C" void SetSpeedRateTable(u8* rates)
  * @note Address: stage02 .text 0x2C04
  * @note Size: 0x108
  */
-extern "C" void AddMato(UnkDolObj* obj, s32 id)
+extern "C" void AddMato(XObj* obj, s32 id)
 {
 	Mato* item;
 	s32 kind;
@@ -3781,8 +3538,8 @@ extern "C" void AddMato(UnkDolObj* obj, s32 id)
 	item->mOnScreenTime = 0;
 	item->mPending      = false;
 	item->mMarkerPhase  = HSD_Rand();
-	item->mObj->mStatus |= 0x10000;
-	kind = item->mObj->mPlacement != NULL ? item->mObj->mPlacement->mObjectId : -1;
+	item->mObj->mStatus.mFlags |= 0x10000;
+	kind = item->mObj->GetKind();
 	switch (kind) {
 	case 0x14D: // the one-shot targets
 		item->mShotsLeft = 1;
@@ -3878,29 +3635,22 @@ extern "C" void AddMato(UnkDolObj* obj, s32 id)
  * @note Address: stage02 .text 0x2D0C
  * @note Size: 0x1BC
  */
-extern "C" void StartFighter(UnkDolObj* body, UnkDolObj* path, void* extra)
+extern "C" void StartFighter(XObj* body, XObj* path, XObj* extra)
 {
-	UnkGame_96BC* player;
-
 	if (body == NULL || path == NULL) {
 		return;
 	}
 	shotEvents.mFlags = 0;
 	Fighter_Init(&fighterWork, body, path, extra);
-	matoList.mCount       = 0;
-	matoList.mScore       = 0;
-	matoList.mFrameCount  = 0;
-	matoList.mProgress    = 0.0f;
-	matoList.mTimeLeft    = 6000;
-	matoList.mDestroyed   = NULL;
-	player                = GAME_FIELD(UnkGame_96BC*, GAME_OFS(0x96BC, 0x9674));
-	player->mPlayerStatus = 0;
-	player->mPlayerStatus |= 0x40000000;
-	player->mPadReset = 0;
-	((CMotionControlCamera*)(gGame + GAME_OFS(0xE5D38, 0xE5050)))->ChangeAction(&fighterCamera);
-	{
-		fighterCamera.SetView(MakeVec(0.0f, 40.0f, -180.0f), MakeVec(0.0f, 0.0f, 120.0f), fighterWork.mBodyMtx);
-	}
+	matoList.mCount      = 0;
+	matoList.mScore      = 0;
+	matoList.mFrameCount = 0;
+	matoList.mProgress   = 0.0f;
+	matoList.mTimeLeft   = 6000;
+	matoList.mDestroyed  = NULL;
+	gGame.GetPlayer()->LockControl();
+	gGame.mMotionControlCamera.ChangeAction(&fighterCamera);
+	fighterCamera.SetView(MakeVec(0.0f, 40.0f, -180.0f), MakeVec(0.0f, 0.0f, 120.0f), fighterWork.mBodyMtx);
 	fireHoldFrames           = 0;
 	lbl_5_bss_0              = 0;
 	panels.mLowerState       = 0;
@@ -4057,7 +3807,7 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 animFrame)
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, link->mCarriedMtx);
 	HSD_JObjCopyMtx(link->mCarriedObj->mJObj, link->mCarriedMtx);
 	link->mAnimFrame = animFrame;
-	link->mPathObj->vtbl->mSetAnim(link->mPathObj, link->mAnimFrame, 1.0f, 0.0f, 10.0f, 0, 1, 0, 0, 0);
+	link->mPathObj->SetAnim(0, TRUE, NULL, NULL, NULL, link->mAnimFrame, 1.0f, 0.0f, 10.0f);
 	if (link->mAttachedObj0 != NULL) {
 		PSMTXTrans(attach, 0.0f, -1.89f, -1.0f);
 		PSMTXConcat(link->mCarriedMtx, attach, link->mAttachedMtx0);
@@ -4384,51 +4134,24 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 animFrame)
 extern "C" void Fighter_Fire(Fighter* work, s32 batteryCost)
 {
 	Mato* item = work->mAim.mTarget;
-	Vec start;
-	Vec local;
-	CVec end;
-	UnkGame_96BC* player;
-	f32 dist;
+	Vec offset = { 0.0f, 10.0f, 0.0f };
+	Vec origin;
 
-	// the shot runs from the aim point (or the locked target) to a point 10 above the fighter
-	local.x = local.z = local.y = 0.0f;
-	local.y                     = 10.0f;
-	PSMTXMultVec(work->mBodyMtx, &local, &end);
+	PSMTXMultVec(work->mBodyMtx, &offset, &origin);
 	if (item == NULL) {
-		local = work->mAim.mPos;
-		PSMTXMultVec(work->mBodyMtx, &local, &start);
-		work->mShots.Add(start, end, item);
+		Vec destination;
+		PSMTXMultVec(work->mBodyMtx, &work->mAim.mPos, &destination);
+		work->mShots.Add(origin, destination, NULL);
 	} else {
 		item->mShotsLeft--;
 		if (item->mShotsLeft <= 0) {
 			item->mPending = true;
 		}
 		work->mLastTarget = NULL;
-		work->mShots.Add(item->GetPos(), end, item);
+		work->mShots.Add(origin, item->GetPos(), item);
 	}
-	player           = GAME_FIELD(UnkGame_96BC*, GAME_OFS(0x96BC, 0x9674));
-	player->mBattery = player->mBattery - batteryCost > 0.0f ? player->mBattery - batteryCost : 0.0f;
-	if (player->mBattery < 0.0f) {
-		player->mBattery = 0.0f;
-	}
-	if (player->mBattery > player->mMaxBattery) {
-		player->mBattery = player->mMaxBattery;
-	}
-	{
-		f32 dx = start.x - end.x;
-		f32 dz = start.z - end.z;
-		dist   = sqrtf(dx * dx + dz * dz);
-	}
-	if (dist != 0.0f) {
-		// dead: the normalised angle is never used
-		f32 angle = atan2(end.x - start.x, end.z - start.z);
-		while (angle < 0.0f) {
-			angle += TWO_PI;
-		}
-		while (TWO_PI <= angle) {
-			angle -= TWO_PI;
-		}
-	}
+	Params& params = gGame.GetPlayer()->mParams;
+	params.SetBattery(params.mBattery - batteryCost);
 	work->mSpeed -= work->mFireSlowdown;
 	if (work->mSpeed < work->mMinSpeed) {
 		work->mSpeed = work->mMinSpeed;
@@ -5031,7 +4754,7 @@ extern "C" void Fighter_Update(Fighter* work, u32 dt)
 	PSMTXConcat(offset, rot, offset);
 	jobj = GetJointByPath(work->mBody->mJObj, seatJoint, 1);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), offset, work->mPlayerMtx);
-	HSD_JObjCopyMtx(GAME_FIELD(UnkGame_96BC*, GAME_OFS(0x96BC, 0x9674))->mJObj, work->mPlayerMtx);
+	HSD_JObjCopyMtx(gGame.GetPlayer()->mJObj, work->mPlayerMtx);
 	if (work->mExtra != NULL) {
 		PSMTXTrans(offset, 0.0f, 4.11f, -1.0f);
 		PSMTXConcat(work->mBodyMtx, offset, work->mExtraMtx);
@@ -5055,7 +4778,7 @@ extern "C" void Fighter_Update(Fighter* work, u32 dt)
 		}
 	}
 	work->mFrame = work->mSpeed * rate + work->mFrame;
-	work->mPath->vtbl->mSetAnim(work->mPath, work->mFrame, 1.0f, 0.0f, 10.0f, 0, 1, 0, 0, 0);
+	work->mPath->SetAnim(0, TRUE, NULL, NULL, NULL, work->mFrame, 1.0f, 0.0f, 10.0f);
 	ShotList_Update(&work->mShots, dt);
 }
 
@@ -5521,7 +5244,7 @@ extern "C" void Fighter_Update(Fighter* work, u32 dt)
  * @note Address: stage02 .text 0x4214
  * @note Size: 0x2DC
  */
-extern "C" void Fighter_Init(Fighter* work, UnkDolObj* body, UnkDolObj* path, void* extra)
+extern "C" void Fighter_Init(Fighter* work, XObj* body, XObj* path, XObj* extra)
 {
 	HSD_AObj* pathAnim;
 	f32 aimX;
@@ -5531,19 +5254,19 @@ extern "C" void Fighter_Init(Fighter* work, UnkDolObj* body, UnkDolObj* path, vo
 
 	work->mBody  = body;
 	work->mPath  = path;
-	work->mExtra = (UnkDolObj*)extra;
-	work->mBody->mStatus |= 0x10000;
-	work->mBody->mStatus |= 0x40000;
-	work->mPath->mStatus &= ~0x10000ULL;
+	work->mExtra = extra;
+	work->mBody->mStatus.mFlags |= 0x10000;
+	work->mBody->mStatus.mFlags |= 0x40000;
+	work->mPath->mStatus.mFlags &= ~0x10000ULL;
 	work->mFrame       = 0.0f;
 	pathAnim           = GetAObj(work->mPath->mJObj);
 	work->mEndFrame    = pathAnim != NULL ? HSD_AObjGetEndFrame(pathAnim) : 0.0f;
 	work->mSpeed       = 1.0f;
 	work->_B8          = 0;
 	work->mTimeLeft    = work->mTimeLimit;
-	aimZ               = work->mParams == NULL ? 170.0f : (s32)READ_LE32(work->mParams + 8) / 100.0f;
-	aimY               = work->mParams == NULL ? 20.0f : (s32)READ_LE32(work->mParams + 4) / 100.0f;
-	aimX               = work->mParams == NULL ? 0.0f : (s32)READ_LE32(work->mParams) / 100.0f;
+	aimZ               = work->mParams == NULL ? 170.0f : (s32)ReadResourceOffset(work->mParams + 8) / 100.0f;
+	aimY               = work->mParams == NULL ? 20.0f : (s32)ReadResourceOffset(work->mParams + 4) / 100.0f;
+	aimX               = work->mParams == NULL ? 0.0f : (s32)ReadResourceOffset(work->mParams) / 100.0f;
 	work->mAim.mPos.x  = aimX;
 	work->mAim.mPos.y  = aimY;
 	work->mAim.mPos.z  = aimZ;
@@ -5756,90 +5479,63 @@ extern "C" void Fighter_Init(Fighter* work, UnkDolObj* body, UnkDolObj* path, vo
     blr
 */
 
+static void DrawFighterPanelQuad(CTexObj& tex, f32 y, f32 width, f32 height)
+{
+	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+	DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, width, height, 0.0f, 0.0f, 0.0f);
+	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
+}
+
+static void DrawFighterPanel(CTpl& tpl, TPLDescriptor& backdrop, TPLDescriptor& animation, TPLDescriptor& border, f32 openness, f32 y)
+{
+	CTexObj tex       = tpl.mTex.Init(&backdrop, 0);
+	const f32 width   = 1.1f * GXGetTexObjWidth(&tex);
+	const f32 opening = openness * GXGetTexObjHeight(&tex);
+	DrawFighterPanelQuad(tex, y, width, opening);
+
+	tex                       = tpl.mTex.Init(&animation, 0);
+	const f32 animationWidth  = 1.1f * GXGetTexObjWidth(&tex);
+	const f32 animationHeight = openness * GXGetTexObjHeight(&tex);
+	DrawFighterPanelQuad(tex, y, animationWidth, animationHeight);
+
+	tex                    = tpl.mTex.Init(&border, 0);
+	const f32 borderWidth  = 1.1f * GXGetTexObjWidth(&tex);
+	const f32 borderHeight = GXGetTexObjHeight(&tex);
+	DrawFighterPanelQuad(tex, y - 0.5f * opening, borderWidth, borderHeight);
+	DrawFighterPanelQuad(tex, y + 0.5f * opening, borderWidth, borderHeight);
+}
+
 /**
  * @note Address: stage02 .text 0x44F0
  * @note Size: 0xCB4
  */
-// NONMATCHING: retail reads the 1.0f-scale operands and the 32.0f panel offset as named .rodata
-// objects (gFighterHudTextureScale, gFighterPanelYOffset), so it keeps a real lfs+fmuls where
-// literals fold away. No source form reproduces both the loads and their placement.
 extern "C" void FighterPanels_Draw(FighterPanels* fade)
 {
-	CTexObj tex;
-	s32 i;
-
-	if (FindStageIndexByName("stage02") == GAME_FIELD(s32, GAME_STAGE)) {
-		for (i = 0; i < 48; i++) {
-			UnkDolObj* obj = (UnkDolObj*)(GAME_FIELD(u8*, GAME_OFS(0x96F8, 0x96B0)) + i * GAME_FIELD(s32, GAME_OFS(0x9708, 0x96C0)));
-			s32 kind       = obj->mPlacement != NULL ? obj->mPlacement->mObjectId : -1;
-			f32 y;
-			f32 half;
-			f32 w;
-			f32 h;
-			// kind 0x149 is the object that carries the stage02 panel textures
-			if (kind != 0x149 || obj->mPanelTplBound == 0) {
-				continue;
-			}
-			if (fade->mLowerOpen > 0.0f) {
-				// the open panel: a fill, the current animation frame, and the same strip above and below the opening
-				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x50), 0);
-				w   = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
 #if defined(VERSION_JP)
-				y = 320.0f;
+	const f32 lowerY = 320.0f;
 #else
-				y = 320.0f - 32.0f;
+	const f32 lowerY = 320.0f - 32.0f;
 #endif
-				half = fade->mLowerOpen * (1.0f * GXGetTexObjHeight(&tex));
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, w, half, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + (fade->mLowerFrame + 25) * 8), 0);
-				w   = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h   = fade->mLowerOpen * (1.0f * GXGetTexObjHeight(&tex));
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, y, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x58), 0);
-				half *= 0.5f;
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = 1.0f * GXGetTexObjHeight(&tex);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, y - half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, y + half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-			}
-			if (fade->mCenterOpen > 0.0f) {
-				// the open panel: a fill, the current animation frame, and the same strip above and below the opening
-				u16 texW;
-				tex  = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x40), 0);
-				texW = GXGetTexObjWidth(&tex);
-				half = fade->mCenterOpen * (1.0f * GXGetTexObjHeight(&tex));
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 180.0f, 0.0f, 1.1f * (1.0f * texW), half, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				if (fade->mCenterVariant == 0) {
-					tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + (fade->mCenterFrame + 12) * 8), 0);
-				} else {
-					tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + (fade->mCenterFrame + 18) * 8), 0);
-				}
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = fade->mCenterOpen * (1.0f * GXGetTexObjHeight(&tex));
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 180.0f, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				tex = ((CTexObj*)(obj->_A6C))->Init((TPLDescriptor*)(obj->mPanelTplBuffer[2] + 0x48), 0);
-				half *= 0.5f;
-				w = 1.1f * (1.0f * GXGetTexObjWidth(&tex));
-				h = 1.0f * GXGetTexObjHeight(&tex);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 180.0f - half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-				DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, 100.0f, 180.0f + half, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
-				SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
-			}
+	if (FindStageIndexByName("stage02") != gGame.mStage) {
+		return;
+	}
+	for (s32 i = 0; i < 48; i++) {
+		XObj* obj = gGame.mXObjs.mPools[5].Get(i);
+		// Kind 0x149 carries the stage02 panel textures.
+		if (obj->GetKind() != 0x149) {
+			continue;
+		}
+		CTpl& tpl = static_cast<XObjActor3*>(obj)->mPanelTpl;
+		if (!tpl.mBound) {
+			continue;
+		}
+		TPLDescriptor* textures = static_cast<TPLPalette*>(tpl.mBuffer)->descriptorArray;
+		if (fade->mLowerOpen > 0.0f) {
+			DrawFighterPanel(tpl, textures[10], textures[fade->mLowerFrame + 25], textures[11], fade->mLowerOpen, lowerY);
+		}
+		if (fade->mCenterOpen > 0.0f) {
+			s32 frame = fade->mCenterFrame + (fade->mCenterVariant == 0 ? 12 : 18);
+			DrawFighterPanel(tpl, textures[8], textures[frame], textures[9], fade->mCenterOpen, 180.0f);
 		}
 	}
 }
@@ -6740,7 +6436,7 @@ extern "C" void FighterPanels_Update(FighterPanels* fade, u32 dt)
  * @note Address: stage02 .text 0x53E4
  * @note Size: 0x664
  */
-extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighterMtx)
+extern "C" void FighterAim_Draw(FighterAim* aim, CCamera* cam, Mtx fighterMtx)
 {
 	Vec pos;
 	Vec ring[65];
@@ -6751,7 +6447,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
 	s32 j;
 
 	// the reticle only draws while the lock-on sound plays or a target is locked
-	if (IsGameSoundPlaying(gGame + GAME_OFS(0xE7E24, 0xE713C), 0x20006) == 0 && aim->mTarget == NULL) {
+	if (IsGameSoundPlaying(&gGame.mSound, 0x20006) == 0 && aim->mTarget == NULL) {
 		return;
 	}
 	PSMTXMultVec(fighterMtx, &aim->mPos, &pos);
@@ -6763,8 +6459,8 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
 		cx = aim->mTarget->mScreenX;
 		cy = aim->mTarget->mScreenY;
 	}
-	SetGsBlendMode(GAME_FIELD(void*, GS_RENDER_MODE), 1, 4, 5, 15);
-	SetGsLineWidth(GAME_FIELD(void*, GS_RENDER_MODE), 12, 5);
+	SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+	SetGsLineWidth(gGame.mGs.mCurRenderMode, 12, 5);
 	for (i = 9; i > 0; i--) {
 		reticleSpin[i] = reticleSpin[i - 1];
 	}
@@ -6781,7 +6477,7 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
 			ring[i].y = c * radius + cy;
 			ring[i].z = 0.0f;
 		}
-		DrawGsLineStrip(gGame, ring, -1, 65);
+		DrawGsLineStrip(&gGame.mGs, ring, -1, 65);
 		innerRadius = radius - 10.0f;
 		spokeColor  = -1;
 		for (j = 0; j < 10; j++) { // ten spoke sets, each dimmer than the last
@@ -6789,8 +6485,8 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
 				f32 angle = HALF_PI * i;
 				f32 s     = sin(angle + reticleSpin[j]);
 				f32 c     = cos(angle + reticleSpin[j]);
-				DrawGsLineSegment(gGame, 0, spokeColor, spokeColor, s * radius + cx, c * radius + cy, 0.0f, s * innerRadius + cx,
-				                  c * innerRadius + cy, 0.0f);
+				DrawGsLineSegment(&gGame.mGs, NULL, s * radius + cx, c * radius + cy, 0.0f, spokeColor, s * innerRadius + cx,
+				                  c * innerRadius + cy, 0.0f, spokeColor);
 			}
 			spokeColor = 0xFFFFFF00 | (u8)(s32)(0.5f * (255.0f * (10 - j) / 10.0f));
 		}
@@ -6808,13 +6504,12 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
 			f32 c = cos(angle);
 			u16 w;
 			u16 h;
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 0);
-			tex = ((CTexObj*)(gGame + GAME_OFS(0x3D6C, 0x3D4C)))
-			          ->Init((TPLDescriptor*)(GAME_FIELD(u32*, GAME_OFS(0x3D4C, 0x3D2C))[2] + GAME_OFS(0x400, 0x3F0)), 0);
-			w = GXGetTexObjWidth(&tex);
-			h = GXGetTexObjHeight(&tex);
-			DrawGsTexturedQuad(gGame, &tex, -1, -1, -1, -1, dist * s + cx, dist * c + cy, 0.0f, 1.1f * w, h, 0.0f, 0.0f, angle);
-			SetGsTevMode(GAME_FIELD(void*, GS_TEV_STAGE), 4);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
+			tex = gGame.mTpl.mTex.Init(&static_cast<TPLPalette*>(gGame.mTpl.mBuffer)->descriptorArray[128 - StatusTextureOffset], 0);
+			w   = GXGetTexObjWidth(&tex);
+			h   = GXGetTexObjHeight(&tex);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, dist * s + cx, dist * c + cy, 0.0f, 1.1f * w, h, 0.0f, 0.0f, angle);
+			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 		}
 	}
 }
@@ -7245,7 +6940,6 @@ extern "C" void FighterAim_Draw(FighterAim* aim, UnkGame_E5D38* cam, Mtx fighter
     blr
 */
 
-// after FighterAim_Draw so its static frame counter lands between reticleSpin and these in .bss
 fighter::CCameraActionFighter fighterCamera;
 MatoList matoList;
 Fighter fighterWork;
@@ -7260,41 +6954,35 @@ u8* soundCueTable[2];
  */
 extern "C" void ShotList_Update(ShotList* list, u32 dt)
 {
-	u32 i;
-	s32 j;
-
-	for (i = 0; i < 5; i++) {
+	for (u32 i = 0; i < 5; i++) {
 		Shot* entry = &list->mShots[i];
 		if (!entry->mActive) {
 			continue;
 		}
-		if (entry->mActive) {
-			entry->mTimer -= dt;
-			if (entry->mTimer <= 0) {
-				Mato* item;
-				entry->mActive = false;
-				item           = entry->mTarget;
-				if (item != NULL) {
-					if (--item->mHitsLeft > 0) {
-						item->mPending = false;
-					} else if (item->mObj != NULL && (item->mObj->mStatus & 0x10000)) {
-						item->mList->mDestroyed = item;
-						item->mList->mScore += item->mList->mKindPoints[item->mKind];
-						shotEvents.mFlags |= 1;
-					}
-					entry->mResult.mFlags |= 1;
-				} else {
-					entry->mResult.mFlags |= 2;
+		entry->mTimer -= dt;
+		if (entry->mTimer <= 0) {
+			entry->mActive = false;
+			Mato* item     = entry->mTarget;
+			if (item != NULL) {
+				if (--item->mHitsLeft > 0) {
+					item->mPending = false;
+				} else if (item->mObj != NULL && (item->mObj->mStatus.mFlags & 0x10000)) {
+					item->mList->mDestroyed = item;
+					item->mList->mScore += item->mList->mKindPoints[item->mKind];
+					shotEvents.mFlags |= 1;
 				}
+				entry->mResult.mFlags |= 1;
 			} else {
-				entry->mPos.x = entry->mVelocity.x * dt + entry->mPos.x;
-				entry->mPos.y = entry->mVelocity.y * dt + entry->mPos.y;
-				entry->mPos.z = entry->mVelocity.z * dt + entry->mPos.z;
-				for (j = 9; j > 0; j--) {
-					entry->mTrail[j] = entry->mTrail[j - 1];
-				}
-				entry->mTrail[0] = entry->mPos;
+				entry->mResult.mFlags |= 2;
 			}
+		} else {
+			entry->mPos.x = entry->mVelocity.x * dt + entry->mPos.x;
+			entry->mPos.y = entry->mVelocity.y * dt + entry->mPos.y;
+			entry->mPos.z = entry->mVelocity.z * dt + entry->mPos.z;
+			for (s32 j = 9; j > 0; j--) {
+				entry->mTrail[j] = entry->mTrail[j - 1];
+			}
+			entry->mTrail[0] = entry->mPos;
 		}
 		if (entry->mResult.mFlags & 1) {
 			list->mHitStreak++;
@@ -7501,7 +7189,7 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt)
  * @note Address: stage02 .text 0x5CE8
  * @note Size: 0x170
  */
-void fighter::CCameraActionFighter::Update()
+void fighter::CCameraActionFighter::Update(u32 step)
 {
 	Vec v;
 
@@ -7510,11 +7198,7 @@ void fighter::CCameraActionFighter::Update()
 	}
 	CPad pad(0);
 	if (pad.mPad->mTrigger & PAD_BUTTON_Y) { // Y toggles the centred and chase views
-		if (mCenterView) {
-			mCenterView = false;
-		} else {
-			mCenterView = true;
-		}
+		mCenterView = !mCenterView;
 	}
 	SetFov(40.0f);
 	if (mCenterView) {

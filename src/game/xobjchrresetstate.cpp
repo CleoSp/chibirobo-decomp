@@ -12,7 +12,7 @@ static inline void ClearRingHighlights(OctaMenu& ring)
 {
 	ring.mOpen = 0;
 	ring.mFade = 0.0f;
-	for (s32 i = 0; i < 8; ++i)
+	for (s32 i = 0; i < ARRAY_SIZE(ring.mItems); ++i)
 		ring.mItems[i].mHighlight = 0.0f;
 }
 
@@ -22,10 +22,11 @@ static inline void ClearRingHighlights(OctaMenu& ring)
  */
 void XObjChr::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	SetPlayerEyeCameraJointsHidden(this, FALSE);
 	mMotion.Reset(0.0f, 0.0f, 0.0f);
-	mStick[1] = mStick[0] = mStick[3] = mStick[2] = 0.0f;
+	for (u32 i = 0; i < ARRAY_SIZE(mStick); ++i)
+		mStick[i] = 0.0f;
 	mHitObjectIndex = mActionObjectIndex = -1;
 	mFloorContacts[1].objectIndex = mFloorContacts[0].objectIndex = mFloorContacts[2].objectIndex = mFloorContacts[4].objectIndex = -1;
 	mLastContactFloorIndex                                                                                                        = -1;
@@ -69,11 +70,10 @@ void XObjChr::ResetObjectState()
 	mHeadTurn.mHead.Init(this, 5, head, 'z');
 	mLook.mActive = FALSE;
 	mLook.mMode   = -1;
-	mLook.mObject = NULL;
+	mLook.mObject = this;
 	Vec zero      = { 0.0f, 0.0f, 0.0f };
 	mLook.mOffset = zero;
 	mLook.mFade = mLook.mPhase = mLook.mPulse = 0.0f;
-	mLook.mObject                             = this;
 	mAttachmentRequest                        = -1;
 	mAttachmentStep = mScriptAttach = mNextClimbType = mClimbType = 0;
 	mFallDistance                                                 = 0.0f;

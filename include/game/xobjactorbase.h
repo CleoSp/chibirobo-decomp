@@ -55,7 +55,7 @@ public:
 	void ResetMovementStep();
 	static const f32 sZero;
 
-	virtual ~XObjActor() { }
+	virtual ~XObjActor();
 	virtual void InitializeObject(u32 id);
 	virtual void ResetForNewGame();
 	virtual void ResetObjectState();
@@ -65,7 +65,7 @@ public:
 	virtual void DrawScreenOverlay();
 	virtual void DrawDebugStatus();
 	virtual Vec GetCameraTarget();
-	virtual s32 OnPlayerContact(s32 unused, s32 value);
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);
 	virtual s32 HandleEventCommand(s32 count, s32* args);
 	virtual void OnPushDisplacement(const Vec& delta);
 	virtual void OnHitFromPosition(const Vec& position, f32 strength);

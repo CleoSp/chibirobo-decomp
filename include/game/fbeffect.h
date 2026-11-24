@@ -17,7 +17,6 @@
 
 // frame buffer effects CGame owns, the outline at CGame + 0x4204 and the blur at CGame + 0x4268.
 // class names from RTTI. no base class, both RTTI base lists are empty
-// the vtables and the weak dtors are emitted in CGame's file
 
 class CFbOutline {
 public:
@@ -51,7 +50,7 @@ public:
 	f32 mZoom;             // _5C
 	// _60 vtable
 
-	virtual ~CFbOutline() { } // _08
+	virtual ~CFbOutline(); // _08
 
 	void SetLineColor(u8 r, u8 g, u8 b)
 	{
@@ -105,7 +104,7 @@ public:
 	u8 mValid;        // _3C
 	// _40 vtable
 
-	virtual ~CFbBlur() { } // _08
+	virtual ~CFbBlur(); // _08
 };
 
 STATIC_ASSERT(sizeof(CFbBlur) == 0x44);

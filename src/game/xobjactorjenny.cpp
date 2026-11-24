@@ -188,8 +188,6 @@ void XObjActorJenny::UpdateObject(u32 frames)
 	}
 }
 
-extern "C" void Attach__5CJObjFP9_HSD_JObj(CJObj*, HSD_JObj*);
-
 static inline void JennyPropVisibility(XObjActorJenny* jenny, XObj* object)
 {
 	if (jenny->mStatus.mFlags & 0x10000)
@@ -201,7 +199,7 @@ static inline void JennyPropVisibility(XObjActorJenny* jenny, XObj* object)
 // Positions the props Jenny holds and turns the carried player toward her head.
 void XObjActorJenny::UpdateAfterAnim(u32 frames)
 {
-	UpdateAfterAnim__9XObjActorFUl(this, frames);
+	XObjActor::UpdateAfterAnim(frames);
 	CJObj joint;
 	XObjChr* player = gGame.GetPlayer();
 	if (mHideKinds.mFlags & 0x1f) {
@@ -210,27 +208,27 @@ void XObjActorJenny::UpdateAfterAnim(u32 frames)
 		if (mHideKinds.Check(1)) {
 			kind        = 0x3d;
 			s32 hand[6] = { 0, 3, 1, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+			joint.Attach(FindJointByPath(mJObj, hand, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(2)) {
 			kind        = 0x3e;
 			s32 hand[6] = { 0, 3, 1, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+			joint.Attach(FindJointByPath(mJObj, hand, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(4)) {
 			kind        = 0x3f;
 			s32 hand[6] = { 0, 3, 1, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+			joint.Attach(FindJointByPath(mJObj, hand, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(8)) {
 			kind        = 0x3b;
 			s32 hand[6] = { 0, 3, 1, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+			joint.Attach(FindJointByPath(mJObj, hand, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(16)) {
 			kind        = 0x401;
 			s32 hand[6] = { 0, 3, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+			joint.Attach(FindJointByPath(mJObj, hand, 6));
 			position = joint.GetPos();
 		}
 		Mtx mount, translation, rotation, result;
@@ -297,7 +295,7 @@ void XObjActorJenny::UpdateAfterAnim(u32 frames)
 	// flag 0x200: the player rides along, three units to the side of the joint
 	if ((mActorStatus.mFlags & 0x200) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		s32 hand[6] = { 0, 3, 2, 0, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+		joint.Attach(FindJointByPath(mJObj, hand, 6));
 		CVec pos = joint.GetPos();
 		{
 			f32 angle = atan2(pos.x - mMoveTranslate.x, pos.z - mMoveTranslate.z);
@@ -309,19 +307,19 @@ void XObjActorJenny::UpdateAfterAnim(u32 frames)
 		pos.y += 2;
 		player->SetPos(pos, 0);
 		s32 head[4] = { 0, 3, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, head, 4));
+		joint.Attach(FindJointByPath(mJObj, head, 4));
 		pos = joint.GetPos();
 		player->SetRotateY(atan2(pos.x - player->mMoveTranslate.x, pos.z - player->mMoveTranslate.z), 0);
 	}
 	// flag 0x100: the player rides at the joint
 	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		s32 hand[6] = { 0, 3, 2, 0, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, hand, 6));
+		joint.Attach(FindJointByPath(mJObj, hand, 6));
 		CVec pos = joint.GetPos();
 		pos.y += 2;
 		player->SetPos(pos, 0);
 		s32 head[4] = { 0, 3, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, head, 4));
+		joint.Attach(FindJointByPath(mJObj, head, 4));
 		pos = joint.GetPos();
 		player->SetRotateY(atan2(pos.x - player->mMoveTranslate.x, pos.z - player->mMoveTranslate.z), 0);
 	}

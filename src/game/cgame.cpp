@@ -3,6 +3,7 @@
 #include "game/mic.h"
 #include "game/video.h"
 #include "game/mm.h"
+#include "game/stg.h"
 #include <Dolphin/vi.h>
 #include "game/cgameutil.h"
 
@@ -84,7 +85,7 @@ extern "C" void DrawStageNameBubbles(CGame* game)
 
 extern "C" {
 s32 GetDefaultStageIndex(void);
-void ClearMainMenuExtraRows(void* menu);
+void ClearMainMenuExtraRows(MenuMain* menu);
 void ResetMessageState(CMsg* msg);
 void CMsg_ResetPos(CMsg* msg);
 void UnloadStageDataAndModule(void);
@@ -92,22 +93,17 @@ void ReleaseStageObjectList(XOBJS* objs);
 void psKillAllParticle(void);
 void SetMusicPlaybackPaused(XSound* sound, BOOL pause);
 void ClearStageSoundBank(XSound* sound);
-void ResetMenuGroup(void* menu);
-void ResetGameHudState(void* info);
+void ResetMenuGroup(MenuEx* menu);
+void ResetGameHudState(InfoScrn* info);
 u8* GetStageDisplayName(s32 index);
 int rand(void);
 }
 GXColor gMessageFontDefaultColor = { 0, 0, 0, 0x80 };
 
 // a lead byte of a two byte shift jis character
-static inline bool IsSJISByte(char c)
+static inline bool IsSJISLead(u8 c)
 {
-	return ((u8)c >= 0x81 && (u8)c <= 0x9F) || ((u8)c >= 0xE0 && (u8)c <= 0xFC);
-}
-
-static inline bool IsSJISLead(char c)
-{
-	return IsSJISByte(c) ? true : false;
+	return (c >= 0x81 && c <= 0x9F) || (c >= 0xE0 && c <= 0xFC);
 }
 
 // shuts a wipe off where it is
@@ -149,7 +145,7 @@ extern "C" void ChangeGameStage(CGame* game, s32 stage, BOOL showName)
 	if (game->mMovie.mMovie.mState != 0) { // cut any playing movie
 		game->mMovie.mMovie.Stop();
 	}
-	ClearMainMenuExtraRows(game->mMenu.mMenus[0]);
+	ClearMainMenuExtraRows(static_cast<MenuMain*>(game->mMenu.mMenus[0]));
 	ResetEventScriptState(&game->mEvt, 1, 1);
 	for (s32 i = 0; i < 2; i++) {
 		ResetMessageState(&game->mCMsgs[i]);
@@ -177,11 +173,9 @@ extern "C" void ChangeGameStage(CGame* game, s32 stage, BOOL showName)
 	game->mParticle.KillAll();
 	psKillAllParticle();
 	if (game->mStatus.mFlags & 4) { // flag 4 kept the music paused: resume it
-		if (game->mStatus.mFlags & 4) {
-			game->mStatus.mFlags &= ~4;
-			SetMusicPlaybackPaused(&gGame.mSound, FALSE);
-			HSD_PadRumbleActiveAll();
-		}
+		game->mStatus.mFlags &= ~4;
+		SetMusicPlaybackPaused(&gGame.mSound, FALSE);
+		HSD_PadRumbleActiveAll();
 	}
 	KeyOffGameSoundTrack(&gGame.mSound, -1);
 	ClearStageSoundBank(&game->mSound);
@@ -235,7 +229,7 @@ extern "C" void ChangeGameStage(CGame* game, s32 stage, BOOL showName)
 		game->mStageName.mCount  = 0;
 		s32 cur                  = game->mStage;
 		if (cur < GetStageNum()) {
-			char* name = (char*)GetStageDisplayName(game->mStage);
+			const char* name = reinterpret_cast<const char*>(GetStageDisplayName(game->mStage));
 			if (name != NULL) {
 				game->mStageName.mColor = 0x80FFFF00; // pale cyan; the alpha byte is filled from each letter's scale
 				for (s32 i = 0; i < 20 && *name != '\0'; i++, name++) {
@@ -301,17 +295,4 @@ extern "C" void DrawGameMovie(CGame* game)
 		SetGsAlphaCompare(gs->mCurRenderMode, 4, 0, 0, 3, 255);
 		InvalidateAll();
 	}
-}
-
-extern "C" {
-s32 MICProbeEx(s32 chan);
-s32 MICMountAsync(s32 chan, void* work, s32 size, void (*detach)(s32), void (*attach)(s32, s32));
-s32 MICGetResultCode(s32 chan);
-s32 MICGetDeviceID(s32 chan, u32* id);
-s32 MICUnmount(s32 chan);
-s32 M2SGetActiveChannel(void);
-s32 M2SGetSamplesLeft(void);
-void M2SGetSamples(s16** samples, s32 count);
-void M2SAdvanceBuffer(s32 count);
-void* memset(void* dst, int val, u32 size);
 }

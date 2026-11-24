@@ -1,3 +1,4 @@
+#include "game/relmodule.h"
 #include "types.h"
 #include "Version.h"
 #include "game/cgame.h"
@@ -6,11 +7,8 @@
 extern "C" f64 atan2(f64 y, f64 x);
 
 extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
-extern "C" void UpdateStage(void* arg);
-extern "C" void InitStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+extern "C" void UpdateStage(s32 arg);
+extern "C" void InitStage(s32 arg);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage };
@@ -32,7 +30,7 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: stage16 .text 0x8
  * @note Size: 0x114
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
 	if (gameBotan2 != NULL) {
 		XObj* other = gGame.GetPlayer();
@@ -54,7 +52,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: stage16 .text 0x11C
  * @note Size: 0x10
  */
-extern "C" void InitStage(void* arg)
+extern "C" void InitStage(s32 arg)
 {
 	gameBotan2 = 0;
 }

@@ -1,12 +1,9 @@
 #include "game/cfile.h"
 #include "game/mm.h"
 #include "Dolphin/os.h"
-#include <string.h>
 
-extern "C" {
-s32 HSD_DevComRequest(s32 file, u32 src, void* dest, u32 size, s32 type, s32 pri, void (*callback)(s32, DVDFileInfo*, void*, BOOL),
-                      DVDFileInfo* args);
-}
+#include <hsd/sysdolphin/devcom.h>
+#include <string.h>
 
 // report, then panic with the function name. the line goes in by hand like the asserts
 #define HALT(line)              \
@@ -20,14 +17,11 @@ static CFileArchive* gCurrentFileArchive;
  * @note Address: 0x8019FD78
  * @note Size: 0x24
  */
-static void ReadCallback(s32, DVDFileInfo* info, void*, BOOL cancel)
+static void ReadCallback(int, void* context, void*, BOOL cancel)
 {
-	s32* result = (s32*)info->cBlock.userData;
-	if (cancel) {
-		*result = -2; // cancelled
-	} else {
-		*result = 0; // done
-	}
+	DVDFileInfo* info = static_cast<DVDFileInfo*>(context);
+	s32* result       = static_cast<s32*>(info->cBlock.userData);
+	*result           = cancel ? -2 : 0;
 }
 
 /**
@@ -88,56 +82,41 @@ s32 CFile::ConvertPathToEntrynum(const char* path)
 	return entrynum;
 }
 
-inline s32 CFile::StartRead(BOOL fromAram)
+void CFile::StartRead(BOOL fromAram)
 {
-	s32 status;
-	if (fromAram) { // reads straight out of aram
-		u32 pos               = mOffset;
-		u32 len               = OSRoundUp32B(mSize);
-		DVDFileInfo* info     = mArchive != NULL ? (DVDFileInfo*)mArchive : this;
-		mResult               = 1;
-		info->cBlock.userData = (void*)&mResult;
-		HSD_DevComRequest(0, pos, mBuffer, len, 0x19, 1, ReadCallback, info);
-		status = 0;
-	} else {
-		u32 pos = mOffset;
-		s32 entrynum;
-		u32 len = OSRoundUp32B(mSize);
-		if (mArchive != NULL) {
-			entrynum = mArchive->mEntrynum;
-			memcpy(this, mArchive, sizeof(DVDFileInfo)); // the archive's file info becomes ours
-			pos += ARCGetStartOffset(&mArcInfo);         // plus the member's offset inside it
-		} else {
-			entrynum = mEntrynum;
-		}
-		mResult         = 1;
-		cBlock.userData = (void*)&mResult;
-		HSD_DevComRequest(entrynum, pos, mBuffer, len, 0x21, 1, ReadCallback, this);
-		status = 0;
+	DVDFileInfo* file = this;
+	s32 entry         = mEntrynum;
+	u32 offset        = mOffset;
+	s32 transfer      = HSD_DEVCOM_DVD_TO_MRAM;
+	if (fromAram) {
+		entry    = 0;
+		transfer = HSD_DEVCOM_ARAM_TO_MRAM;
+		if (mArchive != NULL)
+			file = mArchive;
+	} else if (mArchive != NULL) {
+		entry = mArchive->mEntrynum;
+		*file = static_cast<const DVDFileInfo&>(*mArchive);
+		offset += ARCGetStartOffset(&mArcInfo);
 	}
-	return status;
+
+	mResult               = 1;
+	file->cBlock.userData = &mResult;
+	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, ReadCallback, file);
 }
 
-// todo: cleanup
 inline s32 CFile::Open()
 {
+	mEntrynum = mArchive != NULL ? ARCConvertPathToEntrynum(&mArchive->mHandle, mPath) : DVDConvertPathToEntrynum(mPath);
+	if (mEntrynum < 0)
+		return -3;
+
 	if (mArchive != NULL) {
-		mEntrynum = ARCConvertPathToEntrynum(&mArchive->mHandle, mPath);
-		if (mEntrynum < 0) {
-			return -3;
-		}
-		if (!ARCFastOpen(&mArchive->mHandle, mEntrynum, &mArcInfo)) {
-			return -4; // -3: unknown path, -4: open failed
-		}
+		if (!ARCFastOpen(&mArchive->mHandle, mEntrynum, &mArcInfo))
+			return -4;
 		mSize = ARCGetLength(&mArcInfo);
 	} else {
-		mEntrynum = DVDConvertPathToEntrynum(mPath);
-		if (mEntrynum < 0) {
-			return -3;
-		}
-		if (!DVDFastOpen(mEntrynum, this)) {
+		if (!DVDFastOpen(mEntrynum, this))
 			return -4;
-		}
 		mSize = length;
 	}
 	return mEntrynum;
@@ -185,15 +164,7 @@ s32 CFile::ReadAsync(const char* path, u32 offset, u32 size, BOOL fromAram)
 		return -7;
 	}
 
-	s32 error = StartRead(fromAram);
-	if (error < 0) {
-		if (mArchive != NULL) {
-			OSReport("cannot read file - '%s//%s'!\n", mArchive->mPath, mPath);
-		} else {
-			OSReport("cannot read file - '%s'!\n", mPath);
-		}
-		return error;
-	}
+	StartRead(fromAram);
 	return mResult;
 }
 
@@ -230,14 +201,7 @@ s32 CFile::Read(const char* path, u32 offset, u32 size)
  */
 void CFile::Close()
 {
-	if (mEntrynum >= 0) {
-		mEntrynum = -1;
-		if (mArchive != NULL) {
-			ARCClose(&mArcInfo);
-		} else {
-			DVDClose(this);
-		}
-	}
+	CloseHandle();
 	Free();
 	mState = 1;
 }
@@ -353,33 +317,29 @@ BOOL CFileArchive::ReadEx(const char* path, u32 offset, u32 size)
 	return FALSE;
 }
 
+static bool IsLineBreak(char c)
+{
+	return c == '\r' || c == '\n' || c == 0x1A;
+}
+
 /**
  * @note Address: 0x8019F378
  * @note Size: 0x94
  */
 BOOL CFileText::GetLine(char* line)
 {
-	if (mPos >= mSize) {
+	if (mPos >= mSize)
 		return FALSE;
-	}
 
-	char* p      = (char*)mBuffer + mPos;
-	BOOL lineEnd = FALSE;
-	do {
-		char c = *p;
-		if (c == '\r' || c == '\n' || c == 0x1A) { // \r, \n and 0x1a all end a line
-			lineEnd = TRUE;
-			p++;
-		} else {
-			if (lineEnd) {
-				break;
-			}
-			*line++ = c;
-			p++;
-		}
-	} while ((u32)(p - (char*)mBuffer) < mSize);
+	const char* text    = static_cast<const char*>(mBuffer);
+	const char* current = text + mPos;
+	const char* end     = text + mSize;
+	while (current != end && !IsLineBreak(*current))
+		*line++ = *current++;
+	while (current != end && IsLineBreak(*current))
+		++current;
 
 	*line = '\0';
-	mPos  = p - (char*)mBuffer;
+	mPos  = current - text;
 	return TRUE;
 }

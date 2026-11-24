@@ -16,7 +16,9 @@ struct SaveData {
 	u8 mPlayer[0x400];      // _0058
 	u8 mEvtFlags[0x200];    // _0458
 	u8 mEvtVars[0x2000];    // _0658
-	u8 mObjects[3][0x200];  // _2658, pools 4, 5 and 17
+	u8 mCoinFlags[0x200];   // _2658
+	u8 mItemFlags[0x200];   // _2858
+	u8 mDustFlags[0x200];   // _2A58
 	u8 mPlayerRecord[0x48]; // _2C58
 	s32 mSuit;              // _2CA0
 	Vec mPos;               // _2CA4
@@ -69,7 +71,11 @@ struct SaveFile {
 };
 STATIC_ASSERT(sizeof(SaveFile) == 0x6000);
 
-extern "C" s32 GetStageNum();
+extern "C" {
+s32 GetStageNum();
+extern const f32 gMinSaveBattery;
+extern const f32 gMaxSaveBattery;
+}
 
 static inline BOOL ValidateSaveHeader(SaveHeader* save)
 {
@@ -89,9 +95,9 @@ static inline BOOL ValidateSaveHeader(SaveHeader* save)
 		return FALSE;
 	if (save->mRank < 0 || save->mRank > 1000000)
 		return FALSE;
-	if (save->mBattery < 0.0f || save->mBattery > 999.9f)
+	if (save->mBattery < gMinSaveBattery || save->mBattery > gMaxSaveBattery)
 		return FALSE;
-	if (save->mMaxBattery < 0.0f || save->mMaxBattery > 999.9f)
+	if (save->mMaxBattery < gMinSaveBattery || save->mMaxBattery > gMaxSaveBattery)
 		return FALSE;
 	if (save->mMoney < 0 || save->mMoney > 99999)
 		return FALSE;

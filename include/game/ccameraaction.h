@@ -33,7 +33,7 @@ class CInterfaceInterpolation {
 public:
 	// _00 vtable
 
-	virtual ~CInterfaceInterpolation() { }              // _08
+	virtual ~CInterfaceInterpolation();                 // _08
 	virtual bool Start(f32 from, f32 to, f32 time) = 0; // _0C
 	virtual bool Step(f32 dt)                      = 0; // _10
 	virtual bool Update(u32 step, f32 dt)          = 0; // _14
@@ -209,10 +209,10 @@ public:
 	                  // mode set it
 	// _3C vtable
 
-	virtual ~CInterfaceCameraAction() { }       // _08
+	virtual ~CInterfaceCameraAction();          // _08
 	virtual void PreviousUpdate() { }           // _0C
 	virtual void Update(u32 step) = 0;          // _10
-	virtual void Reset() { }                    // _14
+	virtual void Reset();                       // _14
 	virtual void SetCamera(CCamera* camera) { } // _18, takes eye, interest, angle, distance and fov
 	virtual void Init() { }                     // _1C
 	virtual void Draw() { }                     // _20, the action's markers over the room
@@ -264,6 +264,8 @@ public:
 // base of the area, map and reset actions. fields from _40 on differ per subclass
 class CCameraActionAreaExM : public CInterfaceCameraAction {
 public:
+	virtual ~CCameraActionAreaExM(); // _08
+
 	virtual void LoadAreaState();                 // _64, reloads the stage's camera area tables
 	virtual f32 GetBaseFov();                     // _68, the area camera's fov before the zoom level
 	virtual s32 GetZoomLevel();                   // _6C, CAM_AREA_ZOOM_LV, 1 is the default
@@ -368,6 +370,9 @@ public:
 	virtual f32 GetFollowDivisor();          // _58
 	virtual u32 GetInterestMode();           // _5C
 	virtual XObj* GetTarget();               // _60
+
+	s32 CalcIntersectVec(const Vec& from, const Vec& to, CamMapEntry* out, s32 type);
+	void Reset2();
 };
 STATIC_ASSERT(sizeof(CCameraActionMap) == 0x11EC);
 
@@ -416,6 +421,12 @@ public:
 	u16 IsDisabled() const { return mRecord->mFlags & 0x80; }
 	f32 GetTop() const { return mRecord->mTop / 100.0f; }
 	f32 GetBottom() const { return mRecord->mBottom / 100.0f; }
+	Vec GetCorner(s32 index) const
+	{
+		const s32* corner = mRecord->_04[index];
+		Vec point         = { corner[0] / 100.0f, 0.0f, corner[1] / 100.0f };
+		return point;
+	}
 
 	// _00 vtable
 	CamAreaRecord*
@@ -439,6 +450,7 @@ struct CamInfoData;
 class CCameraActionAreaEx {
 public:
 	virtual ~CCameraActionAreaEx(); // _08
+	void DrawDebug3d();
 
 	// _00 vtable
 	s32 mCurrentArea; // _04, the enabled camera area (index into _24's records) the player stands in, -1 outside all
@@ -467,6 +479,8 @@ extern "C" CCameraActionAreaEx gCameraAreaState;
 // the area action, CCameraActions holds it at _40
 class CCameraActionArea : public CCameraActionAreaExM {
 public:
+	virtual ~CCameraActionArea(); // _08
+
 	f32 mTransitionTime;                                 // _40, transition time
 	s32 mKeepViewDirection;                              // _44, set by SetCamera: pick entries by the current view until one is applied
 	BOOL mForceApply;                                    // _48, apply mEntry even if its id is unchanged
@@ -558,6 +572,8 @@ STATIC_ASSERT(sizeof(CCameraActionArea) == 0x294);
 // puts the camera back behind the player, see ccameraactionreset.cpp
 class CCameraActionReset : public CCameraActionAreaExM {
 public:
+	virtual ~CCameraActionReset(); // _08
+
 	XObj* mTarget;                                 // _40
 	s32 mMode;                                     // _44, picks the interpolators, 3 is none
 	f32 mTime;                                     // _48
@@ -819,7 +835,6 @@ extern "C" {
 // the area camera's state, ccameraactionareaex.cpp
 f32 GetAreaCameraFovForHeightLevel(CamAreaState* state, s32 level);
 s32 GetCameraAreaMode(CamAreaState* state);
-void DrawDebug3d__19CCameraActionAreaExFv(CamAreaState* state);
 void DrawMapCameraAreaDebug3D(CamAreaState* state, s32 mode);
 s32 CollectCameraAreasContainingPoint(CamAreaState* state, Vec pos, s32* ids);
 s32 FindFirstCameraAreaContainingPoint(CamAreaState* state, Vec pos);

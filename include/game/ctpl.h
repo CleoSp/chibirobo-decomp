@@ -2,16 +2,8 @@
 #define _GAME_CTPL_H
 
 #ifdef _MTXTYPES_h_
-// built with the HSD headers, which have no texture objects, so the sdk types the class needs are here
 #include <dolphin/gx/gxtypes.h>
 typedef u8 GXBool;
-typedef struct _GXTexObj {
-	u8 pad[0x20]; // _00
-} GXTexObj;
-typedef struct _GXTlutObj {
-	u8 padding[0xC]; // _00
-} GXTlutObj;
-typedef enum _GXTexMtxType { GX_MTX3x4 = 0, GX_MTX2x4 = 1 } GXTexMtxType;
 extern "C" {
 u16 GXGetTexObjWidth(const GXTexObj* obj);
 u16 GXGetTexObjHeight(const GXTexObj* obj);
@@ -47,8 +39,6 @@ public:
 	u32 SetChar(const char* str);
 	void Draw(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, const Vec* pos, u32 color0, u32 color1, u32 color2, u32 color3);
 	void DrawLit(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, const Vec* pos, u32 color0, u32 color1, u32 color2, u32 color3);
-
-	// inlined:
 	void Load(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType);
 };
 typedef char CTexObj_size_check[sizeof(CTexObj) == 0x100 ? 1 : -1];

@@ -2,13 +2,7 @@
 #include "game/cfont.h"
 #include "Dolphin/ai.h"
 #include "Dolphin/os.h"
-
-extern "C" {
-void HSD_AudioSetMallocFreeProc(void* (*mallocProc)(s32), void (*freeProc)(void*));
-BOOL HSD_AudioInit(u32 heapSize, u32 voices, u32 groups);
-}
-
-static void InitTextureLOD(CTexObj* texture);
+#include "hsd/sysdolphin/synth.h"
 
 /**
  * @note Address: 0x801A074C
@@ -57,12 +51,11 @@ CTexObj& CTexObj::Init(TPLDescriptor* desc, u32 tlutName)
 		               tlutName);
 		mTlutName = tlutName;
 	}
-	InitTextureLOD(this);
+	GXInitTexObjLOD(this, mImage->minFilter, mImage->magFilter, mImage->minLOD, mImage->maxLOD, mImage->LODBias, GX_FALSE,
+	                mImage->edgeLODEnable, GX_ANISO_1);
 	mMtxDirty = FALSE;
-	PSMTXIdentity(mMtx[0]);
-	PSMTXIdentity(mMtx[1]);
-	PSMTXIdentity(mMtx[2]);
-	PSMTXIdentity(mMtx[3]);
+	for (u32 i = 0; i < ARRAY_SIZE(mMtx); ++i)
+		PSMTXIdentity(mMtx[i]);
 	return *this;
 }
 
@@ -75,10 +68,8 @@ CTexObj& CTexObj::Init(void* image, u16 width, u16 height, GXTexFmt format, GXTe
 	GXInitTexObj(this, image, width, height, format, wrapS, wrapT, mipmap);
 	GXInitTexObjLOD(this, GX_NEAR, GX_NEAR, 0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1);
 	mMtxDirty = FALSE;
-	PSMTXIdentity(mMtx[0]);
-	PSMTXIdentity(mMtx[1]);
-	PSMTXIdentity(mMtx[2]);
-	PSMTXIdentity(mMtx[3]);
+	for (u32 i = 0; i < ARRAY_SIZE(mMtx); ++i)
+		PSMTXIdentity(mMtx[i]);
 	return *this;
 }
 
@@ -104,8 +95,7 @@ u32 CTexObj::SetChar(const char* str)
 	return width;
 }
 
-// todo: cleanup
-inline void CTexObj::Load(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType)
+void CTexObj::Load(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType)
 {
 	GXLoadTexObj(this, map);
 	if (mClut != NULL) {
@@ -117,6 +107,23 @@ inline void CTexObj::Load(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType)
 		mMtxDirty = FALSE;
 	}
 	GXLoadTexMtxImm(mMtx[3], mtxId, mtxType);
+}
+
+static void DrawTextureQuad(const Vec& center, const u32* colors, bool lit)
+{
+	const f32 x[] = { center.x - 1.0f, center.x + 1.0f };
+	const f32 y[] = { center.y + 1.0f, center.y - 1.0f };
+	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+	for (u32 i = 0; i < 4; ++i) {
+		u8 u = i & 1;
+		u8 v = i >> 1;
+		GXPosition3f32(x[u], y[v], center.z);
+		if (lit)
+			GXNormal3s8(0, 0, 1);
+		GXColor1u32(colors[i]);
+		GXTexCoord2u8(u, v);
+	}
+	GXEnd();
 }
 
 /**
@@ -143,20 +150,8 @@ void CTexObj::Draw(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, const Vec* p
 	GXSetVtxAttrFmtv(GX_VTXFMT0, fmt);
 	GXSetVtxDescv(desc);
 
-	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4); // a two-unit quad around pos, a color per corner
-	GXPosition3f32(pos->x - 1.0f, pos->y + 1.0f, pos->z);
-	GXColor1u32(color0);
-	GXTexCoord2u8(0, 0);
-	GXPosition3f32(pos->x + 1.0f, pos->y + 1.0f, pos->z);
-	GXColor1u32(color1);
-	GXTexCoord2u8(1, 0);
-	GXPosition3f32(pos->x - 1.0f, pos->y - 1.0f, pos->z);
-	GXColor1u32(color2);
-	GXTexCoord2u8(0, 1);
-	GXPosition3f32(pos->x + 1.0f, pos->y - 1.0f, pos->z);
-	GXColor1u32(color3);
-	GXTexCoord2u8(1, 1);
-	GXEnd();
+	const u32 colors[] = { color0, color1, color2, color3 };
+	DrawTextureQuad(*pos, colors, false);
 }
 
 /**
@@ -171,52 +166,43 @@ void CTexObj::DrawLit(GXTexMapID map, u32 mtxId, GXTexMtxType mtxType, const Vec
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 }, { GX_VA_NRM, GX_NRM_XYZ, GX_S8, 0 }, { GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
 		{ GX_VA_TEX0, GX_TEX_ST, GX_U8, 0 },  { GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
 	};
-	static const GXVtxDescList desc[] = {
+	GXVtxDescList desc[] = {
 		{ GX_VA_POS, GX_DIRECT }, { GX_VA_NRM, GX_DIRECT }, { GX_VA_CLR0, GX_DIRECT }, { GX_VA_TEX0, GX_DIRECT }, { GX_VA_NULL, GX_NONE },
 	};
 	GXClearVtxDesc();
 	GXSetVtxAttrFmtv(GX_VTXFMT0, fmt);
-	GXSetVtxDescv((GXVtxDescList*)desc);
+	GXSetVtxDescv(desc);
 
-	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4); // same quad, every normal faces +z
-	GXPosition3f32(pos->x - 1.0f, pos->y + 1.0f, pos->z);
-	GXNormal3s8(0, 0, 1);
-	GXColor1u32(color0);
-	GXTexCoord2u8(0, 0);
-	GXPosition3f32(pos->x + 1.0f, pos->y + 1.0f, pos->z);
-	GXNormal3s8(0, 0, 1);
-	GXColor1u32(color1);
-	GXTexCoord2u8(1, 0);
-	GXPosition3f32(pos->x - 1.0f, pos->y - 1.0f, pos->z);
-	GXNormal3s8(0, 0, 1);
-	GXColor1u32(color2);
-	GXTexCoord2u8(0, 1);
-	GXPosition3f32(pos->x + 1.0f, pos->y - 1.0f, pos->z);
-	GXNormal3s8(0, 0, 1);
-	GXColor1u32(color3);
-	GXTexCoord2u8(1, 1);
-	GXEnd();
+	const u32 colors[] = { color0, color1, color2, color3 };
+	DrawTextureQuad(*pos, colors, true);
 }
 
-// todo: cleanup
-// the sdk's TPLBind, offsets in the file become pointers
-static inline void TPLBind(TPLPalette* pal)
+// TPL offsets are relative to the start of the palette image.
+template <typename T>
+static inline T* ResolveTplOffset(TPLPalette* palette, T* offset)
 {
-	pal->descriptorArray = (TPLDescriptor*)((u32)pal->descriptorArray + (u32)pal);
-	for (u32 i = 0; i < pal->numDescriptors; i++) {
-		TPLDescriptor* desc = &pal->descriptorArray[i];
-		if (desc->textureHeader != NULL) {
-			desc->textureHeader = (TPLHeader*)((u32)desc->textureHeader + (u32)pal);
-			if (!desc->textureHeader->unpacked) {
-				desc->textureHeader->data     = (char*)((u32)desc->textureHeader->data + (u32)pal);
-				desc->textureHeader->unpacked = TRUE;
+	return reinterpret_cast<T*>(reinterpret_cast<u8*>(palette) + reinterpret_cast<u32>(offset));
+}
+
+static void TPLBind(TPLPalette* palette)
+{
+	palette->descriptorArray = ResolveTplOffset(palette, palette->descriptorArray);
+	for (u32 i = 0; i < palette->numDescriptors; ++i) {
+		TPLDescriptor& descriptor = palette->descriptorArray[i];
+		if (descriptor.textureHeader != NULL) {
+			descriptor.textureHeader = ResolveTplOffset(palette, descriptor.textureHeader);
+			TPLHeader& texture       = *descriptor.textureHeader;
+			if (!texture.unpacked) {
+				texture.data     = ResolveTplOffset(palette, texture.data);
+				texture.unpacked = TRUE;
 			}
 		}
-		if (desc->CLUTHeader != NULL) {
-			desc->CLUTHeader = (TPLClutHeader*)((u32)desc->CLUTHeader + (u32)pal);
-			if (!desc->CLUTHeader->unpacked) {
-				desc->CLUTHeader->data     = (char*)((u32)desc->CLUTHeader->data + (u32)pal);
-				desc->CLUTHeader->unpacked = TRUE;
+		if (descriptor.CLUTHeader != NULL) {
+			descriptor.CLUTHeader = ResolveTplOffset(palette, descriptor.CLUTHeader);
+			TPLClutHeader& clut   = *descriptor.CLUTHeader;
+			if (!clut.unpacked) {
+				clut.data     = ResolveTplOffset(palette, clut.data);
+				clut.unpacked = TRUE;
 			}
 		}
 	}
@@ -230,7 +216,7 @@ s32 CTpl::GetResult()
 {
 	s32 result = CFile::GetResult();
 	if (result == 0) {
-		TPLBind((TPLPalette*)mBuffer);
+		TPLBind(static_cast<TPLPalette*>(mBuffer));
 		mBound = TRUE;
 	}
 	return result;
@@ -264,14 +250,4 @@ s32 CFile::CloseHandle()
 		}
 	}
 	return 0;
-}
-
-// todo: cleanup
-/**
- * @note Address: N/A
- */
-static void InitTextureLOD(CTexObj* texture)
-{
-	GXInitTexObjLOD(texture, texture->mImage->minFilter, texture->mImage->magFilter, texture->mImage->minLOD, texture->mImage->maxLOD,
-	                texture->mImage->LODBias, GX_FALSE, texture->mImage->edgeLODEnable, GX_ANISO_1);
 }

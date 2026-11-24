@@ -265,13 +265,7 @@ STATIC_ASSERT(sizeof(XObjActorDeca) == 0xC98);
 STATIC_ASSERT(sizeof(XObjActorDeca) == 0xCA8);
 #endif
 
-// XObjActor's own virtuals, the ones the subclasses call through to
 extern "C" {
-void UpdateAfterAnim__9XObjActorFUl(XObjActor* object, u32 frames);                        // UpdateAfterAnim
-BOOL LoadFromPlacement__9XObjActorFRC9CoordInfo(XObjActor* object, const CoordInfo& info); // LoadFromPlacement
-void ResetObjectState__9XObjActorFv(XObjActor* object);                                    // ResetObjectState
-void InitializeObject__9XObjActorFUl(XObjActor* object, u32 id);                           // InitializeObject
-
 // the counts the toys hand to the script, game/xobjactorse.cpp
 s32 CountEmergedSmallSpiders();
 s32 CountSmallSpidersGrabbingPlayer();

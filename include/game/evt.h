@@ -238,6 +238,8 @@ public:
 };
 STATIC_ASSERT(sizeof(CStack) == 0x10);
 
+extern "C" void AllocateWordBuffer(CStack* stack, s32 capacity);
+
 class CCameraMemento;
 class CMsg;
 
@@ -309,11 +311,35 @@ STATIC_ASSERT(sizeof(CEvt) == 0x68);
 // script flags, 0x1000 one bit flags. the dust, coin and item objects keep one each
 class CEvtFlags {
 public:
-	u32 mFlags[0x80]; // _00
+	enum { FlagCount = 0x1000 };
+	u32 mFlags[FlagCount / 32]; // _00
 	// _200 vtable
 
 	CEvtFlags() { }
 	virtual ~CEvtFlags() { } // _08
+
+	void Set(s32 index, bool enabled)
+	{
+		if ((u32)index >= FlagCount) {
+			return;
+		}
+		const u32 bit = 1u << (index & 31);
+		u32& word     = mFlags[index >> 5];
+		if (enabled) {
+			word |= bit;
+		} else {
+			word &= ~bit;
+		}
+	}
+
+	bool Test(s32 index) const { return (u32)index < FlagCount && (mFlags[index >> 5] & (1u << (index & 31))) != 0; }
+
+	void SetAll(bool enabled)
+	{
+		for (u32 i = 0; i < ARRAY_SIZE(mFlags); ++i) {
+			mFlags[i] = enabled ? ~0u : 0;
+		}
+	}
 };
 STATIC_ASSERT(sizeof(CEvtFlags) == 0x204);
 
@@ -376,10 +402,11 @@ CVec CJObj_GetJointWorldPositionByPath(CJObj* obj, s32 depth, s32* path);
 // start a script on evt, or park it in the queue while another one runs
 void StartOrQueueEventScript(CEvt* evt, u8* script, u32 context, s16 useValue, s16 hitValue);
 void ResetEventScriptState(CEvt* evt, BOOL clearTimers, BOOL clearGlobal);
+void InitializeEventScriptContext(CEvt* evt, CMsg* msg, XObj* owner);
 // runs the script on for step frames
 void CEvt_Update(CEvt* evt, s32 step);
 // the object an event refers to by id, -1 is the one running the script
-XObj* ResolveEventObjectId(void* context, s16 id);
+XObj* ResolveEventObjectId(const CEvtData* context, s16 id);
 }
 
 struct EvtBeatLatch {

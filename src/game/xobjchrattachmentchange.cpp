@@ -19,13 +19,12 @@ static inline void StopAttachmentSound(s32 id)
 
 static inline void ResetAttachmentJoint(XObjChr* player)
 {
-	HSD_JObj* const& joint = player->mAttachmentJoint;
-	s32 path[]             = { 0, 1, 0, 1, 2, 0, 0, 5 };
-	HSD_AnimJoint* anim    = player->mArchive.GetAnimJoint(0x814, 8, path);
-	HSD_JObjAddAnimAll(joint, anim, NULL, NULL);
-	HSD_JObjReqAnimAll(joint, 0.0f);
-	HSD_JObjClearFlagsAll(joint, 0x20000);
-	HSD_JObjAnimAll(joint);
+	s32 path[]          = { 0, 1, 0, 1, 2, 0, 0, 5 };
+	HSD_AnimJoint* anim = player->mArchive.GetAnimJoint(0x814, 8, path);
+	HSD_JObjAddAnimAll(player->mAttachmentJoint, anim, NULL, NULL);
+	HSD_JObjReqAnimAll(player->mAttachmentJoint, 0.0f);
+	HSD_JObjClearFlagsAll(player->mAttachmentJoint, 0x20000);
+	HSD_JObjAnimAll(player->mAttachmentJoint);
 }
 
 /**
@@ -35,29 +34,25 @@ static inline void ResetAttachmentJoint(XObjChr* player)
 extern "C" void ResetPlayerAttachment(XObjChr* player, s32 nextAnimation)
 {
 	switch (player->GetAttachment()) {
-	case 1:
+	case AttachmentCopter:
 		StopAttachmentSound(8);
 		player->mCopterObj.Hide();
 		ResetAttachmentJoint(player);
 		break;
-	case 2:
+	case AttachmentPopper:
 		StopAttachmentSound(0x186);
 		StopAttachmentSound(0x18B);
 		player->mPopperObj.Hide();
 		SetPlayerPopperMountHidden(player, FALSE);
 		ResetPopperCharge(&player->mPopper.mCharge);
 		break;
-	case 3:
+	case AttachmentRadar:
 		StopAttachmentSound(0x18C);
 		StopAttachmentSound(0x18D);
 		StopAttachmentSound(0x18E);
 		player->mRadarObj.Hide();
 		ResetAttachmentJoint(player);
 		break;
-	case 4:
-	case 5:
-	case 6:
-	case 7:
 	default:
 		if (player->mLift.mTarget) {
 			if ((s16)player->mLift.mTarget->GetPool() == 8) {
@@ -85,7 +80,7 @@ extern "C" void ResetPlayerAttachment(XObjChr* player, s32 nextAnimation)
 		s32 root[] = { 0 };
 		SetJointYawByPath(player, 1, root, 0.0f);
 	}
-	player->mAttachment                   = 0;
+	player->mAttachment                   = AttachmentNone;
 	player->mAttachmentRequest            = -1;
 	player->mAttachmentStep               = 0;
 	player->mScriptAttach                 = 0;

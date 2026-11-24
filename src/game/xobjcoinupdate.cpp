@@ -18,7 +18,7 @@ static inline bool IsCoinItemInRange(const XObjCoin* coin, s32 first, s32 end)
  * @note Address: 0x800E1440
  * @note Size: 0x540
  */
-s32 XObjCoin::OnPlayerContact(s32 unused, s32 value)
+s32 XObjCoin::OnPlayerContact(const CVec&, s32 value)
 {
 	if ((value & 3U) == 1)
 		return value;

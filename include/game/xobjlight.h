@@ -24,6 +24,7 @@ public:
 	CLight* GetLights() { return mLightNum > 0 ? mLights : NULL; }
 
 	XObjLight();
+	virtual ~XObjLight();
 	virtual void Release();
 	virtual void InitializeObject(u32 id);
 	virtual void ResetObjectState();

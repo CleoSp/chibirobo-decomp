@@ -11,6 +11,7 @@ class XActLift;
 class XActPush;
 
 extern "C" {
+void CancelPlayerPushAction(XActPush* action);
 void ReleasePushAction(XActPush* action);
 void ApplyPlayerItemTintToTarget(XAction* action);
 BOOL IsCarryingSquirter(XActLift* action);

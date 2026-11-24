@@ -17,6 +17,9 @@ void HSD_PadRumblePauseAll(void);
 s32 DVDGetDriveStatus(void);
 BOOL DVDCheckDisk(void);
 void HSD_PadRumbleActiveAll(void);
+void BuildObjectDrawList(CGame* game);
+void BuildSceneDrawLists(CGame* game);
+void SelectSceneLights(CGame* game);
 }
 
 // sends all of the current render, tev and channel state
@@ -72,10 +75,10 @@ struct UnkStageInfo {
 };
 STATIC_ASSERT(sizeof(UnkStageInfo) == 0x12);
 
-// the loaded stage's EnvInfo starts with a pointer to them, see game/stagedata.h
-static inline UnkStageInfo* GetStageInfo()
+// The loaded environment resource stores settings at the start of its payload.
+static inline const UnkStageInfo* GetStageInfo()
 {
-	return *(UnkStageInfo**)GetStageEnvironment();
+	return reinterpret_cast<const UnkStageInfo*>(GetEnvData());
 }
 
 // CBase::Update, keeps the rumble off while the disc can't be read and watches for the reset

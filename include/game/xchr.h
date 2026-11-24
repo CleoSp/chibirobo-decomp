@@ -15,8 +15,7 @@
 // are usa, japan is 0x10 lower up to mPlug, see the notes after that
 
 // chibi robo's numbers, watts, happy points and the items he holds
-class Params {
-public:
+struct PARAM_CHR {
 	s32 mExperience; // _00
 	s32 mLevel;      // _04
 	s32 mRank;       // _08
@@ -27,35 +26,30 @@ public:
 	u32 _1C[8];      // _1C, [0] above 0 is an unlimited battery: no drain, battery held at max, HUD battery dims; script commands 850/851
 	                 // set/clear it, 852 reads it; saved as SavePreview mActive. [1]..[7] are only zeroed in ResetPlayerStats
 	Inventory mInventory; // _3C
-	// _440 vtable
+};
+STATIC_ASSERT(sizeof(PARAM_CHR) == 0x440);
 
-	virtual ~Params() { } // _08 (weak)
+class Params : public PARAM_CHR {
+public:
+	// _440 vtable
+	virtual ~Params(); // _08
 
 	void SetBattery(f32 value)
 	{
-		mBattery = value > 0.0f ? value : 0.0f;
-		if (mBattery < 0.0f)
-			mBattery = 0.0f;
-		if (mBattery > mMaxBattery)
-			mBattery = mMaxBattery;
+		value    = value > 0.0f ? value : 0.0f;
+		mBattery = value > mMaxBattery ? mMaxBattery : value;
 	}
 
-	// money and scrap stay between 0 and 99999
-	void SetMoney(s32 value)
+	// Money and scrap stay between 0 and 99999.
+	void SetMoney(s32 value) { mMoney = ClampPoints(value); }
+	void SetScrap(s32 value) { mScrap = ClampPoints(value); }
+
+private:
+	static s32 ClampPoints(s32 value)
 	{
-		mMoney = value > 0 ? value : 0;
-		if (mMoney < 0)
-			mMoney = 0;
-		if (mMoney > 99999)
-			mMoney = 99999;
-	}
-	void SetScrap(s32 value)
-	{
-		mScrap = value > 0 ? value : 0;
-		if (mScrap < 0)
-			mScrap = 0;
-		if (mScrap > 99999)
-			mScrap = 99999;
+		if (value < 0)
+			return 0;
+		return value > 99999 ? 99999 : value;
 	}
 };
 STATIC_ASSERT(sizeof(Params) == 0x444);
@@ -229,7 +223,7 @@ public:
 	s32 mScriptAttach;                   // _95DC, the request came from an event command
 	s32 mClimbType;                      // _95E0, mNextClimbType after the swap; nonzero re-runs the A-press handling once
 	s32 mNextClimbType;                  // _95E4, climb to start once the swap ends, 1 ladder, 2 rope
-	u8 _95E8[0x960C - 0x95E8];           // _95E8
+	Vec mFloorTriangle[3];               // _95E8
 	CObjVec mSlopeMotion;                // _960C, slide speed down a floor slope
 	CVec mFloorSlope;                    // _963C
 	Params mParams;                      // _964C

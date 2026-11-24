@@ -22,8 +22,6 @@ XObjReadAll gAllObjectsReader;
 XObjReadOne gSingleObjectReader;
 XObjReadAnm gObjectAnimationReader;
 
-extern "C" void ReadAll__5XOBJSFv(XOBJS* list);
-
 inline BOOL XObjRead::ReadStart(void* obj, void* info)
 {
 	for (s32 i = 0; i < 8; i++) { // eight pending requests at most
@@ -44,7 +42,7 @@ inline BOOL XObjRead::ReadStart(void* obj, void* info)
  */
 BOOL XObjReadAnm::QueueRead(void* object, void* info)
 {
-	((XObj*)object)->mStatus.mFlags |= 0x0080000000000000ULL; // mark the anim read as queued
+	static_cast<XObj*>(object)->mStatus.mFlags |= 0x0080000000000000ULL; // mark the anim read as queued
 	return ReadStart(object, info);
 }
 
@@ -55,12 +53,8 @@ BOOL XObjReadAnm::QueueRead(void* object, void* info)
 // reader thread entry
 extern "C" void* ReadObjectAnimationsThread(void* arg)
 {
-	OSMessage msg;
-	while (true) {
-		OSReceiveMessage(&gObjectAnimationReader.mQueue.mQueue, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &gObjectAnimationReader;
-		self->ProcessRequest((XObjReadReq*)msg);
-	}
+	gObjectAnimationReader.RunRequestLoop();
+	return NULL;
 }
 
 /**
@@ -77,8 +71,7 @@ void XObjRead::ProcessRequest(XObjReadReq* req)
  */
 extern "C" BOOL QueueObjectAnimationRead(XObj* obj, char* path)
 {
-	obj->mStatus.mFlags |= 0x0080000000000000ULL; // mark the anim read as queued
-	return gObjectAnimationReader.ReadStart(obj, path);
+	return gObjectAnimationReader.QueueRead(obj, path);
 }
 
 /**
@@ -88,7 +81,7 @@ extern "C" BOOL QueueObjectAnimationRead(XObj* obj, char* path)
 // Processes a single-object load request.
 void XObjReadOne::ProcessRequest(XObjReadReq* req)
 {
-	XObj* obj = (XObj*)req->mObj;
+	XObj* obj = static_cast<XObj*>(req->mObj);
 	CoordInfo info(static_cast<StagePlacement*>(req->mInfo));
 	while (!obj->LoadFromPlacement(info)) {
 		OSYieldThread();
@@ -103,7 +96,7 @@ void XObjReadOne::ProcessRequest(XObjReadReq* req)
  */
 BOOL XObjReadOne::QueueRead(void* object, void* info)
 {
-	((XObj*)object)->mStatus.mFlags |= 0x0040000000000000ULL; // a placement read is queued
+	static_cast<XObj*>(object)->mStatus.mFlags |= 0x0040000000000000ULL; // a placement read is queued
 	return ReadStart(object, info);
 }
 
@@ -113,12 +106,8 @@ BOOL XObjReadOne::QueueRead(void* object, void* info)
  */
 extern "C" void* ReadSingleObjectThread(void* arg)
 {
-	OSMessage msg;
-	while (true) {
-		OSReceiveMessage(&gSingleObjectReader.mQueue.mQueue, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &gSingleObjectReader;
-		self->ProcessRequest((XObjReadReq*)msg);
-	}
+	gSingleObjectReader.RunRequestLoop();
+	return NULL;
 }
 
 /**
@@ -127,7 +116,7 @@ extern "C" void* ReadSingleObjectThread(void* arg)
  */
 void XObjReadAll::ProcessRequest(XObjReadReq* req)
 {
-	ReadAll__5XOBJSFv((XOBJS*)req->mInfo);
+	static_cast<XOBJS*>(req->mInfo)->ReadAll();
 	req->mObj = NULL;
 }
 
@@ -137,12 +126,8 @@ void XObjReadAll::ProcessRequest(XObjReadReq* req)
  */
 extern "C" void* ReadObjectListThread(void* arg)
 {
-	OSMessage msg;
-	while (true) {
-		OSReceiveMessage(&gAllObjectsReader.mQueue.mQueue, &msg, OS_MESSAGE_BLOCK);
-		XObjRead* self = &gAllObjectsReader;
-		self->ProcessRequest((XObjReadReq*)msg);
-	}
+	gAllObjectsReader.RunRequestLoop();
+	return NULL;
 }
 
 /**
@@ -162,19 +147,15 @@ void XObjRead::RunRequestLoop()
  * @note Address: 0x80132468
  * @note Size: 0x9C
  */
-// NONMATCHING: regalloc — the inlined ReadStart loop lands its slot counter
-// in a different arg slot, costing one extra mr.
 BOOL XObjRead::QueueRead(void* object, void* info)
 {
 	return ReadStart(object, info);
 }
 
-// XObjRead::QueueRead
 /**
  * @note Address: 0x80132504
  * @note Size: 0xC8
  */
-// XObjRead::vf0C
 BOOL XObjRead::Create(OSThreadStartFunction func, void* param, u32 stackSize, OSPriority priority, u16 attr)
 {
 	mQueue.Initialize(8);
@@ -184,9 +165,7 @@ BOOL XObjRead::Create(OSThreadStartFunction func, void* param, u32 stackSize, OS
 	mStack     = (u8*)OSAllocFromHeap(__OSCurrHeap, stackSize);
 	mStackSize = stackSize;
 	// OSCreateThread wants the stack's top, stacks grow down
-	if (OSCreateThread(&mThread, func, param, mStack + mStackSize, mStackSize, priority, attr)) {
-		mStackSize = stackSize;
-	}
+	OSCreateThread(&mThread, func, param, mStack + mStackSize, mStackSize, priority, attr);
 	OSResumeThread(&mThread);
 	return 0;
 }
@@ -236,33 +215,29 @@ extern "C" s32 FindStageObjectIndex(XOBJS* list, CXObj* obj)
  */
 extern "C" XObj* SpawnObjectFromPlacement(XOBJS* list, CoordInfo* info, s32 unused, BOOL async)
 {
-	XObj* obj;
 	AttrInfo attr(info);
-	s16 pool = attr.mObjData ? attr.mObjData->mCategory : 0; // the category picks the pool
+	s16 category   = attr.mObjData ? attr.mObjData->mCategory : 0;
+	XObjPool& pool = list->mPools[category];
 
-	s32 idx = list->mPools[pool].Find(1, 0);
-	if (idx >= 0) {
-		obj = list->mPools[pool].Get(idx);
-		if (idx >= list->mPools[pool].mUsed) {
-			// a slot past the used range joins the stage's object list
-			list->mObjects[list->mObjectCount]             = obj;
-			list->mObjects[list->mObjectCount]->mPoolIndex = list->mPools[pool].mUsed;
-			list->mPools[pool].mUsed++;
-			list->mObjectCount++;
-		}
-		if (async) {
-			obj->mStatus.mFlags |= 0x0040000000000000ULL; // a placement read is queued
-			gSingleObjectReader.ReadStart(obj, info->mPlacement);
-		} else {
-			while (!obj->LoadFromPlacement(*info)) { }
-		}
+	s32 index = pool.Find(1, 0);
+	if (index < 0)
+		return NULL;
+
+	XObj* obj = pool.Get(index);
+	if (index >= pool.mUsed) {
+		// A newly used slot joins the stage's object list.
+		list->mObjects[list->mObjectCount] = obj;
+		obj->mPoolIndex                    = pool.mUsed++;
+		++list->mObjectCount;
+	}
+	if (async) {
+		gSingleObjectReader.QueueRead(obj, info->mPlacement);
 	} else {
-		obj = NULL;
+		while (!obj->LoadFromPlacement(*info)) { }
 	}
 	return obj;
 }
 
-// SpawnObjectFromPlacement
 /**
  * @note Address: 0x801328C8
  * @note Size: 0x88
@@ -282,7 +257,7 @@ extern "C" void ReleaseStageObjectList(XOBJS* list)
  * @note Size: 0x248
  */
 // grabs an object from its pool for every stage entry, then reads them in order
-inline void XOBJS::ReadAll()
+void XOBJS::ReadAll()
 {
 	for (s32 i = 0; i < (s32)ARRAY_SIZE(mPools); i++) {
 		mPools[i].mUsed = 0;
@@ -319,20 +294,13 @@ inline void XOBJS::ReadAll()
 	mLoadState = 2;
 }
 
-// out of line XOBJS::ReadAll
-extern "C" void ReadAll__5XOBJSFv(XOBJS* list)
-{
-	list->ReadAll();
-}
+extern "C" BOOL LoadRequestedHeldItem(XObj* player);
+extern "C" BOOL RestorePlayerHeldItem(XObj* player);
 
-// ReadAll__5XOBJSFv
 /**
  * @note Address: 0x80132B98
  * @note Size: 0x170
  */
-
-extern "C" BOOL LoadRequestedHeldItem(XObj* player);
-extern "C" BOOL RestorePlayerHeldItem(XObj* player);
 
 // steps through the stage read and the player setup calls, true when done
 extern "C" u8 UpdateStageObjectLoading(XOBJS* list)
@@ -365,16 +333,15 @@ extern "C" u8 UpdateStageObjectLoading(XOBJS* list)
 // ResetForNewGame on every object of the 23 pools
 extern "C" void ResetPooledObjects(XObjPool* pools)
 {
-	XObjPool* pool = pools;
-	for (s32 index = 0; index < 23; ++index, ++pool) {
-		for (s32 i = 0; i < pool->mCount; ++i) {
-			pools[index].Get(i)->ResetForNewGame();
+	for (s32 index = 0; index < 23; ++index) {
+		XObjPool& pool = pools[index];
+		for (s32 i = 0; i < pool.mCount; ++i) {
+			pool.Get(i)->ResetForNewGame();
 		}
 	}
 }
 
-// one pool: its objects, its entry in the list and an id for each object. retail builds the pools
-// of one object as arrays of one as well, and gives every pool its own loop counter
+// Each pool owns a static array. Initialize the pools in order and give every object a consecutive ID.
 #define XOBJ_POOL(slot, type, count, name)                       \
 	{                                                            \
 		static type objs[count];                                 \
@@ -390,8 +357,6 @@ extern "C" void ResetPooledObjects(XObjPool* pools)
  * @note Size: 0xDFC
  */
 // builds the 23 pools, numbers every object and starts the three reader threads
-// NONMATCHING: retail keeps the frame of the empty loop near the end (li r3, 21 ... bdnz), so what
-// left 21 in its counter was not a constant; and two pairs of saved registers are swapped
 extern "C" void InitializeObjectPools(XOBJS* list)
 {
 	s32 id = 0;
@@ -420,8 +385,6 @@ extern "C" void InitializeObjectPools(XOBJS* list)
 	XOBJ_POOL(21, XObjHBox, 16, "HBOX");
 	XOBJ_POOL(22, XObjFree, 288, "FREE");
 
-	// nothing is left of this loop over the last two pools but its counter
-	for (s32 i = 21; i < 23; i++) { }
 	list->mLoadState = 0;
 
 	gAllObjectsReader.Create(ReadObjectListThread, NULL, 0x2000, 17, OS_THREAD_ATTR_DETACH);

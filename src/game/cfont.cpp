@@ -152,12 +152,6 @@ FontGlyphRange gFontGlyphRanges[] = {
 };
 }
 
-// todo: cleanup, cfont.h's IsSjisLead costs GetFontGlyphTexture a bit
-static inline bool IsLeadByte(u8 c)
-{
-	return (c >= 0x81 && c <= 0x9F) || (c >= 0xE0 && c <= 0xFC); // the SJIS lead byte ranges
-}
-
 static inline bool UseGlyphCache()
 {
 #if defined(VERSION_JP)
@@ -185,7 +179,7 @@ extern "C" CTexObj* GetFontGlyphTexture(CFont* font, const char* str, s32* width
 	}
 	if (UseGlyphCache()) {
 		u16 code = (u8)str[0];
-		if (IsLeadByte(code)) { // a lead byte takes the next byte along
+		if (IsSjisLead(code)) { // a lead byte takes the next byte along
 			code = (code << 8) | (u8)str[1];
 		}
 		image = NULL;
@@ -207,12 +201,13 @@ extern "C" CTexObj* GetFontGlyphTexture(CFont* font, const char* str, s32* width
 			}
 			if (image == NULL) {
 				// a miss renders the glyph into the next round robin slot
-				image = &gDynamicFontGlyphCache.glyphs[gDynamicFontGlyphCache.next];
-				memset(image, 0, sizeof(FontGlyph));
-				OSGetFontTexel((char*)str, image, 0, 6, &advance);
-				gDynamicFontGlyphCache.glyphs[gDynamicFontGlyphCache.next].code  = code;
-				gDynamicFontGlyphCache.glyphs[gDynamicFontGlyphCache.next].width = advance;
-				DCFlushRange(&gDynamicFontGlyphCache.glyphs[gDynamicFontGlyphCache.next], sizeof(FontGlyph));
+				FontGlyph* glyph = &gDynamicFontGlyphCache.glyphs[gDynamicFontGlyphCache.next];
+				memset(glyph, 0, sizeof(FontGlyph));
+				OSGetFontTexel((char*)str, glyph, 0, 6, &advance);
+				glyph->code  = code;
+				glyph->width = advance;
+				DCFlushRange(glyph, sizeof(FontGlyph));
+				image                       = glyph;
 				gDynamicFontGlyphCache.next = (gDynamicFontGlyphCache.next + 1) % 50;
 			}
 		}
@@ -256,13 +251,13 @@ void CFont::Init(BOOL builtin)
 		gUseSingleByteFont = builtin != FALSE;
 #endif
 		if (UseGlyphCache()) {
-			u32 size          = UseGlyphCache() ? OS_FONT_DATA_SIZE_SJIS : OS_FONT_DATA_SIZE_ANSI;
+			u32 size          = OS_FONT_DATA_SIZE_SJIS;
 			gActiveFontHeader = (OSFontHeader*)mm::Alloc((size + 31) & ~31, "(font I2)");
 			if (gActiveFontHeader == NULL) {
 				OSReport("\n!!!HALT!!!\n");
 				OSPanic("cfont.cpp", FONT_INIT_LINE(71, 65), "%s%s", "not enough memory for ROM font\n", "Init");
 			}
-			size       = UseGlyphCache() ? OS_FONT_ROM_SIZE_SJIS : OS_FONT_ROM_SIZE_ANSI;
+			size       = OS_FONT_ROM_SIZE_SJIS;
 			void* temp = mm::Alloc((size + 31) & ~31, "(temp)");
 			if (temp == NULL) {
 				OSReport("\n!!!HALT!!!\n");
@@ -282,8 +277,8 @@ void CFont::Init(BOOL builtin)
 					FontGlyph* glyph = range->glyphs;
 					s32 count        = range->end - range->first;
 					for (s32 i = 0; i < count; i++, glyph++, code++) { // pre-render the whole range
-						// big endian, single byte characters are the low byte
-						char* str = code & 0xFF00 ? (char*)&code : (char*)&code + 1;
+						char encoded[3] = { static_cast<char>(code >> 8), static_cast<char>(code), '\0' };
+						char* str       = code > 0xFF ? encoded : &encoded[1];
 						s32 advance;
 						memset(glyph, 0, sizeof(FontGlyph));
 						OSGetFontTexel(str, glyph, 0, 6, &advance);
@@ -313,7 +308,7 @@ void CFont::Init(BOOL builtin)
 			gActiveFontHeader = &gSingleByteFontHeader;
 #endif
 		} else { // not SJIS-cached: the ROM font gets used as is
-			u32 size          = UseGlyphCache() ? OS_FONT_SIZE_SJIS : OS_FONT_SIZE_ANSI;
+			u32 size          = OS_FONT_SIZE_ANSI;
 			gActiveFontHeader = (OSFontHeader*)mm::Alloc(size, "(font I4)");
 			if (gActiveFontHeader == NULL) {
 				OSReport("\n!!!HALT!!!\n");

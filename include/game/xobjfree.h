@@ -14,7 +14,7 @@ public:
 
 	XObjFree();
 
-	virtual ~XObjFree() { } // _08 (weak)
+	virtual ~XObjFree();    // _08
 	virtual void Release(); // _54
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
 	                     f32 blendRate);                               // _80

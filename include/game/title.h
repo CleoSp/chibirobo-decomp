@@ -23,7 +23,9 @@ public:
 	f32 mAngle;      // _980, _970 in japan
 	f32 mAngleSpeed; // _984, it spins, the scale setters flip y for screen space
 
-	virtual ~Cursor() { }                                  // _08
+	Cursor();
+
+	virtual ~Cursor();
 	virtual void SetScaleY(f32 y, s32 force);              // _1C
 	virtual void SetScale(const Vec& scale, s32 force);    // _38
 	virtual void SetScale(f32 x, f32 y, f32 z, s32 force); // _3C
@@ -74,6 +76,8 @@ STATIC_ASSERT(sizeof(StageName) == 0x19C);
 // the title screen, CGame keeps it at _4930. class name from RTTI
 class Title {
 public:
+	Title();
+
 	void State0(u32 frames);
 	void State1(u32 frames);
 	void State2(u32 frames);
@@ -165,7 +169,7 @@ public:
 #endif
 	// _3C48 vtable, _3C24 in japan
 
-	virtual ~Title() { } // _08
+	virtual ~Title();
 
 	// todo: cleanup
 	void SetMode(s32 mode)

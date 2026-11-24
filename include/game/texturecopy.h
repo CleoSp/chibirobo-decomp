@@ -5,12 +5,6 @@
 #include "game/cgame.h"
 #include "game/fbtexeff.h"
 
-extern "C" {
-void GXSetTexCopySrc(u16 left, u16 top, u16 width, u16 height);
-void GXSetTexCopyDst(u16 width, u16 height, u32 format, u8 mipmap);
-void GXCopyTex(void* image, u8 clear);
-}
-
 static inline CGs* CaptureGraphics()
 {
 	return &gGame.mGs;
@@ -51,7 +45,7 @@ static inline void CopyCaptureTexture(FbTexture* texture, CGs* graphics)
 			height = texture->mHeight;
 		}
 		GXSetTexCopySrc(0, 0, width, height);
-		GXSetTexCopyDst(texture->mWidth, texture->mHeight, texture->mFormat, texture->mMipmap);
+		GXSetTexCopyDst(texture->mWidth, texture->mHeight, static_cast<GXTexFmt>(texture->mFormat), texture->mMipmap);
 		GXCopyTex(texture->mImage, 1);
 		GXPixModeSync();
 		InvalidateCaptureGraphics(graphics);

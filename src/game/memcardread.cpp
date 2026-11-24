@@ -54,12 +54,9 @@ extern "C" BOOL ReadMemoryCardSaveFile(Memcard* card, s32 channel, s32 file)
 		return TRUE;
 	if (card->Close())
 		return TRUE;
-	card->mState = 3;
-	card->mCard.UnmountEx();
-	card->LogResult();
-	if (card->mCard.mResult != CARD_RESULT_READY)
+	if (card->Unmount())
 		return TRUE;
-	card->mState = 0;
+	card->mState = Memcard::Idle;
 	// retail converts the save time and drops it
 	OSCalendarTime calendar;
 	OSTicksToCalendarTime(OSSecondsToTicks((OSTime)card->mStat.time), &calendar);

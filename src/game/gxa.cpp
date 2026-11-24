@@ -1,12 +1,10 @@
 #include "game/hsd_jobj.h"
 #include <math.h>
 #include "game/cgame.h"
-#include "game/csound.h"
 #include "game/mm.h"
 #include "game/progressive.h"
 #include "game/video.h"
 #include "game/cgsdefaults.h"
-#include "game/vistate.h"
 
 #include "Dolphin/OS/OSFastCast.h"
 
@@ -18,9 +16,6 @@ void HSD_SetPixelFormat(s32, s32);
 void HSD_SetZSortMode(s32, s32);
 void GXSetClipMode(s32);
 }
-
-// the game core's start-up pieces: the light sets and cameras the scenes start from, the
-// system setup and the anim sfx
 
 // the light sets and cameras the scenes start from. each one sets up the objects it gets and
 // hands them back
@@ -213,7 +208,7 @@ extern "C" void InitGameRenderState(CBase* base)
 	SetGsFixedGlyphWidthScale(gs, 1.2f);
 #endif
 	HSD_SetPixelFormat(1, 0);
-	GXSetPixelFmt(1, 0);
+	GXSetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
 	GXSetCopyFilter(0, NULL, 0, NULL);
 
 	InitializeVideoClearState((GXColor) { 0, 0, 0, 0 });
@@ -290,153 +285,4 @@ f32 gProgressiveFadeFrames = 0.15f * FRAME_RATE;
 XObj* CCameraActionMap::GetTarget()
 {
 	return mTarget;
-}
-
-// ids with the high half 0xFFFF but not -1 mean every sfx, see game/sound.cpp
-static inline bool IsAllSfx(s32 sfx)
-{
-	if (sfx == -1) {
-		return false;
-	}
-	return (sfx & 0xFFFF0000) == 0xFFFF0000;
-}
-
-// CSound's stop, StopGameSfx in the dol
-static inline BOOL StopSfx(XSound* sound, s32 sfx)
-{
-	if (IsAllSfx(sfx)) {
-		sound->mCurrentMusicId = 0;
-		sound->mPausedMusicId  = 0;
-		AXDriverStopAllStreams();
-		return TRUE;
-	}
-	return AXDriverKeyOffSfx(sfx);
-}
-
-/**
- * @note Address: 0x8001D9B0
- * @note Size: 0x194
- */
-void AnimSfx::Update(s32 anim, f32 frame, u8 vol)
-{
-	s32 prev = mAnimId;
-
-	if (prev != anim) {
-		mAnimId = anim;
-		mFrame  = 0.0f;
-	}
-	AnimSfxEvent* event;
-	XSound* sound = &gGame.mSound;
-	for (s32 i = 0; mEvents != NULL && (event = &mEvents[i])->mAnim >= 0; i++) { // the table ends at -1
-
-		if (event->mAnim == anim || event->mAnim == prev) {
-			if (prev != anim && event->mAnim == prev && CheckStop(event)) {
-				StopSfx(sound, GetSfx(event));
-			}
-			if (event->mAnim == anim && CheckStart(event, mFrame, frame)) {
-				PlayGameSound(sound, GetSfx(event), vol);
-			}
-		}
-	}
-	mFrame = frame;
-}
-
-/**
- * @note Address: 0x8001DB44
- * @note Size: 0x4
- */
-void AnimSfx::vf08()
-{
-}
-
-/**
- * @note Address: 0x8001DB48
- * @note Size: 0x48
- */
-// steps round the event's sfx ids when it has more than one
-s32 AnimSfx::GetSfx(AnimSfxEvent* event)
-{
-	if (event->mCount == 0) {
-		return event->mSfx;
-	}
-	event->mIndex++;
-	if (event->mCount <= event->mIndex) {
-		event->mIndex = 0;
-	}
-	return event->mSfx + event->mIndex;
-}
-
-/**
- * @note Address: 0x8001DB90
- * @note Size: 0x8
- */
-BOOL AnimSfx::CheckStop(AnimSfxEvent* event)
-{
-	return FALSE;
-}
-
-/**
- * @note Address: 0x8001DB98
- * @note Size: 0x78
- */
-// whether the event's start or end frame went by
-BOOL AnimSfx::CheckStart(AnimSfxEvent* event, f32 min, f32 max)
-{
-	f32 a = event->mStart;
-	f32 b = event->mEnd;
-
-	switch (event->mKind) {
-	case 1:
-		if (0.0f <= a && min <= a && a < max) {
-			return TRUE;
-		}
-		if (0.0f <= b && min <= b && b < max) {
-			return TRUE;
-		}
-		break;
-	}
-	return FALSE;
-}
-
-/**
- * @note Address: 0x8001DC10
- * @note Size: 0x10
- */
-// empties the sound's queue
-#if defined(VERSION_JP)
-/**
- * @note Address: JP 0x8001DB48
- * @note Size: 0x80
- */
-// the japanese sound menu: plays the effect picked for a row and remembers the pick
-extern "C" void SetSoundMenuSelection(XSound* sound, s32 index, s32 selection)
-{
-	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
-		return;
-	if (selection < 0 || selection >= ARRAY_SIZE(gSoundMenuEffects))
-		return;
-	PlayGameSound(sound, gSoundMenuEffects[selection], 0xFF);
-	gSoundMenuSelections[index] = selection;
-}
-
-/**
- * @note Address: JP 0x8001DBC8
- * @note Size: 0x2C
- */
-extern "C" s32 GetSoundMenuSelection(XSound*, s32 index)
-{
-	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
-		return -1;
-	return gSoundMenuSelections[index];
-}
-#endif
-
-/**
- * @note Address: 0x8001DC10
- * @note Size: 0x10
- */
-extern "C" void ClearGameSoundQueue(XSound* sound)
-{
-	sound->mQueueWrite = 0;
-	sound->mQueueRead  = 0;
 }

@@ -24,12 +24,10 @@ static inline void LoadNrmMtx(MtxP mtx)
 	GXLoadNrmMtxImm(nrm, GX_PNMTX0);
 }
 
-// position and color, both direct. every caller shares one copy of these arrays, so
-// it's an inline. retail's tile draws and lit circle pass their own format with no null
-// test, this check still costs them a compare. default first then an if beats a ternary
-static inline void SetVtxPosClr(GXVtxAttrFmtList* fmt = NULL)
+// Position and color, both direct.
+static void SetVtxPosClr()
 {
-	GXVtxAttrFmtList defFmt[] = {
+	GXVtxAttrFmtList fmt[] = {
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
 		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
 		{ GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
@@ -41,20 +39,16 @@ static inline void SetVtxPosClr(GXVtxAttrFmtList* fmt = NULL)
 	};
 
 	GXClearVtxDesc();
-	GXVtxAttrFmtList* use = defFmt;
-	if (fmt != NULL) {
-		use = fmt;
-	}
-	GXSetVtxAttrFmtv(GX_VTXFMT0, use);
+	GXSetVtxAttrFmtv(GX_VTXFMT0, fmt);
 	GXSetVtxDescv(desc);
 }
 
 // position, normal and color, all direct
-static inline void SetVtxPosNrmClr(GXVtxAttrFmtList* fmt = NULL)
+static void SetVtxPosNrmClr(GXCompType normalType = GX_F32)
 {
-	GXVtxAttrFmtList defFmt[] = {
+	GXVtxAttrFmtList fmt[] = {
 		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
-		{ GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0 },
+		{ GX_VA_NRM, GX_NRM_XYZ, normalType, 0 },
 		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
 		{ GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
 	};
@@ -66,11 +60,7 @@ static inline void SetVtxPosNrmClr(GXVtxAttrFmtList* fmt = NULL)
 	};
 
 	GXClearVtxDesc();
-	GXVtxAttrFmtList* use = defFmt;
-	if (fmt != NULL) {
-		use = fmt;
-	}
-	GXSetVtxAttrFmtv(GX_VTXFMT0, use);
+	GXSetVtxAttrFmtv(GX_VTXFMT0, fmt);
 	GXSetVtxDescv(desc);
 }
 
@@ -356,17 +346,9 @@ void CCircle::Draw(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
  */
 void CCircle::DrawLit(Mtx view, u32 segments, u32 centerColor, u32 edgeColor)
 {
-	// SetVtxPosNrmClr's default with s8 normals, enough for the fixed (0, 0, 1) every vertex sends
-	GXVtxAttrFmtList fmt[] = {
-		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
-		{ GX_VA_NRM, GX_NRM_XYZ, GX_S8, 0 },
-		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
-		{ GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
-	};
-
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
-	SetVtxPosNrmClr(fmt);
+	SetVtxPosNrmClr(GX_S8);
 	GXBegin(GX_TRIANGLEFAN, GX_VTXFMT0, segments + 2);
 	f32 zero = 0.0f;
 	GXPosition3f32(zero, zero, zero);
@@ -396,16 +378,9 @@ void CTile::Init(f32 tx, f32 ty, f32 tz, f32 sx, f32 sy, f32 sz, f32 rx, f32 ry,
  */
 void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
 {
-	// the same entries as SetVtxPosClr's default, but retail's tile copies and passes its own table
-	GXVtxAttrFmtList fmt[] = {
-		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
-		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
-		{ GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
-	};
-
 	LoadMtx(view);
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
-	SetVtxPosClr(fmt);
+	SetVtxPosClr();
 	// a strip, so the corners zigzag: color0 and color1 on the +y edge, color2 and color3
 	// on the -y edge, each pair -x first
 	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
@@ -424,17 +399,9 @@ void CTile::Draw(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
  */
 void CTile::DrawLit(Mtx view, u32 color0, u32 color1, u32 color2, u32 color3)
 {
-	// SetVtxPosNrmClr's default with s8 normals, enough for the fixed (0, 0, 1) every vertex sends
-	GXVtxAttrFmtList fmt[] = {
-		{ GX_VA_POS, GX_POS_XYZ, GX_F32, 0 },
-		{ GX_VA_NRM, GX_NRM_XYZ, GX_S8, 0 },
-		{ GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 },
-		{ GX_VA_NULL, GX_POS_XY, GX_U8, 0 },
-	};
-
 	LoadNrmMtx(LoadMtx(view));
 	HSD_StateInvalidate(HSD_STATE_VTX_ATTR);
-	SetVtxPosNrmClr(fmt);
+	SetVtxPosNrmClr(GX_S8);
 	GXBegin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
 	GXPosition3f32(mCenter.x - 1.0f, 1.0f + mCenter.y, mCenter.z);
 	GXNormal3s8(0, 0, 1);

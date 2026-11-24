@@ -211,8 +211,7 @@ extern "C" s32 CMsg__cmd_ANIM(CMsg* msg)
 	if (flags & MSG_ANIM_VARIABLE) {
 		anim = gEventVars.mVars[anim];
 	}
-	void* state = &gGame.mEvt.mData;
-	XObj* obj   = *(void**)state != NULL ? ResolveEventObjectId(state, id) : NULL;
+	XObj* obj = FindObj(id);
 	if (obj != NULL && (obj->mStatus.mFlags & 1)) {
 		if (anim == -1) {
 			HSD_AObj* aobj = GetAObj(obj->mJObj);
@@ -714,7 +713,7 @@ static inline void ResetMsgState(CMsg* msg)
 	msg->mGlyphSoundGroup = -1;
 }
 
-extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, s32 placement, s32 fitLine, s32 mode);
+extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, XObj* placement, s32 fitLine, s32 mode);
 
 /**
  * @note Address: 0x80081C74
@@ -806,11 +805,6 @@ extern "C" void InitMessageWindow(CMsg* msg)
 	msg->mFont.mCursor[0].mCursor.InitializeObject(0);
 }
 extern "C" {
-void SetTranslate__5CJObjFfffl(CJObj* object, f32 x, f32 y, f32 z, s32 force);
-void SetScale__5CJObjFfffl(CJObj* object, f32 x, f32 y, f32 z, s32 force);
-void SetRotationY__5CJObjFfl(CJObj* object, f32 yaw, s32 force);
-void SetTranslate__5CJObjFRC3Vecl(CJObj* object, const Vec& position, s32 force);
-void SetScale__5CJObjFRC3Vecl(CJObj* object, const Vec& scale, s32 force);
 #if defined(VERSION_JP) || defined(VERSION_PAL)
 void InvalidateMessageDrawState(CGs* gs);
 #endif
@@ -845,7 +839,7 @@ struct MsgWindowSlice {
 extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 {
 	CMsgFont* font = (CMsgFont*)p;
-	XObj* anchor   = (XObj*)font->mPlacement;
+	XObj* anchor   = font->mPlacement;
 	if (anchor != NULL && (anchor->mStatus.mFlags & 1) && (anchor->mStatus.mFlags & 0x10000)) {
 		anchor->ProjectOffsetToScreen(&font->mPosition, &font->mWindowX, &font->mWindowY, NULL, 0);
 		font->mWindowY -= font->mHeight;
@@ -1013,10 +1007,8 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 			u8* objects     = gGame.mXObjs.mPools[10].mObjects;
 			for (s32 i = 0; i < objectCount; i++) {
 				XObj* obj = (XObj*)(objects + i * stride);
-				if (obj->mStatus.mFlags & 1) {
-					UnkObjData* kind = obj->mAttr.mObjData;
-					if ((s16)(kind != NULL ? kind->GetItem() : -1) == 10)
-						portrait = obj;
+				if ((obj->mStatus.mFlags & 1) && obj->GetItem() == 10) {
+					portrait = obj;
 				}
 			}
 			if (portrait != NULL) {
@@ -1031,29 +1023,24 @@ extern "C" void CMsgFont_Draw(void* p, f32 lastAlpha)
 					f32 oldYaw      = portrait->mMoveRotate.y;
 					CJObj joint(portrait->mJObj);
 					f32 depth = 80.0f * portraitScale;
-					SetTranslate__5CJObjFfffl(&joint, portraitX, portraitY, depth, 1);
-					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
-					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
+					joint.CJObj::SetTranslate(portraitX, portraitY, depth, 1);
+					joint.CJObj::SetScale(scale, -scale, scale, 1);
+					joint.CJObj::SetRotationY(0.0f, 1);
 					HSD_JObjSetupMatrix(joint.mJObj);
 					s32 path[6] = { 0, 3, 0, 0, 0, 0 };
-					f32 height  = CJObj_GetJointWorldPositionByPath((CJObj*)portrait, 6, path).y;
-					SetTranslate__5CJObjFfffl(&joint, portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
-					SetScale__5CJObjFfffl(&joint, scale, -scale, scale, 1);
-					SetRotationY__5CJObjFfl(&joint, 0.0f, 1);
+					f32 height  = CJObj_GetJointWorldPositionByPath(portrait, 6, path).y;
+					joint.CJObj::SetTranslate(portraitX, portraitY + ((portraitY - height) - 12.0f), depth, 1);
+					joint.CJObj::SetScale(scale, -scale, scale, 1);
+					joint.CJObj::SetRotationY(0.0f, 1);
 					HSD_JObjSetFlags(portrait->mJObj, 8);
 					u32 oldModulateColor = portrait->mColors[1];
 					u32 oldBlendColor    = portrait->mColors[0];
 					portrait->mColors[1] = 0xFFFFFF00;
 					portrait->mColors[0] = 0;
 					portrait->DrawObject();
-#if defined(VERSION_US)
 					joint.CJObj::SetTranslate(oldPosition, 1);
 					joint.CJObj::SetScale(oldScale, 1);
-#else
-				SetTranslate__5CJObjFRC3Vecl(&joint, oldPosition, 1);
-				SetScale__5CJObjFRC3Vecl(&joint, oldScale, 1);
-#endif
-					SetRotationY__5CJObjFfl(&joint, oldYaw, 1);
+					joint.CJObj::SetRotationY(oldYaw, 1);
 					HSD_JObjClearFlags(portrait->mJObj, 8);
 					portrait->mColors[1] = oldModulateColor;
 					portrait->mColors[0] = oldBlendColor;
@@ -1496,7 +1483,7 @@ extern "C" u16 GXGetTexObjHeight(const GXTexObj* obj);
  * @note Address: 0x80085B34
  * @note Size: 0x950
  */
-extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, s32 placement, s32 fitLine, s32 mode)
+extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, XObj* placement, s32 fitLine, s32 mode)
 {
 	CMsgFont* font    = (CMsgFont*)window;
 	font->mData       = (CMsgData*)data;

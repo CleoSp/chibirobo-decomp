@@ -9,12 +9,11 @@
 #include "game/hsd_dobj.h"
 #include "game/cgameutil.h"
 
+#include <hsd/sysdolphin/devcom.h>
+
 extern "C" {
 u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, GXBool mipmap, u8 maxLod);
-void BuildObjectDrawList(CGame* game);
-void SelectSceneLights(CGame* game);
 BOOL UpdateStageObjectLoading(XOBJS* objs);
-void Reset2__16CCameraActionMapFv(CInterfaceCameraAction* action);
 }
 
 static inline HSD_JObj* GetChild(HSD_JObj* jobj)
@@ -58,8 +57,8 @@ extern "C" BOOL FinalizeStageObjectSetup(CGame* game)
 		((CCameraActionAnim*)game->mCameraActions.mTable[6])->SetObj((XObjCamera*)game->mXObjs.mPools[0].First());
 		game->mMotionControlCamera.Init();
 		if (mode == 1 || mode == 7) { // both modes start on the map camera
-			game->mMotionControlCamera.ChangeAction(7);
-			Reset2__16CCameraActionMapFv(game->mCameraActions.mTable[7]);
+			game->mMotionControlCamera.ChangeAction(CAMACTION_MAP);
+			static_cast<CCameraActionMap*>(game->mCameraActions.mTable[CAMACTION_MAP])->Reset2();
 			game->mMotionControlCamera.ApplyAction();
 		} else {
 			game->mMotionControlCamera.ChangeAction(mode);
@@ -152,8 +151,7 @@ BOOL LoadStageByIndex(s32);
 void ApplyStageClearColor();
 const s32* GetStageEventObjectPairs();
 void RegisterEventObjectId(CEvt*, s16, s16);
-u32 TakeNextCounterValue(void*, u32*);
-s32 HSD_DevComRequest(s32, u32, void*, u32, s32, s32, u32 (*)(void*, u32*), void*);
+void TakeNextCounterValue(int, void*, void*, BOOL);
 u32 ARGetSize();
 }
 
@@ -171,7 +169,8 @@ static inline BOOL PreloadStageArchives()
 		++cache.mLoadStep;
 		s32 entry   = DVDConvertPathToEntrynum("/qp/pc.bin");
 		u32 address = gARAMCacheInfo.mBaseAddress;
-		HSD_DevComRequest(entry, 0, (void*)address, ARGetSize() - gARAMCacheInfo.mBaseAddress, 0x23, 1, TakeNextCounterValue, &cache);
+		HSD_DevComRequest(entry, 0, address, ARGetSize() - gARAMCacheInfo.mBaseAddress, HSD_DEVCOM_DVD_TO_ARAM, 1, TakeNextCounterValue,
+		                  &cache.mLoadStep);
 		break;
 	}
 	case 3: {
@@ -331,7 +330,6 @@ BOOL CGame::BeforeUpdate()
 	case 21:
 		++mLoadStep;
 	case 22:
-		CheckStageFlag(gGame.mStage, 2);
 		++mLoadStep;
 		break;
 	case 23: {

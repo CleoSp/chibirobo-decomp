@@ -23,6 +23,7 @@ extern "C" {
 #include <dolphin/os/OSThread.h>
 #include <dolphin/os/OSMutex.h>
 #include <dolphin/os/OSFont.h>
+#include <dolphin/os/OSGameChoice.h>
 #include <dolphin/os/OSReset.h>
 #include <dolphin/os/OSResetSW.h>
 #include <dolphin/os/OSError.h>
@@ -70,7 +71,6 @@ u16 __OSWirelessPadFixMode AT_ADDRESS(OS_BASE_CACHED | 0x30E0);
 // unknowns
 OSThread* __gUnkThread1 AT_ADDRESS(OS_BASE_CACHED | 0x00D8);
 int __gUnknown800030C0[2] AT_ADDRESS(OS_BASE_CACHED | 0x30C0);
-u8 __gUnknown800030E3 AT_ADDRESS(OS_BASE_CACHED | 0x30E3);
 #else
 #define __OSBusClock  (*(u32 *)(OS_BASE_CACHED | 0x00F8))
 #define __OSCoreClock (*(u32 *)(OS_BASE_CACHED | 0x00FC))
@@ -266,65 +266,16 @@ extern int __OSInIPL;
     
 #define ASSERT(cond) ASSERTLINE(__LINE__, cond)
 
-inline s16 __OSf32tos16(__REGISTER f32 inF) {
-    __REGISTER s16 out;
-    u32 tmp;
-    __REGISTER u32* tmpPtr = &tmp;
-    // clang-format off
-#ifdef __MWERKS__
-    asm {
-        psq_st inF, 0(tmpPtr), 0x1, 5
-        lha out, 0(tmpPtr)
-    }
-#endif
-    // clang-format on
+void OSInitFastCast(void);
+s16 __OSf32tos16(f32 value);
+u8 __OSf32tou8(f32 value);
 
-    return out;
-}
-
-inline void OSf32tos16(f32* f, s16* out) {
+static inline void OSf32tos16(f32* f, s16* out) {
     *out = __OSf32tos16(*f);
 }
 
-inline u8 __OSf32tou8(__REGISTER f32 inF) {
-    __REGISTER u8 out;
-    u32 tmp;
-    __REGISTER u32* tmpPtr = &tmp;
-    // clang-format off
-#ifdef __MWERKS__
-    asm {
-        psq_st inF, 0(tmpPtr), 0x1, 2
-        lbz out, 0(tmpPtr)
-    }
-#endif
-    // clang-format on
-
-    return out;
-}
-
-inline void OSf32tou8(f32* f, u8* out) {
+static inline void OSf32tou8(f32* f, u8* out) {
     *out = __OSf32tou8(*f);
-}
-
-static inline void OSInitFastCast(void) {
-    // clang-format off
-#ifdef __MWERKS__
-    asm {
-        li r3, 4
-        oris r3, r3, 4
-        mtspr 0x392, r3
-        li r3, 5
-        oris r3, r3, 5
-        mtspr 0x393, r3
-        li r3, 6
-        oris r3, r3, 6
-        mtspr 0x394, r3
-        li r3, 7
-        oris r3, r3, 7
-        mtspr 0x395, r3
-    }
-#endif
-    // clang-format on
 }
 
 #ifdef __cplusplus

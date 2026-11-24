@@ -13,12 +13,11 @@ void C_VECCrossProduct(const Vec* a, const Vec* b, Vec* axb);
 void PSVECCrossProduct(Vec* a, Vec* b, Vec* result);
 void C_VECReflect(const Vec* src, const Vec* normal, Vec* dst);
 void PSVECReflect(Vec* src, Vec* normal, Vec* dst);
-f32 PSVECSquareDistance(Vec* a, Vec* b);
 f32 PSVECDistance(Vec* a, Vec* b);
 
 #ifdef __cplusplus
-// the game's own spelling, the library's c files declare it locally
-extern "C" void PSVECScale(const Vec* src, Vec* dst, f32 scale);
+extern "C"
 #endif
+void PSVECScale(const Vec* src, Vec* dst, f32 scale);
 
 #endif

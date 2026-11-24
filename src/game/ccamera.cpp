@@ -9,13 +9,13 @@
  */
 void CCamera::Init(f32 near, f32 far, f32 fov, GXRenderModeObj* rmode)
 {
-	HSD_CObjPerspectiveDesc desc
-	    = { NULL, 0, PROJ_PERSPECTIVE, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, NULL, NULL, 0.0f, NULL, near, far, fov, 0.0f };
+	HSD_CObjDesc desc = { NULL, 0, PROJ_PERSPECTIVE, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, NULL, NULL, 0.0f, NULL, near, far };
+	desc.projection_param.perspective.fov = fov;
 
 	mFov        = fov;
 	mUseMtx     = FALSE;
 	mLoadedCObj = NULL;
-	HSD_CObjInit(this, (HSD_CObjDesc*)&desc);
+	HSD_CObjInit(this, &desc);
 	mEye.x      = 0.0f;
 	mEye.y      = 0.0f;
 	mEye.z      = 0.0f;
@@ -102,11 +102,11 @@ void CCamera::Init(f32 near, f32 far, GXRenderModeObj* rmode)
  */
 void CCamera::Init(HSD_CObjDesc* desc)
 {
-	mLoadedCObj      = HSD_CObjLoadDesc(desc);
-	*(HSD_CObj*)this = *mLoadedCObj;
+	mLoadedCObj                   = HSD_CObjLoadDesc(desc);
+	static_cast<HSD_CObj&>(*this) = *mLoadedCObj;
 	HSD_CObjGetEyePosition(this, &mEye);
 	HSD_CObjGetInterest(this, &mInterest);
-	if (HSD_CObjGetFlags(this) & 1) { // flag 1: an up vector, else a roll
+	if (HSD_CObjGetFlags(this) & COBJ_USE_UP_VECTOR) { // flag 1: an up vector, else a roll
 		HSD_CObjGetUpVector(this, &mUp);
 	} else {
 		mRoll = GetCameraRoll(this);
@@ -126,7 +126,7 @@ void CCamera::Release()
 {
 	if (mLoadedCObj != NULL) {
 		// hand the current state back so the release frees what we're using now
-		*mLoadedCObj = *(HSD_CObj*)this;
+		*mLoadedCObj = static_cast<HSD_CObj&>(*this);
 		HSD_CObjUnref(mLoadedCObj);
 		mLoadedCObj = NULL;
 	}
@@ -170,7 +170,7 @@ void CCamera::Anim()
 	HSD_CObjAnim(this);
 	HSD_CObjGetEyePosition(this, &mEye);
 	HSD_CObjGetInterest(this, &mInterest);
-	if (HSD_CObjGetFlags(this) & 1) {
+	if (HSD_CObjGetFlags(this) & COBJ_USE_UP_VECTOR) {
 		HSD_CObjGetUpVector(this, &mUp);
 	} else {
 		mRoll = GetCameraRoll(this);

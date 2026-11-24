@@ -1,52 +1,30 @@
 #include "game/video.h"
 #include "game/gmath.h"
 #include "game/stg.h"
-#include "game/xobjmap.h"
 #include "game/xobjread.h"
 #include "game/cgameutil.h"
 #include "game/xchr.h"
+#include <hsd/sysdolphin/devcom.h>
 
 extern "C" {
 void UpdateStageMicrophone(u32 frames);
-}
-
-/**
- * @note Address: 0x80010CD0
- * @note Size: 0x48
- */
-// CMenu::Open
-extern "C" void Open__5CMenuFv(CMenu* menu)
-{
-	menu->mState = 1;
-	menu->Resume();
-	menu->mWindow.mOpen = TRUE;
-}
-
-/**
- * @note Address: 0x80010D18
- * @note Size: 0x10
- */
-// CMenu::Resume
-extern "C" void Resume__5CMenuFv(CMenu* menu)
-{
-	menu->mSuspended   = FALSE;
-	menu->mSuspendFade = FALSE;
-}
-
-extern "C" {
 void SetMusicPlaybackPaused(XSound* sound, BOOL pause);
-s32 HSD_DevComIsBusy(s32 id);
 void CMsg_Update(CMsg* msg, u32 frames);
-void UpdateOpenMenus(void* menu, u32 frames);
-void UpdateHudTransitionsAndIndicators(void* info, u32 frames);
-void BuildObjectDrawList(CGame* game);
+void UpdateOpenMenus(MenuEx* menu, u32 frames);
+void UpdateHudTransitionsAndIndicators(InfoScrn* info, u32 frames);
+}
+
+// Retail checks the queue head as a signed word. Cached RAM addresses have
+// the sign bit set, so an ordinary pending request does not block the reset.
+static bool IsDeviceQueueBlockingReset(s32 priority)
+{
+	return reinterpret_cast<s32>(HSD_DevComIsBusy(priority)) > 0;
 }
 
 /**
  * @note Address: 0x8000FACC
  * @note Size: 0x1204
  */
-// NONMATCHING: the frame count and the inlined base update's pad pointer swap registers
 // CGame::Update: the base's disc and reset checks, the reset itself, then everything that
 // runs each frame. while the disc can't be read only the sound is paused
 void CGame::Update(u32 frames)
@@ -54,7 +32,7 @@ void CGame::Update(u32 frames)
 	s32 i;
 	BaseUpdate(this, frames);
 	PollMemoryCardWorker(&mMemcard.mCard);
-	if (mReset && !mMemcard.mCard.mBusy && HSD_DevComIsBusy(1) <= 0 && HSD_DevComIsBusy(2) <= 0) {
+	if (mReset && !mMemcard.mCard.mBusy && !IsDeviceQueueBlockingReset(1) && !IsDeviceQueueBlockingReset(2)) {
 		if (!mDiskOk) {
 			mResetHold = 0;
 			mReset     = FALSE;
@@ -220,7 +198,7 @@ void CGame::Update(u32 frames)
 			}
 		}
 	}
-	if (!(mStatus.mFlags & 2) && mStageName.mActive && mStageName.mActive > 0) {
+	if (!(mStatus.mFlags & 2) && mStageName.mActive > 0) {
 		for (i = 0; i < mStageName.mCount; i++) {
 			if (mStageName.mChars[i].mWait > 0.0f) {
 				if (mStageName.mChars[i].mScale < 1.0f) {
@@ -268,153 +246,5 @@ void CGame::Update(u32 frames)
 		mStatus.mFlags &= ~4;
 		SetMusicPlaybackPaused(&gGame.mSound, FALSE);
 		HSD_PadRumbleActiveAll();
-	}
-}
-
-extern "C" {
-void SelectSceneLights(CGame* game);
-}
-
-/**
- * @note Address: 0x80010D28
- * @note Size: 0x548
- */
-// NONMATCHING: register allocation, the counters and loop pointers come out in other registers
-// sorts the objects into the ones to draw and the ones mirrors show, those of pool 3 first,
-// then the plain ones, then the 0xA00000 ones, then the 0x40 ones. objects out of view are only
-// mirrored
-extern "C" void BuildSceneDrawLists(CGame* game)
-{
-	s32 shown;
-	XObj* obj;
-	CMotionControlCamera* camera;
-	s32 i;
-	s32 mirrored;
-	if (game->mStatus.mFlags & 0x8000000000) { // only while flag 0x8000000000 stands
-		camera = &game->mMotionControlCamera;
-		for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-			obj = game->mXObjs.mObjects[i];
-			if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000)) {
-				if (!(game->mStatus.mFlags & 0x100) && (obj->mStatus.mFlags & 0x80000000) && obj->IsOutsideCameraDepth(&camera->mCamera)) {
-					obj->mStatus.mFlags |= 0x1000000000000; // out of depth: mirror-only
-				} else {
-					obj->mStatus.mFlags &= ~0x1000000000000;
-				}
-			}
-		}
-	}
-
-	shown = mirrored = 0;
-	for (i = 0; i < game->mXObjs.mPools[3].mUsed; i++) {
-		obj = game->mXObjs.mPools[3].Get(i);
-		if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && !(obj->mStatus.mFlags & 0xA00040)) {
-			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
-				game->mDrawLists[1].mObjects[shown++] = obj;
-			}
-			game->mDrawLists[2].mObjects[mirrored++] = obj;
-		}
-	}
-	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-		obj = game->mXObjs.mObjects[i];
-		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && !(obj->mStatus.mFlags & 0xA00040)) {
-			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
-				game->mDrawLists[1].mObjects[shown++] = obj;
-			}
-			game->mDrawLists[2].mObjects[mirrored++] = obj;
-		}
-	}
-	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-		obj = game->mXObjs.mObjects[i];
-		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & 0xA00000)
-		    && !(obj->mStatus.mFlags & 0x40)) {
-			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
-				game->mDrawLists[1].mObjects[shown++] = obj;
-			}
-			game->mDrawLists[2].mObjects[mirrored++] = obj;
-		}
-	}
-	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-		obj = game->mXObjs.mObjects[i];
-		if (obj->GetCategory() != 3 && (obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && (obj->mStatus.mFlags & 0x40)) {
-			if (!(obj->mStatus.mFlags & 0x1000000000000)) {
-				game->mDrawLists[1].mObjects[shown++] = obj;
-			}
-			game->mDrawLists[2].mObjects[mirrored++] = obj;
-		}
-	}
-	game->mDrawLists[1].mCount = shown;
-	game->mDrawLists[2].mCount = mirrored;
-}
-
-/**
- * @note Address: 0x80011270
- * @note Size: 0x1FC
- */
-// NONMATCHING: the object and the loop pointers get other volatile registers
-// lists the objects to draw: those with flag 0x4000 first, then the rest, then the two
-// special ones
-extern "C" void BuildObjectDrawList(CGame* game)
-{
-	s32 count = 0;
-	s32 i;
-	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-		if (game->mXObjs.mObjects[i] != game->mXObjs.mPools[2].First() && game->mXObjs.mObjects[i] != game->mXObjs.mPools[0].First()
-		    && (game->mXObjs.mObjects[i]->mStatus.mFlags & 1) && (game->mXObjs.mObjects[i]->mStatus.mFlags & 0x4000)) {
-			game->mDrawLists[0].mObjects[count] = game->mXObjs.mObjects[i];
-			game->mDrawLists[0].mIndices[count] = i;
-			count++;
-		}
-	}
-	for (i = 0; i < game->mXObjs.mObjectCount; i++) {
-		if (game->mXObjs.mObjects[i] != game->mXObjs.mPools[2].First() && game->mXObjs.mObjects[i] != game->mXObjs.mPools[0].First()
-		    && (game->mXObjs.mObjects[i]->mStatus.mFlags & 1) && !(game->mXObjs.mObjects[i]->mStatus.mFlags & 0x4000)) {
-			game->mDrawLists[0].mObjects[count] = game->mXObjs.mObjects[i];
-			game->mDrawLists[0].mIndices[count] = i;
-			count++;
-		}
-	}
-	if (game->mXObjs.mPools[2].First()->mStatus.mFlags & 1) {
-		game->mDrawLists[0].mObjects[count++] = game->mXObjs.mPools[2].First();
-	}
-	if (game->mXObjs.mPools[0].First()->mStatus.mFlags & 1) {
-		game->mDrawLists[0].mObjects[count++] = game->mXObjs.mPools[0].First();
-	}
-	game->mDrawLists[0].mCount = count;
-}
-
-/**
- * @note Address: 0x8001146C
- * @note Size: 0x1A0
- */
-// NONMATCHING: the light count isn't read again for the second GetLights
-// picks the lights to draw with: an object's own when it has some, else the game's. only the
-// object lights cast shadows then
-extern "C" void SelectSceneLights(CGame* game)
-{
-	game->mLightList = NULL;
-	XObjMap* map     = (XObjMap*)game->mXObjs.mPools[3].mObjects;
-	if ((map->mStatus.mFlags & 1) && map->GetLights() != NULL) {
-		game->mLightList = map->GetLights();
-	} else {
-		XObjLight* sceneLight = (XObjLight*)game->mXObjs.mPools[1].mObjects;
-		if (sceneLight->mStatus.mFlags & 1) {
-			game->mLightList = sceneLight->GetLights();
-		}
-	}
-
-	if (game->mLightList != NULL) {
-		CLight* light;
-		for (light = game->mLightList; light != NULL; light = (CLight*)light->next) {
-			if (light->mShadow.IsActive()) {
-				HSD_CObjSetProjectionType(light->mShadow.mShadow->camera, 3);
-			}
-		}
-		for (light = game->mLights; light != NULL; light = (CLight*)light->next) {
-			if (light->mShadow.IsActive()) {
-				light->mShadow.SetActive(FALSE);
-			}
-		}
-	} else {
-		game->mLightList = game->mLights;
 	}
 }

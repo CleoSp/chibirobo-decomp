@@ -29,5 +29,3 @@ extern "C" bool IsSpiderBossProjectileHitSuppressed(XObjSpiderBoss* spider)
 {
 	return (spider->mSpiderStatus.mFlags & 0x200) != 0;
 }
-
-DECL_SECT(".sdata2") const f32 XObjSpiderBoss::sZero = 0.0f;

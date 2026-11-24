@@ -70,68 +70,16 @@ public:
 
 	~CMenu() { }
 
-	virtual void Init() // _08 (weak)
-	{
-		mWindow.mOpen      = FALSE;
-		mWindow.mX         = 320.0f;
-		mWindow.mY         = 224.0f;
-		mWindow.mWidth     = 100.0f;
-		mWindow.mHeight    = 100.0f;
-		mWindow.mDrawAlpha = 0.0f;
-		mCursor            = NULL;
-		Reset();
-	}
-	virtual BOOL LoadTexture(); // _0C (weak)
-	virtual void Reset()        // _10 (weak)
-	{
-		mState        = 0;
-		mAlpha        = 0.0f;
-		mSelection    = 0;
-		mSuspended    = FALSE;
-		mSuspendFade  = FALSE;
-		mFade         = 0.0f;
-		mSuspendAlpha = 1.0f;
-	}
+	virtual void Init();             // _08
+	virtual BOOL LoadTexture();      // _0C (weak)
+	virtual void Reset();            // _10
 	virtual BOOL Update(u32 frames); // _14 (weak), returns mState
-	virtual BOOL Draw()              // _18 (weak)
-	{
-		if (!IsOpen())
-			return FALSE;
-		SetGsChannelEnabled(&gGame.mGs, 0, 0);
-		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
-		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 3, 0);
-		DrawMenuWindow(&mWindow);
-		return TRUE;
-	}
-	virtual void Open() // _1C (weak)
-	{
-		mState = 1;
-		Resume();
-		mWindow.mOpen = TRUE;
-	}
-	virtual void Close() // _20 (weak)
-	{
-		mState = 5;
-		Resume();
-		mWindow.mOpen = FALSE;
-	}
-	virtual BOOL IsOpen() // _24 (weak)
-	{
-		bool open = false;
-		if (mState >= 1 && mState < 6)
-			open = true;
-		return open;
-	}
-	virtual void Suspend(BOOL fade) // _28 (weak)
-	{
-		mSuspended   = TRUE;
-		mSuspendFade = fade;
-	}
-	virtual void Resume() // _2C (weak)
-	{
-		mSuspended   = FALSE;
-		mSuspendFade = FALSE;
-	}
+	virtual BOOL Draw();             // _18
+	virtual void Open();             // _1C
+	virtual void Close();            // _20
+	virtual BOOL IsOpen();           // _24
+	virtual void Suspend(BOOL fade); // _28
+	virtual void Resume();           // _2C
 };
 STATIC_ASSERT(sizeof(CMenu) == 0x14C);
 
@@ -370,7 +318,7 @@ public:
 	s32 mShowHelp;            // _684
 	f32 mHelpAlpha;           // _688
 	const char* mHelpText;    // _68C
-	char* mHelp;              // _690, the line at the bottom
+	const char* mHelp;        // _690, the line at the bottom
 	f32 mPulsePhase;          // _694
 	MenuTitle mTitle;         // _698
 	s32 mHelpCount;           // _834
@@ -439,8 +387,8 @@ public:
 	s32 mPrevSelection;     // _19C
 	s32 mShowHelp;          // _1A0
 	f32 mNameAlpha;         // _1A4
-	char* mName;            // _1A8
-	char* mHelp;            // _1AC
+	const char* mName;      // _1A8
+	const char* mHelp;      // _1AC
 	f32 mItemPhase;         // _1B0
 	MenuTitle mTitle;       // _1B4
 	s32 mNameCharCount;     // _350

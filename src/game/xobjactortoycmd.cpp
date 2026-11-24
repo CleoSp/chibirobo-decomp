@@ -6,7 +6,7 @@
  */
 s32 XObjActorToy::HandleEventCommand(s32 count, s32* command)
 {
-	HandleEventCommand__9XObjActorFlPl(this, count, command);
+	XObjActor::HandleEventCommand(count, command);
 	if (count < 1)
 		return 0;
 	mCmd[0] = command[0];

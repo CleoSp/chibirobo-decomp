@@ -148,18 +148,17 @@ void XObjActorMama::StateNone(u32 frames)
 
 void XObjActorMama::UpdateAfterAnim(u32 frames)
 {
-	UpdateAfterAnim__9XObjActorFUl(this, frames);
+	XObjActor::UpdateAfterAnim(frames);
 	CJObj hand;
 	XObjChr* player = gGame.GetPlayer();
 	if (mHideKinds.mFlags & 0x3f) { // a held prop kind is set
-		CVec position;
 		CJObj other;
 		s32 first[6] = { 0, 4, 2, 0, 0, 0 };
 		hand.Attach(FindJointByPath(mJObj, first, 6));
 		s32 second[6] = { 0, 4, 1, 0, 0, 0 };
 		other.Attach(FindJointByPath(mJObj, second, 6));
-		position = hand.GetPos();
-		s32 kind = -1; // bits 0 to 5 pick the prop's kind
+		(void)hand.GetMtx(); // Refresh the hand joint before positioning the held props.
+		s32 kind = -1;       // bits 0 to 5 pick the prop's kind
 		if (mHideKinds.Check(1))
 			kind = 0x40;
 		else if (mHideKinds.Check(2))
@@ -179,17 +178,10 @@ void XObjActorMama::UpdateAfterAnim(u32 frames)
 				for (s32 i = 0; i < 64; ++i) { // pool 8 holds 64 props
 					XObj* prop = gGame.mXObjs.mPools[8].Get(i);
 					if (kind == prop->GetKind()) {
-						switch (kind) {
-						case 0x40:
-							PSMTXCopy(hand.GetMtx(), mount);
-							RotateHeldProp(mount, result, rotation, 'z', -PI / 4);
-							OffsetHeldProp(result, translation, 0, -3, 0);
-							SetHeldPropMatrix(prop, result);
-							break;
-						default:
-							SetHeldPropMatrix(prop, hand.GetMtx());
-							break;
-						}
+						PSMTXCopy(hand.GetMtx(), mount);
+						RotateHeldProp(mount, result, rotation, 'z', -PI / 4);
+						OffsetHeldProp(result, translation, 0, -3, 0);
+						SetHeldPropMatrix(prop, result);
 						if (mStatus.mFlags & 0x10000) // the prop draws only while her flag is set
 							prop->mStatus.mFlags |= 0x10000ULL;
 						else
@@ -218,7 +210,6 @@ void XObjActorMama::UpdateAfterAnim(u32 frames)
 						SetHeldPropMatrix(prop, result);
 						break;
 					case 0x196:
-						sin(DEG2RAD * ((s32)(mKindCounter * 16) % 360)); // the sine is unused; only the counter counts
 						++mKindCounter;
 						PSMTXCopy(hand.GetMtx(), mount);
 						RotateHeldProp(mount, result, rotation, 'x', -HALF_PI);

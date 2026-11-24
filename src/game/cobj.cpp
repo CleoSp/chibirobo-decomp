@@ -6,22 +6,19 @@
 extern "C" {
 #include <sysdolphin/class.h>
 #include <sysdolphin/dobj.h>
+#include <sysdolphin/mobj.h>
 #include <sysdolphin/pobj.h>
 #include <sysdolphin/texp.h>
 #include <dolphin/mtx/vec.h>
 #include <dolphin/os.h>
 }
+#include <hsd/sysdolphin/devcom.h>
 #include <math.h>
 #include "game/xobj.h"
 
 extern "C" {
 void OSReport(const char* msg, ...);
 u32 ARGetSize(void);
-s32 HSD_DevComRequest(s32 file, u32 src, void* dest, u32 size, s32 type, s32 pri, void (*callback)(s32, s32*), s32* args);
-void HSD_MObjSetDefaultClass(HSD_MObjInfo* info);
-void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
-void HSD_PObjClearFlags(HSD_PObj* pobj, u32 flags);
-void HSD_PObjSetFlags(HSD_PObj* pobj, u32 flags);
 }
 
 // report, then panic with the function name. the line goes in by hand like the asserts
@@ -43,10 +40,7 @@ struct XCObj {
 
 void XCObjInfoInit();
 HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list);
-void XCObjSetColors(HSD_JObj* jobj, u32* colors, s32);
 HSD_MObjInfo xCObj = { { { XCObjInfoInit } } };
-
-void ObjectArchiveReadDone(s32, s32* state);
 
 // todo: cleanup
 static inline void ReleaseJObj(CJObj* obj)
@@ -167,9 +161,9 @@ void CJArchive::Clear()
  * @note Size: 0x10
  */
 // the DevCom callback, moves ReadCheck on to parsing
-void ObjectArchiveReadDone(s32, s32* state)
+void ObjectArchiveReadDone(int, void* context, void*, BOOL)
 {
-	(*state)++;
+	++*static_cast<s32*>(context);
 }
 
 /**
@@ -259,8 +253,8 @@ BOOL CJArchive::ReadCheck()
 		if (mFlags & 2) {
 			u32 size = ((mArchive->mFile.mSize + 31) & ~31);
 			if (mAramAddr + size < ARGetSize()) {
-				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, (void*)mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), 0xB, 1,
-				                  ObjectArchiveReadDone, &mState);
+				HSD_DevComRequest(0, (u32)mArchive->mFile.mBuffer, mAramAddr, ((mArchive->mFile.mSize + 31) & ~31), HSD_DEVCOM_MRAM_TO_ARAM,
+				                  1, ObjectArchiveReadDone, &mState);
 				// ObjectArchiveReadDone moves mState on to 3 once the copy is done
 				while (*(volatile s32*)&mState == 2) { }
 			} else {
@@ -467,7 +461,7 @@ HSD_ShapeAnimJoint* CJArchive::GetShapeAnimJoint(s32 id, s32 depth, const s32* p
  * @note Size: 0x80
  */
 // this and the next three are HSD_JObjWalkTree callbacks, the flags come in as the walk's argument
-extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32)
+extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, void* flags, s32)
 {
 	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
@@ -484,7 +478,7 @@ extern "C" void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32)
  * @note Address: 0x801A3768
  * @note Size: 0x80
  */
-extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32)
+extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, void* flags, s32)
 {
 	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
@@ -501,7 +495,7 @@ extern "C" void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32)
  * @note Address: 0x801A36E8
  * @note Size: 0x80
  */
-extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32)
+extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, void* flags, s32)
 {
 	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
@@ -518,7 +512,7 @@ extern "C" void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32)
  * @note Address: 0x801A3668
  * @note Size: 0x80
  */
-extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32)
+extern "C" void JObjClearPObjFlags(HSD_JObj* jobj, void* flags, s32)
 {
 	u32 mask       = (u32)flags;
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
@@ -620,8 +614,9 @@ HSD_TExp* XCObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
  */
 // HSD_JObjWalkTree callback, points every x_cobj material under the jobj at the
 // colors
-void XCObjSetColors(HSD_JObj* jobj, u32* colors, s32)
+void XCObjSetColors(HSD_JObj* jobj, void* context, s32)
 {
+	u32* colors    = static_cast<u32*>(context);
 	HSD_DObj* dobj = HSD_JObjGetDObj(jobj);
 	while (dobj != NULL) {
 		XCObj* mobj = (XCObj*)(dobj != NULL ? dobj->mobj : NULL);
@@ -727,7 +722,7 @@ BOOL CXObj::ReadCheck()
 		Attach(mArchive.LoadJObj());
 		HSD_MObjSetDefaultClass(mobjClass);
 		if (mJObj != NULL) {
-			HSD_JObjWalkTree(mJObj, (HSD_JObjWalkTreeCallback)XCObjSetColors, (f32**)mColors);
+			HSD_JObjWalkTree(mJObj, XCObjSetColors, mColors);
 		}
 		HSD_JObjGetScale(mJObj, &mMoveScale);
 		ClearQueue();

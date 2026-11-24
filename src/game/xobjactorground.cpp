@@ -3,41 +3,26 @@
 #include "game/cgame.h"
 #include <math.h>
 
-static inline void SetGroundPosition(CObjVec& position, const CVec& next)
-{
-	position.Set(next.x, next.y, next.z);
-	position.SetTarget(next);
-}
-
-// the actor's position, by way of a zeroed copy
-static inline void GetGroundPosition(XObj* object, Vec* out)
-{
-	Vec position = { 0.0f, 0.0f, 0.0f };
-	position     = object->mMoveTranslate;
-	*out         = position;
-}
-
 /**
  * @note Address: 0x80106CA4
  * @note Size: 0x3C8
  */
 void XObjActor::UpdateGroundMovement(u32 frames)
 {
-	// Retail uses the origin for the floor probe before filling it with the actor's final position.
-	Vec pos = { 0.0f, 0.0f, 0.0f };
+	// The floor search starts at the stage origin.
+	Vec floorProbe = { 0.0f, 0.0f, 0.0f };
 	CVec step;
-	step.x = mMoveSpeed * (f32)sin(mHeading);
-	step.z = mMoveSpeed * (f32)cos(mHeading);
-	step.y = 0.0f;
-	SetGroundPosition(mMoveTranslate, mMoveTranslate + step * (f32)frames);
-	f32 offset = 0.0f;
-	switch (GetKind()) {
-	case 15:
-		offset = 6.0f;
-		break;
-	}
+	step.x          = mMoveSpeed * (f32)sin(mHeading);
+	step.z          = mMoveSpeed * (f32)cos(mHeading);
+	step.y          = 0.0f;
+	const CVec next = mMoveTranslate + step * (f32)frames;
+	mMoveTranslate.Set(next);
+	mMoveTranslate.SetTarget(next);
+
+	const f32 offset = GetKind() == 15 ? 6.0f : 0.0f;
+	XObjMap* map     = static_cast<XObjMap*>(gGame.mXObjs.mPools[3].First());
 	mActorStatus.mFlags &= ~0x20;
-	if (FindMapFloor((XObjMap*)gGame.mXObjs.mPools[3].mObjects, &pos, &mFloorHit, NULL)) {
+	if (FindMapFloor(map, &floorProbe, &mFloorHit, NULL)) {
 		mGroundHeight = mFloorHit.mHeight + offset;
 		if (!(mActorStatus.mFlags & 8)) {
 			mMoveTranslate.y = mFloorHit.mHeight + offset;
@@ -62,7 +47,7 @@ void XObjActor::UpdateGroundMovement(u32 frames)
 		mMoveTranslate.y = offset;
 		mActorStatus.mFlags |= 0x20;
 	}
-	GetGroundPosition(this, &pos);
-	SetPos(pos, 0);
+	const Vec position = mMoveTranslate;
+	SetPos(position, 0);
 	SetRotateY(mFacing, 0.0f);
 }

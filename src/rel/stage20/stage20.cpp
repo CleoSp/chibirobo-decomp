@@ -1,14 +1,12 @@
+#include "game/relmodule.h"
 #include "types.h"
 #include "Version.h"
 #include "game/cgame.h"
 
 extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
-extern "C" void Stage20NoOpSlot5(void* arg);
-extern "C" void UpdateStage(void* arg);
-extern "C" void InitStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+extern "C" void Stage20NoOpSlot5(s32 arg);
+extern "C" void UpdateStage(s32 arg);
+extern "C" void InitStage(s32 arg);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, 0, 0, 0, Stage20NoOpSlot5 };
@@ -30,7 +28,7 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: stage20 .text 0x8
  * @note Size: 0x4
  */
-extern "C" void Stage20NoOpSlot5(void* arg)
+extern "C" void Stage20NoOpSlot5(s32 arg)
 {
 }
 
@@ -38,7 +36,7 @@ extern "C" void Stage20NoOpSlot5(void* arg)
  * @note Address: stage20 .text 0xC
  * @note Size: 0xA0
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
 	if (timeAnimObj != NULL) {
 		f32 x = 150.0f * gGame.mTimeState.mTime;
@@ -53,7 +51,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: stage20 .text 0xAC
  * @note Size: 0x78
  */
-extern "C" void InitStage(void* arg)
+extern "C" void InitStage(s32 arg)
 {
 	XObj* obj;
 	s32 i;

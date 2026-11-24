@@ -15,8 +15,6 @@ void XObjPopper::UpdateObject(u32 frames)
 		CopyParentMtx(this);
 		HSD_AObj* aobj = GetAObj(mJObj);
 		s32 anim       = mAnimId;
-		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f; // fetched but never read
-		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		switch (anim) {
 		case 1: // deploy done: idle
 			if (aobj->flags & 0x44000000) {
@@ -47,7 +45,7 @@ void XObjPopper::UpdateObject(u32 frames)
 			}
 			break;
 		}
-		UpdateObject__4XObjFUl(this, frames);
+		XObj::UpdateObject(frames);
 	}
 }
 
@@ -132,8 +130,6 @@ void XObjCopter::UpdateObject(u32 frames)
 		CopyParentMtx(this);
 		HSD_AObj* aobj = GetAObj(mJObj);
 		s32 anim       = mAnimId;
-		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f; // fetched but never read
-		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
 		switch (anim) {
 		case 5: // deploy done: idle
 			if (aobj->flags & 0x44000000) {
@@ -157,7 +153,7 @@ void XObjCopter::UpdateObject(u32 frames)
 			}
 			break;
 		}
-		UpdateObject__4XObjFUl(this, frames);
+		XObj::UpdateObject(frames);
 	}
 }
 
@@ -238,16 +234,16 @@ void XObjAttachment::Release()
  */
 void XObjAttachment::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 }
 
 /**
  * @note Address: 0x800D7CC0
  * @note Size: 0x8
  */
-void XObjAttachment::SetParent(HSD_JObj* parent, BOOL fromPlacement)
+void XObjAttachment::SetParent(HSD_JObj* parent, BOOL)
 {
-	mParent = parent; // fromPlacement goes unused
+	mParent = parent;
 }
 
 /**
@@ -266,7 +262,7 @@ void XObjAttachment::ResetForNewGame()
  */
 void XObjAttachment::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	ResetForNewGame();
 }
 

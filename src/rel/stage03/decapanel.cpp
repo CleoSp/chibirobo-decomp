@@ -1,182 +1,27 @@
+#include "game/relmodule.h"
 #include "game/hsd_jobj.h"
+#include "game/cgame.h"
+#include "game/csound.h"
 #include "game/gmath.h"
 #include "game/video.h"
-#include "Version.h"
+#include <math.h>
+#include <sysdolphin/axdriver.h>
 
 extern "C" {
-f64 sin(f64 x);
-s32 HSD_Randi(s32 max);
-void PSMTXScale(Mtx m, f32 x, f32 y, f32 z);
-void PSMTXTrans(Mtx m, f32 x, f32 y, f32 z);
+#include <sysdolphin/random.h>
 }
 
-struct _GXTexObj {
-	u32 dummy[8];
-};
-
-extern "C" u16 GXGetTexObjWidth(_GXTexObj* obj);
-extern "C" u16 GXGetTexObjHeight(_GXTexObj* obj);
-
-struct UnkPair {
-	u32 _00; // _00, first word of the GXTlutObj inside CTexObj::mTlutObj (GXTlutObjPriv::unk0); not accessed
-	u32 _04; // _04, second word of the GXTlutObj inside CTexObj::mTlutObj (GXTlutObjPriv::unk4); not accessed
-};
-
-struct TPLDescriptor;
-
-class CTexObj : public _GXTexObj {
-public:
-	u32 mImage;    // _20, TPLHeader* in the dol CTexObj, kept as u32 here, unused in the REL
-	u32 mClut;     // _24, TPLClutHeader* in the dol CTexObj, kept as u32 here, unused in the REL
-	UnkPair _28;   // _28, first word of the dol CTexObj's GXTlutObj mTlutObj (_28-_33), unused in the REL
-	u32 _30;       // _30, third word of the dol CTexObj's GXTlutObj mTlutObj (_28-_33), unused in the REL
-	u32 mTlutName; // _34, the palette's tlut name, as in the dol CTexObj. Unused in the REL
-	s32 mMtxDirty; // _38, set to 1 after the matrices change so the next draw rebuilds mMtx[3]
-	Mtx mMtx[4];   // _3C
-	// _FC vtable
-
-	CTexObj() { }
-	virtual ~CTexObj() { }
-
-	CTexObj& Init(TPLDescriptor* desc, u32 tlutName);
-};
-
-// vtable is in the dol
-class CFile {
-public:
-	u8 _00[0xC0];  // _00
-	s32 mEntrynum; // _C0, CFile::mEntrynum, DVD entry number, -1 until opened
-	u8 _C4[0x8];   // _C4
-	u8* mData;     // _CC
-	u32 mResult;   // _D0, CFile::mResult: 1 while the read runs, then 0 or an error
-	u32 mArchive;  // _D4, CFile::mArchive, the CFileArchive the file is read from, NULL for the disc
-	u8 _D8[0xC];   // _D8
-	u32 mState;    // _E4, CFile::mState, ReadEx's step, starts at 1
-	// _E8 vtable
-
-	CFile()
-	{
-		mEntrynum = -1;
-		mArchive  = 0;
-		mData     = NULL;
-		mResult   = 0;
-		mState    = 1;
-	}
-	~CFile() { }
-	virtual void vf08();                                                          // _08
-	virtual void* Alloc(u32 size);                                                // _0C
-	virtual void Free();                                                          // _10
-	virtual s32 ReadAsync(const char* path, u32 offset, u32 size, BOOL fromAram); // _14
-	virtual s32 GetResult();                                                      // _18
-	virtual s32 Read(const char* path, u32 offset, u32 size);                     // _1C
-	virtual void Close();                                                         // _20
-	virtual BOOL ReadEx(const char* path, u32 offset, u32 size);                  // _24
-
-	void Release() { Close(); }
-};
-
-class CTpl : public CFile {
-public:
-	CTexObj mTex; // _EC
-	u32 mBound;   // _1EC, CTpl::mBound, set once the read file is bound to mTex; the destructor clears it
-
-	CTpl() { }
-	~CTpl() { mBound = 0; }
-	virtual s32 GetResult(); // _18
-	virtual void Close();    // _20
-};
-
-struct UnkObj {
-#if defined(VERSION_GGTJ01_01)
-	u8 _00[0x220]; // _00
-#else
-	u8 _00[0x228]; // _00
-#endif
-	u64 mFlags; // _228, JP _220
-};
-#if defined(VERSION_GGTJ01_01)
-typedef char UnkObj_size_check[sizeof(UnkObj) == 0x228 ? 1 : -1];
-#else
-typedef char UnkObj_size_check[sizeof(UnkObj) == 0x230 ? 1 : -1];
-#endif
-
-struct UnkObjTable {
-	void* mList; // _00
-};
-
-// partial MainGame layout
-struct CGameS03View {
-#if defined(VERSION_GGTP01)
-	u8 _00000[0x294]; // _00000, the screen is 4 longer in europe
-#else
-	u8 _00000[0x290]; // _00000
-#endif
-	void* mCurRenderMode; // _00290, PAL _00294
-	void* mCurTevStage;   // _00294, PAL _00298
-#if defined(VERSION_GGTJ01_01)
-	u8 _00298[0x19A0 - 0x298]; // _00298
-#elif defined(VERSION_GGTP01)
-	u8 _00298[0x19BC - 0x29C]; // _0029C
-#else
-	u8 _00298[0x19B8 - 0x298]; // _00298
-#endif
-	u32 mPadHeld;               // _019B8, JP _019A0, PAL _019BC
-	u8 _019BC[0xC];             // _019BC, JP _019A4, PAL _019C0
-	u32 mPadTrig;               // _019C8, JP _019B0, PAL _019CC
-	u8 _019CC[0x8];             // _019CC, JP _019B4, PAL _019D0
-	u32 mPadRepeat;             // _019D4, JP _019BC, PAL _019D8
-	u8 _019D8[0x1B10 - 0x19D8]; // _019D8, JP _019C0, PAL _019DC
-	u64 mFlags;                 // _01B10, JP _01AF8, PAL _01B18
-#if defined(VERSION_GGTJ01_01)
-	u8 _01B18[0x5D038 - 0x1B00]; // _01B00
-#elif defined(VERSION_GGTP01)
-	u8 _01B18[0x5D080 - 0x1B20]; // _01B20
-#else
-	u8 _01B18[0x5D080 - 0x1B18]; // _01B18
-#endif
-	UnkObjTable mObjTable; // _5D080, JP _5D038
-#if defined(VERSION_GGTJ01_01)
-	u8 _5D084[0xE7114 - 0x5D03C]; // _5D03C
-#else
-	u8 _5D084[0xE7DFC - 0x5D084]; // _5D084
-#endif
-	void* mScroll2Action; // _E7DFC, JP _E7114
-	u8 _E7E00[0x24];      // _E7E00, JP _E7118
-	u8 mSound[4];         // _E7E24, JP _E713C
-};
-#if defined(VERSION_GGTJ01_01)
-typedef char CGameS03View_size_check[sizeof(CGameS03View) == 0xE7140 ? 1 : -1];
-#else
-typedef char CGameS03View_size_check[sizeof(CGameS03View) == 0xE7E28 ? 1 : -1];
-#endif
-
-extern "C" CGameS03View gGame;
-
-extern "C" {
-UnkObj* ResolveEventObjectId(UnkObjTable* mgr, s16 id);
-BOOL IsGameSoundPlaying(void* sound, s32 id);
-void PlayGameSound(void* sound, s32 id, s32 vol);
-void AXDriverSetAllStreamPitches(s32 x);
-void ClearHideList__20CCameraActionScroll2Fv(void* p);
-void AddHideObj__20CCameraActionScroll2Fl(void* p, s32 id);
-void SetGsBlendMode(void* p, s32, s32, s32, s32);
-void SetGsTevMode(void* p, s32);
-void DrawGsTexturedQuad(CGameS03View* game, CTexObj* tex, u32 c0, u32 c1, u32 c2, u32 c3, f32 x, f32 y, f32 z, f32 w, f32 h, f32, f32, f32);
+static inline CCameraActionScroll2* GetScrollCamera()
+{
+	return static_cast<CCameraActionScroll2*>(gGame.mCameraActions.mTable[CAMACTION_SCROLL2]);
 }
 
 struct DecaPanelKey {
-	f32 x;    // _00
-	f32 y;    // _04
-	u8 mChar; // _08
-};
-
-struct DecaPanelKeySprite {
-	s32 mTex;   // _00
-	f32 mScale; // _04
-	f32 mTrans; // _08, uv x offset — the cell on strip textures
-	s32 mKey;   // _0C
-	f32 mW;     // _10
-	f32 mH;     // _14
+	f32 mX;
+	f32 mY;
+	f32 mTextureOffset;
+	s32 mSound;
+	u8 mChar;
 };
 
 class DecaPanel {
@@ -197,6 +42,7 @@ public:
 	f32 mTargetX;     // _714
 	f32 mTargetY;     // _718
 
+	void ClearDigits();
 	void ResetInput();
 	void LoadTextures();
 };
@@ -225,33 +71,26 @@ s32 CmdClearSavedObjFlags(s32 cmd, s32 count, s32* args);
 s32 CmdClearObjFlagList(s32 cmd, s32 count, s32* args);
 s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* args);
 s32 CmdNop(s32 cmd, s32 count, s32* args);
-void ExitStage(void* arg);
-void DrawStageHud(void* arg);
+void ExitStage(s32 arg);
+void DrawStageHud(s32 arg);
 void UpdateStage(s32 frames);
-void InitStage(void* arg);
+void InitStage(s32 arg);
 void DecaPanel_Update(DecaPanel* work);
 }
 
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
-
 extern "C" {
-RelSlotFunc _prolog_slots[7] = { InitStage, (RelSlotFunc)UpdateStage, NULL, NULL, DrawStageHud, NULL, ExitStage };
+RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, NULL, ExitStage };
 RelCmdFunc _prolog_cmds[]
     = { CmdAddObjFlagList, CmdClearObjFlagList, CmdClearSavedObjFlags, CmdSaveObjFlag,    CmdApplySavedObjFlags, CmdNop, CmdNop,
 	    CmdOpenDecaPanel,  CmdCloseDecaPanel,   CmdIsDecaPanelOpen,    CmdGetDecaPassword };
 }
 
-// 4 rows of 3 keys; the last row's 'C' spans columns 0-1 and '0' gets column 2
-static DecaPanelKey decaPanelKeys[12] = {
-	{ -58.0f, -40.0f, '7' }, { -1.0f, -40.0f, '8' },  { 56.0f, -40.0f, '9' },  { -58.0f, 17.0f, '4' },
-	{ -1.0f, 17.0f, '5' },   { 56.0f, 17.0f, '6' },   { -58.0f, 74.0f, '1' },  { -1.0f, 74.0f, '2' },
-	{ 56.0f, 74.0f, '3' },   { -29.0f, 131.0f, 'C' }, { -29.0f, 131.0f, 'C' }, { 56.0f, 131.0f, '0' },
-};
-
-// one sound id per key cell
-static s32 decaPanelKeySounds[12] = {
-	0x5000E, 0x5000F, 0x50010, 0x5000B, 0x5000C, 0x5000D, 0x50008, 0x50009, 0x5000A, 0x50012, 0x50012, 0x50011,
+// Both cells of the wide clear key share a position, sound and glyph.
+static const DecaPanelKey decaPanelKeys[12] = {
+	{ -58.0f, -40.0f, 0.6f, 0x5000E, '7' }, { -1.0f, -40.0f, 0.7f, 0x5000F, '8' },  { 56.0f, -40.0f, 0.8f, 0x50010, '9' },
+	{ -58.0f, 17.0f, 0.3f, 0x5000B, '4' },  { -1.0f, 17.0f, 0.4f, 0x5000C, '5' },   { 56.0f, 17.0f, 0.5f, 0x5000D, '6' },
+	{ -58.0f, 74.0f, 0.0f, 0x50008, '1' },  { -1.0f, 74.0f, 0.1f, 0x50009, '2' },   { 56.0f, 74.0f, 0.2f, 0x5000A, '3' },
+	{ -29.0f, 131.0f, 0.0f, 0x50012, 'C' }, { -29.0f, 131.0f, 0.0f, 0x50012, 'C' }, { 56.0f, 131.0f, 0.1f * 9.0f, 0x50011, '0' },
 };
 
 static f32 decaPanelDigitPos[6][2] = {
@@ -264,29 +103,24 @@ static s32 decaPanelDigitCells[10] = { 9, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
 static DecaPanel decaPanel;
 static SavedObjFlagList savedObjFlags;
 
-inline void DecaPanel::ResetInput()
+inline void DecaPanel::ClearDigits()
 {
-	mDigits[0] = ' ';
-	mDigits[1] = ' ';
-	mDigits[2] = ' ';
-	mDigits[3] = ' ';
-	mDigits[4] = ' ';
-	mDigits[5] = ' ';
-	mDigitNum  = 0;
-	mCode      = 0;
-	mCursorX   = 0;
-	mCursorY   = 3; // row 3 column 0, the 'C'
-	mLocked    = 0;
-	mCurX = mTargetX = decaPanelKeys[mCursorX + mCursorY * 3].x;
-	mCurY = mTargetY = decaPanelKeys[mCursorX + mCursorY * 3].y;
+	for (u32 i = 0; i < ARRAY_SIZE(mDigits); ++i) {
+		mDigits[i] = ' ';
+	}
+	mDigitNum = 0;
+	mCode     = 0;
 }
 
-inline UnkObj* GetObjById(s16 id)
+inline void DecaPanel::ResetInput()
 {
-	if (gGame.mObjTable.mList != NULL) {
-		return ResolveEventObjectId(&gGame.mObjTable, id);
-	}
-	return NULL;
+	ClearDigits();
+	mCursorX                  = 0;
+	mCursorY                  = 3;
+	mLocked                   = 0;
+	const DecaPanelKey& clear = decaPanelKeys[mCursorX + mCursorY * 3];
+	mCurX = mTargetX = clear.mX;
+	mCurY = mTargetY = clear.mY;
 }
 
 // white at fade alpha
@@ -295,29 +129,19 @@ inline u32 FadeColor(f32 fade)
 	return (u32)(255.0f * fade) | 0xFFFFFF00;
 }
 
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
 inline void DecaPanel::LoadTextures()
 {
-	s32 i;
-
-	switch (mState) { // 1: grab the tpl once, 2: ready
-	case 1:
-		if (mTpl.ReadEx("tpl/stage03.tpl", 0, 0)) {
-			for (i = 0; i < 5; i++) {
-				mTexs[i] = mTpl.mTex.Init((TPLDescriptor*)(*(u8**)(mTpl.mData + 8) + i * 8), 0);
-			}
-			mState  = 2;
-			mActive = 0;
-			mFade   = 0.0f;
-		}
-		break;
-	case 2:
-		break;
+	if (mState != 1 || !mTpl.ReadEx("tpl/stage03.tpl", 0, 0)) {
+		return;
 	}
+
+	const TPLPalette* palette = static_cast<const TPLPalette*>(mTpl.mBuffer);
+	for (u32 i = 0; i < ARRAY_SIZE(mTexs); ++i) {
+		mTexs[i] = mTpl.mTex.Init(&palette->descriptorArray[i], 0);
+	}
+	mState  = 2;
+	mActive = 0;
+	mFade   = 0.0f;
 }
 
 // todo: cleanup
@@ -353,9 +177,9 @@ inline void SavedObjFlagList::Apply(s32 mode)
 			if (mEntries[j].mId == -1) {
 				break;
 			}
-			UnkObj* obj = GetObjById(mEntries[j].mId);
+			XObj* obj = FindObj(mEntries[j].mId);
 			if (mEntries[j].mFlags & 1) { // only entries saved with the flag get it back
-				obj->mFlags |= 0x10000ULL;
+				obj->mStatus.mFlags |= 0x10000ULL;
 			}
 		}
 	} else {
@@ -366,8 +190,8 @@ inline void SavedObjFlagList::Apply(s32 mode)
 			if (mEntries[i].mId == -1) {
 				break;
 			}
-			UnkObj* obj = GetObjById(mEntries[i].mId);
-			obj->mFlags &= ~0x10000ULL;
+			XObj* obj = FindObj(mEntries[i].mId);
+			obj->mStatus.mFlags &= ~0x10000ULL;
 		}
 	}
 }
@@ -397,7 +221,7 @@ extern "C" s32 CmdIsDecaPanelOpen(s32 cmd, s32 count, s32* args)
 extern "C" s32 CmdCloseDecaPanel(s32 cmd, s32 count, s32* args)
 {
 	decaPanel.mActive = 0;
-	gGame.mFlags &= ~2ULL; // the panel's game flag
+	gGame.mStatus.mFlags &= ~2ULL; // the panel's game flag
 	return 0;
 }
 
@@ -405,13 +229,11 @@ extern "C" s32 CmdCloseDecaPanel(s32 cmd, s32 count, s32* args)
  * @note Address: stage03 .text 0x60
  * @note Size: 0x94
  */
-// NONMATCHING: regalloc — the key-index offset and the decaPanel
-// base swap r6/r8; instruction sequence is identical.
 extern "C" s32 CmdOpenDecaPanel(s32 cmd, s32 count, s32* args)
 {
 	decaPanel.ResetInput();
 	decaPanel.mActive = 1;
-	gGame.mFlags |= 2ULL;
+	gGame.mStatus.mFlags |= 2ULL;
 	return 0;
 }
 
@@ -460,9 +282,6 @@ extern "C" s32 CmdOpenDecaPanel(s32 cmd, s32 count, s32* args)
  * @note Address: stage03 .text 0xF4
  * @note Size: 0xBC8
  */
-// NONMATCHING: regalloc/scheduling through the draw section. Retail keeps one fewer fp callee
-// save live, associates the digit-code accumulation differently, does not fuse the
-// 0.9f * pos->y multiply into an fmadds, and addresses key->mChar through a dedicated pointer.
 extern "C" void DecaPanel_Update(DecaPanel* work)
 {
 	if (work->mState != 2) {
@@ -478,32 +297,32 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 	}
 
 	if (work->mFade >= 1.0f) {
-		CGameS03View* game = &gGame;
+		const CPadOne& pad = gGame.mPad.mPad[0];
 		u8 cur             = decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar;
-		if (game->mPadHeld & 0x100) { // A
+		if (pad.mButton & PAD_BUTTON_A) { // A
 			work->mLocked = 1;
 		} else {
 			work->mLocked = 0;
-			if (game->mPadRepeat & 1) { // left
-				do {                    // skip cells that show the same glyph
+			if (pad.mDirRepeat & PAD_BUTTON_LEFT) { // left
+				do {                                // skip cells that show the same glyph
 					if (--work->mCursorX < 0) {
 						work->mCursorX = 2;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
-			} else if (game->mPadRepeat & 2) { // right
+			} else if (pad.mDirRepeat & PAD_BUTTON_RIGHT) { // right
 				do {
 					if (++work->mCursorX > 2) {
 						work->mCursorX = 0;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
 			}
-			if (game->mPadRepeat & 8) { // up
+			if (pad.mDirRepeat & PAD_BUTTON_UP) { // up
 				do {
 					if (--work->mCursorY < 0) {
 						work->mCursorY = 3;
 					}
 				} while (cur == decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar);
-			} else if (game->mPadRepeat & 4) { // down
+			} else if (pad.mDirRepeat & PAD_BUTTON_DOWN) { // down
 				do {
 					if (++work->mCursorY > 3) {
 						work->mCursorY = 0;
@@ -512,74 +331,53 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 			}
 		}
 
-		if (game->mPadTrig & 0x100) { // A confirms the key
-			u8 ch = decaPanelKeys[work->mCursorX + work->mCursorY * 3].mChar;
-			PlayGameSound(gGame.mSound, decaPanelKeySounds[work->mCursorX + work->mCursorY * 3], 0xFF);
-			if (ch == 'C') { // clear
-				work->mDigits[0] = ' ';
-				work->mDigits[1] = ' ';
-				work->mDigits[2] = ' ';
-				work->mDigits[3] = ' ';
-				work->mDigits[4] = ' ';
-				work->mDigits[5] = ' ';
-				work->mDigitNum  = 0;
-				work->mCode      = 0;
+		if (pad.mTrigger & PAD_BUTTON_A) { // A confirms the key
+			const DecaPanelKey& key = decaPanelKeys[work->mCursorX + work->mCursorY * 3];
+			PlayGameSound(&gGame.mSound, key.mSound, 0xFF);
+			if (key.mChar == 'C') {
+				work->ClearDigits();
 			} else {
-				if (work->mDigitNum < 6) {
-					if (work->mDigitNum != 0) { // shift left, the new digit lands last
-						work->mDigits[0] = work->mDigits[1];
-						work->mDigits[1] = work->mDigits[2];
-						work->mDigits[2] = work->mDigits[3];
-						work->mDigits[3] = work->mDigits[4];
-						work->mDigits[4] = work->mDigits[5];
+				if (work->mDigitNum < ARRAY_SIZE(work->mDigits)) {
+					if (work->mDigitNum != 0) {
+						for (u32 i = 1; i < ARRAY_SIZE(work->mDigits); ++i) {
+							work->mDigits[i - 1] = work->mDigits[i];
+						}
 					}
-					work->mDigits[5] = ch;
+					work->mDigits[ARRAY_SIZE(work->mDigits) - 1] = key.mChar;
 					work->mDigitNum++;
 				}
-				if (work->mDigitNum >= 6) { // full entry, build the code
-					work->mCode = 0;
-					if (work->mDigits[0] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[0] - '0';
+				if (work->mDigitNum >= ARRAY_SIZE(work->mDigits)) {
+					s32 code = 0;
+					for (u32 i = 0; i < ARRAY_SIZE(work->mDigits); ++i) {
+						u8 digit = work->mDigits[i];
+						if (digit != ' ') {
+							code = 10 * code + (digit - '0');
+						}
 					}
-					if (work->mDigits[1] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[1] - '0';
-					}
-					if (work->mDigits[2] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[2] - '0';
-					}
-					if (work->mDigits[3] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[3] - '0';
-					}
-					if (work->mDigits[4] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[4] - '0';
-					}
-					if (work->mDigits[5] != ' ') {
-						work->mCode = work->mCode * 10 + work->mDigits[5] - '0';
-					}
+					work->mCode   = code;
 					work->mActive = 0;
-					gGame.mFlags &= ~2ULL;
+					gGame.mStatus.mFlags &= ~2ULL;
 				}
 			}
 		}
-		if (game->mPadTrig & 0x200) { // B cancels
+		if (pad.mTrigger & PAD_BUTTON_B) { // B cancels
 			work->mCode   = -1;
 			work->mActive = 0;
-			gGame.mFlags &= ~2ULL;
+			gGame.mStatus.mFlags &= ~2ULL;
 		}
 	}
 
 	if (work->mFade > 0.0f) {
-		DecaPanelKey* key;
 		CTexObj* tex;
 		f32 keyW, keyH, wideW, wideH;
 		s32 i;
 
-		SetGsBlendMode(gGame.mCurRenderMode, 1, 4, 5, 15);
-		SetGsTevMode(gGame.mCurTevStage, 0);
+		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 
-		key            = &decaPanelKeys[work->mCursorX + work->mCursorY * 3];
-		work->mTargetX = key->x;
-		work->mTargetY = key->y;
+		const DecaPanelKey& selected = decaPanelKeys[work->mCursorX + work->mCursorY * 3];
+		work->mTargetX               = selected.mX;
+		work->mTargetY               = selected.mY;
 		// the cursor sprite chases the current key
 		work->mCurX += 0.8f * (work->mTargetX - work->mCurX);
 		work->mCurY += 0.8f * (work->mTargetY - work->mCurY);
@@ -589,7 +387,7 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 			u16 w     = GXGetTexObjWidth(tex);
 			u16 h     = GXGetTexObjHeight(tex);
 			u32 color = FadeColor(work->mFade);
-			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f, 200.0f, 0.0f, 0.9f * w, 0.9f * h, 0.0f, 0.0f, 0.0f);
+			DrawGsTexturedQuad(&gGame.mGs, tex, color, color, color, color, 320.0f, 200.0f, 0.0f, 0.9f * w, 0.9f * h, 0.0f, 0.0f, 0.0f);
 		}
 
 		// tex1 is a 10-cell digit strip, one cell per key
@@ -598,67 +396,38 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 		wideW = 0.9f * GXGetTexObjWidth(&work->mTexs[2]);
 		wideH = 0.9f * GXGetTexObjHeight(&work->mTexs[2]);
 
-		// tex1's cell picks the digit, tex2 is the wide 'C'
-		DecaPanelKeySprite draws[12] = {
-			{ 1, 0.1f, 0.6f, 0, 0.0f, 0.0f }, { 1, 0.1f, 0.7f, 1, 0.0f, 0.0f },  { 1, 0.1f, 0.8f, 2, 0.0f, 0.0f },
-			{ 1, 0.1f, 0.3f, 3, 0.0f, 0.0f }, { 1, 0.1f, 0.4f, 4, 0.0f, 0.0f },  { 1, 0.1f, 0.5f, 5, 0.0f, 0.0f },
-			{ 1, 0.1f, 0.0f, 6, 0.0f, 0.0f }, { 1, 0.1f, 0.1f, 7, 0.0f, 0.0f },  { 1, 0.1f, 0.2f, 8, 0.0f, 0.0f },
-			{ 2, 1.0f, 0.0f, 9, 0.0f, 0.0f }, { 2, 1.0f, 0.0f, 10, 0.0f, 0.0f }, { 1, 0.1f, 0.1f * 9, 11, 0.0f, 0.0f },
-		};
-		draws[0].mW  = keyW;
-		draws[0].mH  = keyH;
-		draws[1].mW  = keyW;
-		draws[1].mH  = keyH;
-		draws[2].mW  = keyW;
-		draws[2].mH  = keyH;
-		draws[3].mW  = keyW;
-		draws[3].mH  = keyH;
-		draws[4].mW  = keyW;
-		draws[4].mH  = keyH;
-		draws[5].mW  = keyW;
-		draws[5].mH  = keyH;
-		draws[6].mW  = keyW;
-		draws[6].mH  = keyH;
-		draws[7].mW  = keyW;
-		draws[7].mH  = keyH;
-		draws[8].mW  = keyW;
-		draws[8].mH  = keyH;
-		draws[9].mW  = wideW;
-		draws[9].mH  = wideH;
-		draws[10].mW = wideW;
-		draws[10].mH = wideH;
-		draws[11].mW = keyW;
-		draws[11].mH = keyH;
-
-		for (i = 0; i < 12; i++) {
-			if (work->mLocked && key->mChar == decaPanelKeys[i].mChar) {
-				continue; // the held key stays hidden
+		for (i = 0; i < ARRAY_SIZE(decaPanelKeys); i++) {
+			const DecaPanelKey& key = decaPanelKeys[i];
+			if (work->mLocked && selected.mChar == key.mChar) {
+				continue;
 			}
-			tex = &work->mTexs[draws[i].mTex];
-			PSMTXScale(tex->mMtx[1], draws[i].mScale, 1.0f, 1.0f);
-			tex->mMtxDirty = 1;
-			PSMTXTrans(tex->mMtx[0], draws[i].mTrans, 0.0f, 0.0f);
-			tex->mMtxDirty    = 1;
-			DecaPanelKey* pos = &decaPanelKeys[draws[i].mKey];
-			f32 x             = 0.9f * pos->x;
-			u32 color         = FadeColor(work->mFade);
-			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f + x, 200.0f + 0.9f * pos->y, 0.0f, draws[i].mW, draws[i].mH,
-			                   0.0f, 0.0f, 0.0f);
+
+			bool clear = key.mChar == 'C';
+			tex        = &work->mTexs[clear ? 2 : 1];
+			PSMTXScale(tex->mMtx[1], clear ? 1.0f : 0.1f, 1.0f, 1.0f);
+			PSMTXTrans(tex->mMtx[0], key.mTextureOffset, 0.0f, 0.0f);
+			tex->mMtxDirty = TRUE;
+
+			f32 x     = 0.9f * key.mX;
+			f32 y     = 0.9f * key.mY;
+			u32 color = FadeColor(work->mFade);
+			DrawGsTexturedQuad(&gGame.mGs, tex, color, color, color, color, 320.0f + x, 200.0f + y, 0.0f, clear ? wideW : keyW,
+			                   clear ? wideH : keyH, 0.0f, 0.0f, 0.0f);
 		}
 
 		// tex4 is the digit strip for the typed entry
 		tex = &work->mTexs[4];
 		PSMTXScale(tex->mMtx[1], 0.1f, 1.0f, 1.0f);
-		tex->mMtxDirty = 1;
+		tex->mMtxDirty = TRUE;
 		keyW           = 0.9f * (GXGetTexObjWidth(tex) / 10);
 		keyH           = 0.9f * GXGetTexObjHeight(tex);
 		for (i = 0; i < 6; i++) {
 			u8 ch = work->mDigits[i];
 			if (ch != ' ') {
 				PSMTXTrans(tex->mMtx[0], 0.1f * decaPanelDigitCells[ch - '0'], 0.0f, 0.0f);
-				tex->mMtxDirty = 1;
+				tex->mMtxDirty = TRUE;
 				u32 color      = FadeColor(work->mFade);
-				DrawGsTexturedQuad(&gGame, tex, color, color, color, color, 320.0f + 0.9f * decaPanelDigitPos[i][0],
+				DrawGsTexturedQuad(&gGame.mGs, tex, color, color, color, color, 320.0f + 0.9f * decaPanelDigitPos[i][0],
 				                   200.0f + 0.9f * decaPanelDigitPos[i][1], 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
 			}
 		}
@@ -669,10 +438,10 @@ extern "C" void DecaPanel_Update(DecaPanel* work)
 		keyH = 0.9f * GXGetTexObjHeight(tex);
 		{
 			u32 color = FadeColor(work->mFade);
-			DrawGsTexturedQuad(&gGame, tex, color, color, color, color, keyW / 3.0f + (320.0f + 0.9f * work->mCurX),
+			DrawGsTexturedQuad(&gGame.mGs, tex, color, color, color, color, keyW / 3.0f + (320.0f + 0.9f * work->mCurX),
 			                   keyH / 3.0f + (200.0f + 0.9f * work->mCurY), 0.0f, keyW, keyH, 0.0f, 0.0f, 0.0f);
 		}
-		SetGsTevMode(gGame.mCurTevStage, 4);
+		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 	}
 }
 
@@ -1587,9 +1356,9 @@ extern "C" s32 CmdSaveObjFlag(s32 cmd, s32 count, s32* args)
 	s32 id = args[0];
 	if (savedObjFlags.mNum < 300) {
 		savedObjFlags.mEntries[savedObjFlags.mNum].mId = id;
-		UnkObj* obj                                    = GetObjById(savedObjFlags.mEntries[savedObjFlags.mNum].mId);
-		if (obj != NULL && (obj->mFlags & 1)) { // flag 1 gates whether it saves
-			if (obj->mFlags & 0x10000) {
+		XObj* obj                                      = FindObj(savedObjFlags.mEntries[savedObjFlags.mNum].mId);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) { // flag 1 gates whether it saves
+			if (obj->mStatus.mFlags & 0x10000) {
 				savedObjFlags.mEntries[savedObjFlags.mNum].mFlags |= 1;
 			}
 			savedObjFlags.mNum++;
@@ -1614,7 +1383,7 @@ extern "C" s32 CmdClearSavedObjFlags(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdClearObjFlagList(s32 cmd, s32 count, s32* args)
 {
-	ClearHideList__20CCameraActionScroll2Fv(gGame.mScroll2Action);
+	GetScrollCamera()->ClearHideList();
 	return 0;
 }
 
@@ -1626,7 +1395,7 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* args)
 {
 	s32 i;
 	for (i = 0; i < count; i++) {
-		AddHideObj__20CCameraActionScroll2Fl(gGame.mScroll2Action, args[i]);
+		GetScrollCamera()->AddHideObj(args[i]);
 	}
 	return 0;
 }
@@ -1644,17 +1413,17 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: stage03 .text 0x105C
  * @note Size: 0x3C
  */
-extern "C" void ExitStage(void* arg)
+extern "C" void ExitStage(s32 arg)
 {
 	decaPanel.mState = 0;
-	decaPanel.mTpl.Release();
+	decaPanel.mTpl.Close();
 }
 
 /**
  * @note Address: stage03 .text 0x1098
  * @note Size: 0x28
  */
-extern "C" void DrawStageHud(void* arg)
+extern "C" void DrawStageHud(s32 arg)
 {
 	DecaPanel_Update(&decaPanel);
 }
@@ -1668,26 +1437,26 @@ extern "C" void UpdateStage(s32 frames)
 	static s32 sTimer = 0;
 
 	sTimer += frames;
-	if (IsGameSoundPlaying(gGame.mSound, 0xFFFF000E)) {
+	if (IsGameSoundPlaying(&gGame.mSound, 0xFFFF000E)) {
 		AXDriverSetAllStreamPitches(5.0f * (f32)sin(DEG2RAD * sTimer)); // wobble the stream's pitch
 	}
-	if (IsGameSoundPlaying(gGame.mSound, 0xFFFF000F)) {
+	if (IsGameSoundPlaying(&gGame.mSound, 0xFFFF000F)) {
 		AXDriverSetAllStreamPitches(5.0f * (f32)sin(DEG2RAD * sTimer));
 	}
 	// a rare ambient sound, only while no event script is loaded
-	if (gGame.mObjTable.mList == NULL && HSD_Randi(5000) < 10) {
+	if (gGame.mEvt.mData.mScript == NULL && HSD_Randi(5000) < 10) {
 		switch (HSD_Randi(4)) {
 		case 0:
-			PlayGameSound(gGame.mSound, 0x50004, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x50004, 0xFF);
 			break;
 		case 1:
-			PlayGameSound(gGame.mSound, 0x50005, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x50005, 0xFF);
 			break;
 		case 2:
-			PlayGameSound(gGame.mSound, 0x50006, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x50006, 0xFF);
 			break;
 		case 3:
-			PlayGameSound(gGame.mSound, 0x50007, 0xFF);
+			PlayGameSound(&gGame.mSound, 0x50007, 0xFF);
 			break;
 		}
 	}
@@ -1699,9 +1468,7 @@ extern "C" void UpdateStage(s32 frames)
  * @note Address: stage03 .text 0x141C
  * @note Size: 0x84
  */
-// NONMATCHING: regalloc — the key-index offset and the ' '/1
-// constants land in different scratch regs; sequence is identical.
-extern "C" void InitStage(void* arg)
+extern "C" void InitStage(s32 arg)
 {
 	decaPanel.mActive = 0;
 	decaPanel.mState  = 1;

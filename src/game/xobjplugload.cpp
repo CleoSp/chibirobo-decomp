@@ -1,32 +1,30 @@
 #include "game/xchr.h"
+#include "game/cgame.h"
 #include "game/cjobjinlineattach.h"
-#include "game/texturecopy.h"
 #include "game/stagedata.h"
-
-// XObjPlug, the plug chibi robo pulls around: its load and init
 
 extern "C" {
 
-// XObjPlug::LoadFromPlacement, the plug, then its wire effect from spawn 16
 /**
  * @note Address: 0x800D9414
  * @note Size: 0x104
  */
 BOOL XObjPlug::LoadFromPlacement(const CoordInfo& info)
 {
-	switch (mLoadState) {
-	case 0:
-		if (!LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
-			break;
-		}
-		mLoadState++;
-	case 1:
-		if (mWire.LoadFromPlacement(CoordInfo(GetSpawnData(16)))) {
-			Vec pos = gGame.GetPlayer()->mMoveTranslate;
-			ResetPlugCordPoints(&mCord, pos.x, pos.y, pos.z);
-			mLoadState++;
-		}
-		break;
+	if (mLoadState == 0) {
+		if (!XObj::LoadFromPlacement(info))
+			return FALSE;
+		++mLoadState;
+	}
+
+	if (mLoadState == 1) {
+		const CoordInfo wirePlacement(GetSpawnData(16));
+		if (!mWire.LoadFromPlacement(wirePlacement))
+			return FALSE;
+
+		const Vec& position = gGame.GetPlayer()->mMoveTranslate;
+		ResetPlugCordPoints(&mCord, position.x, position.y, position.z);
+		++mLoadState;
 	}
 	return mLoadState > 1;
 }
@@ -38,15 +36,18 @@ BOOL XObjPlug::LoadFromPlacement(const CoordInfo& info)
  */
 void XObjPlug::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mConnection = 0;
 	if (mStatus.mFlags & 1) {
-		Vec position = gGame.GetPlayer()->mMoveTranslate;
+		const Vec& position = gGame.GetPlayer()->mMoveTranslate;
 		ResetPlugCordPoints(&mCord, position.x, position.y, position.z);
-		s32 path[] = { 0 };
-		CJObj joint(FindJointByPath(mJObj, path, 1));
-		joint.SetRotationX(0.0f, FALSE);
-		joint.SetRotationZ(0.0f, FALSE);
+		s32 path[]          = { 0 };
+		HSD_JObj* rootJoint = FindJointByPath(mJObj, path, 1);
+		if (rootJoint != NULL) {
+			CJObj joint(rootJoint);
+			joint.SetRotationX(0.0f, FALSE);
+			joint.SetRotationZ(0.0f, FALSE);
+		}
 	}
 	SetPlugCordEndpointSource(&mCord, 0, &mCordAnchor);
 	SetPlugCordEndpointSource(&mCord, 1, NULL);
@@ -82,7 +83,7 @@ void SetPlugCordSpeed(XObjPlug* object, f32 speed)
  */
 void XObjPlug::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	InitPlugCord(&mCord, 20, 0.0f, 0.0f, 0.0f, 0.5f);
 	mCord.mColor = 0x141414FF;
 	mCord._60    = 0x141414FF;

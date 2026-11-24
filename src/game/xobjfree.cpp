@@ -45,7 +45,7 @@ static inline HSD_ShapeAnimJoint* Shape(CJArchive* archive, s32 id)
  */
 void XObjFree::OnHitFromPosition(const Vec& pos, f32 value)
 {
-	OnHitFromPosition__4XObjFRC3Vecf(this, &pos, value);
+	XObj::OnHitFromPosition(pos, value);
 	if (mStatus.mFlags & 0x04000000ULL) {
 		f32 remaining = mLife - value;
 		mLife         = remaining;

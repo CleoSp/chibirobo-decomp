@@ -1,7 +1,5 @@
 #include "game/xobjattachment.h"
 #include "game/objectfloorquery.h"
-#include "game/cgame.h"
-#include "game/cvec.h"
 
 /**
  * @note Address: 0x800D9B10
@@ -9,7 +7,7 @@
  */
 extern "C" f32 FindPlugCordFloor(XObjPlugCord* cord, Vec* pos, f32 radius, f32 height)
 {
-	XObjMap* map = (XObjMap*)gGame.mXObjs.mPools[3].mObjects;
+	XObjMap* map = static_cast<XObjMap*>(gGame.mXObjs.mPools[3].First());
 	if (!FindMapFloor(map, pos, &cord->mFloorHit, NULL)) {
 		cord->mFloorHit.mTriangle = -1;
 		cord->mFloorHit.mTrigon   = -1;
@@ -27,10 +25,7 @@ extern "C" f32 FindPlugCordFloor(XObjPlugCord* cord, Vec* pos, f32 radius, f32 h
 			continue;
 		s32 floor = 0;
 		while (floor != -1) {
-			f32 z = pos->z;
-			f32 y = pos->y;
-			f32 x = pos->x;
-			if (ProbeObjectFloor(object, CVec(x, y, z), CVec(x, y, z), radius, height, &push, &contact, &floor) & 1) {
+			if (object->TestFloorCollision(pos, pos, radius, height, &push, &contact, &floor, 0) & 1) {
 				f32 floorHeight = object->mFloorHeights[object->mHitFloorIndex];
 				if (__fpclassifyf(floorHeight) != FP_NAN && pos->y + 1.0f >= floorHeight && floorHeight >= highest)
 					highest = floorHeight;

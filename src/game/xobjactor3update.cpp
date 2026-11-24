@@ -1,6 +1,5 @@
 #include "game/xobjactor.h"
 #include "game/xchr.h"
-#include <stdlib.h>
 
 // XObjActor3's update
 
@@ -117,7 +116,7 @@ void XObjActor3::UpdateObject(u32 frames)
 		SetRotateY(mHeading, 0.0f);
 		SetPos(mMoveTranslate, 0);
 	}
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (GetKind() == 0x31B) { // 0x31B (haisui_nezumi) runs its dust particles
 		UpdateParticlePool(&mDust.mPtcl, frames);
 	}
@@ -125,7 +124,7 @@ void XObjActor3::UpdateObject(u32 frames)
 		CarryRiderAtActorJoint(this, frames);
 	}
 	if (mActorFlags.mFlags & 2) { // flag 2: carried parts follow their joints
-		for (u32 i = 0; i < 8; i++) {
+		for (u32 i = 0; i < ARRAY_SIZE(mParts); i++) {
 			if (mParts[i].mJoint != NULL && mParts[i].mObj != NULL) {
 				Mtx t;
 				XObj* obj = mParts[i].mObj;
@@ -141,9 +140,7 @@ void XObjActor3::UpdateObject(u32 frames)
 				Mtx m;
 				PSMTXConcat(mParts[i].mMtx, s, m);
 				PSMTXConcat(m, t, m);
-				HSD_JObj* joint = mParts[i].mObj->mJObj;
-				MtxPtr mp       = m;
-				HSD_JObjCopyMtx(joint, mp);
+				HSD_JObjCopyMtx(mParts[i].mObj->mJObj, m);
 			}
 		}
 	}

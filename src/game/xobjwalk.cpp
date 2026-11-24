@@ -8,5 +8,5 @@
 void XObj::ApplyMaterialPresets(u32* flags)
 {
 	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, ApplyJointMaterialPEPresets, (f32**)flags);
+		HSD_JObjWalkTree(mJObj, ApplyJointMaterialPEPresets, flags);
 }

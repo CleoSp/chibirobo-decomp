@@ -20,12 +20,6 @@ extern "C" {
 
 // geometry, joint and string helpers, backwards for deferred inlining
 
-extern "C" {
-HSD_DObj* HSD_DObjGetNext__FP9_HSD_DObj(HSD_DObj* dobj);
-HSD_PObj* HSD_DObjGetPObj__FP9_HSD_DObj(HSD_DObj* dobj);
-HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj);
-}
-
 // half width characters and their full width twins, two bytes each in shift jis
 static const u8* sHalfWidthCharacters = (const u8*)" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklm"
                                                    "nopqrstuvwxyz{|}~\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF\xB0"
@@ -88,6 +82,15 @@ void BlendJointPose(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t);
 void CopyJointPoseAsQuaternion(HSD_JObj* src, HSD_JObj* dst);
 }
 
+static void ReadJointRotationAsQuaternion(HSD_JObj* joint, Quaternion* rotation)
+{
+	HSD_JObjGetRotation(joint, rotation);
+	if (!(joint->flags & USE_QUATERNION)) {
+		Vec euler = { rotation->x, rotation->y, rotation->z };
+		EulerToQuat(&euler, rotation);
+	}
+}
+
 extern "C" {
 // puts the joint's rotation, scale and position back on the jobj
 inline void RestoreJointLocalPose(HSD_Joint* joint, HSD_JObj* jobj)
@@ -110,11 +113,8 @@ inline void RestoreJointLocalPose(HSD_Joint* joint, HSD_JObj* jobj)
 inline void ConvertJointRotationToQuaternion(HSD_JObj* jobj)
 {
 	if (!(jobj->flags & USE_QUATERNION)) {
-		Vec euler;
 		Quaternion q;
-		// reads four floats into a three float vec, w lands past it. retail does this too
-		HSD_JObjGetRotation(jobj, (Quaternion*)&euler);
-		EulerToQuat(&euler, &q);
+		ReadJointRotationAsQuaternion(jobj, &q);
 		HSD_JObjSetRotation(jobj, &q);
 		jobj->flags |= USE_QUATERNION;
 	}
@@ -266,15 +266,6 @@ extern "C" HSD_AObj* FindJointAnimationInTree(HSD_JObj* jobj)
 }
 
 /**
- * @note Address: 0x801908E0
- * @note Size: 0x18
- */
-extern "C" HSD_MObj* HSD_DObjGetMObj__FP9_HSD_DObj(HSD_DObj* dobj)
-{
-	return dobj != NULL ? dobj->mobj : NULL;
-}
-
-/**
  * @note Address: 0x801905D4
  * @note Size: 0x30C
  */
@@ -302,24 +293,6 @@ extern "C" HSD_AObj* FindMaterialOrTextureAnimationInJointTree(HSD_JObj* jobj)
 	}
 	return aobj;
 }
-/**
- * @note Address: 0x801905BC
- * @note Size: 0x18
- */
-extern "C" HSD_PObj* HSD_DObjGetPObj__FP9_HSD_DObj(HSD_DObj* dobj)
-{
-	return dobj != NULL ? dobj->pobj : NULL;
-}
-
-/**
- * @note Address: 0x801905A4
- * @note Size: 0x18
- */
-extern "C" HSD_DObj* HSD_DObjGetNext__FP9_HSD_DObj(HSD_DObj* dobj)
-{
-	return dobj != NULL ? dobj->next : NULL;
-}
-
 /**
  * @note Address: 0x801902C4
  * @note Size: 0x2E0
@@ -371,33 +344,10 @@ extern "C" void RemoveJointTreeDisplayObjects(HSD_JObj* jobj)
 }
 
 /**
- * @note Address: 0x8019019C
- * @note Size: 0x128
- */
-
-/**
- * @note Address: 0x80190178
- * @note Size: 0x24
- */
-// the compiler's Quaternion copy assignment
-
-/**
- * @note Address: 0x801900F8
- * @note Size: 0x80
- */
-// HSD_JObjGetRotation(_HSD_JObj*, Quaternion*)
-
-/**
- * @note Address: 0x80190024
- * @note Size: 0xD4
- */
-// HSD_JObjSetRotation(_HSD_JObj*, Quaternion*)
-
-/**
  * @note Address: 0x8018FD80
  * @note Size: 0x2A4
  */
-// every jobj in the tree to quaternion rotation
+// converts the joint and its immediate children to quaternion rotation
 void ConvertJointTreeRotationToQuaternion(HSD_JObj* jobj)
 {
 	HSD_JObj* child;
@@ -410,17 +360,6 @@ void ConvertJointTreeRotationToQuaternion(HSD_JObj* jobj)
 		ConvertJointTreeRotationToQuaternion(child);
 	}
 }
-
-/**
- * @note Address: 0x8018FCA0
- * @note Size: 0xE0
- */
-
-/**
- * @note Address: 0x8018FC30
- * @note Size: 0x70
- */
-// HSD_JObjSetMtxDirty(_HSD_JObj*)
 
 /**
  * @note Address: 0x8018F9B4
@@ -439,11 +378,7 @@ void RestoreJointTreePose(HSD_Joint* joint, HSD_JObj* jobj)
 	if (jobj->flags & INSTANCE) {
 		return;
 	}
-	for (child = jobj->child, cjoint = joint->child; child != NULL && cjoint != NULL;
-	     child = child->next, cjoint = cjoint != NULL ? cjoint->next : NULL) {
-		if (child == NULL || cjoint == NULL) {
-			break;
-		}
+	for (child = jobj->child, cjoint = joint->child; child != NULL && cjoint != NULL; child = child->next, cjoint = cjoint->next) {
 		RestoreJointTreePose(cjoint, child);
 	}
 }
@@ -462,12 +397,7 @@ void CopyJointPoseAsQuaternion(HSD_JObj* src, HSD_JObj* dst)
 	HSD_JObjSetTranslate(dst, &v);
 	HSD_JObjGetScale(src, &v);
 	HSD_JObjSetScale(dst, &v);
-	if (src->flags & USE_QUATERNION) {
-		HSD_JObjGetRotation(src, &q);
-	} else {
-		HSD_JObjGetRotation(src, (Quaternion*)&v);
-		EulerToQuat(&v, &q);
-	}
+	ReadJointRotationAsQuaternion(src, &q);
 	HSD_JObjSetRotation(dst, &q);
 }
 
@@ -489,9 +419,6 @@ void CopyJointPoseTree(HSD_JObj* src, HSD_JObj* dst)
 		return;
 	}
 	for (s = src->child, d = dst->child; s != NULL && d != NULL; s = s->next, d = d->next) {
-		if (s == NULL || d == NULL) {
-			break;
-		}
 		CopyJointPoseTree(s, d);
 	}
 }
@@ -525,19 +452,8 @@ void BlendJointPose(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 	v.z = va.z * s + vb.z * t;
 	HSD_JObjSetScale(out, &v);
 
-	// the euler reads reuse v, w lands past it again
-	if (a->flags & USE_QUATERNION) {
-		HSD_JObjGetRotation(a, &qa);
-	} else {
-		HSD_JObjGetRotation(a, (Quaternion*)&v);
-		EulerToQuat(&v, &qa);
-	}
-	if (b->flags & USE_QUATERNION) {
-		HSD_JObjGetRotation(b, &qb);
-	} else {
-		HSD_JObjGetRotation(b, (Quaternion*)&v);
-		EulerToQuat(&v, &qb);
-	}
+	ReadJointRotationAsQuaternion(a, &qa);
+	ReadJointRotationAsQuaternion(b, &qb);
 	// take the short way round
 	if ((qa.x - qb.x) * (qa.x - qb.x) + (qa.y - qb.y) * (qa.y - qb.y) + (qa.z - qb.z) * (qa.z - qb.z) + (qa.w - qb.w) * (qa.w - qb.w)
 	    > (qa.x + qb.x) * (qa.x + qb.x) + (qa.y + qb.y) * (qa.y + qb.y) + (qa.z + qb.z) * (qa.z + qb.z) + (qa.w + qb.w) * (qa.w + qb.w)) {
@@ -568,10 +484,8 @@ void BlendJointTreePoses(HSD_JObj* a, HSD_JObj* b, HSD_JObj* out, f32 t)
 	if (a->flags & INSTANCE) {
 		return;
 	}
-	for (ca = a->child, cb = b->child, cout = out->child; ca != NULL; ca = ca->next, cb = cb->next, cout = cout->next) {
-		if (ca == NULL || cb == NULL || cout == NULL) {
-			break;
-		}
+	for (ca = a->child, cb = b->child, cout = out->child; ca != NULL && cb != NULL && cout != NULL;
+	     ca = ca->next, cb = cb->next, cout = cout->next) {
 		BlendJointTreePoses(ca, cb, cout, t);
 	}
 }
@@ -842,9 +756,8 @@ extern "C" int ResolveCircleWallCollisionXZ(const Vec* fromPos, const Vec* toPos
 	CVec n;
 	GetOutwardPerpendicularToEdge(&from, &a, &b, &n);
 	PSVECNormalize(&n, &n);
-	CVec fromEdge = from + n * radius; // never used, it's still computed
-	CVec toEdge   = to + n * radius;
-	int ret       = 0;
+	CVec toEdge = to + n * radius;
+	int ret     = 0;
 
 	// one sided: from must be on the wall's LineSide <= 0 and the circle at to touch or cross it
 	if (LineSide(a, b, toEdge) >= 0.0f && LineSide(a, b, from) <= 0.0f) {

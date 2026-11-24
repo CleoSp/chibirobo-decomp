@@ -58,7 +58,7 @@ public:
 	    : mTri(NULL)
 	{
 	}
-	virtual ~CTrigon() { } // _08
+	virtual ~CTrigon(); // _08
 
 	TRIGON_INFO* Create(HSD_JObj* jobj);
 	void Release();

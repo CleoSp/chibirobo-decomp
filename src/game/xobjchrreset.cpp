@@ -1,5 +1,3 @@
-// These joint diagnostics are shared by the player routines in the retail object.
-#define JOBJ_H_ASSERT_JOINT(line, joint) ((joint) ? (void)0 : __assert("jobj.h", line, "jobj"))
 #include "game/xchr.h"
 #include "game/evt.h"
 
@@ -11,9 +9,8 @@
 void XObjChr::Release()
 {
 	RestoreControl();
-	HSD_JObj* jobj = mJObj;
-	if (jobj != NULL) {
-		HSD_JObjClearMtxFlags(jobj);
+	if (mJObj != NULL) {
+		HSD_JObjClearMtxFlags(mJObj);
 	}
 
 	if (mLift.mState != 0) {

@@ -9,9 +9,6 @@ extern "C" {
 #include "game/globals.h"
 #include "game/xchr.h"
 #include "game/cvec.h"
-extern "C" {
-#include <sysdolphin/class_alloc.h>
-}
 
 // XObj, the CXObjIntp every placed object in the house is built on
 
@@ -20,17 +17,6 @@ extern "C" {
 #else
 #define ANIMATION_RATE(rate) (rate)
 #endif
-
-// the pe presets sit 0x5C into this unit's rodata, which isn't split out yet
-struct XObjPEPresets {
-	u8 _00[0x5C];          // _00
-	HSD_PEDesc mReset;     // _5C
-	HSD_PEDesc mPreset[3]; // _68
-};
-
-extern "C" {
-extern const XObjPEPresets gObjectPixelEnginePresets;
-}
 
 static inline u32 ShadowSize(XObj* object)
 {
@@ -65,9 +51,8 @@ extern "C" void UpdateObjectFloorHeights(XObj* object)
 		return;
 	object->mStatus.mFlags &= ~0x0010000000000000ULL;
 	for (s32 i = 0; object->mFloors[i].mId != -1; ++i) { // the list ends at id -1
-		Vec center = object->mMoveScale
-		           * (object->mToppleOffset + ReadFloorCoordinates(object->mFloors[i].mCenterOffset, gObjectFloorOffsetTemplate));
-		Vec extent = object->mMoveScale * ReadFloorCoordinates(object->mFloors[i].mExtent, lbl_80378148);
+		Vec center = object->mMoveScale * (object->mToppleOffset + ReadObjectFloorOffset(object->mFloors[i]));
+		Vec extent = object->mMoveScale * ReadObjectFloorExtent(object->mFloors[i]);
 		f32 yaw    = object->mMoveRotate.y + DEG2RAD * object->mFloors[i].mYawDegrees;
 		switch (object->mFloors[i].mId) {
 		case 0:
@@ -95,8 +80,8 @@ extern "C" void UpdateObjectFloorHeights(XObj* object)
 		case 5: { // a quad: it and the three records after it share one height
 			Vec corners[4];
 			for (s32 j = 0; j < 4; ++j)
-				corners[j] = object->mToppleOffset + ReadFloorCoordinates(object->mFloors[i + j].mCenterOffset, gObjectFloorOffsetTemplate);
-			Vec scale = object->mMoveScale * ReadFloorCoordinates(object->mFloors[i].mExtent, lbl_80378148);
+				corners[j] = object->mToppleOffset + ReadObjectFloorOffset(object->mFloors[i + j]);
+			Vec scale = object->mMoveScale * ReadObjectFloorExtent(object->mFloors[i]);
 			f32 angle = object->mMoveRotate.y + DEG2RAD * object->mFloors[i].mYawDegrees;
 			Mtx translate, rotate, scaling, transform;
 			PSMTXTrans(translate, object->mMoveTranslate.x, object->mMoveTranslate.y, object->mMoveTranslate.z);
@@ -134,103 +119,75 @@ extern "C" void UpdateObjectFloorXZExtent(XObj* object)
 	if (!(object->mStatus.mFlags & 0x0200000000000000ULL))
 		return;
 	f32 maxX = 0.0f, maxZ = 0.0f;
-	// Type 3 starts two vectors before the four type-5 corners in the original frame.
-	struct Geometry {
-		Vec samples[6];
-		Mtx polygon;
-		Mtx polygonScale;
-		Mtx polygonRotate;
-		Mtx polygonWorld;
-		Mtx segment;
-		Mtx segmentScale;
-		Mtx segmentTurn;
-		Mtx segmentRotate;
-		Mtx segmentLocal;
-		Mtx segmentWorld;
-		Mtx prismResult;
-		Mtx prismScale;
-		Mtx prismRotate;
-		Mtx prismLocal;
-		Mtx prismWorld;
-		Mtx roundResult;
-		Mtx roundScale;
-		Mtx roundRotate;
-		Mtx roundLocal;
-		Mtx roundWorld;
-		Vec prismPoints[8];
-	} geometry;
-
 	for (s32 i = 0; object->mFloors[i].mId != -1; ++i) {
-		Vec zero = { 0, 0, 0 };
-		CVec origin(zero);
-		Vec center     = object->mMoveScale * (object->mToppleOffset + ReadObjectFloorOffset(object, i));
-		Vec extent     = object->mMoveScale * ReadObjectFloorExtent(object, i);
-		f32 baseYaw    = object->mMoveRotate.y;
-		f32 floorAngle = DEG2RAD * object->mFloors[i].mYawDegrees;
-		f32 yaw        = baseYaw + floorAngle;
-		switch (object->mFloors[i].mId) {
+		const XObjFloor& floor = object->mFloors[i];
+		Vec center             = object->mMoveScale * (object->mToppleOffset + ReadObjectFloorOffset(floor));
+		Vec extent             = object->mMoveScale * ReadObjectFloorExtent(floor);
+		f32 baseYaw            = object->mMoveRotate.y;
+		f32 floorAngle         = DEG2RAD * floor.mYawDegrees;
+		f32 yaw                = baseYaw + floorAngle;
+		Mtx world, translate, scale, rotate, transform;
+		switch (floor.mId) {
 		case 0:
 		case 1: { // a disc
 			CVec point(0, 0, 0);
-			PSMTXTrans(geometry.roundWorld, origin.x, origin.y, origin.z);
-			PSMTXTrans(geometry.roundLocal, center.x, center.y, center.z);
-			PSMTXScale(geometry.roundScale, extent.x, extent.y, extent.z);
-			PSMTXRotRad(geometry.roundRotate, 'y', yaw);
-			PSMTXConcat(geometry.roundWorld, geometry.roundRotate, geometry.roundResult);
-			PSMTXConcat(geometry.roundResult, geometry.roundLocal, geometry.roundResult);
-			PSMTXConcat(geometry.roundResult, geometry.roundScale, geometry.roundResult);
-			PSMTXMultVec(geometry.roundResult, &point, &point);
+			PSMTXTrans(world, 0, 0, 0);
+			PSMTXTrans(translate, center.x, center.y, center.z);
+			PSMTXScale(scale, extent.x, extent.y, extent.z);
+			PSMTXRotRad(rotate, 'y', yaw);
+			PSMTXConcat(world, rotate, transform);
+			PSMTXConcat(transform, translate, transform);
+			PSMTXConcat(transform, scale, transform);
+			PSMTXMultVec(transform, &point, &point);
 			ExpandRadius(point.x + extent.x, point.z + extent.z, maxX, maxZ);
 			break;
 		}
 		case 2: { // a box
-			PSMTXTrans(geometry.prismWorld, origin.x, origin.y, origin.z);
-			PSMTXTrans(geometry.prismLocal, center.x, center.y, center.z);
-			PSMTXScale(geometry.prismScale, extent.x, extent.y, extent.z);
-			PSMTXRotRad(geometry.prismRotate, 'y', yaw);
-			PSMTXConcat(geometry.prismWorld, geometry.prismRotate, geometry.prismResult);
-			PSMTXConcat(geometry.prismResult, geometry.prismLocal, geometry.prismResult);
-			PSMTXConcat(geometry.prismResult, geometry.prismScale, geometry.prismResult);
+			PSMTXTrans(world, 0, 0, 0);
+			PSMTXTrans(translate, center.x, center.y, center.z);
+			PSMTXScale(scale, extent.x, extent.y, extent.z);
+			PSMTXRotRad(rotate, 'y', yaw);
+			PSMTXConcat(world, rotate, transform);
+			PSMTXConcat(transform, translate, transform);
+			PSMTXConcat(transform, scale, transform);
 			f32 h = (2.0f / sqrtf(3.0f)) * 0.5f;
 			static Vec corners[8]
 			    = { { -h, h, -h }, { h, h, -h }, { h, h, -h }, { h, h, h }, { h, h, h }, { -h, h, h }, { -h, h, h }, { -h, h, -h } };
-			Vec* world = geometry.prismPoints;
-			PSMTXMultVecArray(geometry.prismResult, corners, world, 8);
+			Vec points[8];
+			PSMTXMultVecArray(transform, corners, points, 8);
 			for (int j = 0; j < 4; ++j)
-				ExpandRadius(world[j].x, world[j].z, maxX, maxZ);
+				ExpandRadius(points[j].x, points[j].z, maxX, maxZ);
 			break;
 		}
 		case 3: { // a wall segment
-
-			PSMTXTrans(geometry.segmentWorld, origin.x, origin.y, origin.z);
-			PSMTXTrans(geometry.segmentLocal, center.x, center.y, center.z);
-			PSMTXScale(geometry.segmentScale, extent.x, extent.y, extent.z);
-			PSMTXRotRad(geometry.segmentRotate, 'y', baseYaw);
-			PSMTXRotRad(geometry.segmentTurn, 'y', floorAngle);
-			PSMTXConcat(geometry.segmentWorld, geometry.segmentRotate, geometry.segment);
-			PSMTXConcat(geometry.segment, geometry.segmentLocal, geometry.segment);
-			PSMTXConcat(geometry.segment, geometry.segmentTurn, geometry.segment);
-			PSMTXConcat(geometry.segment, geometry.segmentScale, geometry.segment);
+			Mtx turn;
+			PSMTXTrans(world, 0, 0, 0);
+			PSMTXTrans(translate, center.x, center.y, center.z);
+			PSMTXScale(scale, extent.x, extent.y, extent.z);
+			PSMTXRotRad(rotate, 'y', baseYaw);
+			PSMTXRotRad(turn, 'y', floorAngle);
+			PSMTXConcat(world, rotate, transform);
+			PSMTXConcat(transform, translate, transform);
+			PSMTXConcat(transform, turn, transform);
+			PSMTXConcat(transform, scale, transform);
 			static Vec ends[2] = { { -.5f, 0, 0 }, { .5f, 0, 0 } };
-			PSMTXMultVecArray(geometry.segment, ends, geometry.samples, 2);
-			// Retail scans four samples after transforming two; the last two are the type-5 corners.
-			for (int j = 0; j < 4; ++j)
-				ExpandRadius(geometry.samples[j].x, geometry.samples[j].z, maxX, maxZ);
+			Vec points[2];
+			PSMTXMultVecArray(transform, ends, points, 2);
+			for (int j = 0; j < 2; ++j)
+				ExpandRadius(points[j].x, points[j].z, maxX, maxZ);
 			break;
 		}
 		case 5: { // a quad from this and the next three records
-			Vec* corners = geometry.samples + 2;
+			Vec corners[4];
 			for (int j = 0; j < 4; ++j)
-				corners[j] = object->mToppleOffset + ReadObjectFloorOffset(object, i + j);
-			Vec extent = object->mMoveScale * ReadObjectFloorExtent(object, i);
-			f32 angle  = object->mMoveRotate.y + DEG2RAD * object->mFloors[i].mYawDegrees;
+				corners[j] = object->mToppleOffset + ReadObjectFloorOffset(object->mFloors[i + j]);
 
-			PSMTXTrans(geometry.polygonWorld, origin.x, origin.y, origin.z);
-			PSMTXScale(geometry.polygonScale, extent.x, extent.y, extent.z);
-			PSMTXRotRad(geometry.polygonRotate, 'y', angle);
-			PSMTXConcat(geometry.polygonWorld, geometry.polygonRotate, geometry.polygon);
-			PSMTXConcat(geometry.polygon, geometry.polygonScale, geometry.polygon);
-			PSMTXMultVecArray(geometry.polygon, corners, corners, 4);
+			PSMTXTrans(world, 0, 0, 0);
+			PSMTXScale(scale, extent.x, extent.y, extent.z);
+			PSMTXRotRad(rotate, 'y', yaw);
+			PSMTXConcat(world, rotate, transform);
+			PSMTXConcat(transform, scale, transform);
+			PSMTXMultVecArray(transform, corners, corners, 4);
 			for (int j = 0; j < 4; ++j)
 				ExpandRadius(corners[j].x, corners[j].z, maxX, maxZ);
 			break;
@@ -412,9 +369,8 @@ static inline void StoreSweepContact(const Vec* from, const Vec* to, Vec* contac
  * @note Address: 0x8008ED50
  * @note Size: 0x1498
  */
-u32 XObj::TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 height, Vec* push, Vec* contact, s32 floorCursor, s32 flags)
+u32 XObj::TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 height, Vec* push, Vec* contact, s32* cursor, s32 flags)
 {
-	s32* cursor = (s32*)floorCursor;
 	if (!(mStatus.mFlags & 0x0200000000000000ULL)) {
 		if (cursor)
 			*cursor = -1;
@@ -591,8 +547,7 @@ u32 XObj::TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 hei
 		}
 		if (flags & 1) { // let the object's own handler react and adjust the result
 			const CVec& delta = CVec(*contact) - *from;
-			PSVECMag(push);
-			result = OnPlayerContact((s32)&delta, result);
+			result            = OnPlayerContact(delta, result);
 		}
 	} else
 		mStatus.mFlags &= ~0x0100000000000000ULL;
@@ -824,9 +779,8 @@ void XObj::Release()
 		ResetEventScriptState(&mEvt, TRUE, FALSE);
 	if (mStatus.mFlags & 1) {
 		CXObjIntp::Release();
-		XObjSource** slot = (XObjSource**)mAttr.mObjData;
-		if (slot != NULL && *slot != NULL) {
-			XObjSource* source = *slot;
+		XObjSource* source = mAttr.mObjData != NULL ? mAttr.mObjData->mSource : NULL;
+		if (source != NULL) {
 			if (source->mArchive != NULL && source->mArchive->mRefCount <= 0) // its last user is gone
 				source->mArchive = NULL;
 		}
@@ -835,209 +789,4 @@ void XObj::Release()
 	mAttr.mPlacement = NULL;
 	mFloors          = NULL;
 	mStatus.mFlags &= ~0x10001ULL;
-}
-
-/**
- * @note Address: 0x800912B4
- * @note Size: 0xB8
- */
-extern "C" void SetJointMaterialOpaque(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	HSD_JObjModifyFlags(joint, 0x40000, 0x1C0000);
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_DObjModifyFlags(draw, 2, 0xE);
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			HSD_MObjClearFlags(material, RENDER_XLU | RENDER_NO_ZUPDATE | RENDER_ZMODE_ALWAYS);
-			HSD_MObjSetFlags(material, RENDER_ALPHA_MAT);
-			HSD_MObjCompileTev(material);
-		}
-	}
-}
-
-/**
- * @note Address: 0x8009136C
- * @note Size: 0x100
- */
-extern "C" void SetJointMaterialTranslucent(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	CXObj* object = (CXObj*)arguments[0];
-	f32 alpha     = *arguments[1];
-	HSD_JObjModifyFlags(joint, 0x80000, 0x1C0000);
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_DObjModifyFlags(draw, 4, 0xE);
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			HSD_MObjSetFlags(material, RENDER_XLU | RENDER_NO_ZUPDATE);
-			HSD_MObjSetFlags(material, RENDER_ALPHA_MAT);
-			HSD_MObjCompileTev(material);
-			if (material->mat != NULL)
-				HSD_MObjSetAlpha(material, alpha * object->GetMObjAlpha(material));
-		}
-	}
-}
-
-/**
- * @note Address: 0x8009146C
- * @note Size: 0x60
- */
-void XObj::SetOpaque()
-{
-	void* arguments[1] = { NULL };
-	arguments[0]       = this;
-	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialOpaque, (f32**)arguments);
-	HSD_JObjModifyFlags(mJObj, 0x10000000, 0x70000000);
-}
-
-/**
- * @note Address: 0x800914CC
- * @note Size: 0x74
- */
-void XObj::SetTranslucent(f32 alpha)
-{
-	void* arguments[2] = { NULL, NULL };
-	arguments[0]       = this;
-	arguments[1]       = &alpha;
-	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialTranslucent, (f32**)arguments);
-	HSD_JObjModifyFlags(mJObj, 0x20000000, 0x70000000);
-}
-
-/**
- * @note Address: 0x80091540
- * @note Size: 0x1EC
- */
-extern "C" void ScaleJointMaterialDiffuse(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	f32 factor = *arguments[1];
-	HSD_JObjSetFlags(joint, 0x80);
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			HSD_MObjSetFlags(material, 4);
-			if (material->mat != NULL && __fpclassifyf(factor) != FP_NAN) {
-				material->mat->diffuse.r = (u8)(material->mat->diffuse.r * factor);
-				material->mat->diffuse.g = (u8)(material->mat->diffuse.g * factor);
-				material->mat->diffuse.b = (u8)(material->mat->diffuse.b * factor);
-			}
-			for (HSD_TObj* texture = HSD_MObjGetTObj(material); texture != NULL; texture = HSD_TObjGetNext(texture)) {
-				u32 value      = texture->flags & ~0x1F0;
-				texture->flags = value;
-				texture->flags = value | 0x50;
-				value          = texture->flags & ~0xF0000;
-				texture->flags = value;
-				texture->flags = value | 0x70000;
-			}
-			HSD_MObjCompileTev(material);
-		}
-	}
-}
-
-/**
- * @note Address: 0x8009172C
- * @note Size: 0x58
- */
-void XObj::EnableLighting(f32 factor)
-{
-	void* arguments[2] = { NULL, NULL };
-	arguments[0]       = this;
-	arguments[1]       = &factor;
-	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, ScaleJointMaterialDiffuse, (f32**)arguments);
-}
-
-/**
- * @note Address: 0x80091784
- * @note Size: 0xB0
- */
-extern "C" void SetJointMaterialDestAlpha(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	BOOL enabled = (BOOL)arguments[0];
-	u8 alpha     = (u32)arguments[1];
-	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL && material->pe != NULL) {
-			if (enabled)
-				material->pe->flags |= 6;
-			else
-				material->pe->flags &= ~6;
-			material->pe->dst_alpha = alpha;
-		}
-	}
-}
-
-/**
- * @note Address: 0x80091834
- * @note Size: 0x54
- */
-void XObj::SetDestinationAlpha(BOOL enabled, u8 value)
-{
-	void* arguments[2] = { NULL, NULL };
-	arguments[0]       = (void*)enabled;
-	arguments[1]       = (void*)value;
-	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialDestAlpha, (f32**)arguments);
-}
-
-// joint walk callback for XObj::ApplyMaterialPresets, the args are five on/off flags
-/**
- * @note Address: 0x80091888
- * @note Size: 0x3BC
- */
-extern "C" void ApplyJointMaterialPEPresets(HSD_JObj* joint, f32** arguments, s32 type)
-{
-	const XObjPEPresets* presets = &gObjectPixelEnginePresets;
-	HSD_DObj* draw;
-	u32 reset        = (u32)arguments[0];
-	u32 firstPreset  = (u32)arguments[1];
-	u32 secondPreset = (u32)arguments[2];
-	u32 thirdPreset  = (u32)arguments[3];
-	u32 toon         = (u32)arguments[4];
-	for (draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
-		HSD_MObj* material = HSD_DObjGetMObj(draw);
-		if (material != NULL) {
-			if (reset) {
-				if (material->pe == NULL)
-					material->pe = (HSD_PEDesc*)hsdAllocMemPiece(sizeof(HSD_PEDesc));
-				HSD_PEDesc settings = presets->mReset;
-				*material->pe       = settings;
-				if (material->rendermode & RENDER_XLU)
-					material->pe->type = 1;
-				if (material->rendermode & RENDER_NO_ZUPDATE)
-					material->pe->flags &= ~0x20;
-				if (material->rendermode & RENDER_ZMODE_ALWAYS)
-					material->pe->flags &= ~0x10;
-			}
-			if (firstPreset) {
-				if (material->pe == NULL)
-					material->pe = (HSD_PEDesc*)hsdAllocMemPiece(sizeof(HSD_PEDesc));
-				HSD_PEDesc settings = presets->mPreset[0];
-				*material->pe       = settings;
-			} else if (secondPreset) {
-				if (material->pe == NULL)
-					material->pe = (HSD_PEDesc*)hsdAllocMemPiece(sizeof(HSD_PEDesc));
-				HSD_PEDesc settings = presets->mPreset[1];
-				*material->pe       = settings;
-			} else if (thirdPreset) {
-				if (material->pe == NULL)
-					material->pe = (HSD_PEDesc*)hsdAllocMemPiece(sizeof(HSD_PEDesc));
-				HSD_PEDesc settings = presets->mPreset[2];
-				*material->pe       = settings;
-				if (material->rendermode & RENDER_XLU)
-					material->pe->type = 1;
-			}
-			if (toon) {
-				if (!(GetMaterialRenderModeFlags(material) & RENDER_TOON)) {
-					HSD_MObjSetFlags(material, RENDER_TOON);
-					HSD_MObjCompileTev(material);
-				}
-			} else {
-				if (GetMaterialRenderModeFlags(material) & RENDER_TOON) {
-					HSD_MObjClearFlags(material, RENDER_TOON);
-					HSD_MObjCompileTev(material);
-				}
-			}
-		}
-	}
 }

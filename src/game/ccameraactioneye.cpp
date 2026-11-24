@@ -1,5 +1,4 @@
 #include "game/ccameraactioneye.h"
-#include "game/eyecameraparameters.h"
 
 #include "game/gmath.h"
 #include "Version.h"
@@ -7,8 +6,6 @@
 #include "game/cscrn.h"
 #include "game/cgame.h"
 #include "game/xchr.h"
-
-#define EYE_PLAYER gGame.GetPlayer()
 
 u32 CCameraActionEye::GetCameraFlags()
 {
@@ -25,54 +22,26 @@ void CCameraActionEye::Init()
  */
 void CCameraActionEye::Reset()
 {
-	mLook.x         = 0.0f;
-	mLook.y         = 0.0f;
-	mLook.z         = 0.0f;
-	mLook.mTarget.x = 0.0f;
-	mLook.mTarget.y = 0.0f;
-	mLook.mTarget.z = 0.0f;
-	mLook.mSpeed.x  = 0.0f;
-	mLook.mSpeed.y  = 0.0f;
-	mLook.mSpeed.z  = 0.0f;
-	mOverride.x     = 0.0f;
-	mOverride.y     = 0.0f;
-	mOverride.z     = 0.0f;
-	mLook.mSpeed.x  = 0.05f;
-	mLook.mSpeed.y  = 0.05f;
-	mLook.mSpeed.z  = 0.05f;
+	const f32 restPitch = 0.05235988f;
+	mLook.Set(0.0f, 0.0f, 0.0f);
+	mLook.SetTarget(0.0f, 0.0f, 0.0f);
+	mOverride.Set(0.0f, 0.0f, 0.0f);
+	mLook.mSpeed.Set(0.05f, 0.05f, 0.05f);
 
-	Vec angle = { 0.05235988f, EYE_PLAYER->mMoveRotate.y, 0.0f };
+	Vec angle = { restPitch, gGame.GetPlayer()->mMoveRotate.y, 0.0f };
 	SetAngle(angle);
 	SetDistance(100.0f);
 	SetFov(40.0f);
-	mLook.x         = 0.05235988f;
-	mLook.y         = 0.0f;
-	mLook.z         = 0.0f;
-	mLook.mTarget.x = 0.05235988f;
-	mLook.mTarget.y = 0.0f;
-	mLook.mTarget.z = 0.0f;
+
+	mLook.Set(restPitch, 0.0f, 0.0f);
+	mLook.SetTarget(restPitch, 0.0f, 0.0f);
 }
 
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline bool PlayerCanLook()
+static bool PlayerCanLook(const XObjChr& player)
 {
-	bool result = false;
-	bool busy   = false;
-	if (!(EYE_PLAYER->mLift.mState != 7 && EYE_PLAYER->mLift.mState != 8 && EYE_PLAYER->mLift.mState != 9 && EYE_PLAYER->mLift.mState != 10
-	      && EYE_PLAYER->mLift.mState != 11 && EYE_PLAYER->mLift.mState != 12 && EYE_PLAYER->mLift.mState != 13
-	      && EYE_PLAYER->mLift.mState != 14 && EYE_PLAYER->mLift.mState != 15 && EYE_PLAYER->mLift.mState != 16
-	      && EYE_PLAYER->mLift.mState != 17 && EYE_PLAYER->mLift.mState != 18)) {
-		busy = true;
-	}
-	if (!busy && EYE_PLAYER->mHang.mState == 0 && EYE_PLAYER->mJump.mState == 0 && EYE_PLAYER->mLadder.mState == 0
-	    && EYE_PLAYER->mRope.mState == 0 && EYE_PLAYER->mPush.mState == 0 && EYE_PLAYER->mTumble.mState == 0) {
-		result = true;
-	}
-	return result;
+	s32 liftState = player.mLift.mState;
+	return (liftState < 7 || liftState > 18) && player.mHang.mState == 0 && player.mJump.mState == 0 && player.mLadder.mState == 0
+	    && player.mRope.mState == 0 && player.mPush.mState == 0 && player.mTumble.mState == 0;
 }
 
 static inline void ClampStick(f32& value)
@@ -84,12 +53,7 @@ static inline void ClampStick(f32& value)
 	}
 }
 
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline void PlayEyeCameraTurnSound()
+static void PlayEyeCameraTurnSound()
 {
 	if (!IsGameSoundPlaying(&gGame.mSound, 3)) {
 		PlayGameSound(&gGame.mSound, 3, 0xFF);
@@ -124,9 +88,9 @@ void CCameraActionEye::Update(u32 step)
 				ClampStick(x);
 				f32 y = pad.mPad->mSubStickY;
 				ClampStick(y);
-				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook(*gGame.GetPlayer())) {
+					x = 0.0f;
 					y = 0.0f;
-					x = y;
 				}
 				mLook.mTarget.y = -HALF_PI * x;
 				mLook.mTarget.x = -0.87266463f * y;
@@ -135,9 +99,9 @@ void CCameraActionEye::Update(u32 step)
 				ClampStick(turn);
 				f32 tilt = pad.mPad->mStickY;
 				ClampStick(tilt);
-				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook(*gGame.GetPlayer())) {
+					turn = 0.0f;
 					tilt = 0.0f;
-					turn = tilt;
 				}
 				f32 pitch       = 0.0f;
 				mLook.mTarget.y = 0.0f;
@@ -164,10 +128,10 @@ void CCameraActionEye::Update(u32 step)
 				} else {
 					mLook.mTarget.x = mOverride.x;
 				}
-				gGame.GetPlayer()->SetRotationY(EYE_PLAYER->mMoveRotate.y - 0.034906585f * turn * step, 0); // 2 degrees per step
+				gGame.GetPlayer()->SetRotationY(gGame.GetPlayer()->mMoveRotate.y - 0.034906585f * turn * step, 0); // 2 degrees per step
 
 				zoom = pad.mPad->mSubStickY;
-				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook()) {
+				if (gGame.mEvt.mData.mScript != NULL || !PlayerCanLook(*gGame.GetPlayer())) {
 					zoom = 0.0f;
 				}
 				if (mOverride.z == 0.0f) {
@@ -189,22 +153,19 @@ void CCameraActionEye::Update(u32 step)
 			mLook.Step(step);
 
 			Vec look = { mLook.x, mLook.y, 0.0f };
-			SetAngle(EYE_PLAYER->mMoveRotate + look);
+			SetAngle(gGame.GetPlayer()->mMoveRotate + look);
 			SetFov(40.0f + mLook.z);
 
 			static f32 sPreviousZoomSpeed = 0.0f;
 			f32 stick                     = pad.mPad->mSubStickY;
-			if (Abs(speedZ - sPreviousZoomSpeed) < 0.02f) { // zoom settled
-				gGame.mBlur.mTarget  = 0.0f;
-				gGame.mBlur.mSpeed   = 0.1f;
-				gGame.mBlur.mOffsetY = gGame.mBlur.mOffsetX = 2.0f * -stick;
-			} else { // zooming: kick the blur to 0.8, it decays back to 0
-				gGame.mBlur.mAlpha   = 0.8f;
-				gGame.mBlur.mTarget  = 0.0f;
-				gGame.mBlur.mSpeed   = 0.1f;
-				gGame.mBlur.mOffsetY = gGame.mBlur.mOffsetX = 2.0f * -stick;
+			// Zoom changes kick the blur up so it can decay back to zero.
+			if (!(Abs(speedZ - sPreviousZoomSpeed) < 0.02f)) {
+				gGame.mBlur.mAlpha = 0.8f;
 			}
-			sPreviousZoomSpeed = speedZ;
+			gGame.mBlur.mTarget  = 0.0f;
+			gGame.mBlur.mSpeed   = 0.1f;
+			gGame.mBlur.mOffsetY = gGame.mBlur.mOffsetX = 2.0f * -stick;
+			sPreviousZoomSpeed                          = speedZ;
 		}
 	}
 	gGame.mRoboeyes.mRotation = mAngle.y;

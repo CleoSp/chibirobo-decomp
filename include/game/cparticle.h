@@ -9,22 +9,10 @@ extern "C" {
 // HSD particle wrapper. Class names from RTTI, Read from a halt string. CGame owns the
 // CParticle at +0x9114 and emits both classes' vtables and RTTI.
 
-extern "C" {
-void psKillGenerator(HSD_Generator* gen);
-void psKillAllGenerator(void);
-// hsd generator.c, the jobj particle and sound link callbacks
-HSD_Generator* psCreateJointGenerator(int linkNo, int bank, int kind, HSD_JObj* jobj);
-HSD_Generator* psCreateQueuedJointGenerator(int linkNo, int bank, int kind, HSD_JObj* jobj);
-}
-
 // one generator the game keeps track of, by the id it was made from
 class CGenerator {
 public:
-	CGenerator()
-	{
-		mId  = -1;
-		mGen = NULL;
-	}
+	CGenerator();
 
 	s32 mId;             // _00
 	HSD_Generator* mGen; // _04
@@ -58,7 +46,7 @@ public:
 	CGenerator mGenerators[CPARTICLE_GEN_NUM]; // _3C4
 	// _544 vtable
 
-	virtual ~CParticle() { } // _08
+	virtual ~CParticle(); // _08
 
 	void KillAll();
 	void Kill(HSD_Generator* gen);

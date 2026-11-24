@@ -13,13 +13,9 @@ static inline void ResetRingMode(OctaMenu& ring)
 {
 	ring.mOpen        = 0;
 	ring.mCursorIndex = 0;
-	u32 mode          = gCmdLineArgs.mAttachmentMenuType;
-	if (mode <= 3)
-		ring.mMenuType = mode;
-	else
-		ring.mMenuType = 0; // types above 3 fall back to 0
-	ring.mFocus    = 0;
-	ring.mHeadTurn = NAN;
+	ring.mMenuType    = gCmdLineArgs.mAttachmentMenuType;
+	ring.mFocus       = 0;
+	ring.mHeadTurn    = NAN;
 }
 
 /**
@@ -29,7 +25,7 @@ static inline void ResetRingMode(OctaMenu& ring)
 void XObjChr::ResetForNewGame()
 {
 	ResetPlayerStats(&mParams);
-	mAttachment           = 0;
+	mAttachment           = AttachmentNone;
 	mLiftPlugFlags        = gCmdLineArgs.mLiftPlugFlags;
 	mAttachmentActionType = gCmdLineArgs.mAttachmentActionType;
 	mToolActionType       = gCmdLineArgs.mToolActionType;
@@ -69,43 +65,35 @@ void XObjChr::ResetForNewGame()
 	RestoreControl();
 }
 
-static inline void SetupPlayerRing(OctaMenu& ring, XObjChr* owner, f32 direction)
+static inline void SetupPlayerRing(OctaMenu& ring, XObjChr* owner, f32 direction, f32 offset)
 {
 	ring.mChr = owner;
 	ResetRingMode(ring);
-	ring._284                     = 0.0f;
-	ring.mFirstVisibleItem        = 0;
+	ring._284                     = offset;
+	ring.mFirstVisibleItem        = 4;
 	ring.mPendingFirstVisibleItem = -1;
 	ring._10                      = direction;
 }
 
-static inline void SetRingItems(OctaMenu& ring, s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g, s32 h)
+static void SetRingItems(OctaMenu& ring, const s32* order)
 {
-	ring.mItems[0].mType = a;
-	ring.mItems[1].mType = b;
-	ring.mItems[2].mType = c;
-	ring.mItems[3].mType = d;
-	ring.mItems[4].mType = e;
-	ring.mItems[5].mType = f;
-	ring.mItems[6].mType = g;
-	ring.mItems[7].mType = h;
+	for (s32 i = 0; i < ARRAY_SIZE(ring.mItems); ++i)
+		ring.mItems[i].mType = order[i];
 }
 
 /**
  * @note Address: 0x800BC0E4
  * @note Size: 0x39C
  */
-// NONMATCHING: same code size; only regalloc and store ordering differ
 void XObjChr::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	mLook.mActive = FALSE;
 	mLook.mMode   = -1;
 	mLook.mObject = NULL;
 	Vec zero      = { 0.0f, 0.0f, 0.0f };
 	mLook.mOffset = zero;
 	mLook.mFade = mLook.mPhase = mLook.mPulse = 0.0f;
-	mLook.mObject                             = NULL;
 	mLoadStep                                 = 0;
 	mPlug.InitializeObject(id);
 	mCopterObj.InitializeObject(id);
@@ -113,24 +101,14 @@ void XObjChr::InitializeObject(u32 id)
 	mRadarObj.InitializeObject(id);
 	mOXObj.InitializeObject(id);
 	InitializeAttachmentMenuEntries(&mAttachments);
-	{
-		OctaMenu& ring = mMenu.mAtc; // the attachment ring
-		SetupPlayerRing(ring, this, -1.0f);
-		SetRingItems(ring, 1, 2, 3, 4, 6, 5, 7, 8); // the items in ring order
-		ring._284              = -1.5f;
-		ring.mFirstVisibleItem = 4;
-	}
-	{
-		OctaMenu& ring = mMenu.mDrs; // the costume ring
-		SetupPlayerRing(ring, this, 1.0f);
-		if (ring.mMenuType == 3) { // menu type 3 gets its own order
-			SetRingItems(ring, 1, 4, 6, 3, 2, 7, 8, 5);
-		} else {
-			SetRingItems(ring, 3, 5, 4, 1, 6, 8, 7, 2);
-		}
-		ring._284              = 0.9f;
-		ring.mFirstVisibleItem = 4;
-	}
+	static const s32 attachmentOrder[] = { AttachmentCopter, AttachmentPopper, AttachmentRadar,    AttachmentToothbrush,
+		                                   AttachmentMug,    AttachmentSpoon,  AttachmentSquirter, AttachmentUnequip };
+	static const s32 costumeOrder[]    = { 3, 5, 4, 1, 6, 8, 7, 2 };
+	static const s32 costumeRowOrder[] = { 1, 4, 6, 3, 2, 7, 8, 5 };
+	SetupPlayerRing(mMenu.mAtc, this, -1.0f, -1.5f);
+	SetRingItems(mMenu.mAtc, attachmentOrder);
+	SetupPlayerRing(mMenu.mDrs, this, 1.0f, 0.9f);
+	SetRingItems(mMenu.mDrs, mMenu.mDrs.mMenuType == 3 ? costumeRowOrder : costumeOrder);
 	mMenu.mPrevSel         = 0;
 	mMenu.mSel             = 0;
 	mOXMenu.mChr           = this;

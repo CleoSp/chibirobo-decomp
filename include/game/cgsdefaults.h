@@ -2,7 +2,9 @@
 #define GAME_CGS_RENDER_DEFAULTS_H
 
 #include "game/cgs.h"
-#include "game/vistate.h"
+extern "C" {
+#include <sysdolphin/video.h>
+}
 
 static inline void ConfigureGsPrimaryTevStage(CGs* gs)
 {

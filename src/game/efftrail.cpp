@@ -409,9 +409,8 @@ extern "C" void DrawOXMenu(OXMenu* menu)
 #include "game/cgameutil.h"
 
 extern "C" {
-void SetJointMaterialColorsAndAlpha(HSD_JObj*, f32**, s32);
 CVec GetEventJObjWorldPosition(CJObj*, HSD_JObj*);
-extern u32 gOXMenuMarkDiffuseColors[2];
+extern GXColor gOXMenuMarkDiffuseColors[2];
 extern f32 gOXMenuLabelOutlineX[4], gOXMenuLabelOutlineY[4];
 }
 
@@ -428,11 +427,11 @@ static inline void MakeOXTransform(Mtx out, f32 x, f32 y, f32 rx, f32 ry, f32 rz
 	PSMTXConcat(tmp, yaw, out);
 }
 
-static inline void DrawOXModel(XObj& model, u32 diffuse, u32 ambient, f32& alpha)
+static inline void DrawOXModel(XObj& model, GXColor diffuse, GXColor ambient, f32& alpha)
 {
-	f32* args[] = { (f32*)&diffuse, (f32*)&ambient, &alpha };
+	JointMaterialColors colors = { &diffuse, &ambient, &alpha };
 	if (model.mJObj)
-		HSD_JObjWalkTree(model.mJObj, SetJointMaterialColorsAndAlpha, args);
+		HSD_JObjWalkTree(model.mJObj, SetJointMaterialColorsAndAlpha, &colors);
 	model.DrawObject();
 	EndGsCamera(&gGame.mGs);
 	CBase* game       = &gGame;
@@ -496,14 +495,16 @@ extern "C" void DrawOXMenu(OXMenu* menu)
 			PSMTXScale(scale, scaleXZ, scaleY, scaleXZ);
 			PSMTXConcat(outline, scale, outline);
 			HSD_JObjCopyMtx(model.mJObj, outline);
-			f32 opacity = 0.3f * menu->mFade;
-			DrawOXModel(model, 0xffffff00, 0xffffff00, opacity);
+			f32 opacity   = 0.3f * menu->mFade;
+			GXColor white = { 255, 255, 255, 0 };
+			DrawOXModel(model, white, white, opacity);
 		}
 		Mtx scale;
 		PSMTXScale(scale, scaleXZ, scaleY, scaleXZ);
 		PSMTXConcat(shape, scale, shape);
 		HSD_JObjCopyMtx(model.mJObj, shape);
-		DrawOXModel(model, gOXMenuMarkDiffuseColors[kind], 0x40404000, menu->mFade);
+		GXColor ambient = { 0x40, 0x40, 0x40, 0 };
+		DrawOXModel(model, gOXMenuMarkDiffuseColors[kind], ambient, menu->mFade);
 		PSMTXConcat(label, scale, label);
 		InvalidateAll();
 		HSD_JObjCopyMtx(model.mJObj, label);

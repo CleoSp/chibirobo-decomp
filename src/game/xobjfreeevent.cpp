@@ -21,7 +21,7 @@ void XObjFree::Release()
  */
 void XObjFree::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	if (mAttr.mObjData != NULL)
 		mLife = (s16)GetObjFlags();
 	mMatAnim = NULL;

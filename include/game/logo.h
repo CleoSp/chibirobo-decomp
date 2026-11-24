@@ -14,7 +14,7 @@ public:
 	f32 mTimer; // _1FC, frames the current logo has shown
 	// _200 vtable
 
-	virtual ~Logo() { } // _08 (weak)
+	virtual ~Logo(); // _08
 
 	void ResetFade()
 	{

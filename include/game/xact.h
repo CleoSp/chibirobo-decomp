@@ -27,6 +27,8 @@ public:
 	s32 mTargetState;   // _24
 	s32 mTargetFloor;   // _28, the selected floor when the target was picked
 
+	bool IsState(s32 state) const { return mState == state; }
+
 	// todo: cleanup
 	void SetTarget(XObj* target)
 	{
@@ -54,7 +56,7 @@ public:
 	u8 _4A[2];
 	XObj* mPendingItem;            // _4C
 	XObj* mPlugTarget;             // _50
-	u32 _54;                       // _54, copied to XObjPlug's _D3C
+	u32 mPlugConnection;           // _54, connection value applied when lifting the plug
 	f32 mBatteryCost;              // _58
 	s32 mContactEffectId;          // _5C
 	HSD_Generator* mContactEffect; // _60
@@ -71,6 +73,11 @@ STATIC_ASSERT(sizeof(XActLift) == 0x7C);
 
 extern "C" void UpdateLiftActionAnimation(XActLift* act, s32 anim, HSD_AObj* aobj, u32 frames, f32 frame, f32 end);
 extern "C" void UpdateHeldObject(XActLift* act, s32 frames);
+extern "C" void SetLiftPlugConnection(XActLift* act, u32 value, BOOL apply);
+extern "C" BOOL CheckCarriedObjectContacts(XActLift* act, const Vec* pos, f32 radius, f32 height, BOOL checkItem, BOOL checkEvent,
+                                           BOOL checkOthers, Vec* result);
+extern "C" void UpdateCarriedObjectPosition(XActLift* act, XObj* target);
+extern "C" Vec GetLiftTargetContactOffset(XActLift* act, XObj* target);
 
 class XActHang : public XAction {
 public:

@@ -11,9 +11,6 @@ extern "C" {
 #include "game/video.h"
 }
 
-// CGame camera stuff, by offset for now
-// japan's camera, area and map sit 0xCE8 lower
-
 // pal goes by the current refresh rate, 50 or 60
 #if defined(VERSION_PAL)
 #define FRAME_TIME (1.0f / gVideoFramesPerSecond)
@@ -111,34 +108,38 @@ void CCameraActionReset::PreviousUpdate()
 	if (mImmediate == TRUE) {
 		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		camera->ChangeAction(mNextCameraAction);
-		if (mNextCameraAction == 1) {
-			SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
+		if (mNextCameraAction == CAMACTION_AREA) {
+			SetAreaCameraHeightIndices(static_cast<CCameraActionArea*>(gGame.mCameraActions.mTable[CAMACTION_AREA]),
+			                           gCameraAreaState.mZoomLevel);
 		} else {
-			SetMapCameraFovStep((CCameraActionMap*)gGame.mCameraActions.mTable[7], gCameraAreaState.mZoomLevel, 15.0f);
-			RefreshMapCameraArea((CCameraActionMap*)gGame.mCameraActions.mTable[7]);
+			SetMapCameraFovStep(static_cast<CCameraActionMap*>(gGame.mCameraActions.mTable[CAMACTION_MAP]), gCameraAreaState.mZoomLevel,
+			                    15.0f);
+			RefreshMapCameraArea(static_cast<CCameraActionMap*>(gGame.mCameraActions.mTable[CAMACTION_MAP]));
 			f32 dy = camera->mCamera.mInterest.y - mTarget->GetCameraTarget().y;
 			if (0.0f != dy) {
-				StartMapCameraTargetHeightInterpolation((CCameraActionMap*)gGame.mCameraActions.mTable[7], dy, 0.0f, 8.0f);
+				StartMapCameraTargetHeightInterpolation(static_cast<CCameraActionMap*>(gGame.mCameraActions.mTable[CAMACTION_MAP]), dy,
+				                                        0.0f, 8.0f);
 			}
 		}
 		mImmediate = FALSE;
 		return;
 	}
 
-	// the action ids are the slots in mTable: 1 is the area camera, 7 the map camera
-	if (mNextCameraAction == 1) {
+	if (mNextCameraAction == CAMACTION_AREA) {
 		CMotionControlCamera* camera = &gGame.mMotionControlCamera;
 		camera->ChangeAction(mNextCameraAction);
-		SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
-		SelectAreaCameraEntryByViewDirection((CCameraActionArea*)gGame.mCameraActions.mTable[1], mMode, mTime, arg);
+		SetAreaCameraHeightIndices(static_cast<CCameraActionArea*>(gGame.mCameraActions.mTable[CAMACTION_AREA]),
+		                           gCameraAreaState.mZoomLevel);
+		SelectAreaCameraEntryByViewDirection(static_cast<CCameraActionArea*>(gGame.mCameraActions.mTable[CAMACTION_AREA]), mMode, mTime,
+		                                     arg);
 		if (mMode == 3) { // mode 3 snaps instead of interpolating
 			camera->ApplyAction();
 		}
 		return;
 	}
 
-	if (mNextCameraAction == 7) {
-		GetMapCameraEyeBehindTarget((CCameraActionMap*)gGame.mCameraActions.mTable[7], eye, 1);
+	if (mNextCameraAction == CAMACTION_MAP) {
+		GetMapCameraEyeBehindTarget(static_cast<CCameraActionMap*>(gGame.mCameraActions.mTable[CAMACTION_MAP]), eye, 1);
 		if (fpclassify(eye.x) == FP_NAN || fpclassify(eye.y) == FP_NAN || fpclassify(eye.z) == FP_NAN) { // a NaN eye is fatal
 
 			CVec cameraEye      = gGame.mMotionControlCamera.mCamera.mEye;
@@ -149,14 +150,13 @@ void CCameraActionReset::PreviousUpdate()
 			        __FUNCTION__);
 		}
 
-		f32 time   = mTime;
-		Vec target = eye;
-		SetEye_Interp(mMode, target, time);
+		SetEye_Interp(mMode, eye, mTime);
 
 		f32 fov = GetAreaCameraFovForHeightLevel(&gCameraAreaState, gCameraAreaState.mZoomLevel);
 		SetFov_Interp(mMode, fov, mTime);
 
-		SetAreaCameraHeightIndices((CCameraActionArea*)gGame.mCameraActions.mTable[1], gCameraAreaState.mZoomLevel);
+		SetAreaCameraHeightIndices(static_cast<CCameraActionArea*>(gGame.mCameraActions.mTable[CAMACTION_AREA]),
+		                           gCameraAreaState.mZoomLevel);
 		if (mMode == 3 || 0.0f == mTime) { // no time to blend the interest
 			mInterestMode = 0;
 		} else {

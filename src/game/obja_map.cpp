@@ -56,7 +56,7 @@ extern "C" s32 GetMapTriangleFloorType(XObjMap* map, s32 trigon, s32 tri)
 void XObjMap::UpdateObject(u32 frames)
 {
 	// NONMATCHING: induction pointer difference, see XObjLight::Update
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (GetLightMode() == 1) {
 		for (int i = 0; i < mLightNum; i++) {
 			if (GetLightDesc(i) != NULL && GetLightAnimNum(i) > 0) {
@@ -94,7 +94,7 @@ void XObjMap::Release()
 BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
 {
 	// NONMATCHING: the dol copies a zero path template before storing the index
-	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		int i;
 		int j;
 		int n = 0;
@@ -121,7 +121,6 @@ BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
 				}
 			}
 		}
-		for (i = 0; i < mTrigonCount; i++) { }
 		if (GetLightMode() == 1) {
 			CLight* prev = NULL;
 			for (i = 0; i < 8; i++) {
@@ -154,7 +153,7 @@ BOOL XObjMap::LoadFromPlacement(const CoordInfo& info)
  */
 void XObjMap::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mTrigonCount = 0;
 	for (int i = 0; i < 16; i++) {
 		mTrigonOrder[i] = 0;
@@ -171,5 +170,5 @@ void XObjMap::ResetObjectState()
  */
 void XObjMap::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 }

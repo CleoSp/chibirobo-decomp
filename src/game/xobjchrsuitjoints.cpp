@@ -13,11 +13,22 @@ static inline void BindRotationJoint(CJointRot& rotation)
 	}
 }
 
+static void BindSuitMounts(XObjChr* player)
+{
+	s32 attachment[]         = { 0, 1, 0, 1, 2, 0, 0, 5 };
+	s32 tool[]               = { 0, 1, 0, 1, 2, 0, 0, 4 };
+	s32 popper[]             = { 0, 1, 0, 1, 3 };
+	player->mAttachmentJoint = FindJointByPath(player->mJObj, attachment, ARRAY_SIZE(attachment));
+	player->mCopterObj.SetParent(FindJointByPath(player->mJObj, tool, ARRAY_SIZE(tool)), FALSE);
+	player->mPopperObj.SetParent(FindJointByPath(player->mJObj, popper, ARRAY_SIZE(popper)), FALSE);
+	player->mRadarObj.SetParent(FindJointByPath(player->mJObj, tool, ARRAY_SIZE(tool)), FALSE);
+	player->mOXObj.SetParent(FindJointByPath(player->mJObj, tool, ARRAY_SIZE(tool)), FALSE);
+}
+
 /**
  * @note Address: 0x800B7D54
  * @note Size: 0xAFC
  */
-// NONMATCHING: retail inverts one tail branch (beq vs bne) and pulls an argument load earlier; rest matches
 extern "C" void ApplyPlayerSuit(XObjChr* player)
 {
 	if (!(player->mStatus.mFlags & 1) || !player->mSuits.mJoints[player->mSuits.mCurrent])
@@ -46,24 +57,7 @@ extern "C" void ApplyPlayerSuit(XObjChr* player)
 	joints[0].indices  = path0;
 	for (s32 i = 0; i < 4; ++i) // the suit's four idle joints
 		player->mIdleJoints[i].mJObj = FindJointByPath(player->mJObj, joints[i].indices, joints[i].depth);
-	{ // the suit's attachment, tool and popper mount points
-		s32 attachment[]         = { 0, 1, 0, 1, 2, 0, 0, 5 };
-		player->mAttachmentJoint = FindJointByPath(player->mJObj, attachment, 8);
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mCopterObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-		s32 popper[] = { 0, 1, 0, 1, 3 };
-		player->mPopperObj.SetParent(FindJointByPath(player->mJObj, popper, 5), FALSE);
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mRadarObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mOXObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-	}
+	BindSuitMounts(player);
 	BindRotationJoint(player->mJointRot);
 	BindRotationJoint(player->mHeadTurn.mNeck);
 	BindRotationJoint(player->mHeadTurn.mHead);
@@ -79,7 +73,6 @@ extern "C" void ApplyPlayerSuit(XObjChr* player)
  * @note Address: 0x800B8850
  * @note Size: 0x674
  */
-// NONMATCHING: identical instruction stream; only regalloc and scheduling differ
 extern "C" void RemovePlayerSuit(XObjChr* player)
 {
 	s32 anim  = player->mAnimId;
@@ -94,24 +87,7 @@ extern "C" void RemovePlayerSuit(XObjChr* player)
 		child->parent = mount;
 	player->SetAnim(anim, TRUE, NULL, NULL, NULL, frame, 1.0f, 1.0f, 10.0f);
 
-	{
-		s32 attachment[]         = { 0, 1, 0, 1, 2, 0, 0, 5 };
-		player->mAttachmentJoint = FindJointByPath(player->mJObj, attachment, 8);
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mCopterObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-		s32 popper[] = { 0, 1, 0, 1, 3 };
-		player->mPopperObj.SetParent(FindJointByPath(player->mJObj, popper, 5), FALSE);
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mRadarObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-		{
-			s32 tool[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-			player->mOXObj.SetParent(FindJointByPath(player->mJObj, tool, 8), FALSE);
-		}
-	}
+	BindSuitMounts(player);
 
 	XObj& suit = player->mSuits.mObjects[player->mSuits.mCurrent];
 	if (suit.mStatus.mFlags & 1) // release the suit object if loaded

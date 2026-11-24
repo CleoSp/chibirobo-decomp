@@ -11,8 +11,9 @@ public:
 	CEvtFlags* mFlags; // _980
 
 	XObjFlags();
+	virtual ~XObjFlags();
 
-	virtual void ResetForNewGame(); // _94 (weak), clears every flag
+	virtual void ResetForNewGame(); // _94, clears every flag
 	virtual s32 GetFlagIndex();     // _148, the bit in mFlags, 0 and below have none
 
 	s32 GetPlacementFlagIndex(s32 group) const
@@ -36,7 +37,7 @@ public:
 	void SetFlag()
 	{
 		u32 index = GetFlagIndex();
-		mFlags->mFlags[index / 32] |= 1 << (index & 31);
+		mFlags->mFlags[index / 32] |= 1u << (index & 31);
 	}
 };
 #if defined(VERSION_JP)
@@ -68,6 +69,7 @@ public:
 	u8 _9DC[0x9E0 - 0x9DC];     // _9DC
 
 	XObjDust();
+	virtual ~XObjDust();
 
 	virtual void Release();
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
@@ -77,7 +79,7 @@ public:
 	virtual void UpdateObject(u32 frames);
 	virtual void DrawWithView(Mtx view);
 	virtual void DrawObjectEffects();
-	virtual s32 OnPlayerContact(s32 unused, s32 value);
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);
 	virtual void OnHitFromPosition(const Vec& position, f32 strength);
 	virtual BOOL OnItemUsed(const Vec* position, s32 value);
 	virtual s32 GetFlagIndex();
@@ -106,8 +108,9 @@ public:
 	u8 mBouncing;           // _9E8, spiders bounce it out
 
 	XObjCoin();
+	virtual ~XObjCoin();
 	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C
-	virtual s32 OnPlayerContact(s32 unused, s32 value);
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);
 	virtual void UpdateObject(u32 frames);
 	virtual void ResetObjectState();
 	virtual s32 HandleEventCommand(s32 count, s32* args);
@@ -125,6 +128,7 @@ public:
 	// _00-_988 = XObjFlags
 
 	XObjItem();
+	virtual ~XObjItem();
 	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C
 	virtual s32 GetFlagIndex();
 };

@@ -1,11 +1,9 @@
 #include "game/cgame.h"
 #include "game/mic.h"
 
+#include "Dolphin/m2s.h"
+
 extern "C" {
-s32 M2SGetActiveChannel(void);
-s32 M2SGetSamplesLeft(void);
-void M2SGetSamples(s16** samples, s32 count);
-void M2SAdvanceBuffer(s32 count);
 void* memset(void* dst, int val, u32 size);
 }
 

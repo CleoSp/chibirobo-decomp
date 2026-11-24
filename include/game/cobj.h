@@ -73,7 +73,7 @@ public:
 	s32 mNum[CJARCHIVE_DESC_NUM + 1];         // _50, the anim count, then one per mDesc list
 	// _7C vtable
 
-	virtual ~CJArchive() { }                                                                               // _08 (weak)
+	virtual ~CJArchive();
 	virtual void Clear();                                                                                  // _0C
 	virtual BOOL ReadAsync(CObjArchive* archive, const char* path, u32 flags, u32 aramAddr, u32 aramSize); // _10
 	virtual BOOL ReadCheck();                                                                              // _14
@@ -134,7 +134,7 @@ public:
 	// _00-_80 = CJArchive
 	s32 mLoading; // _80, LoadJointAnimationAsync's step
 
-	virtual ~CJAnim() { }   // _08, inline, retail keeps a weak copy
+	virtual ~CJAnim();      // _08
 	virtual void Clear();   // _0C
 	virtual void Release(); // _18
 
@@ -150,7 +150,7 @@ public:
 	CVec mTarget; // _10
 	CVec mSpeed;  // _20
 
-	virtual ~CObjVec() { }
+	virtual ~CObjVec();
 
 	u8 Step(u32 frames);
 
@@ -215,7 +215,7 @@ public:
 	}
 
 	explicit CXObj(HSD_JObj* jobj);
-	virtual ~CXObj() { } // _08
+	virtual ~CXObj();
 
 	// CJObj overrides, defined in another file
 	virtual void SetTranslateX(f32 x, s32 force);                                                                     // _0C
@@ -272,6 +272,8 @@ typedef char CXObj_size_check[sizeof(CXObj) == 0x1E8 ? 1 : -1];
 // a CXObj with a second jobj it blends into
 class CXObjIntp : public CXObj {
 public:
+	virtual ~CXObjIntp();
+
 	CJObj mIntp;    // _1E8
 	f32 mBlend;     // _220, below 1 while the two jobjs are being blended
 	f32 mBlendRate; // _224
@@ -305,7 +307,7 @@ public:
 	CXObj* mLookAt;   // _18
 	// _1C vtable
 
-	virtual ~CJointRot() { } // _08 (weak)
+	virtual ~CJointRot(); // _08
 
 	bool Update(u32 frames);
 	void Init(CXObj* obj, s32 depth, s32* path, char axis);

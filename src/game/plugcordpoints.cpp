@@ -1,61 +1,41 @@
 #include "game/xobjattachment.h"
 #include "game/cvec.h"
 
-static inline void AddStep(CVec& position, Vec step)
-{
-	position += step;
-}
-
 extern "C" void UpdatePlugCordSpark(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32)
 {
-	if (!node->mState)
+	if (!node->mState || (node->mMode != 1 && node->mMode != -1))
 		return;
-	switch (node->mMode) {
-	case 1: {
-		{
-			node->mDir = points[node->mIndex - 1].mPos - points[node->mIndex].mPos;
-			node->mDir.Normalize();
-			node->mPos    = points[node->mIndex].mPos + node->mDir * node->mDistance;
-			f32 remaining = PSVECDistance(&node->mPos, &points[node->mIndex - 1].mPos);
-			if (remaining > node->mStep.Get()) {
-				AddStep(node->mPos, node->mDir * node->mStep.Get());
-				node->mDistance += node->mStep.Get();
-			} else {
-				if (node->mIndex - 1 == 0)
-					node->mState = 0;
-				node->mIndex -= 1;
-				node->mDir = points[node->mIndex - 1].mPos - points[node->mIndex].mPos;
-				node->mDir.Normalize();
-				node->mPos      = points[node->mIndex].mPos + node->mDir * (node->mStep.Get() - remaining);
-				node->mDistance = node->mStep.Get() - remaining;
-				node->mStep.Step(1.0f);
-			}
-		}
-#if !defined(VERSION_JP)
-		f32 remaining = PSVECDistance(&node->mPos, &points[node->mIndex - 1].mPos);
-		if (remaining > PSVECDistance(&points[node->mIndex].mPos, &points[node->mIndex - 1].mPos) && node->mIndex - 1 == 0)
-			node->mState = 0;
-#endif
-		break;
-	}
-	case -1: {
-		node->mDir = points[node->mIndex + 1].mPos - points[node->mIndex].mPos;
-		node->mDir.Normalize();
-		node->mPos    = points[node->mIndex].mPos + node->mDir * node->mDistance;
-		f32 remaining = PSVECDistance(&node->mPos, &points[node->mIndex + 1].mPos);
-		if (remaining > node->mStep.Get()) {
-			AddStep(node->mPos, node->mDir * node->mStep.Get());
-			node->mDistance += node->mStep.Get();
-		} else {
-			if (node->mIndex + 1 == count - 2)
-				node->mState = 0;
-			node->mIndex += 1;
-			node->mDir = points[node->mIndex + 1].mPos - points[node->mIndex].mPos;
-			node->mDir.Normalize();
-			node->mPos      = points[node->mIndex].mPos + node->mDir * (node->mStep.Get() - remaining);
-			node->mDistance = node->mStep.Get() - remaining;
+
+	const bool backward = node->mMode == 1;
+	const s32 direction = backward ? -1 : 1;
+	const s32 next      = node->mIndex + direction;
+	node->mDir          = points[next].mPos - points[node->mIndex].mPos;
+	node->mDir.Normalize();
+	node->mPos         = points[node->mIndex].mPos + node->mDir * node->mDistance;
+	const f32 distance = PSVECDistance(&node->mPos, &points[next].mPos);
+	const f32 step     = node->mStep.Get();
+	if (distance > step) {
+		node->mPos += node->mDir * step;
+		node->mDistance += step;
+	} else {
+		node->mIndex = next;
+		if (backward && next == 0) {
+			node->mState    = 0;
+			node->mPos      = points[0].mPos;
+			node->mDistance = 0.0f;
 			node->mStep.Step(1.0f);
+			return;
 		}
-	} break;
+		if (!backward && next == count - 2)
+			node->mState = 0;
+		node->mDir = points[next + direction].mPos - points[next].mPos;
+		node->mDir.Normalize();
+		node->mDistance = step - distance;
+		node->mPos      = points[next].mPos + node->mDir * node->mDistance;
+		node->mStep.Step(1.0f);
 	}
+#if !defined(VERSION_JP)
+	if (backward && node->mIndex == 1 && PSVECDistance(&node->mPos, &points[0].mPos) > PSVECDistance(&points[1].mPos, &points[0].mPos))
+		node->mState = 0;
+#endif
 }

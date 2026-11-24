@@ -24,31 +24,33 @@ static inline void AttachPlugCord(XObjPlug* plug)
 	}
 }
 
-static inline void UpdateCordJoint(XObjPlug* plug, CJObj& joint)
+static void UpdateCordJoint(XObjPlug* plug)
 {
-	Mtx matrix;
-	PSMTXCopy(joint.GetMtx(), matrix);
-	plug->mCordJointPos = CVec(matrix[0][3], matrix[1][3], matrix[2][3]);
-	CVec tip(0, 0, 5); // the cord's far end sits 5 along the joint's z
-	PSMTXMultVec(matrix, &tip, &tip);
-	plug->mCordJointTip = tip;
+	s32 path[]      = { 0, 0 };
+	HSD_JObj* joint = FindJointByPath(plug->mJObj, path, ARRAY_SIZE(path));
+	if (joint == NULL) {
+		plug->mCordJointPos = plug->mMoveTranslate;
+		plug->mCordJointTip = plug->mCordJointPos;
+		plug->mCordJointTip.z += 5.0f;
+		return;
+	}
+
+	MtxPtr matrix         = HSD_JObjGetMtxPtr(joint);
+	Vec tip               = { 0.0f, 0.0f, 5.0f };
+	plug->mCordJointPos.x = matrix[0][3];
+	plug->mCordJointPos.y = matrix[1][3];
+	plug->mCordJointPos.z = matrix[2][3];
+	PSMTXMultVec(matrix, &tip, &plug->mCordJointTip);
 }
 
 void XObjPlug::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (mStatus.mFlags & 1) {
 		GetPlayerPlugCordAnchorTransform(this, &mCordAnchor, NULL, NULL);
-		if (mStatus.mFlags & 0x0400000000000000ULL) {
+		if ((mStatus.mFlags & 0x0400000000000000ULL) || mConnection != 0) {
 			AttachPlugCord(this);
-			s32 path[] = { 0, 0 };
-			CJObj joint(FindJointByPath(mJObj, path, 2));
-			UpdateCordJoint(this, joint);
-		} else if (mConnection != 0) {
-			AttachPlugCord(this);
-			s32 path[] = { 0, 0 };
-			CJObj joint(FindJointByPath(mJObj, path, 2));
-			UpdateCordJoint(this, joint);
+			UpdateCordJoint(this);
 		} else if (mCordEndsPinned == 1) { // neither carried nor connected: unpin the ends
 			SetPlugCordEndpointSource(&mCord, 1, NULL);
 			SetPlugCordEndpointSource(&mCord, 2, NULL);
@@ -140,12 +142,10 @@ void ConfigurePlugWireEffect(XObjWireEff* object, s32 anim, s32 effect, f32 rate
 	} else {
 		object->mStatus.mFlags &= ~0x10000ULL;
 	}
-	if (object->mEffect >= 0) {
-		KillWireEffect(object);
+	const bool createEffect = object->mEffect >= 0;
+	KillWireEffect(object);
+	if (createEffect)
 		object->mGenerator = gGame.mParticle.Create(0x10052, 0, object->mJObj, FALSE);
-	} else {
-		KillWireEffect(object);
-	}
 	object->SetColor(0, color >> 24, color >> 16, color >> 8, 0.0f);
 }
 }
@@ -300,24 +300,28 @@ CVec GetPlugCordPointPosition(const XObjPlugCord* cord, s32 index)
  */
 void GetPlayerPlugCordAnchorTransform(void*, Vec* position, Vec* rotation, Vec* scale)
 {
-	Mtx matrix;
-	s32 path[] = { 0, 1, 0, 1, 1 };
-	CJObj joint(FindJointByPath(gGame.GetPlayer()->mJObj, path, 5));
-	if (joint.mJObj != NULL) {
-		PSMTXCopy(joint.GetMtx(), matrix);
+	XObjChr* player = gGame.GetPlayer();
+	s32 path[]      = { 0, 1, 0, 1, 1 };
+	HSD_JObj* joint = FindJointByPath(player->mJObj, path, ARRAY_SIZE(path));
+
+	Mtx playerTransform;
+	MtxPtr matrix;
+	if (joint != NULL) {
+		matrix = HSD_JObjGetMtxPtr(joint);
+	} else {
+		const Vec& pos = player->mMoveTranslate;
+		PSMTXTrans(playerTransform, pos.x, pos.y, pos.z);
+		matrix = playerTransform;
 	}
 
-	CVec unused; // never read, the dol still constructs it
-	static CVec offset(0.0f, 0.0f, -0.4f);
 	if (position != NULL) {
+		Vec offset = { 0.0f, 0.0f, -0.4f };
 		PSMTXMultVec(matrix, &offset, position);
 	}
-	if (rotation != NULL) {
+	if (rotation != NULL)
 		HSD_MtxGetRotation(matrix, rotation);
-	}
-	if (scale != NULL) {
+	if (scale != NULL)
 		HSD_MtxGetScale(matrix, scale);
-	}
 }
 
 } // extern "C"

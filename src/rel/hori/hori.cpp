@@ -1,3 +1,4 @@
+#include "game/relmodule.h"
 #include "game/cgame.h"
 #include "game/xchr.h"
 #include "types.h"
@@ -12,11 +13,8 @@ extern "C" void OSReport(const char* msg, ...);
 
 extern "C" s32 CmdSetSoundPitch(s32 cmd, s32 count, s32* args);
 extern "C" s32 CmdStartRandomAnims(s32 cmd, s32 count, s32* args);
-extern "C" void UpdateStage(void* arg);
-extern "C" void Init(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+extern "C" void UpdateStage(s32 arg);
+extern "C" void Init(s32 arg);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { Init, UpdateStage };
@@ -146,7 +144,7 @@ extern "C" s32 CmdStartRandomAnims(s32 cmd, s32 count, s32* args)
  * @note Address: hori .text 0x328
  * @note Size: 0xB0
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
 	s32 cur = gGame.GetPlayer()->mFloorContacts[0].objectIndex;
 
@@ -160,7 +158,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: hori .text 0x3D8
  * @note Size: 0xB8
  */
-extern "C" void Init(void* arg)
+extern "C" void Init(s32 arg)
 {
 	s32 i;
 

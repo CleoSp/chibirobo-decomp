@@ -98,7 +98,6 @@ f32 gScrollCaptionOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
 f32 gScrollCaptionOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
 #endif
 
-#define PLAYER     gGame.GetPlayer()
 #define MARK_SCALE 0.65f
 
 // the overlay caption: Japan's text table has it at 72, and its icon strip has 14 frames, not 17
@@ -118,35 +117,27 @@ struct CaptionMsg {
 
 extern "C" {
 const char* GetStageName(s32 stage);
-u16 GXGetTexObjWidth(const GXTexObj* obj);
-u16 GXGetTexObjHeight(const GXTexObj* obj);
-void DrawTexturedWindowFrame(u32 color, s32 a, f32 x, f32 y, f32 w, f32 h, f32 sx, f32 sy, f32 sz);
+void DrawTexturedWindowFrame(u32 color, u32 textureColor, f32 x, f32 y, f32 width, f32 height, f32 alpha, f32 scaleX, f32 scaleY);
 }
 
 // mSavedInfo while SaveCamInfo holds a camera info, NULL otherwise
-void* gSavedScrollCameraInfo;
+u8* gSavedScrollCameraInfo;
 
 // the objects hidden while this camera runs and what they were before
 s32 gScrollCameraHiddenObjectIds[256];
 s32 gScrollCameraHiddenObjectStates[256];
 
 // draws one blinking marker centred on a screen point
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline void DrawScrollMapMarker(s32 index, f32 x, f32 y, u32 color)
+static inline void DrawScrollMapMarker(s32 index, f32 x, f32 y, u32 color)
 {
 	CTexObj tex;
 	f32 half = 0.5f;
-	tex      = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[index - StatusTextureOffset], 0);
+	tex      = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[index - StatusTextureOffset], 0);
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-	f32 zoom = 1.0f; // never anything else, but it stops the divide being folded away
-	f32 w    = MARK_SCALE * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
-	f32 h    = MARK_SCALE * GXGetTexObjHeight(&tex) / zoom;
-	f32 cx   = w * half;
-	f32 cy   = -h * half;
+	f32 w  = MARK_SCALE * (1.1f * GXGetTexObjWidth(&tex));
+	f32 h  = MARK_SCALE * GXGetTexObjHeight(&tex);
+	f32 cx = w * half;
+	f32 cy = -h * half;
 	DrawGsTexturedQuad(&gGame.mGs, &tex, color, color, color, color, x + cx, y + cy, 0.0f, w, h, 0.0f, 0.0f, 0.0f);
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 }
@@ -223,23 +214,15 @@ void CCameraActionScroll2::ShowObjs()
 			return;
 		}
 		// 0 and 2 were not drawn before HideObjs, they stay as they are
-		if (*state == 0 || *state == 2) {
-			id++;
-			state++;
-		} else {
+		if (*state != 0 && *state != 2) {
 			gGame.mXObjs.mObjects[*id]->mStatus.mFlags |= 0x10000;
-			id++;
-			state++;
 		}
+		id++;
+		state++;
 	}
 }
 
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline void CalcLimits(CCameraActionScroll2* camera, Scroll2Limits* limits)
+static inline void CalcLimits(CCameraActionScroll2* camera, const Scroll2Limits* limits)
 {
 	camera->mMaxFov = limits->mMaxFov;
 	camera->mMinFov = limits->mMinFov;
@@ -463,7 +446,6 @@ void CCameraActionScroll2::Draw()
 	f32 blink     = ABS((f32)sin(DEG2RAD * ((sOverlayFrameCount * 4) % 360)));
 	f32 fastBlink = ABS((f32)sin(DEG2RAD * ((sOverlayFrameCount * 7) % 360)));
 
-	Vec pos   = { 0.0f, 0.0f, 0.0f };
 	u32 color = (u32)(255.0f * blink) | 0xC8C8C800;
 	for (s32 i = 0; i < 288; i++) {
 		XObj* obj = gGame.mXObjs.mPools[22].Get(i);
@@ -471,7 +453,7 @@ void CCameraActionScroll2::Draw()
 			continue;
 		}
 
-		switch ((obj)->GetKind()) {
+		switch (obj->GetKind()) {
 		case 0x10E: {
 			Vec ofs = { 0.0f, 0.0f, 0.0f };
 			obj->ProjectOffsetToScreen(&ofs, &x, &y, NULL, 0);
@@ -484,13 +466,12 @@ void CCameraActionScroll2::Draw()
 			DrawScrollMapMarker(165, x, y, color);
 			break;
 		}
-		case 0x115:
-			if (obj->mStatus.mFlags & 0x10000) {
-				Vec ofs = { 0.0f, 0.0f, 0.0f };
-				obj->ProjectOffsetToScreen(&ofs, &x, &y, NULL, 0);
-				DrawScrollMapMarker(163, x, y, color);
-			}
+		case 0x115: {
+			Vec ofs = { 0.0f, 0.0f, 0.0f };
+			obj->ProjectOffsetToScreen(&ofs, &x, &y, NULL, 0);
+			DrawScrollMapMarker(163, x, y, color);
 			break;
+		}
 		case 0xC:
 		case 0x19:
 		case 0x1A:
@@ -507,9 +488,8 @@ void CCameraActionScroll2::Draw()
 		case 0x22C:
 		case 0x238: {
 			// the doors, each says which stage it goes to
-			Vec door = { 0.0f, 0.0f, 0.0f };
-			pos      = door;
-			switch ((obj)->GetKind()) {
+			Vec pos = { 0.0f, 0.0f, 0.0f };
+			switch (obj->GetKind()) {
 			case 0xD2:
 			case 0x22C: {
 				Vec alongZ = { 0.0f, 0.0f, -100.0f };
@@ -522,7 +502,7 @@ void CCameraActionScroll2::Draw()
 				break;
 			}
 			}
-			if ((obj)->GetKind() == 0x20) {
+			if (obj->GetKind() == 0x20) {
 				Vec far = { -180.0f, 0.0f, -380.0f };
 				pos     = far;
 				// leaves the kind switch: this door gets no name when Reset found a saved camera info
@@ -531,23 +511,19 @@ void CCameraActionScroll2::Draw()
 				}
 			}
 
-			Vec at = { 0.0f, 0.0f, 0.0f };
-			at     = pos;
-			obj->ProjectOffsetToScreen(&at, &x, &y, NULL, 0);
-			obj->GetFloorXZExtent();
-			obj->GetCollisionHeight();
+			obj->ProjectOffsetToScreen(&pos, &x, &y, NULL, 0);
 
 			s32 stage = 0;
 			switch (gGame.mStage) {
 			case 1:
-				if ((obj)->GetKind() == 0xC) {
+				if (obj->GetKind() == 0xC) {
 					stage = 7;
 				} else {
 					stage = 2;
 				}
 				// no break: room 1 runs room 2's door checks too, and they can override the stage above
 			case 2:
-				switch ((obj)->GetKind()) {
+				switch (obj->GetKind()) {
 				case 0x19:
 					stage = 4;
 					break;
@@ -579,9 +555,9 @@ void CCameraActionScroll2::Draw()
 				stage = 2;
 				break;
 			case 7:
-				if ((obj)->GetKind() == 0x75) {
+				if (obj->GetKind() == 0x75) {
 					stage = 2;
-				} else if ((obj)->GetKind() == 0x1B4) {
+				} else if (obj->GetKind() == 0x1B4) {
 					stage = 1;
 				} else {
 					stage = 9;
@@ -596,19 +572,16 @@ void CCameraActionScroll2::Draw()
 			MeasureGameTextWidth(&gGame.mGs, name, 1, 16.0f);
 			f32 nameX = x;
 			f32 nameY = y;
-			// 135 degrees, the results go unused
-			sin(2.356194496154785);
-			cos(2.356194496154785);
 #if defined(VERSION_JP)
 			u32 cells = strlen(name) / 2 + 1;
 			if (cells < 4)
 				cells = 4;
-			DrawTexturedWindowFrame(0x141414A0, -1, (cells - 1) * 18.0f * 0.5f + nameX, nameY - 18.0f, 18.0f * (cells - 3), 18.0f, 1.0f,
-			                        1.0f, 1.0f);
+			DrawTexturedWindowFrame(0x141414A0, 0xFFFFFFFF, (cells - 1) * 18.0f * 0.5f + nameX, nameY - 18.0f, 18.0f * (cells - 3), 18.0f,
+			                        1.0f, 1.0f, 1.0f);
 #else
 			f32 width = MeasureGameTextWidth(&gGame.mGs, name, 1, 18.0f) * 0.5f;
-			DrawTexturedWindowFrame(0x141414A0, -1, MeasureGameTextWidth(&gGame.mGs, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f, width,
-			                        18.0f, 1.0f, 1.0f, 1.0f);
+			DrawTexturedWindowFrame(0x141414A0, 0xFFFFFFFF, MeasureGameTextWidth(&gGame.mGs, name, 1, 18.0f) * 0.5f + nameX, nameY - 18.0f,
+			                        width, 18.0f, 1.0f, 1.0f, 1.0f);
 #endif
 			DrawGsProportionalTextFormat(&gGame.mGs, -1, name, nameX, nameY - 18.0f, 0.0f, 18.0f, 18.0f);
 			break;
@@ -626,7 +599,7 @@ void CCameraActionScroll2::Draw()
 #endif
 	for (s32 i = 0; i < 12; i++) {
 		XObjLeticker* obj = static_cast<XObjLeticker*>(gGame.mXObjs.mPools[9].Get(i));
-		switch ((obj)->GetKind()) {
+		switch (obj->GetKind()) {
 		case 0xD3:
 		case 0x115:
 		case 0x116:
@@ -654,13 +627,12 @@ void CCameraActionScroll2::Draw()
 			                             22.0f, 22.0f);
 #else
 			CTexObj tex;
-			tex = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[161 - StatusTextureOffset], 0);
+			tex = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[161 - StatusTextureOffset], 0);
 			SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-			u16 w    = GXGetTexObjWidth(&tex);
-			u16 h    = GXGetTexObjHeight(&tex);
-			f32 zoom = 1.0f;
+			u16 w = GXGetTexObjWidth(&tex);
+			u16 h = GXGetTexObjHeight(&tex);
 			DrawGsTexturedQuad(&gGame.mGs, &tex, labelColor, labelColor, labelColor, labelColor, markX + 23.4f, markY + -20.8f, 0.0f,
-			                   MARK_SCALE * (1.1f * w) / zoom, MARK_SCALE * h / zoom, 0.0f, 0.0f, 0.0f);
+			                   MARK_SCALE * (1.1f * w), MARK_SCALE * h, 0.0f, 0.0f, 0.0f);
 			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 #endif
 		} else {
@@ -678,37 +650,32 @@ void CCameraActionScroll2::Draw()
 	f32 angle;
 	switch (gGame.mStage) {
 	case 3:
-		angle = PI + PLAYER->mMoveRotate.y;
+		angle = PI + gGame.GetPlayer()->mMoveRotate.y;
 		break;
 	case 11:
 		// the turned camera's room: the arrow only points left or right of the player
-		if (HALF_PI + PLAYER->mMoveRotate.y > PI) {
+		if (HALF_PI + gGame.GetPlayer()->mMoveRotate.y > PI) {
 			angle = -HALF_PI;
 		} else {
 			angle = HALF_PI;
 		}
 		break;
 	default:
-		angle = HALF_PI + PLAYER->mMoveRotate.y;
+		angle = HALF_PI + gGame.GetPlayer()->mMoveRotate.y;
 		break;
 	}
 
 	CTexObj tex;
-	tex = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[160 - StatusTextureOffset], 0);
-	GXGetTexObjWidth(&tex);
-	GXGetTexObjHeight(&tex);
-	sin(angle);
-	cos(angle);
+	tex       = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[160 - StatusTextureOffset], 0);
 	f32 pulse = sin(DEG2RAD * ((sOverlayFrameCount * 24) % 360));
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-	tex        = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[166 - StatusTextureOffset], 0);
-	f32 zoom   = 1.0f;
-	f32 arrowW = zoom * (1.1f * GXGetTexObjWidth(&tex)) / zoom;
+	tex        = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[166 - StatusTextureOffset], 0);
+	f32 arrowW = 1.1f * GXGetTexObjWidth(&tex);
 	u16 arrowH = GXGetTexObjHeight(&tex);
-	f32 radius = arrowW / 3.0f + 3.0f * pulse * zoom / zoom;
+	f32 radius = arrowW / 3.0f + 3.0f * pulse;
 	f32 arrowX = radius * (f32)sin(angle) + x;
-	DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, zoom * arrowH / zoom, 0.0f,
-	                   0.0f, PI + angle);
+	DrawGsTexturedQuad(&gGame.mGs, &tex, -1, -1, -1, -1, arrowX, radius * (f32)cos(angle) + y, 0.0f, arrowW, arrowH, 0.0f, 0.0f,
+	                   PI + angle);
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 
 	// the caption in the corner, with a dark outline
@@ -730,7 +697,7 @@ void CCameraActionScroll2::Draw()
 	DrawGsProportionalTextFormat(&gGame.mGs, white, msg.mText, captionX, captionY, 0.0f, 20.0f, 20.0f);
 
 	CTexObj icon;
-	icon = (&gGame.mTpl)->mTex.Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[119 - StatusTextureOffset], 0);
+	icon = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[119 - StatusTextureOffset], 0);
 	PSMTXScale(icon.mMtx[1], CAPTION_ICON_FRAME, 1.0f, 1.0f);
 	icon.mMtxDirty = TRUE;
 	PSMTXTrans(icon.mMtx[0], frame, 0.0f, 0.0f);

@@ -1,44 +1,10 @@
-#include "Version.h"
+#include "game/reltrash.h"
+#include "game/relmodule.h"
+#include "game/cgame.h"
 #include "game/cjobj.h"
-#include "game/cjobjset.h"
-
-extern "C" f32 PSVECDistance(Vec* a, Vec* b);
-
-// unused, but they sit at the start of this file's rodata
-static const f32 sStage07VectorTemplates[2][9] = {
-	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-	{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-};
-
-// CGame
-extern "C" u8 gGame[];
-
-#define MAINGAME_AT(type, offset) (*(type*)(gGame + (offset)))
-
-#if defined(VERSION_JP)
-#define STAGE07_FLAG_LIST   MAINGAME_AT(void*, 0xE7114)
-#define STAGE07_SOUND       (&MAINGAME_AT(u8, 0xE713C))
-#define STAGE07_FIELD_E5DDC (&MAINGAME_AT(Vec, 0xE50F4))
-#else
-#define STAGE07_FLAG_LIST   MAINGAME_AT(void*, 0xE7DFC)
-#define STAGE07_SOUND       (&MAINGAME_AT(u8, 0xE7E24))
-#define STAGE07_FIELD_E5DDC (&MAINGAME_AT(Vec, 0xE5DDC))
-#endif
-
-extern "C" void AddHideObj__20CCameraActionScroll2Fl(void* obj, s32 value);
-extern "C" s32 IsGameSoundPlaying(void* obj, s32 id);
-extern "C" s32 GetSoundVolumeAtPosition(void* obj, Vec* pos, s32 arg);
-extern "C" void SetGameSfxVolume(void* obj, s32 id, s32 arg, s32 arg2);
+#include "game/csound.h"
 
 // in rel/trash.cpp and rel/fafa.cpp
-extern "C" void DrawTrashStack(void* arg);
-extern "C" void UpdateTrash(void* arg);
-extern "C" void InitTrash(void* arg);
-extern "C" s32 CmdIsNearTrashbox(s32 cmd, s32 count, s32* args);
-extern "C" s32 CmdCancelTrash(s32 cmd, s32 count, s32* args);
-extern "C" s32 CmdEndTrash(s32 cmd, s32 count, s32* args);
-extern "C" s32 CmdGetTrashResult(s32 cmd, s32 count, s32* args);
-extern "C" s32 CmdStartTrash(s32 cmd, s32 count, s32* args);
 extern "C" void SetFafaPartVisibility(s32 mode);
 
 // one child step then path[i] sibling steps per level
@@ -62,70 +28,20 @@ static inline HSD_JObj* GetJObjByPath(HSD_JObj* jobj, s32* path, s32 depth)
 	return jobj;
 }
 
-struct Stage07Actor {
-#if defined(VERSION_JP)
-	u8 _00[0xC0]; // _00
-#else
-	u8 _00[0xC8]; // _00
-#endif
-	Vec mMoveTranslate; // _C8 (JP: _C0)
-	u8 _D4[0x154];      // _D4 (JP: _CC)
-	u64 mStatus;        // _228 (JP: _220)
-	u8 _230[0x8];       // _230 (JP: _228)
-	s32* mCoord;        // _238 (JP: _230)
-};
-
-struct Stage07Game {
-#if defined(VERSION_JP)
-	u8 _00[0x9804]; // _00
-#else
-	u8 _00[0x984C]; // _00
-#endif
-	u8* mPool;                    // _984C (JP: _9804)
-	u8 _9850[0xC];                // _9850 (JP: _9808)
-	s32 mPoolEntrySize;           // _985C (JP: _9814)
-	Stage07Actor* mActors[0x400]; // _9860 (JP: _9818)
-	s32 mActorCount;              // _A860 (JP: _A818)
-
-	Stage07Actor* GetActor(s32 index) const { return mActors[index]; }
-};
-
-#define STAGE07_GAME ((Stage07Game*)gGame)
-
-struct Stage07PoolEntry {
-	HSD_JObj* jobj; // _00
-#if defined(VERSION_JP)
-	u8 _04[0x238]; // _04
-#else
-	u8 _04[0x240]; // _04
-#endif
-	s32* mPlacement; // _244 (JP: _23C), the placement record; [0] is the object kind
-};
-
 extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values);
 extern "C" void SetObj37PartVisibility(s32 mode);
 extern "C" s32 CmdSetObj37PartVisibility(s32 cmd, s32 count, s32* args);
 extern "C" s32 CmdSetFafaPartVisibility(s32 cmd, s32 count, s32* args);
 extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
-extern "C" void DrawStage(void* arg);
-extern "C" void UpdateStage(void* arg);
-extern "C" void InitStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+extern "C" void DrawStage(s32 arg);
+extern "C" void UpdateStage(s32 arg);
+extern "C" void InitStage(s32 arg);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage }; // only the first three slots are used
 RelCmdFunc _prolog_cmds[]    = {
-    CmdNop,
-    CmdSetFafaPartVisibility,
-    CmdSetObj37PartVisibility,
-    CmdStartTrash,
-    CmdGetTrashResult,
-    CmdEndTrash,
-    (RelCmdFunc)CmdAddObjFlagList,
-    CmdCancelTrash,
-    CmdIsNearTrashbox,
+    CmdNop,         CmdSetFafaPartVisibility, CmdSetObj37PartVisibility, CmdStartTrash, CmdGetTrashResult, CmdEndTrash, CmdAddObjFlagList,
+    CmdCancelTrash, CmdIsNearTrashbox,
 };
 }
 
@@ -138,7 +54,8 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
 	s32 i;
 
 	for (i = 0; i < count; i++) {
-		AddHideObj__20CCameraActionScroll2Fl(STAGE07_FLAG_LIST, values[i]); // every arg is an id for the hide list
+		CCameraActionScroll2* camera = static_cast<CCameraActionScroll2*>(gGame.mCameraActions.mTable[CAMACTION_SCROLL2]);
+		camera->AddHideObj(values[i]);
 	}
 	return 0;
 }
@@ -150,51 +67,49 @@ extern "C" s32 CmdAddObjFlagList(s32 cmd, s32 count, s32* values)
 extern "C" void SetObj37PartVisibility(s32 mode)
 {
 	CJObj jobj;
-	s32 size = STAGE07_GAME->mPoolEntrySize;
-	u8* pool = STAGE07_GAME->mPool;
+	const XObjPool& pool = gGame.mXObjs.mPools[22];
 	s32 i;
 
 	for (i = 0; i < 0x120; i++) {
-		Stage07PoolEntry* entry = (Stage07PoolEntry*)(pool + i * size);
-		s32* type               = entry->mPlacement;
-		if ((type != NULL ? *type : -1) != 0x37) { // only kind-0x37 placements
+		XObj* entry = pool.Get(i);
+		if (entry->GetKind() != 0x37) { // only kind-0x37 placements
 			continue;
 		}
 		// the mode picks which of the object's two parts shows
 		switch (mode) {
 		case 0: { // 0: both hidden
 			s32 path0[2] = { 0, 1 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path0, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			s32 path1[2] = { 0, 2 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path1, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path1, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
 		case 1: { // 1: the first part shows
 			s32 path0[2] = { 0, 1 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path0, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
 			s32 path1[2] = { 0, 2 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path1, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path1, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
 		case 2: { // 2: the second part shows
 			s32 path0[2] = { 0, 1 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path0, 2));
 			HSD_JObjSetFlags(jobj.mJObj, HIDDEN);
 			s32 path1[2] = { 0, 2 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path1, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path1, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
 		case 3: { // 3: both show
 			s32 path0[2] = { 0, 1 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path0, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path0, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
 			s32 path1[2] = { 0, 2 };
-			jobj.Attach(GetJObjByPath(entry->jobj, path1, 2));
+			jobj.Attach(GetJObjByPath(entry->mJObj, path1, 2));
 			HSD_JObjClearFlags(jobj.mJObj, HIDDEN);
 			break;
 		}
@@ -248,30 +163,26 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: stage07 .text 0x10B0
  * @note Size: 0x20
  */
-extern "C" void DrawStage(void* arg)
+extern "C" void DrawStage(s32 arg)
 {
-	DrawTrashStack(arg);
+	DrawTrashStack();
 }
 
 /**
  * @note Address: stage07 .text 0x10D0
  * @note Size: 0x110
  */
-// NONMATCHING: retail splits the field address into a hoisted addis and an
-// in-loop addi; this build folds it into one pointer.
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
-	Stage07Actor* actor;
-	void* obj = STAGE07_SOUND;
+	XSound* sound = &gGame.mSound;
 	s32 i;
 
-	if (IsGameSoundPlaying(obj, 0x1000D)) {
-		for (i = 0; i < STAGE07_GAME->mActorCount; i++) {
-			actor = STAGE07_GAME->GetActor(i);
+	if (IsGameSoundPlaying(sound, 0x1000D)) {
+		for (i = 0; i < gGame.mXObjs.mObjectCount; i++) {
+			XObj* actor = gGame.GetObject(i);
 			// live, drawn objects of kind 0xD0 drive the loop's volume
-			if ((actor->mStatus & 1) && (actor->mStatus & 0x10000) && *actor->mCoord == 0xD0) {
-				PSVECDistance(STAGE07_FIELD_E5DDC, &actor->mMoveTranslate); // its result is unused
-				SetGameSfxVolume(obj, 0x1000D, GetSoundVolumeAtPosition(obj, &actor->mMoveTranslate, 1), 0);
+			if ((actor->mStatus.mFlags & 1) && (actor->mStatus.mFlags & 0x10000) && actor->mCoord.mPlacement->mObjectId == 0xD0) {
+				SetGameSfxVolume(sound, 0x1000D, GetSoundVolumeAtPosition(sound, &actor->mMoveTranslate, 1), 0);
 			}
 		}
 	}
@@ -357,9 +268,9 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: stage07 .text 0x11E0
  * @note Size: 0x20
  */
-extern "C" void InitStage(void* arg)
+extern "C" void InitStage(s32 arg)
 {
-	InitTrash(arg);
+	InitTrash();
 }
 
 /**

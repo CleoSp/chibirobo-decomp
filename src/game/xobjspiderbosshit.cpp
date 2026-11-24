@@ -7,7 +7,7 @@
  * @note Address: 0x801051A0
  * @note Size: 0x14
  */
-s32 XObjSpiderBoss::OnPlayerContact(s32 unused, s32 value)
+s32 XObjSpiderBoss::OnPlayerContact(const CVec&, s32 value)
 {
 	mSpiderStatus.mFlags |= 1;
 	return value;
@@ -34,19 +34,15 @@ void XObjSpiderBoss::OnHitFromPosition(const Vec& pos, f32 strength)
 	if (GetAttachmentCountById(&player->mAttachments, 2) < 2) {
 		return;
 	}
-	OnHitFromPosition__4XObjFRC3Vecf(this, &pos, strength);
+	XObj::OnHitFromPosition(pos, strength);
 	mSpiderStatus.mFlags |= 2;
-	Vec hit             = { pos.x, pos.y, pos.z };
-	mHitPos             = hit;
+	mHitPos             = pos;
 	mHitStrength        = strength;
 	CParticle* particle = &gGame.mParticle;
 	particle->Kill(0xB3);
-	// NONMATCHING: retail builds rot straight in CreateSRT's by-value argument slot, this compiler
-	// builds the local and copies it (same in states34, mamahide, scrc and evt); the literal pool is
-	// also another unit's in retail
-	Vec scale = { 1.0f, 1.0f, 1.0f };
-	Vec rot   = { 0.0f, mTargetRotY, 0.0f };
-	particle->CreateSRT(0xB3, 1, pos, scale, rot, TRUE);
+	const Vec scale    = { 1.0f, 1.0f, 1.0f };
+	const Vec rotation = { 0.0f, mTargetRotY, 0.0f };
+	particle->CreateSRT(0xB3, 1, pos, scale, rotation, TRUE);
 	XSound* sound = &gGame.mSound;
 	if (!IsGameSoundPlaying(sound, 0x127)) {
 		PlayGameSound(sound, 0x127, 255); // npc_spider_bakuhatsu

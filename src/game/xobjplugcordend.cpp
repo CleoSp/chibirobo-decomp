@@ -7,10 +7,10 @@
 extern "C" void SetPlugCordAlphaMode(XObjPlugCord* cord, BOOL enabled, u8 alpha)
 {
 	if (enabled) {
-		cord->mFlags |= 6;
+		cord->mFlags |= XObjPlugCord::AlphaOutput;
 		cord->mAlpha = alpha;
 	} else {
-		cord->mFlags &= ~6;
+		cord->mFlags &= ~XObjPlugCord::AlphaOutput;
 		cord->mAlpha = alpha;
 	}
 }

@@ -2,18 +2,7 @@
 #define _GAME_SOUNDPLAYBACK_H
 
 #include "game/xsound.h"
-
-extern "C" {
-BOOL AXDriverPauseTrack(s32 track);
-BOOL HSD_AudioSFXKeyOffTrack(s32 track);
-BOOL AXDriverResumeTrack(s32 track);
-BOOL AXDriverSetAllStreamVolumes(u8 vol, u16 frames);
-BOOL AXDriverPauseAllStreams(void);
-BOOL AXDriverResumeAllStreams(void);
-BOOL HSD_AudioSFXSetVolumeByID(s32 sfx, u8 vol, u16 frames);
-BOOL AXDriverResumeSfx(s32 sfx);
-s32 HSD_AudioSFXCountByID(s32 sfx);
-}
+#include <hsd/sysdolphin/axdriver.h>
 
 // guess: ids with high half 0xFFFF (but not -1) mean "every sfx", stops all slots
 static inline bool isAllSfx(s32 sfx)

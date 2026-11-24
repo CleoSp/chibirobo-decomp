@@ -10,7 +10,7 @@ extern AnimSfxEvent gSpiderBossAnimSfxEvents[]; // the anim sound events
  */
 void XObjSpiderBoss::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mAnimSfx.mEvents = gSpiderBossAnimSfxEvents;
 }
 
@@ -20,7 +20,7 @@ void XObjSpiderBoss::ResetObjectState()
  */
 BOOL XObjSpiderBoss::LoadFromPlacement(const CoordInfo& info)
 {
-	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		ResetSpiderBossState(this);
 		ApplySpiderBossPlacement(this);
 		return TRUE;

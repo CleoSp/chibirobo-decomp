@@ -2,79 +2,16 @@
 #include "game/savedata.h"
 #include "game/cgame.h"
 #include "game/xchr.h"
+#include "game/xobjflags.h"
 #include "game/inventory.h"
 #include "game/evt.h"
 #include <string.h>
 
-static inline XObjChr* Player()
+static s32 ClampSaveStat(s32 value, s32 minimum, s32 maximum)
 {
-	return gGame.GetPlayer();
-}
-
-// todo: pools 4, 5 and 17 keep a save block right after XObj, no idea what class
-static inline void* PoolSaveData(s32 pool)
-{
-	return *(void**)(gGame.mXObjs.mPools[pool + 3].mObjects + sizeof(XObj));
-}
-
-static inline Params* Stats()
-{
-	return &Player()->mParams;
-}
-
-static inline void SetExperience(Params* stats, s32 value)
-{
-	stats->mExperience = value > 0 ? value : 0;
-	if (stats->mExperience < 0)
-		stats->mExperience = 0;
-	if (stats->mExperience > 99999)
-		stats->mExperience = 99999;
-}
-
-static inline void SetLevel(Params* stats, s32 value)
-{
-	stats->mLevel = value > 0 ? value : 0;
-	if (stats->mLevel < 0)
-		stats->mLevel = 0;
-	if (stats->mLevel > 30)
-		stats->mLevel = 30;
-}
-
-static inline void SetRank(Params* stats, s32 value)
-{
-	stats->mRank = value > 0 ? value : 0;
-	if (stats->mRank < 1)
-		stats->mRank = 1;
-	if (stats->mRank > 1000000)
-		stats->mRank = 1000000;
-}
-
-static inline void SetMaxBattery(Params* stats, f32 value)
-{
-	stats->mMaxBattery = value > 0.0f ? value : 0.0f;
-	if (stats->mMaxBattery < 0.0f)
-		stats->mMaxBattery = 0.0f;
-	if (stats->mMaxBattery > 999.9f)
-		stats->mMaxBattery = 999.9f;
-	stats->SetBattery(stats->mBattery);
-}
-
-static inline void SetMoney(Params* stats, s32 value)
-{
-	stats->mMoney = value > 0 ? value : 0;
-	if (stats->mMoney < 0)
-		stats->mMoney = 0;
-	if (stats->mMoney > 99999)
-		stats->mMoney = 99999;
-}
-
-static inline void SetScrap(Params* stats, s32 value)
-{
-	stats->mScrap = value > 0 ? value : 0;
-	if (stats->mScrap < 0)
-		stats->mScrap = 0;
-	if (stats->mScrap > 99999)
-		stats->mScrap = 99999;
+	if (value < minimum)
+		return minimum;
+	return value > maximum ? maximum : value;
 }
 
 static inline void RequestSuit(XObjChr* chr, s32 value)
@@ -103,31 +40,31 @@ extern "C" void RestoreGameSaveData(Memcard* card)
 	gGame.mTimeState.mTime     = save->mHeader.mTime;
 	gGame.mTimeState.mRunning  = 0; // the clock starts stopped
 	gGame.mTimeState.mDuration = save->mHeader.mDuration;
-	SetExperience(Stats(), save->mHeader.mExp);
-	SetLevel(Stats(), save->mHeader.mLevel);
-	SetRank(Stats(), save->mHeader.mRank);
-	SetMaxBattery(Stats(), save->mHeader.mMaxBattery);
-	Stats()->SetBattery(save->mHeader.mBattery);
-	SetMoney(Stats(), save->mHeader.mMoney);
-	SetScrap(Stats(), save->mHeader.mScrap);
-	if (save->mHeader.mActive)
-		Stats()->_1C[0] = 1;
-	else
-		Stats()->_1C[0] = 0;
+	XObjChr* player            = gGame.GetPlayer();
+	Params& stats              = player->mParams;
+	stats.mExperience          = ClampSaveStat(save->mHeader.mExp, 0, 99999);
+	stats.mLevel               = ClampSaveStat(save->mHeader.mLevel, 0, 30);
+	stats.mRank                = ClampSaveStat(save->mHeader.mRank, 1, 1000000);
+	const f32 maxBattery       = save->mHeader.mMaxBattery > 0.0f ? save->mHeader.mMaxBattery : 0.0f;
+	stats.mMaxBattery          = maxBattery > 999.9f ? 999.9f : maxBattery;
+	stats.SetBattery(save->mHeader.mBattery);
+	stats.SetMoney(save->mHeader.mMoney);
+	stats.SetScrap(save->mHeader.mScrap);
+	stats._1C[0] = save->mHeader.mActive != 0;
 #if defined(VERSION_PAL)
 	gGame.mPlayTime = (f32)save->mHeader.mFrames;
 #else
 	gGame.mPlayTime = save->mHeader.mFrames;
 #endif
-	memcpy(Player()->mParams.mInventory.mItems, save->mPlayer, sizeof(save->mPlayer));
+	memcpy(stats.mInventory.mItems, save->mPlayer, sizeof(save->mPlayer));
 	memcpy(gEventFlags.mFlags, save->mEvtFlags, sizeof(save->mEvtFlags));
 	memcpy(gEventVars.mVars, save->mEvtVars, sizeof(save->mEvtVars));
-	memcpy(PoolSaveData(4), save->mObjects[0], sizeof(save->mObjects[0])); // mObjects[0..2] -> pools 4, 5, 17
-	memcpy(PoolSaveData(5), save->mObjects[1], sizeof(save->mObjects[1]));
-	memcpy(PoolSaveData(17), save->mObjects[2], sizeof(save->mObjects[2]));
-	memcpy(&Player()->mAttachments, save->mPlayerRecord, sizeof(save->mPlayerRecord));
-	RequestSuit(Player(), save->mSuit);
-	Player()->mSuits.mSpecial  = save->mSpecialSuit;
-	Player()->mSquirterContent = save->mSquirterLiquid;
-	Player()->mItemTintWord    = save->mItemTint;
+	memcpy(static_cast<XObjCoin*>(gGame.mXObjs.mPools[7].First())->mFlags->mFlags, save->mCoinFlags, sizeof(save->mCoinFlags));
+	memcpy(static_cast<XObjItem*>(gGame.mXObjs.mPools[8].First())->mFlags->mFlags, save->mItemFlags, sizeof(save->mItemFlags));
+	memcpy(static_cast<XObjDust*>(gGame.mXObjs.mPools[20].First())->mFlags->mFlags, save->mDustFlags, sizeof(save->mDustFlags));
+	memcpy(&player->mAttachments, save->mPlayerRecord, sizeof(save->mPlayerRecord));
+	RequestSuit(player, save->mSuit);
+	player->mSuits.mSpecial  = save->mSpecialSuit;
+	player->mSquirterContent = save->mSquirterLiquid;
+	player->mItemTintWord    = save->mItemTint;
 }

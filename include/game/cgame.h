@@ -83,9 +83,9 @@ public:
 	s32 mLoadState;        // _11D4, UpdateStageObjectLoading's state, 0 when idle
 	// _11D8 vtable
 
-	virtual ~XOBJS() { } // _08
+	virtual ~XOBJS(); // _08
 
-	inline void ReadAll();
+	void ReadAll();
 };
 STATIC_ASSERT(sizeof(XOBJS) == 0x11DC);
 
@@ -153,7 +153,7 @@ public:
 	BOOL mDiskOk;       // _3324, DVDCheckDisk
 	BOOL mDvdError;     // _3328, rumble is paused while set
 	s32 mResetHold;     // _332C, frames the reset combo is held
-	BOOL mReset;        // _3330, stops ReadAll__5XOBJSFv's read loop when set
+	BOOL mReset;        // _3330, stops the object-loading loop when set
 	// _3334 vtable
 
 	CBase();
@@ -319,6 +319,8 @@ extern "C" CGame gGame;
 
 extern "C" {
 void ChangeGameStage(CGame* game, s32 stage, BOOL showName);
+void StartGameMovie(CGame* game, const char* path, BOOL loop, u32 flags);
+void StopGameMovie(CGame* game);
 void TryStartObjectEvent(CGame* game, u8* script, XObj* context, s16 useValue, s16 hitValue);
 s32 FindStageIndexByName(const char* name);
 }

@@ -4,9 +4,8 @@
 #include "game/globals.h"
 #include "game/mic.h"
 extern "C" {
+#include <dolphin/gx/gx.h>
 #include <sysdolphin/initialize.h>
-void GXSetScissor(u32, u32, u32, u32);
-void BuildSceneDrawLists(CGame*);
 void RenderSceneShadow(CGame*);
 void RenderMirrorTextures(CGame*);
 void RenderFloorReflection(CGame*);
@@ -56,8 +55,6 @@ static inline void DrawSubwindowObjects(const XOBJS& objects, CCamera* camera)
  * @note Address: 0x8000DFA8
  * @note Size: 0x194C (US, JP), 0x196C (PAL)
  */
-// NONMATCHING: retail does the float-to-int conversions without __cvt_fp2unsigned calls,
-// a different cast form than the current source
 void CGame::Draw()
 {
 	CVec interest = GetCamera()->mInterest;
@@ -79,7 +76,7 @@ void CGame::Draw()
 		if (BeginGsCamera(this)) {
 #if defined(VERSION_PAL)
 			f32 scale = gGame.mGs.mScreen.mHeightScale;
-			GXSetScissor(0, (u32)(0.f * scale), 320, (u32)(224.f * scale));
+			GXSetScissor(0, 0, 320, static_cast<u32>(224.0f * scale));
 #else
 			GXSetScissor(0, 0, 320, 224);
 #endif
@@ -292,22 +289,20 @@ void CGame::Draw()
  * @note Address: 0x8000F8F4
  * @note Size: 0x38
  */
-// todo: weak copy
-extern "C" void SetInterest__7CCameraFRC3Vec(CCamera* camera, const Vec* interest)
+void CCamera::SetInterest(const Vec& interest)
 {
-	camera->SetInterest(interest->x, interest->y, interest->z);
+	SetInterest(interest.x, interest.y, interest.z);
 }
 
 /**
  * @note Address: 0x8000F92C
  * @note Size: 0x10
  */
-// todo: weak copy
-extern "C" void SetInterest__7CCameraFfff(CCamera* camera, f32 x, f32 y, f32 z)
+void CCamera::SetInterest(f32 x, f32 y, f32 z)
 {
-	camera->mInterest.x = x;
-	camera->mInterest.y = y;
-	camera->mInterest.z = z;
+	mInterest.x = x;
+	mInterest.y = y;
+	mInterest.z = z;
 }
 
 /**

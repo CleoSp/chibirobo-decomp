@@ -20,7 +20,7 @@ public:
 
 	XObjWireEff();
 
-	virtual ~XObjWireEff() { }             // _08 (weak)
+	virtual ~XObjWireEff();                // _08
 	virtual void Release();                // _54
 	virtual void ResetObjectState();       // _98
 	virtual void UpdateObject(u32 frames); // _A4
@@ -35,6 +35,7 @@ STATIC_ASSERT(sizeof(XObjWireEff) == 0x998);
 // one point of the cord, it steps like a CObjVec but has no vtable of its own
 struct XObjPlugCordPoint {
 	XObjPlugCordPoint();
+	~XObjPlugCordPoint();
 
 	CVec mPos;    // _00
 	CVec mTarget; // _10
@@ -61,12 +62,20 @@ struct XObjPlugCordNodes {
 	XObjPlugCordNode mNode[10]; // _00
 	u32 mColor;                 // _2F8
 	u32 mCount;                 // _2FC
-	u32 mMode;                  // _300, handed to each new node
+	s32 mMode;                  // _300, handed to each new node
 	BOOL mEnabled;              // _304
 };
 STATIC_ASSERT(sizeof(XObjPlugCordNodes) == 0x308);
 
 struct XObjPlugCord {
+	enum Flags {
+		UpdateColor         = 1,
+		UpdateAlpha         = 2,
+		SetDestinationAlpha = 4,
+		CollideWithObjects  = 8,
+		AlphaOutput         = UpdateAlpha | SetDestinationAlpha,
+	};
+
 	s32 mCount;                 // _00
 	XObjPlugCordPoint* mPoints; // _04, one shared buffer of 128
 	f32 mSpeed;                 // _08
@@ -135,7 +144,7 @@ public:
 
 	XObjAttachment();
 
-	virtual ~XObjAttachment() { }                                 // _08 (weak)
+	virtual ~XObjAttachment();                                    // _08
 	virtual void Release();                                       // _54
 	virtual void InitializeObject(u32 id);                        // _90
 	virtual void ResetForNewGame();                               // _94
@@ -156,7 +165,7 @@ class XObjCopter : public XObjAttachment {
 public:
 	XObjCopter();
 
-	virtual ~XObjCopter() { }              // _08 (weak)
+	virtual ~XObjCopter();                 // _08
 	virtual void UpdateObject(u32 frames); // _A4
 };
 
@@ -164,7 +173,7 @@ class XObjPopper : public XObjAttachment {
 public:
 	XObjPopper();
 
-	virtual ~XObjPopper() { }              // _08 (weak)
+	virtual ~XObjPopper();                 // _08
 	virtual void UpdateObject(u32 frames); // _A4
 };
 
@@ -177,7 +186,7 @@ public:
 
 	XObjRadar();
 
-	virtual ~XObjRadar();                                  // _08 (weak)
+	virtual ~XObjRadar();                                  // _08
 	virtual void InitializeObject(u32 id);                 // _90
 	virtual BOOL LoadFromPlacement(const CoordInfo& info); // _9C
 	virtual void UpdateObject(u32 frames);                 // _A4
@@ -187,7 +196,7 @@ class XObjOX : public XObjAttachment {
 public:
 	XObjOX();
 
-	virtual ~XObjOX() { }                  // _08 (weak)
+	virtual ~XObjOX();                     // _08
 	virtual void UpdateObject(u32 frames); // _A4
 };
 

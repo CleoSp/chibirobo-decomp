@@ -1,9 +1,5 @@
 #include "game/cgame.h"
 
-void operator delete(void* object);
-
-extern "C" void* __vt__20CCameraActionAreaExM[];
-
 /**
  * @note Address: 0x8001585C
  * @note Size: 0x1C
@@ -87,21 +83,4 @@ bool CVectorNoneInterpolation::Update(u32 step, f32 dt)
 Vec CVectorNoneInterpolation::Get()
 {
 	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
-}
-
-/**
- * @note Address: 0x80015BBC
- * @note Size: 0x98
- */
-// todo: weak copy
-extern "C" CCameraActionAreaExM* __dt__20CCameraActionAreaExMFv(CCameraActionAreaExM* action, s32 flags)
-{
-	if (action != NULL) {
-		*(void***)((u8*)action + 0x3C) = __vt__20CCameraActionAreaExM; // _3C vtable
-		action->CInterfaceCameraAction::~CInterfaceCameraAction();
-		if ((s16)flags > 0) {
-			::operator delete(action);
-		}
-	}
-	return action;
 }

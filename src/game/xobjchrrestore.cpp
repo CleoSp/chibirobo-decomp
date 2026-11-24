@@ -26,8 +26,8 @@ extern "C" BOOL RestorePlayerHeldItem(XObjChr* chr)
 
 	s16 id = chr->mSavedTarget;
 	if (id >= 0) {
-		XObj* loaded        = SpawnObjectFromPlacement(&gGame.mXObjs, &CoordInfo(GetStageObjectPlacementByIndex(id)), 0, TRUE);
-		chr->mPendingTarget = loaded;
+		CoordInfo placement(GetStageObjectPlacementByIndex(id));
+		chr->mPendingTarget = SpawnObjectFromPlacement(&gGame.mXObjs, &placement, 0, TRUE);
 		chr->mSavedTarget   = -1;
 	}
 	if (chr->mPendingTarget != NULL) {

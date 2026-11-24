@@ -114,8 +114,8 @@ void XObjDust::DrawObjectEffects()
 void XObjDust::DrawWithView(Mtx view)
 {
 	if (GetObjFlags() & 2) { // flags 2 and 4 draw normally
-		DrawWithView__4XObjFPA4_f(this, view);
+		XObj::DrawWithView(view);
 	} else if (GetObjFlags() & 4) {
-		DrawWithView__4XObjFPA4_f(this, view);
+		XObj::DrawWithView(view);
 	}
 }

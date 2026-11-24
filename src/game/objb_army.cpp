@@ -1,5 +1,4 @@
 #include "game/xobjarmy.h"
-#include "game/xobjactor.h"
 #include "game/globals.h"
 #include "game/xchr.h"
 #include "game/cgame.h"
@@ -9,13 +8,10 @@
 #include <math.h>
 extern "C" {
 #include <dolphin/mtx/vec.h>
+#include <sysdolphin/random.h>
 }
 
 // XObjArmy, the toy soldiers, and the shots they fire
-
-extern "C" {
-f32 HSD_Randf(void);
-}
 
 // sets the object's floor boxes, they take effect at once
 static inline void SetFloors(XObj* obj, XObjFloor* floors)
@@ -26,11 +22,6 @@ static inline void SetFloors(XObj* obj, XObjFloor* floors)
 	UpdateObjectFloorXZExtent(obj);
 	UpdateObjectFloorHeights(obj);
 }
-
-// nothing reads it
-extern "C" {
-s32 sArmyUnusedTable[26] = { 0, 3, 0, 0, 3, 0, 0, 2, 0, 0, 2, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 3, 0 };
-} // extern "C"
 
 // the points the soldier stands on, upright, falling over and lying down
 static XObjFloor sArmyStandingFloors[2] = {
@@ -94,8 +85,18 @@ XObj* gArmyShotTarget;   // shot at instead of chibi robo
 CStatus gArmyShotStatus; // 1 once a shot hits, 2 keeps them from shooting
 }
 
+static XObjArmyShot* FindAvailableShot(XObjArmy& army)
+{
+	for (u32 i = 0; i < ARRAY_SIZE(army.mShots); ++i) {
+		if (!army.mShots[i].mActive) {
+			return &army.mShots[i];
+		}
+	}
+	return NULL;
+}
+
 // fires a shot from pos along dir
-static inline void FireShot(XObjArmyShot* shot, const CVec& pos, const CVec& dir, u8 quiet)
+static inline void FireShot(XObjArmyShot* shot, const CVec& pos, const CVec& dir, bool quiet)
 {
 	shot->mActive = 1;
 	shot->mLife   = 120;
@@ -148,9 +149,6 @@ static inline void SetMode(XObjArmy* army, s32 mode)
  * @note Address: 0x800E6A5C
  * @note Size: 0x114
  */
-// NONMATCHING: retail schedules the joint-tree root load after the
-// volume store; this build issues it first.
-
 void XObjArmy::UpdateAnimationSounds()
 {
 	s32 anim;
@@ -237,25 +235,21 @@ void UpdateArmyShot(XObjArmyShot* shot, u32 frames)
  * @note Address: 0x800E6E78
  * @note Size: 0x158
  */
-void XObjArmy::OnHitFromPosition(const Vec& pos, f32 f)
+void XObjArmy::OnHitFromPosition(const Vec&, f32 strength)
 {
-	if (!(mFlags.mFlags & 1)) { // flag 1 marks a soldier already down
-		_994 = 0.0f;
-		PlayGameSound(&gGame.mSound, 0x83, 0xFF);
-		if (_994 <= 0.0f) { // always true; the StateWait branch below is dead
-			if ((s32)GetPlayerActionParameter(0x1F) / 100.0f <= f
-			    || PSVECDistance(&mMoveTranslate, &gGame.GetPlayer()->mMoveTranslate) < 20.0f) {
-				mStep = 0;
-				mFunc = &XObjArmy::StateFall;
-			} else {
-				mStep = 0;
-				mFunc = &XObjArmy::StateKnock;
-			}
-		} else {
-			mStep = 0;
-			mFunc = &XObjArmy::StateWait;
-		}
+	if (mFlags.mFlags & 1) {
+		return;
 	}
+	_994 = 0.0f;
+	PlayGameSound(&gGame.mSound, 0x83, 0xFF);
+	Func nextState = &XObjArmy::StateWait;
+	if (_994 <= 0.0f) {
+		const bool falls = (s32)GetPlayerActionParameter(0x1F) / 100.0f <= strength
+		                || PSVECDistance(&mMoveTranslate, &gGame.GetPlayer()->mMoveTranslate) < 20.0f;
+		nextState = falls ? &XObjArmy::StateFall : &XObjArmy::StateKnock;
+	}
+	mStep = 0;
+	mFunc = nextState;
 }
 
 /**
@@ -270,6 +264,9 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 	}
 	switch (args[0]) {
 	case 0: // set the patrol box, restart the knockdown count
+		if (argc < 7) {
+			return -1;
+		}
 		gArmyKnockdownCount = 0;
 		gArmyPatrolMin.x    = args[1] / 100.0f;
 		gArmyPatrolMin.y    = args[2] / 100.0f;
@@ -279,6 +276,9 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 		gArmyPatrolMax.z    = args[6] / 100.0f;
 		break;
 	case 1: // queries
+		if (argc < 2) {
+			return -1;
+		}
 		switch (args[1]) {
 		case 0:
 			return gArmyKnockdownCount;
@@ -288,6 +288,9 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 			return gArmyKnockdownCount;
 		}
 	case 2: // commands
+		if (argc < 2) {
+			return -1;
+		}
 		switch (args[1]) {
 		case 0: { // spawn inside the patrol box, marching
 			Vec pos;
@@ -307,22 +310,14 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 			mFunc = NULL;
 			break;
 		case 3: // aim the shots at another object, or back at the player
-
-			if (argc >= 2) {
-				if (args[2] >= 0) {
-					gArmyShotTarget = gGame.GetObject(args[2]);
-				} else {
-					gArmyShotTarget = NULL;
-				}
+			if (argc < 3) {
+				return -1;
 			}
+			gArmyShotTarget = args[2] >= 0 ? gGame.GetObject(args[2]) : NULL;
 			break;
 		case 4: // flag 0x80 silences the shots
-			if (argc >= 3) {
-				if (args[2]) {
-					mFlags.mFlags &= ~0x80;
-				} else {
-					mFlags.mFlags |= 0x80;
-				}
+			if (argc >= 3 && args[2] == 0) {
+				mFlags.mFlags |= 0x80;
 			} else {
 				mFlags.mFlags &= ~0x80;
 			}
@@ -331,13 +326,8 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 			gArmyShotStatus.mFlags &= ~1;
 			break;
 		case 6: // flag 2 of the shot status holds the fire
-
-			if (argc >= 3) {
-				if (args[2]) {
-					gArmyShotStatus.mFlags &= ~2;
-				} else {
-					gArmyShotStatus.mFlags |= 2;
-				}
+			if (argc >= 3 && args[2] != 0) {
+				gArmyShotStatus.mFlags &= ~2;
 			} else {
 				gArmyShotStatus.mFlags |= 2;
 			}
@@ -345,6 +335,9 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 		}
 		break;
 	case 3: // fire once at a spot
+		if (argc < 4) {
+			return -1;
+		}
 		mGuardPos.x = args[1] / 100.0f;
 		mGuardPos.y = args[2] / 100.0f;
 		mGuardPos.z = args[3] / 100.0f;
@@ -353,6 +346,9 @@ s32 XObjArmy::HandleEventCommand(s32 argc, s32* args)
 	case 100:
 		break;
 	case 0x65: // flag 0x100 plays the sounds at full volume
+		if (argc < 2) {
+			return -1;
+		}
 		if (args[1] == 0) {
 			mFlags.mFlags &= ~0x100;
 		} else {
@@ -376,17 +372,14 @@ void FireNextArmyShot(XObjArmy* army)
 {
 	CVec pos;
 	CVec dir;
-	s32 path[6] = { 0, 0, 4, 0, 0, 0 };
-	GetJointFromRoot(army->mJObj, 6, path); // the result goes unused
-	pos        = army->mMoveTranslate;
-	Vec facing = { 0.0f, 0.0f, 0.0f };
-	facing.x   = sin(HSD_JObjGetRotationY(army->mJObj));
-	facing.z   = cos(HSD_JObjGetRotationY(army->mJObj));
-	dir        = CVec(facing);
-	u32 i;
-	for (i = 0; army->mShots[i].mActive && i < 5; i++) { }
-	if (i < 5) {
-		FireShot(&army->mShots[i], pos, dir, (army->mFlags.mFlags >> 7) & 1);
+	pos                = army->mMoveTranslate;
+	Vec facing         = { 0.0f, 0.0f, 0.0f };
+	facing.x           = sin(HSD_JObjGetRotationY(army->mJObj));
+	facing.z           = cos(HSD_JObjGetRotationY(army->mJObj));
+	dir                = CVec(facing);
+	XObjArmyShot* shot = FindAvailableShot(*army);
+	if (shot != NULL) {
+		FireShot(shot, pos, dir, (army->mFlags.mFlags & 0x80) != 0);
 	}
 }
 
@@ -407,11 +400,9 @@ void XObjArmy::StateGuard()
 		break;
 	case 1:
 		if (20.0f <= GetAnimFrame(mJObj)) { // fires at frame 20 of the aiming anim
-
-			u32 i;
-			for (i = 0; mShots[i].mActive && i < 5; i++) { }
-			if (i < 5) {
-				FireShot(&mShots[i], mMoveTranslate, mGuardPos - mMoveTranslate, (mFlags.mFlags & 0x80) != 0);
+			XObjArmyShot* shot = FindAvailableShot(*this);
+			if (shot != NULL) {
+				FireShot(shot, mMoveTranslate, mGuardPos - mMoveTranslate, (mFlags.mFlags & 0x80) != 0);
 			}
 			mStep++;
 		}
@@ -436,7 +427,7 @@ void XObjArmy::StateFall()
 	case 0: {
 		mFlags.mFlags |= 1;
 		gArmyKnockdownCount++;
-		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)gGame.mXObjs.mPools[2].mObjects)->mMoveTranslate);
+		f32 angle = GetAngleY(mMoveTranslate, gGame.GetPlayer()->mMoveTranslate);
 		pos       = mMoveTranslate;
 		SetAnim(0x13, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		SetRotateY(angle - PI, 1.0f); // face the player
@@ -464,7 +455,7 @@ void XObjArmy::StateKnock()
 	case 0: {
 		mFlags.mFlags |= 1;
 		gArmyKnockdownCount++;
-		f32 angle = GetAngleY(mMoveTranslate, ((XObjChr*)gGame.mXObjs.mPools[2].mObjects)->mMoveTranslate);
+		f32 angle = GetAngleY(mMoveTranslate, gGame.GetPlayer()->mMoveTranslate);
 		pos       = mMoveTranslate;
 		SetAnim(0xA, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 		SetRotateY(angle - PI, 1.0f); // face the player
@@ -503,12 +494,11 @@ void XObjArmy::StateWait()
 	}
 }
 
-extern "C" s32 HSD_Randi(s32 max);
-
 static inline bool SoldierBlocksMarch(XObjArmy* self, CVec& next)
 {
-	for (s32 i = self->mPoolIndex + 1; i < 21; ++i) { // only the soldiers later in the pool
-		XObjArmy* other = (XObjArmy*)gGame.mXObjs.mPools[16].Get(i);
+	const XObjPool& armyPool = gGame.mXObjs.mPools[16];
+	for (s32 i = self->mPoolIndex + 1; i < armyPool.mCount; ++i) { // only the soldiers later in the pool
+		XObjArmy* other = static_cast<XObjArmy*>(armyPool.Get(i));
 		if (!(other->mStatus.mFlags & 1) || (other->mFlags.mFlags & 1)) // inactive or down
 			continue;
 		f32 height = self->mMoveTranslate.y - other->mMoveTranslate.y;
@@ -555,11 +545,7 @@ void XObjArmy::StateMarch()
 		} else if (distance < 80 && Abs(height) < 10) {
 			f32 facing = cos(angle - HSD_JObjGetRotationY(mJObj));
 			if ((f32)cos(20.f * DEG2RAD) < facing) { // the player inside a twenty-degree cone
-				// The original selects the same step on both sides of the distance check.
-				if (distance < 60.0f)
-					mStep = 10;
-				else
-					mStep = 10;
+				mStep = 10;
 			} else if (distance < 40) // not facing him but close: step aside
 				++mStep;
 		}
@@ -662,23 +648,22 @@ static inline void DrawArmyShotModel(HSD_JObj* jobj, const Vec& pos)
  * @note Address: 0x800E980C
  * @note Size: 0x370
  */
-// NONMATCHING: stack order
 void XObjArmy::DrawObjectEffects()
 {
 	CGs* gs = &gGame.mGs;
-	for (u32 i = 0; i < 5; i++) {
-		if (mShots[i].mActive) {
-			if (gArmyShotModel == NULL) { // no model: a green blob
-
-				gs->mBillboardEnabled = 1;
-				Vec pos               = mShots[i].mPos;
-				SetGsBlendMode(gs->mCurRenderMode, 1, 1, 1, 15);
-				Vec rot = { 0.0f, 0.0f, 0.0f };
-				DrawGsCircle(&gGame.mGs, 16, 0x64FF64C8, 0xFF, pos.x, pos.y, pos.z, 3.0f, 3.0f, rot.x, rot.y, rot.z);
-				gs->mBillboardEnabled = 0;
-			} else {
-				DrawArmyShotModel(gArmyShotModel->mJObj, mShots[i].mPos);
-			}
+	for (u32 i = 0; i < ARRAY_SIZE(mShots); ++i) {
+		const XObjArmyShot& shot = mShots[i];
+		if (!shot.mActive) {
+			continue;
+		}
+		if (gArmyShotModel != NULL) {
+			DrawArmyShotModel(gArmyShotModel->mJObj, shot.mPos);
+		} else {
+			gs->mBillboardEnabled = 1;
+			const Vec pos         = shot.mPos;
+			SetGsBlendMode(gs->mCurRenderMode, 1, 1, 1, 15);
+			DrawGsCircle(gs, 16, 0x64FF64C8, 0xFF, pos.x, pos.y, pos.z, 3.0f, 3.0f, 0.0f, 0.0f, 0.0f);
+			gs->mBillboardEnabled = 0;
 		}
 	}
 	InvalidateCaptureGraphics(gs);
@@ -691,23 +676,16 @@ void XObjArmy::DrawObjectEffects()
 
 void XObjArmy::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (mFunc) {
 		(this->*mFunc)();
 	}
 	switch (mAnimId) {
 	case 4:
-		if (!(mFlags.mFlags & 2) && 20.0f <= GetAnimFrame(mJObj)) { // flag 2 marks the floors swapped
-			SetFloors(this, sArmyFloorsByPose[2]);
-			mFlags.mFlags |= 2;
-		}
-		if (50.0f < GetAnimFrame(mJObj)) {
-			SetMoveDir(&mMoveTranslate, 1.0f);
-		}
-		break;
 	case 5:
-	case 6:
-		if (!(mFlags.mFlags & 2) && 15.0f <= GetAnimFrame(mJObj)) {
+	case 6: {
+		const f32 proneFrame = mAnimId == 4 ? 20.0f : 15.0f;
+		if (!(mFlags.mFlags & 2) && proneFrame <= GetAnimFrame(mJObj)) {
 			SetFloors(this, sArmyFloorsByPose[2]);
 			mFlags.mFlags |= 2;
 		}
@@ -715,6 +693,7 @@ void XObjArmy::UpdateObject(u32 frames)
 			SetMoveDir(&mMoveTranslate, 1.0f);
 		}
 		break;
+	}
 	case 10: // the knock anim ends on the falling floors
 		if (!(mFlags.mFlags & 2) && GetAnimEndFrame(mJObj) <= GetAnimFrame(mJObj)) {
 			SetFloors(this, sArmyFloorsByPose[1]);
@@ -722,11 +701,6 @@ void XObjArmy::UpdateObject(u32 frames)
 		}
 		break;
 	case 17:
-		if (!(mFlags.mFlags & 2)) {
-			SetFloors(this, sArmyFloorsByPose[1]);
-			mFlags.mFlags |= 2;
-		}
-		break;
 	case 18:
 		if (!(mFlags.mFlags & 2)) {
 			SetFloors(this, sArmyFloorsByPose[1]);
@@ -741,7 +715,7 @@ void XObjArmy::UpdateObject(u32 frames)
 		break;
 	}
 	UpdateAnimationSounds();
-	for (u32 i = 0; i < 5; i++) {
+	for (u32 i = 0; i < ARRAY_SIZE(mShots); ++i) {
 		UpdateArmyShot(&mShots[i], frames);
 	}
 }
@@ -753,7 +727,7 @@ void XObjArmy::UpdateObject(u32 frames)
 
 void XObjArmy::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	gArmyKnockdownCount    = 0;
 	gArmyShotTarget        = NULL;
 	gArmyShotStatus.mFlags = 0;
@@ -775,7 +749,7 @@ void XObjArmy::ResetObjectState()
 		mSfx.mEvents = sArmyF8SoundEvents;
 		break;
 	}
-	for (s32 i = 0; i < 5; i++) {
+	for (u32 i = 0; i < ARRAY_SIZE(mShots); ++i) {
 		mShots[i].mActive = 0;
 	}
 }

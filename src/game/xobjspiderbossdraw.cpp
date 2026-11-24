@@ -30,7 +30,7 @@ void XObjSpiderBoss::DrawScreenOverlay()
  */
 void XObjSpiderBoss::DrawGroundShadowAt(const Vec* origin, f32 opacity)
 {
-	DrawGroundShadowAt__4XObjFPC3Vecf(this, origin, opacity);
+	XObj::DrawGroundShadowAt(origin, opacity);
 }
 
 /**
@@ -39,7 +39,7 @@ void XObjSpiderBoss::DrawGroundShadowAt(const Vec* origin, f32 opacity)
  */
 void XObjSpiderBoss::DrawGroundShadow()
 {
-	DrawGroundShadow__4XObjFv(this);
+	XObj::DrawGroundShadow();
 }
 
 /**

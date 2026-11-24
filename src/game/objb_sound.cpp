@@ -5,22 +5,12 @@
 
 extern "C" AnimSfxEvent gSoundObjectAnimEvents[3];
 
-extern "C" {
-
-// the weak destructor
 /**
  * @note Address: 0x800DD32C
  * @note Size: 0x60
  */
-XObjSound* __dt__9XObjSoundFv(XObjSound* object, s32 flags)
+XObjSound::~XObjSound()
 {
-	if (object != NULL) {
-		object->XObjSound::~XObjSound();
-		if ((s16)flags > 0) {
-			::operator delete(object);
-		}
-	}
-	return object;
 }
 
 /**
@@ -40,7 +30,7 @@ void XObjSound::UpdateSfx(f32 frame)
  */
 void XObjSound::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	HSD_AObj* aobj = GetAObj(mJObj);
 	UpdateSfx(aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f);
 }
@@ -51,7 +41,7 @@ void XObjSound::UpdateObject(u32 frames)
  */
 void XObjSound::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	_990 = 0;
 	_994 = 0;
 	switch (GetKind()) {
@@ -67,8 +57,6 @@ void XObjSound::ResetObjectState()
  */
 void XObjSound::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	mSfx.mEvents = NULL;
 }
-
-} // extern "C"

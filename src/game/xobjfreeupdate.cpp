@@ -11,7 +11,7 @@
  */
 void XObjFree::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (mStatus.mFlags & 0x2000000000000000ULL) {
 		mStatus.mFlags &= ~0x2000000000000000ULL;
 		mStatus.mFlags |= 0x4000000000000000ULL;

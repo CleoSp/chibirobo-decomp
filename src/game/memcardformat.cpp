@@ -28,12 +28,9 @@ extern "C" BOOL DeleteMemoryCardSaveFile(Memcard* card, s32 channel, s32 file)
 	sprintf(name, gSaveFileNameFormat, file);
 	if (card->Delete(name))
 		return TRUE;
-	card->mState = 3;
-	card->mCard.UnmountEx();
-	card->LogResult();
-	if (card->mCard.mResult != CARD_RESULT_READY)
+	if (card->Unmount())
 		return TRUE;
-	card->mState = 0;
+	card->mState = Memcard::Idle;
 	return FALSE;
 }
 
@@ -85,12 +82,9 @@ extern "C" BOOL CheckAndFormatMemoryCard(Memcard* card, s32 channel)
 			return TRUE;
 		}
 	}
-	card->mState = 3; // 3: unmounting
-	card->mCard.UnmountEx();
-	card->LogResult();
-	if (card->mCard.mResult != CARD_RESULT_READY)
+	if (card->Unmount())
 		return TRUE;
-	card->mState = 0; // back to idle
+	card->mState = Memcard::Idle;
 	return FALSE;
 }
 

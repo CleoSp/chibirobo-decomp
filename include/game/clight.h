@@ -6,7 +6,7 @@
 #include "game/ut.h"
 
 // An HSD_LObj with its own position, interest, colors and shadow on top. Class name and
-// base from RTTI. The setters are inline, most copies are in game part 1.
+// base from RTTI.
 class CLight : public HSD_LObj {
 public:
 	HSD_LObj* mLoadedLObj;  // _D4, the light Init made from a desc
@@ -27,14 +27,8 @@ public:
 	{
 		HSD_ForeachAnim(this, LOBJ_TYPE, (HSD_TypeMask)(LOBJ_MASK | WOBJ_MASK), HSD_AObjSetRate, AOBJ_ARG_AF, rate);
 	}
-	virtual void Anim();                          // _14
-	virtual void SetPosition(f32 x, f32 y, f32 z) // _18
-	{
-		mPosition.x = x;
-		mPosition.y = y;
-		mPosition.z = z;
-		HSD_LObjSetPosition(this, &mPosition);
-	}
+	virtual void Anim();                                                                               // _14
+	virtual void SetPosition(f32 x, f32 y, f32 z);                                                     // _18
 	virtual void SetPosition(const Vec& position) { SetPosition(position.x, position.y, position.z); } // _1C
 	virtual void SetInterest(f32 x, f32 y, f32 z)                                                      // _20
 	{

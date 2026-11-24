@@ -1,3 +1,4 @@
+#include "game/relmodule.h"
 #include "types.h"
 #include "game/gmath.h"
 #include <stdlib.h>
@@ -19,12 +20,9 @@ STATIC_ASSERT(sizeof(Laser) == 0xB0);
 
 extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args);
 extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args);
-extern "C" void AhkNoOpSlot5(void* arg);
-extern "C" void DrawStageHud(void* arg);
-extern "C" void UpdateStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+extern "C" void AhkNoOpSlot5(s32 arg);
+extern "C" void DrawStageHud(s32 arg);
+extern "C" void UpdateStage(s32 arg);
 
 extern "C" {
 RelSlotFunc _prolog_slots[7] = { 0, UpdateStage, 0, 0, DrawStageHud, AhkNoOpSlot5 };
@@ -71,12 +69,8 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: ahk .text 0x26C
  * @note Size: 0x50
  */
-extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdPrintArgs(s32, s32, s32*)
 {
-	int i;
-
-	// body compiled out, the empty loop is still there
-	for (i = 0; i < count; i++) { }
 	return 0;
 }
 
@@ -84,7 +78,7 @@ extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
  * @note Address: ahk .text 0x2BC
  * @note Size: 0x4
  */
-extern "C" void AhkNoOpSlot5(void* arg)
+extern "C" void AhkNoOpSlot5(s32 arg)
 {
 }
 
@@ -92,7 +86,7 @@ extern "C" void AhkNoOpSlot5(void* arg)
  * @note Address: ahk .text 0x2C0
  * @note Size: 0x4
  */
-extern "C" void DrawStageHud(void* arg)
+extern "C" void DrawStageHud(s32 arg)
 {
 }
 
@@ -100,7 +94,7 @@ extern "C" void DrawStageHud(void* arg)
  * @note Address: ahk .text 0x2C4
  * @note Size: 0x4
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
 }
 

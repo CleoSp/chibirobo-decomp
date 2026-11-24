@@ -23,12 +23,7 @@ static inline void SetTargetPitch(XObjActor* actor, const CVec& target, const CV
 void XObjActor::UpdateAfterAnim(u32 frames)
 {
 	if (mActorStatus.mFlags & 0x80) {
-		switch (mLookMode) {
-		case 0:
-			break;
-		case 2:
-			break;
-		case 1: {
+		if (mLookMode == 1) {
 			SetTargetYaw(this, GetHeadWorldPosition());
 			f32 limit = (f32)cos(GetMaxHeadYaw());
 			if ((f32)cos(mLookAngle) < limit) {
@@ -38,7 +33,6 @@ void XObjActor::UpdateAfterAnim(u32 frames)
 					mLookAngle = GetMinHeadYaw();
 			}
 		}
-		}
 		f32 step = (f32)cos(mLookRate);
 		if ((f32)cos(mLookAngle - mHeadYaw) <= step) {
 			if (0.0f < (f32)sin(mHeadYaw - mLookAngle))
@@ -47,13 +41,12 @@ void XObjActor::UpdateAfterAnim(u32 frames)
 				mHeadYaw += mLookRate;
 		} else {
 			mHeadYaw = mLookAngle;
-			if ((u32)mLookMode == 0)
+			if (mLookMode == 0)
 				mActorStatus.mFlags &= ~0x80;
 		}
 		Push(GetHeadJoint(), 0x80, mHeadYaw);
 	}
 	if (mActorStatus.mFlags & 0x400) {
-
 		CVec target;
 		target.x = gGame.GetPlayer()->mMoveTranslate.x;
 		target.y = 4.0f + gGame.GetPlayer()->mMoveTranslate.y;
@@ -66,7 +59,7 @@ void XObjActor::UpdateAfterAnim(u32 frames)
 		Push(GetHeadJoint(), 0x40, mHeadPitch);
 	}
 	if (mActorStatus.mFlags & 0x1000) {
-		for (u32 i = 0; i < 8; ++i) {
+		for (u32 i = 0; i < ARRAY_SIZE(mParts); ++i) {
 			if (mParts[i].mJoint && mParts[i].mObj)
 				XObjJointPart::UpdateMatrix(*this, i);
 		}

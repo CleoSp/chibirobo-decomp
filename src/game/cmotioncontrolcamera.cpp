@@ -16,8 +16,6 @@ extern "C" {
 #include "game/cscrn.h"
 }
 
-#define PLAYER gGame.GetPlayer()
-
 extern "C" {
 void InitMotionControlCameraDefaults(CCamera* camera);
 }
@@ -34,40 +32,12 @@ inline CInterfaceCameraAction* CMotionControlCamera::GetAction(s32 type)
 	return gGame.mCameraActions.mTable[type];
 }
 
-// deferred inlining, so these go last to first
-
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline bool PlayerCanLook()
+static inline bool PlayerCanLook(const XObjChr& player)
 {
-	bool result = false;
-	bool busy   = false;
-	if (!(PLAYER->mLift.mState != 7 && PLAYER->mLift.mState != 8 && PLAYER->mLift.mState != 9 && PLAYER->mLift.mState != 10
-	      && PLAYER->mLift.mState != 11 && PLAYER->mLift.mState != 12 && PLAYER->mLift.mState != 13 && PLAYER->mLift.mState != 14
-	      && PLAYER->mLift.mState != 15 && PLAYER->mLift.mState != 16 && PLAYER->mLift.mState != 17 && PLAYER->mLift.mState != 18)) {
-		busy = true;
-	}
-	if (!busy && PLAYER->mHang.mState == 0 && PLAYER->mJump.mState == 0 && PLAYER->mLadder.mState == 0 && PLAYER->mRope.mState == 0
-	    && PLAYER->mPush.mState == 0 && PLAYER->mTumble.mState == 0) {
-		result = true;
-	}
-	return result;
+	const s32 liftState = player.mLift.mState;
+	return (liftState < 7 || liftState > 18) && player.mHang.mState == 0 && player.mJump.mState == 0 && player.mLadder.mState == 0
+	    && player.mRope.mState == 0 && player.mPush.mState == 0 && player.mTumble.mState == 0;
 }
-
-/**
- * @note Address: 0x8014AAC4
- * @note Size: 0x38
- */
-// __arraydtor$308, for gMapCameraActions
-
-/**
- * @note Address: 0x8014AA6C
- * @note Size: 0x58
- */
-// __sinit_cmotioncontrolcamera_cpp, builds gMapCameraActions and registers its dtor
 
 /**
  * @note Address: 0x8014AA4C
@@ -139,7 +109,7 @@ void CMotionControlCamera::Update(u32 step)
 					((CCameraActionScroll2*)GetAction(CAMACTION_SCROLL2))->ShowObjs();
 					gGame.mStatus.mFlags &= ~2ULL;
 					// read the player's pad again so the press that closed it doesn't reach the player too
-					PLAYER->mPad.Update(0);
+					gGame.GetPlayer()->mPad.Update(0);
 				}
 			}
 		}
@@ -155,17 +125,10 @@ void CMotionControlCamera::Update(u32 step)
 
 	BOOL look = FALSE;
 	if (((pad.mPad->mTrigger & PAD_BUTTON_Y) || (pad.mPad->mTrigger & PAD_BUTTON_B)) && gGame.mEvt.mData.mScript == NULL) {
-		// CBase::IsRunning's test, written out
-		bool running = false;
-		if ((gGame.mStatus.mFlags & 1) && !(gGame.mStatus.mFlags & 0x22)) {
-			bool discError = (gGame.mDvdStatus != 0 || gGame.mPrevDvdStatus != 0) && gGame.mDiskOk == 0;
-			if (!discError) {
-				running = true;
-			}
-		}
-		if (running && (PLAYER->mPlayerStatus.mFlags & XObjChr::PlayerControlled) && !(gGame.mStatus.mFlags & 0x80)) {
-			if (!(gGame.mStatus.mFlags & 0xC00) && PLAYER->mAttachmentRequest < 0 && PLAYER->mSuits.mChangeStep == 0
-			    && (PLAYER->mLift.mState == 0 || IsCarryingMug(&PLAYER->mLift) == 0)) {
+		XObjChr* player = gGame.GetPlayer();
+		if (gGame.IsRunning() && (player->mPlayerStatus.mFlags & XObjChr::PlayerControlled) && !(gGame.mStatus.mFlags & 0x80)) {
+			if (!(gGame.mStatus.mFlags & 0xC00) && player->mAttachmentRequest < 0 && player->mSuits.mChangeStep == 0
+			    && (player->mLift.mState == 0 || !IsCarryingMug(&player->mLift))) {
 				// Y toggles the eye camera, B only takes it down
 				if (pad.mPad->mTrigger & PAD_BUTTON_B) {
 					if (gGame.mStatus.mFlags & 0x100) {
@@ -183,7 +146,7 @@ void CMotionControlCamera::Update(u32 step)
 
 	if (look) {
 		if (!(gGame.mStatus.mFlags & 0x100)) {
-			if (PlayerCanLook()) {
+			if (PlayerCanLook(*gGame.GetPlayer())) {
 				StartEye();
 			} else {
 				PlayGameSound(&gGame.mSound, 0x85, 0xFF);
@@ -191,8 +154,9 @@ void CMotionControlCamera::Update(u32 step)
 		} else {
 			EndEye();
 		}
-		if (PLAYER->mHang.mState != 5 && PLAYER->mRope.mState != 5 && PLAYER->mLadder.mState != 5 && PLAYER->mPush.mState != 2) {
-			PLAYER->mHeldMoveAngle = PLAYER->mMoveAngle;
+		XObjChr* player = gGame.GetPlayer();
+		if (player->mHang.mState != 5 && player->mRope.mState != 5 && player->mLadder.mState != 5 && player->mPush.mState != 2) {
+			player->mHeldMoveAngle = player->mMoveAngle;
 		}
 	}
 
@@ -248,9 +212,6 @@ void CMotionControlCamera::Update(u32 step)
 	} else if ((flags & CAMFLAG_EYE) || (flags & CAMFLAG_INTEREST)) {
 		mCamera.CalcAngle();
 		mCamera.CalcDistance();
-	} else if ((flags & 0x10000) && (flags & CAMFLAG_INTEREST) && (flags & CAMFLAG_DISTANCE)) {
-		// can't get here, the interest bit was already ruled out a branch ago
-		mCamera.CalcEye();
 	}
 	// 0x40000 comes with CAMFLAG_ANGLE (anim, evt, reset), CalcUp rolls the up vector by the angle's z
 	if (mFlags.mFlags & 0x40000) {

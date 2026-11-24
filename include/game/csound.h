@@ -2,6 +2,7 @@
 #define _GAME_CSOUND_H
 
 #include "types.h"
+#include <hsd/sysdolphin/axdriver.h>
 
 struct Vec;
 class XSound;
@@ -39,12 +40,6 @@ void KeyOffGameSoundTrack(XSound* sound, s32 track);
 BOOL StopGameSfx(XSound* sound, s32 sfx);
 BOOL IsGameSoundPlaying(XSound* sound, s32 sfx);
 s32 PlayGameSound(XSound* sound, s32 sfx, u8 vol);
-
-// hsd axdriver.c: key off an sfx, a pal only one, pause an sfx, stop every stream slot
-BOOL AXDriverKeyOffSfx(s32 sfx);
-BOOL HSD_AudioSFXKeyOffAll(void);
-BOOL AXDriverPauseSfx(s32 sfx);
-void AXDriverStopAllStreams(void);
 }
 
 // one sound an anim plays between two frames, a negative mAnim ends an object's table

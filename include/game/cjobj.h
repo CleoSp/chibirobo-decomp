@@ -10,10 +10,6 @@
 
 extern "C" s32 EulerToQuat(Vec* euler, Quaternion* q);
 
-// CJObj methods pool data addresses in shun and stage07, the REL code around them doesn't
-#pragma push
-#pragma pool_data on
-
 class CJObj {
 public:
 	HSD_JObj* mJObj; // _00
@@ -38,7 +34,7 @@ public:
 
 	CJObj(HSD_JObj* jobj); // in the dol, 0x80084C78, game/msg.cpp
 
-	virtual ~CJObj() { } // _08
+	virtual ~CJObj(); // _08
 
 	virtual void SetTranslateX(f32 x, s32 force) // _0C
 	{
@@ -157,17 +153,8 @@ public:
 		if (force == 0 && !(mRotate != v)) {
 			return;
 		}
-		mRotate.x = v.x;
-		mRotate.y = v.y;
-		mRotate.z = v.z;
-		if (mJObj->flags & USE_QUATERNION) {
-			Quaternion q;
-			EulerToQuat(&mRotate, &q);
-			HSD_JObjSetRotation(mJObj, &q);
-		} else {
-			// a CVec passed off as a quaternion, w ends up being its vtable pointer
-			HSD_JObjSetRotation(mJObj, (Quaternion*)&mRotate);
-		}
+		mRotate.Set(v);
+		UpdateRotation();
 	}
 	virtual void SetRotation(f32 x, f32 y, f32 z, s32 force); // _44, in game/cjobjset.h
 	virtual void SetAnimRate(f32 rate, u32 mask)              // _48
@@ -184,23 +171,20 @@ public:
 
 	void UpdateRotation()
 	{
+		Quaternion rotation;
 		if (mJObj->flags & USE_QUATERNION) {
-			Quaternion q;
-			EulerToQuat(&mRotate, &q);
-			HSD_JObjSetRotation(mJObj, &q);
+			EulerToQuat(&mRotate, &rotation);
 		} else {
-			// a CVec passed off as a quaternion, w ends up being its vtable pointer
-			HSD_JObjSetRotation(mJObj, (Quaternion*)&mRotate);
+			// Euler joints use only the first three rotation components.
+			rotation.x = mRotate.x;
+			rotation.y = mRotate.y;
+			rotation.z = mRotate.z;
+			rotation.w = mJObj->rotate.w;
 		}
+		HSD_JObjSetRotation(mJObj, &rotation);
 	}
 
-	void Attach(HSD_JObj* jobj)
-	{
-		mJObj = jobj;
-		HSD_JObjGetTranslation(mJObj, &mTranslate);
-		HSD_JObjGetRotation(mJObj, (Quaternion*)&mRotate);
-		HSD_JObjGetScale(mJObj, &mScale);
-	}
+	void Attach(HSD_JObj* jobj);
 
 	// the joint's own values, read straight from it
 	f32 GetTranslateX() const { return HSD_JObjGetTranslationX(mJObj); }
@@ -214,8 +198,6 @@ public:
 	Vec GetPos() const { return GetJointPosition(mJObj); }
 };
 typedef char CJObj_size_check[sizeof(CJObj) == 0x38 ? 1 : -1];
-
-#pragma pop
 
 extern "C" {
 HSD_JObj* GetObjectJointByPath(const CJObj* object, s32 depth, s32* path);

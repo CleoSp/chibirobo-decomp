@@ -8,8 +8,7 @@
 #include <stdlib.h>
 
 extern "C" {
-void PSVECScale(const Vec* src, Vec* dst, f32 scale);
-u8* GetGlobalTextEntry(s32 index);
+#include <dolphin/mtx/vec.h>
 }
 
 static inline void PlayBoxAnim(XObj* object, s32 id)
@@ -26,7 +25,7 @@ static inline void SpawnBoxEffect(XObjHBox* box, u32 id)
 // NONMATCHING: same work; different spill/restore scheduling and argument setup order
 void XObjHBox::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (mStatus.mFlags & 0x1000000000000000ULL) { // rebuild the joint matrix from the trs
 		Mtx translation, scale, yaw, pitch, roll, result;
 		PSMTXTrans(translation, mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);

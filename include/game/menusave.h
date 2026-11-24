@@ -42,6 +42,7 @@ inline void ClearSaveSlot(MenuSaveSlot* slot)
 }
 
 extern "C" {
+const char* GetTitleAndSaveMenuText(s32 id);
 bool IsSaveSlotIntact(const MenuSaveSlot* slot);
 void ResetSaveSlotRecord(MenuSaveSlot* slot);
 

@@ -9,13 +9,13 @@
 extern "C" BOOL OpenOrCreateSaveFile(Memcard* card, char* name, BOOL create)
 {
 	if (create) {
-		card->mState = 7;
+		card->mState = Memcard::CreatingFile;
 		card->mCard.Create(name, 0xC000);
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY) {
 			switch (card->mCard.mResult) {
 			case CARD_RESULT_EXIST:
-				card->mState = 8;
+				card->mState = Memcard::OpeningFile;
 				card->mCard.Open(name);
 				card->LogResult();
 				if (card->mCard.mResult != CARD_RESULT_READY) {
@@ -29,7 +29,7 @@ extern "C" BOOL OpenOrCreateSaveFile(Memcard* card, char* name, BOOL create)
 			}
 		}
 	} else {
-		card->mState = 8;
+		card->mState = Memcard::OpeningFile;
 		card->mCard.Open(name);
 		card->LogResult();
 		if (card->mCard.mResult != CARD_RESULT_READY) {
@@ -38,7 +38,7 @@ extern "C" BOOL OpenOrCreateSaveFile(Memcard* card, char* name, BOOL create)
 		}
 	}
 
-	card->mState = 10;
+	card->mState = Memcard::ReadingStatus;
 	card->mCard.GetStatus(&card->mStat);
 	card->LogResult();
 	if (card->mCard.mResult != CARD_RESULT_READY) {

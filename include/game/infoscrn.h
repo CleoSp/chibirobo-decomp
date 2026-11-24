@@ -78,7 +78,7 @@ public:
 	f32 mBatteryGauge;            // _1D4, the battery gauge, 10 a watt
 	// _1D8 vtable
 
-	virtual ~InfoScrn() { } // _08 (weak)
+	virtual ~InfoScrn(); // _08
 };
 STATIC_ASSERT(sizeof(InfoScrn) == 0x1DC);
 

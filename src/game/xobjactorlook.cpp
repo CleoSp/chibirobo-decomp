@@ -4,9 +4,9 @@
  * @note Address: 0x8010753C
  * @note Size: 0xC
  */
-extern "C" bool IsHitPending__9XObjActorFv(XObjActor* actor)
+bool XObjActor::IsHitPending()
 {
-	return (actor->mActorStatus.mFlags & 2) != 0;
+	return (mActorStatus.mFlags & 2) != 0;
 }
 
 /**
@@ -16,7 +16,7 @@ extern "C" bool IsHitPending__9XObjActorFv(XObjActor* actor)
 // OnHitFromPosition, knocked from pos
 void XObjActor::OnHitFromPosition(const Vec& pos, f32 strength)
 {
-	OnHitFromPosition__4XObjFRC3Vecf(this, &pos, strength);
+	XObj::OnHitFromPosition(pos, strength);
 	mActorStatus.mFlags |= 2;
 	Vec hit      = { pos.x, pos.y, pos.z };
 	mHitPos      = hit;
@@ -27,7 +27,7 @@ void XObjActor::OnHitFromPosition(const Vec& pos, f32 strength)
  * @note Address: 0x801075E8
  * @note Size: 0x14
  */
-s32 XObjActor::OnPlayerContact(s32 unused, s32 value)
+s32 XObjActor::OnPlayerContact(const CVec&, s32 value)
 {
 	mActorStatus.mFlags |= 1;
 	return value;

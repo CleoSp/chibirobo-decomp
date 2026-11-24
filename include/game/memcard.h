@@ -20,7 +20,25 @@ struct MemcardJob {
 // the memory card side of saving, class name from RTTI. CGame keeps the one at +0xE8400
 class Memcard {
 public:
-	s32 mState;                // _00, what the card thread is doing
+	enum State {
+		Idle,
+		Probing,
+		Mounting,
+		Unmounting,
+		Checking = 5,
+		Formatting,
+		CreatingFile,
+		OpeningFile,
+		ClosingFile,
+		ReadingStatus,
+		WritingStatus,
+		Reading,
+		Writing,
+		CountingFreeBlocks,
+		DeletingFile,
+	};
+
+	State mState;              // _00, what the card thread is doing
 	u8 _04[0x20 - 0x04];       // _04
 	CCard mCard;               // _20
 	u8 _A044[0xA068 - 0xA044]; // _A044
@@ -44,9 +62,8 @@ public:
 	BOOL mLog;        // _16A1C, print card results
 	// _16A20 vtable
 
-	virtual ~Memcard() { } // _08
+	virtual ~Memcard(); // _08
 
-	// todo: cleanup, every card job inlines these
 	inline void LogResult()
 	{
 		if (mLog)
@@ -75,7 +92,7 @@ public:
 	inline BOOL Probe(s32 channel)
 	{
 		s32 memorySize, sectorSize;
-		mState = 1;
+		mState = Probing;
 		mCard.ProbeEx(channel, &memorySize, &sectorSize);
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY)
@@ -88,7 +105,7 @@ public:
 	}
 	inline BOOL Check(BOOL unmount)
 	{
-		mState = 5;
+		mState = Checking;
 		mCard.Check();
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {
@@ -100,7 +117,7 @@ public:
 	}
 	inline BOOL Mount(s32 channel, BOOL unmount)
 	{
-		mState = 2;
+		mState = Mounting;
 		mCard.Mount(channel, NULL);
 		LogResult();
 		switch (mCard.mResult) {
@@ -122,9 +139,16 @@ public:
 		}
 		return FALSE;
 	}
+	inline BOOL Unmount()
+	{
+		mState = Unmounting;
+		mCard.UnmountEx();
+		LogResult();
+		return mCard.mResult != CARD_RESULT_READY;
+	}
 	inline BOOL Delete(const char* name)
 	{
-		mState = 15;
+		mState = DeletingFile;
 		mCard.Delete(name);
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {
@@ -135,7 +159,7 @@ public:
 	}
 	inline BOOL Format()
 	{
-		mState = 6;
+		mState = Formatting;
 		mCard.Format();
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {
@@ -146,12 +170,12 @@ public:
 	}
 	inline BOOL OpenStatus(char* name, CARDStat* stat)
 	{
-		mState = 8;
+		mState = OpeningFile;
 		mCard.Open(name);
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY)
 			return TRUE;
-		mState = 10;
+		mState = ReadingStatus;
 		mCard.GetStatus(stat);
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {
@@ -162,7 +186,7 @@ public:
 	}
 	inline BOOL Close()
 	{
-		mState = 9;
+		mState = ClosingFile;
 		mCard.CloseEx();
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {
@@ -173,7 +197,7 @@ public:
 	}
 	inline BOOL GetFreeBlocks()
 	{
-		mState      = 14;
+		mState      = CountingFreeBlocks;
 		mFreeBlocks = mCard.GetFreeBlocks((s32*)&mFreeBytes, &mFreeEntries);
 		LogResult();
 		if (mCard.mResult != CARD_RESULT_READY) {

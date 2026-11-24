@@ -5,6 +5,7 @@
 #include "game/hsd_dobj.h"
 #include "game/ut.h"
 extern "C" {
+#include <sdk/dolphin/gx/GXCommandList.h>
 #include <sysdolphin/mobj.h>
 #include <sysdolphin/pobj.h>
 #include <dolphin/mtx/vec.h>
@@ -14,24 +15,13 @@ extern "C" {
 #include <stdlib.h>
 
 extern "C" {
-void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args);
 void HSD_DObjCountVertices(HSD_DObj* dobj, u32* verts, u32* polys);
 void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys);
 }
 
-// GXPrimitive, the hsd headers don't have it, pobj.c defines its own too
-#define GX_QUADS         0x80
-#define GX_TRIANGLES     0x90
-#define GX_TRIANGLESTRIP 0x98
-#define GX_TRIANGLEFAN   0xA0
-#define GX_LINES         0xA8
-#define GX_LINESTRIP     0xB0
-#define GX_POINTS        0xB8
-
 // returns the POS array entry the index at dl points at
 typedef void* (*TrigonGetIdxFunc)(void* base, u8* dl);
 
-// the file runs backwards, these are defined further down
 static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* clr);
 static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx);
 extern "C" {
@@ -50,7 +40,7 @@ static void* TrigonGetIdxS8U8(void* base, u8* dl);
 static void* TrigonGetIdxS8U16(void* base, u8* dl);
 static void* TrigonGetIdxU8U8(void* base, u8* dl);
 static void* TrigonGetIdxU8U16(void* base, u8* dl);
-static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type);
+static void CollectTrigons(HSD_JObj* jobj, void* context, s32 type);
 static int CompareTrigonDist(const void* a, const void* b);
 }
 
@@ -91,8 +81,8 @@ void HSD_JObjCountVertices(HSD_JObj* jobj, u32* verts, u32* polys)
  */
 static int CompareTrigonDist(const void* a, const void* b)
 {
-	const TRIGON_INFO* ta = (const TRIGON_INFO*)a;
-	const TRIGON_INFO* tb = (const TRIGON_INFO*)b;
+	const TRIGON_INFO* ta = static_cast<const TRIGON_INFO*>(a);
+	const TRIGON_INFO* tb = static_cast<const TRIGON_INFO*>(b);
 	if (ta->mDist > tb->mDist) {
 		return 1;
 	}
@@ -117,7 +107,7 @@ TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
 	// first pass into a buffer big enough for every polygon, just to count the floor ones
 	mTri = (TRIGON_INFO*)mm::Alloc((mNumMax * sizeof(TRIGON_INFO) + 31) & ~31, "(Tri)");
 	mNum = 0;
-	HSD_JObjWalkTree(jobj, CollectTrigons, (f32**)this);
+	HSD_JObjWalkTree(jobj, CollectTrigons, this);
 	mm::Free(mTri, 1);
 	mTri = NULL;
 
@@ -126,7 +116,7 @@ TRIGON_INFO* CTrigon::Create(HSD_JObj* jobj)
 	mTri     = (TRIGON_INFO*)mm::Alloc((size + 31) & ~31, FormatToStaticBuffer("(tri:%4d * %2d)", mNum, sizeof(TRIGON_INFO)));
 	if (mTri != NULL) {
 		mNum = 0;
-		HSD_JObjWalkTree(jobj, CollectTrigons, (f32**)this);
+		HSD_JObjWalkTree(jobj, CollectTrigons, this);
 	}
 	qsort(mTri, mNum, sizeof(TRIGON_INFO), CompareTrigonDist);
 
@@ -175,9 +165,9 @@ void CTrigon::Release()
  * @note Address: 0x801A5B2C
  * @note Size: 0x28C
  */
-static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
+static void CollectTrigons(HSD_JObj* jobj, void* context, s32 type)
 {
-	CTrigon* trigon  = (CTrigon*)args;
+	CTrigon* trigon  = static_cast<CTrigon*>(context);
 	TRIGON_INFO* tri = trigon->mTri;
 
 	HSD_JObjSetupMatrix(jobj);
@@ -196,7 +186,8 @@ static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
 		if (mobj == NULL || mobj->mat == NULL) {
 			continue;
 		}
-		u32 color = *(u32*)&mobj->mat->diffuse >> 8; // the material's diffuse rgb, alpha shifted out
+		const GXColor& diffuse = mobj->mat->diffuse;
+		const u32 color        = (u32(diffuse.r) << 16) | (u32(diffuse.g) << 8) | diffuse.b;
 		for (HSD_PObj* pobj = HSD_DObjGetPObj(dobj); pobj != NULL; pobj = HSD_PObjGetNext(pobj)) {
 			u32 n          = ParsePObj(pobj, &tri[trigon->mNum], mtx);
 			TRIGON_INFO* t = &tri[trigon->mNum];
@@ -218,18 +209,9 @@ static void CollectTrigons(HSD_JObj* jobj, f32** args, s32 type)
 }
 
 /**
- * @note Address: 0x801A5AE4
- * @note Size: 0x48
- */
-// _trigonChecker's deleting dtor, the inline virtual from the class. lands weak after
-// ParsePObj since weak copies come out in reverse order of first use
-
-/**
  * @note Address: 0x801A57C0
  * @note Size: 0x324
  */
-// too big to inline, so it ends up weak after ParsePObj. one statement less and
-// ParsePObj swallows all six calls
 inline bool _trigonChecker::Check()
 {
 	Vec v[3];
@@ -327,20 +309,26 @@ static inline TrigonGetVtxFunc GetVtxFunc(int compType)
 	return NULL;
 }
 
+// GX display lists store multibyte fields in big-endian byte order.
+static u16 ReadDisplayListU16(const u8* data)
+{
+	return (data[0] << 8) | data[1];
+}
+
 /**
  * @note Address: 0x801A50B8
  * @note Size: 0x708
  */
 static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 {
-	// NONMATCHING: regalloc, retail picks the accessor in r3 and moves it to r25 after, and loads display a few lines later
-	int posSize             = 0;
-	int stride              = GetVtxSize(pobj->verts, &posSize, NULL, NULL, NULL);
-	int compType            = pobj->verts->comp_type;
-	void* vtx               = pobj->verts->vertex;
-	u8 frac                 = pobj->verts->frac;
-	TrigonGetIdxFunc getIdx = GetIdxFunc(compType, posSize);
-	TrigonGetVtxFunc getVtx = GetVtxFunc(compType);
+	HSD_VtxDescList* vertexDesc = pobj->verts;
+	int posSize                 = 0;
+	int stride                  = GetVtxSize(vertexDesc, &posSize, NULL, NULL, NULL);
+	int compType                = vertexDesc->comp_type;
+	void* vtx                   = vertexDesc->vertex;
+	u8 frac                     = vertexDesc->frac;
+	TrigonGetIdxFunc getIdx     = GetIdxFunc(compType, posSize);
+	TrigonGetVtxFunc getVtx     = GetVtxFunc(compType);
 
 	u8* dl  = pobj->display;
 	u8* end = dl + (pobj->n_display << 5);
@@ -349,30 +337,30 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 	int i;
 
 	while (dl < end) {
-		u8 cmd = dl[0];              // the display list opcode
-		int n  = dl[1] << 8 | dl[2]; // the big-endian vertex count
+		u8 cmd = dl[0]; // the display list opcode
+		int n  = ReadDisplayListU16(dl + 1);
 		dl += 3;
 
 		switch (cmd & GX_OPCODE_MASK) {
 		case GX_NOP: // a nop ends the list
 			return num;
-		case GX_POINTS: // not triangles: skip the verts
+		case GX_DRAW_POINTS:
 			dl += stride * n;
 			break;
-		case GX_LINES:
+		case GX_DRAW_LINES:
 			dl += stride * n;
 			break;
-		case GX_LINESTRIP:
+		case GX_DRAW_LINE_STRIP:
 			dl += stride * n;
 			break;
-		case GX_TRIANGLES:
+		case GX_DRAW_TRIANGLES:
 			for (i = 0; i < n / 3; i++) {
 				SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
 				ADD_TRIGON();
 				dl += stride * 3;
 			}
 			break;
-		case GX_TRIANGLESTRIP:
+		case GX_DRAW_TRIANGLE_STRIP:
 			// every other triangle of a strip winds backwards
 			for (i = 2; i < n; i++) {
 				if (i & 1) {
@@ -385,7 +373,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			}
 			dl += stride * 2;
 			break;
-		case GX_TRIANGLEFAN: {
+		case GX_DRAW_TRIANGLE_FAN: {
 			void* first = getIdx(vtx, dl); // the fan's hub vertex
 			for (i = 2; i < n; i++) {
 				SET_TRIGON(first, getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
@@ -395,7 +383,7 @@ static int ParsePObj(HSD_PObj* pobj, TRIGON_INFO* out, MtxPtr mtx)
 			dl += stride * 2;
 			break;
 		}
-		case GX_QUADS: // each quad becomes two triangles
+		case GX_DRAW_QUADS: // each quad becomes two triangles
 			for (i = 0; i < n / 4; i++) {
 				SET_TRIGON(getIdx(vtx, dl), getIdx(vtx, dl + stride), getIdx(vtx, dl + stride * 2));
 				ADD_TRIGON();
@@ -521,7 +509,7 @@ static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* 
  */
 static void* TrigonGetIdxU8U16(void* base, u8* dl)
 {
-	return (u8*)base + *(u16*)dl * 3;
+	return static_cast<u8*>(base) + ReadDisplayListU16(dl) * 3;
 }
 
 /**
@@ -530,7 +518,7 @@ static void* TrigonGetIdxU8U16(void* base, u8* dl)
  */
 static void* TrigonGetIdxU8U8(void* base, u8* dl)
 {
-	return (u8*)base + *(u8*)dl * 3;
+	return static_cast<u8*>(base) + *dl * 3;
 }
 
 /**
@@ -539,7 +527,7 @@ static void* TrigonGetIdxU8U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxS8U16(void* base, u8* dl)
 {
-	return (s8*)base + *(u16*)dl * 3;
+	return static_cast<s8*>(base) + ReadDisplayListU16(dl) * 3;
 }
 
 /**
@@ -548,7 +536,7 @@ static void* TrigonGetIdxS8U16(void* base, u8* dl)
  */
 static void* TrigonGetIdxS8U8(void* base, u8* dl)
 {
-	return (s8*)base + *(u8*)dl * 3;
+	return static_cast<s8*>(base) + *dl * 3;
 }
 
 /**
@@ -557,7 +545,7 @@ static void* TrigonGetIdxS8U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxU16U16(void* base, u8* dl)
 {
-	return (u16*)base + *(u16*)dl * 3;
+	return static_cast<u16*>(base) + ReadDisplayListU16(dl) * 3;
 }
 
 /**
@@ -566,7 +554,7 @@ static void* TrigonGetIdxU16U16(void* base, u8* dl)
  */
 static void* TrigonGetIdxU16U8(void* base, u8* dl)
 {
-	return (u16*)base + *(u8*)dl * 3;
+	return static_cast<u16*>(base) + *dl * 3;
 }
 
 /**
@@ -575,7 +563,7 @@ static void* TrigonGetIdxU16U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxS16U16(void* base, u8* dl)
 {
-	return (s16*)base + *(u16*)dl * 3;
+	return static_cast<s16*>(base) + ReadDisplayListU16(dl) * 3;
 }
 
 /**
@@ -584,7 +572,7 @@ static void* TrigonGetIdxS16U16(void* base, u8* dl)
  */
 static void* TrigonGetIdxS16U8(void* base, u8* dl)
 {
-	return (s16*)base + *(u8*)dl * 3;
+	return static_cast<s16*>(base) + *dl * 3;
 }
 
 /**
@@ -593,7 +581,7 @@ static void* TrigonGetIdxS16U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxF32U16(void* base, u8* dl)
 {
-	return (f32*)base + *(u16*)dl * 3;
+	return static_cast<f32*>(base) + ReadDisplayListU16(dl) * 3;
 }
 
 /**
@@ -602,7 +590,7 @@ static void* TrigonGetIdxF32U16(void* base, u8* dl)
  */
 static void* TrigonGetIdxF32U8(void* base, u8* dl)
 {
-	return (f32*)base + *(u8*)dl * 3;
+	return static_cast<f32*>(base) + *dl * 3;
 }
 
 /**
@@ -710,7 +698,6 @@ int CTrigon::Search(Vec* pos, f32* floorY)
 {
 	Vec* corner2;
 	Vec* corner1;
-	// NONMATCHING: the initial joint-pointer load is scheduled too late.
 	if (mJObj->flags & HIDDEN) {
 		return -1;
 	}

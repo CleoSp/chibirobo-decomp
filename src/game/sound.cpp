@@ -2,6 +2,8 @@
 #include <types.h>
 #include <string.h>
 #include <dolphin/os.h>
+#include <sysdolphin/axdriver.h>
+#include <sysdolphin/synth.h>
 #include "Version.h"
 #include "game/csound.h"
 #include "game/soundtracks.h"
@@ -17,23 +19,6 @@ inline s32 XSound::resolveTrack(s32 track)
 	}
 	return track;
 }
-
-extern "C" {
-s32 HSD_AudioSFXStartParam(u32 sfx, u8 vol, u8 pan, s32 group, s32 track);
-BOOL HSD_AudioSFXSetPitchByID(s32 sfx, s16 pitch);
-s32 HSD_AudioPStreamStartChParam(const char* path, u8 vol, s32 channel);
-s32 HSD_SynthSFXLoad(const char* name, s32 bank, void (*callback)(s32, s32), s32 arg);
-BOOL AXDriverIsStreamActive(void);
-BOOL AXDriverSetAllStreamPitches(s16 pitch);
-}
-
-// todo: these 26 words are not this file's. they are the joint paths of eight inline functions of
-// the family's actor classes (two each for Jenny, Papa, Mama and Deca), which retail has in a
-// header: every file that includes it starts its data with them. they stand here until the header
-// makes them, because the tables below are reached through this address
-s32 lbl_802107A0[26] = {
-	0, 3, 0, 0, 3, 0, 0, 2, 0, 0, 2, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 3, 0,
-};
 
 // the sound bank of each stage
 const char* stageSfxTable[40] = {
@@ -316,12 +301,14 @@ static inline u8 getMusicVolume(s32 sfx)
 	if (!isAllSfx(sfx)) {
 		return 0;
 	}
-	u8 idx = sfx;
-	// retail tests > where PlayGameSound tests >=, so 0x6D reads one past musicTable's 109 entries
-	if (idx > 0x6D) {
-		idx = 0;
+	const u8 index       = sfx;
+	const u32 trackCount = ARRAY_SIZE(musicTable);
+	if (index == trackCount) {
+		// Retail reads the high byte of the second falloff distance for this ID.
+		const u8* distance = reinterpret_cast<const u8*>(&gSoundFalloffRanges[0][1]);
+		return distance[0];
 	}
-	return musicTable[idx].volume;
+	return musicTable[index < trackCount ? index : 0].volume;
 }
 
 static inline bool CanPlayNightStream()
@@ -334,6 +321,129 @@ static inline bool CanPlayNightStream()
 static inline bool UseRaisedLiftPitch()
 {
 	return gGame.GetPlayer()->mLift.mState == 4 && IsLiftTargetPlug(&gGame.GetPlayer()->mLift);
+}
+
+/**
+ * @note Address: 0x8001D9B0
+ * @note Size: 0x194
+ */
+void AnimSfx::Update(s32 anim, f32 frame, u8 vol)
+{
+	s32 prev = mAnimId;
+
+	if (prev != anim) {
+		mAnimId = anim;
+		mFrame  = 0.0f;
+	}
+	AnimSfxEvent* event;
+	XSound* sound = &gGame.mSound;
+	for (s32 i = 0; mEvents != NULL && (event = &mEvents[i])->mAnim >= 0; i++) { // the table ends at -1
+
+		if (event->mAnim == anim || event->mAnim == prev) {
+			if (prev != anim && event->mAnim == prev && CheckStop(event)) {
+				stopSfx(sound, GetSfx(event));
+			}
+			if (event->mAnim == anim && CheckStart(event, mFrame, frame)) {
+				PlayGameSound(sound, GetSfx(event), vol);
+			}
+		}
+	}
+	mFrame = frame;
+}
+
+/**
+ * @note Address: 0x8001DB44
+ * @note Size: 0x4
+ */
+void AnimSfx::vf08()
+{
+}
+
+/**
+ * @note Address: 0x8001DB48
+ * @note Size: 0x48
+ */
+// steps round the event's sfx ids when it has more than one
+s32 AnimSfx::GetSfx(AnimSfxEvent* event)
+{
+	if (event->mCount == 0) {
+		return event->mSfx;
+	}
+	event->mIndex++;
+	if (event->mCount <= event->mIndex) {
+		event->mIndex = 0;
+	}
+	return event->mSfx + event->mIndex;
+}
+
+/**
+ * @note Address: 0x8001DB90
+ * @note Size: 0x8
+ */
+BOOL AnimSfx::CheckStop(AnimSfxEvent* event)
+{
+	return FALSE;
+}
+
+/**
+ * @note Address: 0x8001DB98
+ * @note Size: 0x78
+ */
+// whether the event's start or end frame went by
+BOOL AnimSfx::CheckStart(AnimSfxEvent* event, f32 min, f32 max)
+{
+	f32 a = event->mStart;
+	f32 b = event->mEnd;
+
+	switch (event->mKind) {
+	case 1:
+		if (0.0f <= a && min <= a && a < max) {
+			return TRUE;
+		}
+		if (0.0f <= b && min <= b && b < max) {
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
+}
+
+#if defined(VERSION_JP)
+/**
+ * @note Address: JP 0x8001DB48
+ * @note Size: 0x80
+ */
+// the japanese sound menu: plays the effect picked for a row and remembers the pick
+extern "C" void SetSoundMenuSelection(XSound* sound, s32 index, s32 selection)
+{
+	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
+		return;
+	if (selection < 0 || selection >= ARRAY_SIZE(gSoundMenuEffects))
+		return;
+	PlayGameSound(sound, gSoundMenuEffects[selection], 0xFF);
+	gSoundMenuSelections[index] = selection;
+}
+
+/**
+ * @note Address: JP 0x8001DBC8
+ * @note Size: 0x2C
+ */
+extern "C" s32 GetSoundMenuSelection(XSound*, s32 index)
+{
+	if (index < 0 || index >= ARRAY_SIZE(gSoundMenuSelections))
+		return -1;
+	return gSoundMenuSelections[index];
+}
+#endif
+
+/**
+ * @note Address: 0x8001DC10
+ * @note Size: 0x10
+ */
+extern "C" void ClearGameSoundQueue(XSound* sound)
+{
+	sound->mQueueWrite = 0;
+	sound->mQueueRead  = 0;
 }
 
 /**
@@ -1069,9 +1179,6 @@ extern "C" void UpdateGameSound(XSound* sound, s32 step)
 		if (sound->mMusicResumeDelay <= 0) {
 			if (sound->mPausedMusicId == sound->mCurrentMusicId) {
 				AXDriverResumeAllStreams();
-			} else {
-				// a no-op: PlayGameSound returns at once for 0xFFFF0000
-				PlayGameSound(sound, 0xFFFF0000, 255);
 			}
 			sound->mPausedMusicId = 0;
 		}
@@ -1109,4 +1216,109 @@ extern "C" void UpdateGameSound(XSound* sound, s32 step)
 			}
 		}
 	}
+}
+
+extern "C" void PlayGameSfxAtFullVolume(s32 sfx);
+extern "C" void InitAudio(void* owner, u32 heapSize, u32 voices, u32 groups);
+
+// drops every sfx name waiting to load and empties the stage bank
+static inline void ClearStageBank(XSound* sound)
+{
+	sound->mStageRequests.Clear();
+	sound->mLoadRequestCount = 0;
+	HSD_SynthSFXBankClear(sound->mStageBank);
+}
+
+/**
+ * @note Address: 0x8001F8D8
+ * @note Size: 0xA4
+ */
+extern "C" void ClearStageSoundBank(XSound* sound)
+{
+	ClearStageBank(sound);
+}
+
+/**
+ * @note Address: 0x8001F97C
+ * @note Size: 0x2D8
+ */
+// a negative stage loads the shared samples a step per call, TRUE once they're in
+extern "C" BOOL LoadGameSoundBank(XSound* sound, s32 stage)
+{
+	if (stage < 0) {
+		switch (sound->mLoadState) {
+		case 0:
+			sound->mSampleReady = 0;
+			if (sound->mFile.ReadAsync("sfx_sample.sem", 0, 0, FALSE) >= 0) {
+				++sound->mLoadState;
+			} else {
+#if defined(VERSION_JP)
+				OSPanic("sound.cpp", 0xED, "%s%s", "", "Read");
+#else
+				OSPanic("sound.cpp", 0xF1, "%s%s", "", "Read");
+#endif
+			}
+			break;
+		case 1: {
+			s32 result = sound->mFile.GetResult();
+			if (result == 0) {
+				++sound->mLoadState;
+			} else if (result < 0) {
+#if defined(VERSION_JP)
+				OSPanic("sound.cpp", 0xF5, "%s%s", "", "Read");
+#else
+				OSPanic("sound.cpp", 0xF9, "%s%s", "", "Read");
+#endif
+			}
+			break;
+		}
+		case 2:
+			LoadSoundSampleMetadata(sound->mFile.mBuffer);
+			HSD_SynthSFXLoad("sfx_sample.ssm", sound->mSampleBank, 0, 0);
+			++sound->mLoadState;
+			break;
+		case 3:
+			if (!HasPendingSoundBankLoad()) {
+				sound->mLoadState   = 0;
+				sound->mSampleReady = 1;
+				return TRUE;
+			}
+			break;
+		default:
+			sound->mLoadState = 0;
+			break;
+		}
+		return FALSE;
+	}
+	sound->mDefaultTrack = 0;
+	ClearStageBank(sound);
+#if !defined(VERSION_PAL)
+	OSReport(">>>%s\n", stageSfxTable[stage]);
+#endif
+	sound->registerName(stageSfxTable[stage], sound->mStageBank);
+	return TRUE;
+}
+
+/**
+ * @note Address: 0x8001FC54
+ * @note Size: 0x68
+ */
+extern "C" void InitGameSound(XSound* sound)
+{
+	InitAudio(sound, 0x700000, 0x60, 0x20);
+	sound->mSampleBank  = HSD_SynthSFXNewBank(0x480000);
+	sound->mStageBank   = HSD_SynthSFXNewBank(0x280000);
+	sound->mLoadState   = 0;
+	sound->mSampleReady = 0;
+	HSD_JObjSetJSoundCallback(PlayGameSfxAtFullVolume);
+}
+
+/**
+ * @note Address: 0x8001FCBC
+ * @note Size: 0x38
+ */
+// particle sounds from joint anims
+extern "C" void PlayGameSfxAtFullVolume(s32 sfx)
+{
+	PlayGameSound(&gGame.mSound, sfx, 255);
 }

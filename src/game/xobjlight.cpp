@@ -41,7 +41,7 @@ void XObjLight::Release()
 // NONMATCHING: regalloc — retail keeps one more copy of the object pointer live.
 BOOL XObjLight::LoadFromPlacement(const CoordInfo& info)
 {
-	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		if ((s32)GetEnvData()[4] == 2) {
 			HSD_LObj* previous = NULL;
 			for (s32 i = 0; i < 8; ++i) {
@@ -85,5 +85,5 @@ void XObjLight::ResetObjectState()
  */
 void XObjLight::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 }

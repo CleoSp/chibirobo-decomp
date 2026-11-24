@@ -30,6 +30,7 @@ void SetPlayerEyeCameraJointsHidden(XObj* player, BOOL hidden);
 void OpenPlayerYesNoMenu(XObjChr* chr, s32 first, s32 second);
 void SelectPlayerEquipmentRing(XObjChr* chr, s32 selection);
 void OpenPlayerEquipmentRings(XObjChr* chr);
+void ClosePlayerEquipmentMenu(XObjChr* chr, s32 result);
 void ResetPlayerHeadOffset(XObjChr* chr);
 BOOL LoadPlayerAttachmentAnimation(XObjChr* chr);
 

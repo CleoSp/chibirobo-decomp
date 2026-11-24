@@ -20,7 +20,7 @@ BOOL XObjHBox::LoadFromPlacement(const CoordInfo& info)
 {
 	switch (mLoadState) {
 	case 0:
-		if (!LoadFromPlacement__4XObjFRC9CoordInfo(this, &info))
+		if (!XObj::LoadFromPlacement(info))
 			break;
 		mEventScript = NULL;
 		++mLoadState;
@@ -47,7 +47,7 @@ BOOL XObjHBox::LoadFromPlacement(const CoordInfo& info)
  */
 void XObjHBox::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mLoadState = 0;
 	mRing      = 0.0f;
 	mPart.mObj.ResetObjectState();
@@ -70,6 +70,6 @@ void XObjHBox::ResetForNewGame()
  */
 void XObjHBox::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	mPart.mObj.InitializeObject(id);
 }

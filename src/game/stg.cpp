@@ -12,6 +12,7 @@
 #include "game/xchr.h"
 #include "game/video.h"
 #include "game/gmath.h"
+#include "game/globals.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,14 +20,7 @@
 #include "game/menupanelbackground.h"
 
 extern "C" {
-const char* GetLocalizedPCDialogue(s32 id);
-char* GetLocalizedInterfaceText(s32 id);
-char* GetStatusOverviewLabel(s32 id);
-char* GetStatusIconName(s32 id);
-char* GetItemName(s32 id);
-s32 GetStatusIconEventFlagId(s32 id);
 void DrawMenuSelectionCursor(MenuCursor* cursor, f32 x, f32 y, f32 w, f32 h, f32 alpha, f32 alpha2);
-void UpdateObject__6CursorFUl(MenuCursor* cursor, s32 a);
 void RebuildStageSelectList(MenuStageSelect* menu);
 void DrawBeveledMenuRect(u32 color, f32 x, f32 y, f32 z, f32 w, f32 h, f32 alpha);
 s32 ConvertHudTextToFullWidth(char* text);
@@ -34,7 +28,6 @@ s32 ConvertHudTextToFullWidth(char* text);
 void DrawStatusMenuTabs(MenuStatus* menu);
 void DrawInventoryGrid(s32 id, f32 x, f32 y, f32 alpha, f32 scale, f32 a);
 void DrawStatusItemDetails(s32 id, f32 x, f32 y, f32 alpha, f32 a);
-u16 GetItemFlagsMasked(s16 id, s32 kind);
 void DrawDiscardCountPanel(MenuStatus* menu);
 void DrawPlayerStatusOverview(MenuStatus* menu);
 void DrawStatusDiagram(MenuStatus* menu);
@@ -91,15 +84,6 @@ static MenuMCTestAction sMCTestSubLines[]
 static MenuMCTestAction sMCTestSubLines[] = { { "load", 4 }, { "save", 2 }, { "\x01", -1 }, { "delete", 6 } };
 #endif
 
-// the file's statics in .bss order, what the first ones hold isn't known yet
-u8 lbl_80361F68[0xD4];
-Vec lbl_8036203C;
-#if defined(VERSION_JP)
-// The MenuMain destructor record follows the seventh vector in JP.
-Vec lbl_80362048[7];
-#else
-Vec lbl_80362048[8];
-#endif
 // MenuPC scrolls two text chunks in US and three in PAL.
 #if defined(VERSION_PAL)
 char gPCDialogueChunks[3][256];
@@ -144,7 +128,6 @@ extern "C" CTexObj* CopyMenuTextureObject(CTexObj* dst, const CTexObj* src);
 extern "C" s32 CountScrapShopEntries(const MenuPCPage*);
 extern "C" s32 CountItemShopEntries(const MenuPCPage*);
 extern "C" s32 CountDecimalDigits(s32 value);
-extern "C" BOOL Draw__5CMenuFv(CMenu* menu);
 extern "C" s32 GetPlayerLevel(Params* params);
 extern "C" Params* GetPlayerParamsByIndex(CGame* game, s32 i);
 extern "C" void DrawMenuLine(CGs* gs, u32 color, f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1);
@@ -168,7 +151,7 @@ extern "C" void DrawMenuTriangleFan(CGs* gs, Vec* pos, u32 color, u16 count);
 extern "C" void SetMenuDepthMode(CGs* gs, u8 enable, s32 func, u8 update);
 extern "C" CGs* GetGameGraphics(CGame* game);
 extern "C" const char* GetPCDialogueText(s32 id);
-extern "C" char* GetPCMenuLabelText(s32 id);
+extern "C" const char* GetPCMenuLabelText(s32 id);
 extern "C" void DrawPCBlueNumber(bool icon, f32 x, f32 y, f32 alpha, f32 scale, f32 value);
 extern "C" void DrawPCGoldNumber(bool icon, f32 x, f32 y, f32 alpha, f32 scale, f32 value);
 extern "C" u32 GetPCDialogueNumber(MenuPC* menu);
@@ -198,28 +181,10 @@ void DrawPCItemShopList(s32, f32, f32, f32, f32, f32, f32);
 void DrawPCScrapShopList(s32, f32, f32, f32, f32, f32, f32);
 #endif
 
+static const f32 kMenuOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
+static const f32 kMenuOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
+
 extern "C" {
-f32 gItemHelpOutlineX[4]  = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gItemHelpOutlineY[4]  = { -1.0f, -1.0f, 1.0f, 1.0f };
-f32 gItemTitleOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gItemTitleOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
-
-f32 gStatusOutlineX[4]      = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gStatusOutlineY[4]      = { -1.0f, -1.0f, 1.0f, 1.0f };
-f32 gStatusTitleOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gStatusTitleOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
-f32 gStatusHelpOutlineX[4]  = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gStatusHelpOutlineY[4]  = { -1.0f, -1.0f, 1.0f, 1.0f };
-
-f32 gSaveTitleOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gSaveTitleOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
-f32 gSaveHelpOutlineX[4]  = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gSaveHelpOutlineY[4]  = { -1.0f, -1.0f, 1.0f, 1.0f };
-#if defined(VERSION_JP)
-f32 gGradientTextOutlineX[4] = { -1.0f, 1.0f, 1.0f, -1.0f };
-f32 gGradientTextOutlineY[4] = { -1.0f, -1.0f, 1.0f, 1.0f };
-#endif
-
 s32 gPCLevelDialogueIds[11] = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 };
 }
 struct PCScreenAnimation {
@@ -285,7 +250,7 @@ static inline u16 ReadPCDialogueGlyph(const char* text)
 // load/store order and regalloc differ throughout
 BOOL MenuPC::Draw()
 {
-	if (Draw__5CMenuFv(this)) {
+	if (CMenu::Draw()) {
 		CTexObj tex;
 		char labelText[256];
 		{
@@ -679,7 +644,7 @@ BOOL MenuPC::Draw()
 #else
 					const char* localized = GetLocalizedInterfaceText(29 + 45);
 					u32 color             = (u32)(255.0f * this->mAlpha) | 0xFFFFFF00;
-					f32 x = 320.0f - 0.5f * MeasureGameTextWidth(GetGameGraphics(&gGame), GetLocalizedInterfaceText(29 + 45), TRUE, 20);
+					f32 x                 = 320.0f - 0.5f * MeasureGameTextWidth(GetGameGraphics(&gGame), localized, TRUE, 20);
 					DrawGsProportionalTextFormat(GetGameGraphics(&gGame), color, localized, x, 148, 0, 20, 20);
 #endif
 				}
@@ -693,7 +658,7 @@ BOOL MenuPC::Draw()
 #else
 					const char* localized = GetLocalizedInterfaceText(30 + 45);
 					u32 color             = (u32)(255.0f * this->mAlpha) | 0xFFFFFF00;
-					f32 x = 320.0f - 0.5f * MeasureGameTextWidth(GetGameGraphics(&gGame), GetLocalizedInterfaceText(30 + 45), TRUE, 20);
+					f32 x                 = 320.0f - 0.5f * MeasureGameTextWidth(GetGameGraphics(&gGame), localized, TRUE, 20);
 					DrawGsProportionalTextFormat(GetGameGraphics(&gGame), color, localized, x, 220, 0, 20, 20);
 #endif
 				}
@@ -1357,65 +1322,6 @@ inline void MenuSettings::Open()
 }
 #endif
 
-inline void MenuMain::Open()
-{
-	CMenu::Open();
-	PlayGameSound(&gGame.mSound, 0x86, 0xFF);
-	// status bit 2 pauses the stage, its objects, play time and music, while the menu is up
-	gGame.mStatus.mFlags |= 2;
-}
-
-inline void MenuMain::Close()
-{
-	CMenu::Close();
-	PlayGameSound(&gGame.mSound, 0x86, 0xFF);
-	gGame.mStatus.mFlags &= ~2ULL;
-}
-
-inline void MenuMain::Resume()
-{
-	if (mSuspended) {
-		gGame.mStatus.mFlags |= 2;
-	}
-	CMenu::Resume();
-}
-
-inline void MenuMCTest::Open()
-{
-	mState = 1;
-	Resume();
-	mWindow.mOpen = TRUE;
-	for (int i = 0; i < mFileCount; i++) {
-		strcpy(mText[i], "");
-	}
-	sprintf(mText[mFileCount + 1], "SLOT: %c", sMenuMain.mChannel + 'A');
-	StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, sMenuMain.mChannel, 1);
-	mOperation = 1;
-}
-
-inline void MenuStageSelect::Open()
-{
-	mState = 1;
-	Resume();
-	mWindow.mOpen = TRUE;
-	if (gGame.mStatus.mFlags & 0x0008000000000000ULL) {
-		mSelection = -1;
-		int i      = 0;
-		for (s32* stage = sStageOrder; *stage >= 0; stage++, i++) {
-			if (*stage == gGame.mStage) {
-				mSelection = i;
-				break;
-			}
-		}
-		if (mSelection < 0) {
-			mSelection = 0;
-		}
-	} else {
-		mSelection = gGame.mStage;
-	}
-	RebuildStageSelectList(this);
-}
-
 inline void MenuTitle::Set(const char* text, u32 color)
 {
 	const char* p = text;
@@ -1692,9 +1598,9 @@ void MenuMCTestSub::Open()
  * @note Address: 0x800341EC
  * @note Size: 0x5C
  */
-extern "C" void Init__15MenuStageSelectFv(Menu* menu)
+void MenuStageSelect::Init()
 {
-	menu->CMenu::Init();
+	CMenu::Init();
 }
 
 /**
@@ -1821,17 +1727,15 @@ extern "C" void DispatchMemoryCardTestOperation(MenuMCTest* menu, s32 id)
  * @note Address: 0x80032E24
  * @note Size: 0xD8
  */
-extern "C" void Open__10MenuMCTestFv(MenuMCTest* menu)
+void MenuMCTest::Open()
 {
-	menu->mState = 1;
-	menu->Resume();
-	menu->mWindow.mOpen = TRUE;
-	for (int i = 0; i < menu->mFileCount; i++) {
-		strcpy(menu->mText[i], "");
+	CMenu::Open();
+	for (int i = 0; i < mFileCount; i++) {
+		strcpy(mText[i], "");
 	}
-	sprintf(menu->mText[menu->mFileCount + 1], "SLOT: %c", sMenuMain.mChannel + 'A');
+	sprintf(mText[mFileCount + 1], "SLOT: %c", sMenuMain.mChannel + 'A');
 	StartMemoryCardPreviewRead(&gGame.mMemcard.mCard, sMenuMain.mChannel, 1);
-	menu->mOperation = 1;
+	mOperation = 1;
 }
 
 /**
@@ -1920,30 +1824,28 @@ BOOL MenuStageSelect::Update(u32 frames)
  * @note Address: 0x80034108
  * @note Size: 0xE4
  */
-extern "C" void Open__15MenuStageSelectFv(MenuStageSelect* menu)
+void MenuStageSelect::Open()
 {
-	menu->mState = 1;
-	menu->Resume();
-	menu->mWindow.mOpen = TRUE;
+	CMenu::Open();
 	if (gGame.mStatus.mFlags & 0x0008000000000000ULL) {
-		menu->mSelection = -1;
-		s32* stages      = sStageOrder;
+		mSelection  = -1;
+		s32* stages = sStageOrder;
 		s32 stage;
 		s32 current = gGame.mStage;
 		for (int i = 0; stages[i] >= 0; i++) {
 			stage = stages[i];
 			if (stage == current) {
-				menu->mSelection = i;
+				mSelection = i;
 				break;
 			}
 		}
-		if (menu->mSelection < 0) {
-			menu->mSelection = 0;
+		if (mSelection < 0) {
+			mSelection = 0;
 		}
 	} else {
-		menu->mSelection = gGame.mStage;
+		mSelection = gGame.mStage;
 	}
-	RebuildStageSelectList(menu);
+	RebuildStageSelectList(this);
 }
 
 /**
@@ -2057,27 +1959,35 @@ void MenuItem::Init()
  * @note Address: 0x800611D4
  * @note Size: 0x30
  */
-extern "C" void Resume__8MenuMainFv(MenuMain* menu)
+void MenuMain::Resume()
 {
-	menu->MenuMain::Resume();
+	if (mSuspended) {
+		gGame.mStatus.mFlags |= 2;
+	}
+	CMenu::Resume();
 }
 
 /**
  * @note Address: 0x80061204
  * @note Size: 0x8C
  */
-extern "C" void Close__8MenuMainFv(MenuMain* menu)
+void MenuMain::Close()
 {
-	menu->MenuMain::Close();
+	CMenu::Close();
+	PlayGameSound(&gGame.mSound, 0x86, 0xFF);
+	gGame.mStatus.mFlags &= ~2ULL;
 }
 
 /**
  * @note Address: 0x80061290
  * @note Size: 0x78
  */
-extern "C" void Open__8MenuMainFv(MenuMain* menu)
+void MenuMain::Open()
 {
-	menu->MenuMain::Open();
+	CMenu::Open();
+	PlayGameSound(&gGame.mSound, 0x86, 0xFF);
+	// status bit 2 pauses the stage, its objects, play time and music, while the menu is up
+	gGame.mStatus.mFlags |= 2;
 }
 
 /**
@@ -2358,9 +2268,15 @@ extern "C" void LayoutMainMenuRows(MenuMain* menu)
  * @note Address: 0x80061738
  * @note Size: 0xA4
  */
-extern "C" BOOL Draw__5CMenuFv(CMenu* menu)
+BOOL CMenu::Draw()
 {
-	return menu->CMenu::Draw();
+	if (!IsOpen())
+		return FALSE;
+	SetGsChannelEnabled(&gGame.mGs, 0, 0);
+	SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
+	SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 3, 0);
+	DrawMenuWindow(&mWindow);
+	return TRUE;
 }
 
 /**
@@ -2388,7 +2304,6 @@ BOOL CMenu::Update(u32 frames)
 		mWindow.mDrawAlpha = mAlpha;
 		return FALSE;
 	}
-	CPad pad(0);
 	switch (mState) {
 	case 0:
 		break;
@@ -2432,7 +2347,6 @@ BOOL CMenu::Update(u32 frames)
 		mWindow.mTex.mTex.mMtxDirty = TRUE;
 		PSMTXScale(mWindow.mTex.mTex.mMtx[1], mWindow.mTex.mScaleX, mWindow.mTex.mScaleY, 1.0f);
 		mWindow.mTex.mTex.mMtxDirty = TRUE;
-		CPad pad2(0);
 	}
 	return mState;
 }
@@ -2462,18 +2376,31 @@ BOOL CMenu::LoadTexture()
  * @note Address: 0x80061ABC
  * @note Size: 0x2C
  */
-extern "C" void Reset__5CMenuFv(CMenu* menu)
+void CMenu::Reset()
 {
-	menu->CMenu::Reset();
+	mState        = 0;
+	mAlpha        = 0.0f;
+	mSelection    = 0;
+	mSuspended    = FALSE;
+	mSuspendFade  = FALSE;
+	mFade         = 0.0f;
+	mSuspendAlpha = 1.0f;
 }
 
 /**
  * @note Address: 0x80061C74
  * @note Size: 0x5C
  */
-extern "C" void Init__5CMenuFv(CMenu* menu)
+void CMenu::Init()
 {
-	menu->CMenu::Init();
+	mWindow.mOpen      = FALSE;
+	mWindow.mX         = 320.0f;
+	mWindow.mY         = 224.0f;
+	mWindow.mWidth     = 100.0f;
+	mWindow.mHeight    = 100.0f;
+	mWindow.mDrawAlpha = 0.0f;
+	mCursor            = NULL;
+	Reset();
 }
 
 /**
@@ -2530,7 +2457,7 @@ void MenuSave::State7(u32)
  * @note Address: 0x8003D7A0
  * @note Size: 0x24
  */
-extern "C" char* GetTitleAndSaveMenuText(s32 id)
+extern "C" const char* GetTitleAndSaveMenuText(s32 id)
 {
 #if defined(VERSION_JP)
 	return GetLocalizedInterfaceText(id + 13);
@@ -2894,7 +2821,7 @@ void MenuStatus::State6(u32)
 void MenuCursor::UpdateObject(u32 frames)
 {
 	if (mStatus.mFlags & 1) {
-		UpdateObject__6CursorFUl(this, frames);
+		Cursor::UpdateObject(frames);
 	}
 }
 
@@ -2904,7 +2831,7 @@ void MenuCursor::UpdateObject(u32 frames)
  */
 void MenuCursor::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 }
 
 /**
@@ -2930,7 +2857,7 @@ void MenuSave::State0(u32)
  * @note Address: 0x8004EDE8
  * @note Size: 0x24
  */
-extern "C" char* GetPCMenuLabelText(s32 id)
+extern "C" const char* GetPCMenuLabelText(s32 id)
 {
 #if defined(VERSION_JP)
 	return GetLocalizedInterfaceText(id + 102);
@@ -2946,19 +2873,13 @@ extern "C" char* GetPCMenuLabelText(s32 id)
 // NONMATCHING: regalloc
 extern "C" s16 GetPlayerItemCount(s16 id)
 {
-	int byteOffset;
-	const XObjChr* player = gGame.GetPlayer();
-	s16 count             = 0;
-	int i                 = 255;
-	for (byteOffset = i * sizeof(InventoryItem); i >= 0; byteOffset -= sizeof(InventoryItem), --i) {
-		const InventoryItem* entry
-		    = reinterpret_cast<const InventoryItem*>(reinterpret_cast<const u8*>(&player->mParams.mInventory.mItems) + byteOffset);
-		if (id == entry->mId) {
-			count = gGame.GetPlayer()->mParams.mInventory.mItems[i].mCount;
-			break;
-		}
+	const Inventory& inventory = gGame.GetPlayer()->mParams.mInventory;
+	for (s32 i = ARRAY_SIZE(inventory.mItems) - 1; i >= 0; --i) {
+		const InventoryItem& entry = inventory.mItems[i];
+		if (id == entry.mId)
+			return entry.mCount;
 	}
-	return count;
+	return 0;
 }
 
 /**
@@ -3201,105 +3122,63 @@ extern "C" void PopulateItemShopPage(MenuPCPage* list)
 	}
 }
 
+// empties one entry of the status table
+static inline void ClearStatusEntry(MenuStatusEntry* e)
+{
+	e->mItem          = -1;
+	e->mCount         = -1;
+	e->mStatus.mFlags = 0;
+}
+
+static inline bool IsOwnedStatusItem(const InventoryItem& item)
+{
+	return item.mId >= 0 && item.mCount > 0 && GetItemFlagsMasked(item.mId, 4) != 0;
+}
+
+static void FillOwnedItemRows(const Inventory& inventory, MenuStatusEntry* rows, s32 capacity, s32 first, s32 end)
+{
+	s32 position = 0;
+	s32 row      = 0;
+	for (s32 i = ARRAY_SIZE(inventory.mItems) - 1; i >= 0 && row < capacity && position < end; --i) {
+		const InventoryItem& item = inventory.mItems[i];
+		if (!IsOwnedStatusItem(item))
+			continue;
+		if (position >= first) {
+			rows[row].mItem  = item.mId;
+			rows[row].mCount = item.mCount;
+			++row;
+		}
+		++position;
+	}
+}
+
 /**
  * @note Address: 0x80034EAC
  * @note Size: 0x2D8
  */
-// the status menu's page of 8 owned items, and the 4 before and after it
-// NONMATCHING: regalloc
 extern "C" void PopulateOwnedItemPage(MenuStatusTable* table)
 {
-	s32 count;
-	s16 num;
-	int i;
-	InventoryItem* pairs;
-	s16 id;
-	s32 n;
-	for (i = 0; i < 256; i++) {
-		table->mItems[i].mItem          = -1;
-		table->mItems[i].mCount         = -1;
-		table->mItems[i].mStatus.mFlags = 0;
+	for (s32 i = 0; i < ARRAY_SIZE(table->mItems); ++i)
+		ClearStatusEntry(&table->mItems[i]);
+	for (s32 i = 0; i < ARRAY_SIZE(table->mPrev); ++i) {
+		ClearStatusEntry(&table->mPrev[i]);
+		ClearStatusEntry(&table->mNext[i]);
 	}
-	n     = 0;
-	count = 0;
-	for (i = 255; i >= 0; i--) {
-		pairs                    = gGame.GetPlayer()->mParams.mInventory.mItems;
-		const InventoryItem& row = pairs[i];
-		id                       = row.mId;
-		num                      = row.mCount;
-		if (GetItemFlagsMasked(id, 4) && id >= 0 && num > 0) {
-			if (count >= table->mPage * 4 && count < (table->mPage + 2) * 4) {
-				table->mItems[n].mItem  = id;
-				table->mItems[n].mCount = num;
-				if (++n >= 8) {
-					break;
-				}
-			}
-			count++;
-		}
-	}
-	n     = 0;
-	count = 0;
-	for (i = 0; i < 4; i++) {
-		table->mPrev[i].mItem          = -1;
-		table->mPrev[i].mCount         = -1;
-		table->mPrev[i].mStatus.mFlags = 0;
-		table->mNext[i].mItem          = -1;
-		table->mNext[i].mCount         = -1;
-		table->mNext[i].mStatus.mFlags = 0;
-	}
-	for (i = 255; i >= 0; i--) {
-		pairs                    = gGame.GetPlayer()->mParams.mInventory.mItems;
-		const InventoryItem& row = pairs[i];
-		id                       = row.mId;
-		num                      = row.mCount;
-		if (GetItemFlagsMasked(id, 4) && id >= 0 && num > 0) {
-			if (count >= (table->mPage + 2) * 4 && count < (table->mPage + 4) * 4) {
-				table->mNext[n].mItem  = id;
-				table->mNext[n].mCount = num;
-				if (++n >= 4) {
-					break;
-				}
-			}
-			count++;
-		}
-	}
-	n     = 0;
-	count = 0;
-	for (i = 255; i >= 0; i--) {
-		pairs                    = gGame.GetPlayer()->mParams.mInventory.mItems;
-		const InventoryItem& row = pairs[i];
-		id                       = row.mId;
-		num                      = row.mCount;
-		if (GetItemFlagsMasked(id, 4) && id >= 0 && num > 0) {
-			if (count >= (table->mPage - 1) * 4 && count < (table->mPage + 1) * 4) {
-				table->mPrev[n].mItem  = id;
-				table->mPrev[n].mCount = num;
-				if (++n >= 4) {
-					break;
-				}
-			}
-			count++;
-		}
-	}
+
+	const Inventory& inventory = gGame.GetPlayer()->mParams.mInventory;
+	s32 first                  = 4 * table->mPage;
+	FillOwnedItemRows(inventory, table->mItems, 8, first, first + 8);
+	FillOwnedItemRows(inventory, table->mNext, ARRAY_SIZE(table->mNext), first + 8, first + 16);
+	FillOwnedItemRows(inventory, table->mPrev, ARRAY_SIZE(table->mPrev), first - 4, first + 4);
 }
 
-// how many kinds of things the player has
 static inline s32 CountMenuItems()
 {
-	s16 num;
-	s16 id;
-	s32 count;
-	int i;
-	InventoryItem* pairs;
-	count = 0;
-	for (i = 255; i >= 0; i--) {
-		pairs = gGame.GetPlayer()->mParams.mInventory.mItems;
-		id    = pairs[i].mId;
-		num   = pairs[i].mCount;
-		if (GetItemFlagsMasked(id, 4) && id >= 0 && num > 0) {
-			count++;
-		}
+	const Inventory& inventory = gGame.GetPlayer()->mParams.mInventory;
+	s32 count                  = 0;
+	for (s32 i = ARRAY_SIZE(inventory.mItems) - 1; i >= 0; --i) {
+		if (IsOwnedStatusItem(inventory.mItems[i]))
+			++count;
 	}
 	return count;
 }
@@ -3435,7 +3314,6 @@ void MenuStatus::State4(u32 frameCount)
 {
 	MenuStatus* menu = this;
 	s32 wait         = (s32)frameCount;
-	CPad pad(0);
 	switch (menu->mPhase) {
 	case 0:
 		menu->mTargetPanelY = -200.0f;
@@ -3474,7 +3352,8 @@ void MenuStatus::State1(u32 frames)
 					menu->mSelection = 2;
 				}
 			}
-			char* msg = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
+			const char* msg
+			    = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
 			menu->mShowHelp = 1;
 			menu->mHelp     = msg;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
@@ -3486,7 +3365,8 @@ void MenuStatus::State1(u32 frames)
 			} else if (++menu->mSelection > 2) {
 				menu->mSelection = 0;
 			}
-			char* msg = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
+			const char* msg
+			    = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
 			menu->mShowHelp = 1;
 			menu->mHelp     = msg;
 			PlayGameSound(&gGame.mSound, 0x87, 0xFF);
@@ -3536,7 +3416,7 @@ void MenuStatus::State1(u32 frames)
 				s16 id              = sStatusItemTable.mItems[menu->mItem].mItem;
 				menu->mPreviousItem = menu->mItem;
 				if (id >= 0 && CountMenuItems() > 0) {
-					char* msg       = GetItemName(id);
+					const char* msg = GetItemName(id);
 					menu->mShowHelp = 1;
 					menu->mHelp     = msg;
 				} else {
@@ -3558,11 +3438,11 @@ void MenuStatus::State1(u32 frames)
 				u32 color = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 				menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText + 3), color);
 				if (gStatusEntryAvailable[menu->mOverviewSelection]) {
-					char* msg       = GetStatusOverviewLabel(menu->mOverviewSelection);
+					const char* msg = GetStatusOverviewLabel(menu->mOverviewSelection);
 					menu->mShowHelp = 1;
 					menu->mHelp     = msg;
 				} else {
-					char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+					const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 					menu->mShowHelp = 1;
 					menu->mHelp     = msg;
 				}
@@ -3597,11 +3477,11 @@ void MenuStatus::State1(u32 frames)
 				u32 color = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 				menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText + 4), color);
 				if (gStatusIconUnlocked[menu->mIconSelection]) {
-					char* msg       = GetStatusIconName(menu->mIconSelection);
+					const char* msg = GetStatusIconName(menu->mIconSelection);
 					menu->mShowHelp = 1;
 					menu->mHelp     = msg;
 				} else {
-					char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+					const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 					menu->mShowHelp = 1;
 					menu->mHelp     = msg;
 				}
@@ -4427,8 +4307,8 @@ extern "C" void DrawSaveMenuTitle(MenuSave* menu)
 				pad   = (width / 24.0f) * scale;
 				pad   = scale - pad;
 				for (int j = 0; j < 4; j++) {
-					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + gSaveTitleOutlineX[j]),
-					                   bob + (64.0f + gSaveTitleOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
+					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + kMenuOutlineX[j]),
+					                   bob + (64.0f + kMenuOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
 				}
 				c = color | alpha;
 				DrawGsTexturedQuad(&gGame.mGs, &tex, c, c, c, c, pad / 2 + x, y, 0.0f, scale, scale, 0.0f, -zero, rot);
@@ -4491,8 +4371,8 @@ extern "C" void DrawItemMenuTitle(MenuItem* menu)
 				pad   = (width / 24.0f) * scale;
 				pad   = scale - pad;
 				for (int j = 0; j < 4; j++) {
-					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + gItemTitleOutlineX[j]),
-					                   bob + (64.0f + gItemTitleOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
+					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + kMenuOutlineX[j]),
+					                   bob + (64.0f + kMenuOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
 				}
 				c = color | alpha;
 				DrawGsTexturedQuad(&gGame.mGs, &tex, c, c, c, c, pad / 2 + x, y, 0.0f, scale, scale, 0.0f, -zero, rot);
@@ -4667,15 +4547,6 @@ static inline void SetScissor(u32 top, u32 height)
 #endif
 }
 
-// looks up flag 4 of every carried item, the results go unused
-static inline void CheckPlayerInventoryFlags()
-{
-	for (s32 i = 255; i >= 0; --i) {
-		InventoryItem* items = (InventoryItem*)&gGame.GetPlayer()->mParams.mInventory;
-		GetItemFlagsMasked(items[i].mId, 4);
-	}
-}
-
 /**
  * @note Address: 0x8005773C
  * @note Size: 0x1F8
@@ -4692,7 +4563,6 @@ BOOL MenuStatus::Draw()
 			s32 item = mPhase == 100 ? -1 : mItem; // no cursor while the close-up (phase 100) is open
 			DrawInventoryGrid(item, x, y, mAlpha, 1.0f, mPulsePhase);
 			DrawStatusItemDetails(sStatusItemTable.mItems[mItem].mItem, 320.0f, 224.0f, mAlpha, mDetailScale);
-			CheckPlayerInventoryFlags();
 			DrawDiscardCountPanel(this);
 			SetScissor(0, 448);
 		}
@@ -4782,14 +4652,6 @@ extern "C" void DrawDoubleByteMenuText(const char* text, f32 x, f32 y, f32 z, f3
 	}
 }
 
-// empties one entry of the status table
-static inline void ClearStatusEntry(MenuStatusEntry* e)
-{
-	e->mItem          = -1;
-	e->mCount         = -1;
-	e->mStatus.mFlags = 0;
-}
-
 static inline void ClearStatusTable(MenuStatusTable* table)
 {
 	table->mPage = 0;
@@ -4817,14 +4679,8 @@ void MenuItem::Open()
 	mWindow.SetPos(0.0f, 0.0f);
 	ClearStatusTable(&sStatusItemTable);
 	PopulateOwnedItemPage(&sStatusItemTable);
-	s32 count = CountMenuItems();
-	mGridX    = 758.0f;
-	mGridY    = 36.0f;
-	if (count == 0) {
-		mTargetGridX = 360.0f;
-	} else {
-		mTargetGridX = 360.0f - (count - 1) * 51;
-	}
+	mGridX         = 758.0f;
+	mGridY         = 36.0f;
 	mTargetGridX   = 207.0f;
 	mTargetGridY   = 36.0f;
 	mPanelX        = -10.0f;
@@ -4839,17 +4695,13 @@ void MenuItem::Open()
 	_194           = 0.0f;
 	u32 color      = (u32)(255.0f * mAlpha) | 0xFFFFFF00;
 	mTitle.Set(GetLocalizedInterfaceText(StatusTitleText + 1), color);
-	mShowHelp  = 0;
 	mNameAlpha = 0.0f;
 	s16 id     = sStatusItemTable.mItems[mSelection].mItem;
-	if (id >= 0 && CountMenuItems() > 0) {
-		mName     = GetItemName(id);
-		char* msg = GetItemName(id);
-		mShowHelp = 1;
-		mHelp     = msg;
-	} else {
-		mShowHelp = 1;
-		mHelp     = NULL;
+	mShowHelp  = 1;
+	mHelp      = NULL;
+	if (id >= 0) {
+		mName = GetItemName(id);
+		mHelp = mName;
 	}
 	mNameCharCount = 0;
 	for (int i = 0; i < (int)ARRAY_SIZE(mBg); i++) {
@@ -4878,11 +4730,11 @@ void MenuStatus::State9(u32)
 		if (pad.mPad->mRepeat & 0x40001) {
 			menu->mOverviewSelection = neighbors[menu->mOverviewSelection][2];
 			if (gStatusEntryAvailable[menu->mOverviewSelection]) {
-				char* msg       = GetStatusOverviewLabel(menu->mOverviewSelection);
+				const char* msg = GetStatusOverviewLabel(menu->mOverviewSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -4890,11 +4742,11 @@ void MenuStatus::State9(u32)
 		} else if (pad.mPad->mRepeat & 0x80002) {
 			menu->mOverviewSelection = neighbors[menu->mOverviewSelection][3];
 			if (gStatusEntryAvailable[menu->mOverviewSelection]) {
-				char* msg       = GetStatusOverviewLabel(menu->mOverviewSelection);
+				const char* msg = GetStatusOverviewLabel(menu->mOverviewSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -4903,11 +4755,11 @@ void MenuStatus::State9(u32)
 		if (pad.mPad->mRepeat & 0x10008) {
 			menu->mOverviewSelection = neighbors[menu->mOverviewSelection][0];
 			if (gStatusEntryAvailable[menu->mOverviewSelection]) {
-				char* msg       = GetStatusOverviewLabel(menu->mOverviewSelection);
+				const char* msg = GetStatusOverviewLabel(menu->mOverviewSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -4915,11 +4767,11 @@ void MenuStatus::State9(u32)
 		} else if (pad.mPad->mRepeat & 0x20004) {
 			menu->mOverviewSelection = neighbors[menu->mOverviewSelection][1];
 			if (gStatusEntryAvailable[menu->mOverviewSelection]) {
-				char* msg       = GetStatusOverviewLabel(menu->mOverviewSelection);
+				const char* msg = GetStatusOverviewLabel(menu->mOverviewSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -4943,7 +4795,8 @@ void MenuStatus::State9(u32)
 			menu->mPhase    = 0;
 			u32 color       = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 			menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText), color);
-			char* msg = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
+			const char* msg
+			    = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
 			menu->mShowHelp       = 1;
 			menu->mHelp           = msg;
 			menu->mAnimationFrame = 0;
@@ -4976,11 +4829,11 @@ void MenuStatus::State8(u32)
 				menu->mIconSelection = 23;
 			}
 			if (gStatusIconUnlocked[menu->mIconSelection]) {
-				char* msg       = GetStatusIconName(menu->mIconSelection);
+				const char* msg = GetStatusIconName(menu->mIconSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -4991,11 +4844,11 @@ void MenuStatus::State8(u32)
 				menu->mIconSelection = 0;
 			}
 			if (gStatusIconUnlocked[menu->mIconSelection]) {
-				char* msg       = GetStatusIconName(menu->mIconSelection);
+				const char* msg = GetStatusIconName(menu->mIconSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -5009,11 +4862,11 @@ void MenuStatus::State8(u32)
 			}
 			menu->mIconSelection = col + row * 6;
 			if (gStatusIconUnlocked[menu->mIconSelection]) {
-				char* msg       = GetStatusIconName(menu->mIconSelection);
+				const char* msg = GetStatusIconName(menu->mIconSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -5026,11 +4879,11 @@ void MenuStatus::State8(u32)
 			}
 			menu->mIconSelection = col + row * 6;
 			if (gStatusIconUnlocked[menu->mIconSelection]) {
-				char* msg       = GetStatusIconName(menu->mIconSelection);
+				const char* msg = GetStatusIconName(menu->mIconSelection);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			} else {
-				char* msg       = GetLocalizedInterfaceText(StatusEmptyText);
+				const char* msg = GetLocalizedInterfaceText(StatusEmptyText);
 				menu->mShowHelp = 1;
 				menu->mHelp     = msg;
 			}
@@ -5053,7 +4906,8 @@ void MenuStatus::State8(u32)
 			menu->mPhase    = 0;
 			u32 color       = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 			menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText), color);
-			char* msg = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
+			const char* msg
+			    = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
 			menu->mShowHelp       = 1;
 			menu->mHelp           = msg;
 			menu->mAnimationFrame = 0;
@@ -5095,7 +4949,8 @@ void MenuStatus::State5(u32)
 		menu->mPhase    = 0;
 		u32 color       = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 		menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText), color);
-		char* msg = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
+		const char* msg
+		    = GetLocalizedInterfaceText((menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]) + StatusTitleText);
 		menu->mShowHelp       = 1;
 		menu->mHelp           = msg;
 		menu->mAnimationFrame = 0;
@@ -5576,7 +5431,7 @@ void MenuPC::State10(u32)
  */
 extern "C" CVec GetStagePlacementScale(XObj* obj)
 {
-	return PlacementScale(obj->mCoord, lbl_80362048[0]);
+	return PlacementScale(obj->mCoord);
 }
 
 /**
@@ -5585,7 +5440,7 @@ extern "C" CVec GetStagePlacementScale(XObj* obj)
  */
 extern "C" CVec GetStagePlacementPosition(XObj* obj)
 {
-	return PlacementPosition(obj->mCoord, lbl_8036203C);
+	return PlacementPosition(obj->mCoord);
 }
 
 static inline s32 CountPCShopItems(MenuPCItem* table)
@@ -5662,7 +5517,6 @@ void MenuPC::State7(u32 frames)
 					SelectNextShopRow(menu->mScrapShopSelection, gScrapShopPage, true);
 				}
 				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
-					CountPCShopItems(sScrapShopEntries);
 					if (gScrapShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
@@ -5789,7 +5643,6 @@ void MenuPC::State7(u32 frames)
 	case 20: // sliding to the previous row; once there the list starts a row earlier
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
-			CountPCShopItems(sScrapShopEntries);
 			if (gScrapShopPage.mStart > 0) {
 				gScrapShopPage.mStart--;
 				PopulateScrapShopPage(&gScrapShopPage);
@@ -5993,7 +5846,7 @@ BOOL MenuPC::Update(u32 frames)
 template <class MenuType>
 static inline void UpdateMenuTitle(MenuType* menu, u32 frames)
 {
-	if (menu->mTitle.mActive && menu->mTitle.mActive > 0) {
+	if (menu->mTitle.mActive > 0) {
 		for (int i = 0; i < menu->mTitle.mCount; i++) {
 			MenuTitleChar* glyph = &menu->mTitle.mChars[i];
 			if (glyph->mHold > 0.0f) {
@@ -6098,8 +5951,8 @@ static inline f32 MenuTextCenter(f32 w, f32 factor, f32 center)
 }
 static inline void DrawMenuHelpLine(s32 id, f32 y, f32 size, u32 color)
 {
-	char* text = GetLocalizedInterfaceText(id);
-	f32 width  = MeasureGameTextWidth(&gGame.mGs, text, 1, size);
+	const char* text = GetLocalizedInterfaceText(id);
+	f32 width        = MeasureGameTextWidth(&gGame.mGs, text, 1, size);
 	DrawGsProportionalTextFormat(&gGame.mGs, color, text, MenuTextCenter(width, 0.5f, 320.0f), y, 0.0f, size, size);
 }
 
@@ -6553,9 +6406,6 @@ static inline f32 MenuRectEnd(f32 center, f32 size)
 // NONMATCHING: temporary vector lifetimes and register allocation
 extern "C" void DrawMenuRectWithShadow(CMenu* menu, u32 color, f32 x, f32 y, f32 width, f32 height)
 {
-	// The original evaluates both animation curves even though their values are unused.
-	sin(4.712389f * (1.0f - menu->mAlpha));
-	sin(4.712389f * (1.0f - menu->mAlpha));
 	Vec outline[10] = { (Vec) { MenuRectStart(x, width), MenuRectStart(y, height), -10.0f },
 		                (Vec) { MenuRectEnd(x, width), MenuRectStart(y, height), -10.0f },
 		                (Vec) { MenuRectEnd(x, width), MenuRectEnd(y, height), -10.0f },
@@ -6754,7 +6604,7 @@ extern "C" void DrawStatusHelpText(MenuStatus* menu)
 			                   rotation);
 			scale       = 30.0f * (0.8f * scale);
 			f32 padding = HelpGlyphPadding(width, scale);
-			DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, gStatusHelpOutlineX, gStatusHelpOutlineY);
+			DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, kMenuOutlineX, kMenuOutlineY);
 		}
 	}
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
@@ -6814,8 +6664,8 @@ extern "C" void DrawStatusMenuTitle(MenuStatus* menu)
 				pad   = (width / 24.0f) * scale;
 				pad   = scale - pad;
 				for (int j = 0; j < 4; j++) {
-					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + gStatusTitleOutlineX[j]),
-					                   bob + (64.0f + gStatusTitleOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
+					DrawGsTexturedQuad(&gGame.mGs, &tex, alpha, alpha, alpha, alpha, pad / 2 + (x + kMenuOutlineX[j]),
+					                   bob + (64.0f + kMenuOutlineY[j]), 0.0f, scale, scale, 0.0f, -zero, rot);
 				}
 				c = color | alpha;
 				DrawGsTexturedQuad(&gGame.mGs, &tex, c, c, c, c, pad / 2 + x, y, 0.0f, scale, scale, 0.0f, -zero, rot);
@@ -7257,7 +7107,7 @@ BOOL MenuItem::Draw()
 					                   rotation);
 					scale       = 30.0f * (0.8f * scale);
 					f32 padding = HelpGlyphPadding(width, scale);
-					DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, gItemHelpOutlineX, gItemHelpOutlineY);
+					DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, kMenuOutlineX, kMenuOutlineY);
 				}
 			}
 			SetGsTevMode(gGame.mGs.mCurTevStage, 4);
@@ -7751,8 +7601,8 @@ extern "C" void DrawMenuGradientText(const char* text, f32 x, f32 y, f32 size, f
 		CTexObj tex = *GetFontGlyphTexture(&font, chars[i].mText, &width);
 		x           = i * spacing + startX;
 		for (int j = 0; j < 4; j++) {
-			DrawGsTexturedQuad(&gGame.mGs, &tex, opacity, opacity, opacity, opacity, x + gGradientTextOutlineX[j],
-			                   zero + (y + gGradientTextOutlineY[j]), 1.0f, glyphSize, glyphSize, zero, zero, zero);
+			DrawGsTexturedQuad(&gGame.mGs, &tex, opacity, opacity, opacity, opacity, x + kMenuOutlineX[j], zero + (y + kMenuOutlineY[j]),
+			                   1.0f, glyphSize, glyphSize, zero, zero, zero);
 		}
 		DrawGsTexturedQuad(&gGame.mGs, &tex, top, top, bottom, bottom, x, y + zero, 1.0f, glyphSize, glyphSize, zero, zero, zero);
 	}
@@ -7801,7 +7651,7 @@ extern "C" void DrawSaveHelpText(MenuSave* menu)
 		DrawGsTexturedQuad(&gGame.mGs, &blob, color, color, color, color, x, y, 1.0f, 30.0f * scale, 30.0f * scale, 0.0f, -zero, rotation);
 		scale       = 30.0f * (0.8f * scale);
 		f32 padding = HelpGlyphPadding(width, scale);
-		DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, gSaveHelpOutlineX, gSaveHelpOutlineY);
+		DrawHelpLetter(tex, x, y, bob, scale, padding, rotation, zero, opacity, kMenuOutlineX, kMenuOutlineY);
 	}
 	SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 }
@@ -8184,7 +8034,6 @@ void DrawPCScrapShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alph
 		DrawPCScrapShopRow(gScrapShopPage.mRows[i], left, step * i + rowY, alpha, scale);
 	if (gScrapShopPage.mStart < CountShopScrollPositions(sScrapShopEntries) - 1)
 		DrawPCScrapShopRow(gScrapShopPage.mNext[0], left, MenuPCPage::VisibleRows * step + rowY, alpha, scale);
-	CountPCShopItems(sScrapShopEntries);
 	if (gScrapShopPage.mStart > 0)
 		DrawPCScrapShopRow(gScrapShopPage.mPrev[0], left, rowY - step, alpha, scale);
 	DrawPCListMasks(opacity, scroll);
@@ -8220,13 +8069,12 @@ void DrawPCItemShopList(s32 selected, f32 x, f32 y, f32 textureOffset, f32 alpha
 		DrawPCItemShopRow(gItemShopPage.mRows[i], left, step * i + rowY, alpha, scale);
 	if (gItemShopPage.mStart < CountShopScrollPositions(sItemShopEntries) - 1)
 		DrawPCItemShopRow(gItemShopPage.mNext[0], left, MenuPCPage::VisibleRows * step + rowY, alpha, scale);
-	CountPCShopItems(sItemShopEntries);
 	if (gItemShopPage.mStart > 0)
 		DrawPCItemShopRow(gItemShopPage.mPrev[0], left, rowY - step, alpha, scale);
 	DrawPCListMasks(opacity, scroll);
 }
 
-static inline char* StatusTabHelp(s32 selection)
+static inline const char* StatusTabHelp(s32 selection)
 {
 	return selection >= 4 ? NULL : GetLocalizedInterfaceText(StatusTitleText + gStatusTabTextOffsets[selection]);
 }
@@ -8330,10 +8178,9 @@ void MenuStatus::Open()
 	mTitle.Set(GetLocalizedInterfaceText(StatusTitleText), color);
 	mShowHelp  = 0;
 	mHelpAlpha = 0;
-	mHelpText  = StatusTabHelp(mSelection);
-	char* help = StatusTabHelp(mSelection);
+	mHelp      = StatusTabHelp(mSelection);
+	mHelpText  = mHelp;
 	mShowHelp  = 1;
-	mHelp      = help;
 	mHelpCount = 0;
 	for (int i = 0; i < (int)ARRAY_SIZE(mHelpChars); i++) {
 		mHelpChars[i].mAngle0 = DEG2RAD * (rand() % 360);
@@ -8412,7 +8259,6 @@ void MenuPC::Open()
 		mShopOnly = TRUE;
 	if (gGame.mRoomCount + 1 == gGame.mStage)
 		mShopOnly = FALSE;
-	FindStageIndexByName("shun");
 	// the shop's stock: item ids in event vars 600-619, their counts in 620-639
 	mItemShopBase  = 600;
 	mItemShopCount = 20;
@@ -8550,8 +8396,7 @@ extern "C" void DrawStatusCallout(MenuStatus*, s32 id, f32 x, f32 y, f32 targetX
 	f32 alpha   = 255.0f;
 	u32 opacity = (u32)alpha;
 	for (int i = 0; i < 4; i++)
-		DrawGsProportionalTextFormat(&gGame.mGs, opacity, labels[id].text, x + gStatusOutlineX[i], y + gStatusOutlineY[i], 0.0f, 18.0f,
-		                             18.0f);
+		DrawGsProportionalTextFormat(&gGame.mGs, opacity, labels[id].text, x + kMenuOutlineX[i], y + kMenuOutlineY[i], 0.0f, 18.0f, 18.0f);
 	u32 white = opacity | 0xFFFFFF00;
 	DrawGsProportionalTextFormat(&gGame.mGs, white, labels[id].text, x, y, 0.0f, 18.0f, 18.0f);
 	DrawCalloutIcon(tex, labels[id].cell, white, x, y);
@@ -8577,7 +8422,6 @@ BOOL MenuStatus::Update(u32 frames)
 		mPulsePhase += (1.0f / (0.3f * FRAME_RATE)) * frames;
 		if (mPulsePhase >= 2.0f)
 			mPulsePhase = fmod(mPulsePhase, 2.0);
-		CPad pad(0);
 		PCEase(mOffsetX, mTargetOffsetX);
 		PCEase(mOffsetY, mTargetOffsetY);
 		PCEase(mPanelX, mTargetPanelX);
@@ -8640,7 +8484,7 @@ static inline void FinishItemMenuScroll(MenuItem* menu)
 {
 	menu->mGridY         = 36.0f;
 	menu->mTargetGridY   = 36.0f;
-	char* help           = GetItemName(sStatusItemTable.mItems[menu->mSelection].mItem);
+	const char* help     = GetItemName(sStatusItemTable.mItems[menu->mSelection].mItem);
 	menu->mShowHelp      = 1;
 	menu->mHelp          = help;
 	menu->mPrevSelection = menu->mSelection;
@@ -8725,7 +8569,6 @@ BOOL MenuItem::Update(u32 frames)
 						PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 					}
 					if (pad.mPad->mRepeat & 0x10008) {
-						CountMenuItems();
 						if (sStatusItemTable.mPage > 0) {
 							mTargetGridY = 128.0f;
 							mPhase       = 20;
@@ -8734,17 +8577,14 @@ BOOL MenuItem::Update(u32 frames)
 					}
 				}
 			}
-			if (sStatusItemTable.mItems[mSelection].mItem < 0) {
-				do {
-					--mSelection;
-				} while (sStatusItemTable.mItems[mSelection].mItem < 0 && mSelection != 0);
-			}
+			while (mSelection > 0 && sStatusItemTable.mItems[mSelection].mItem < 0)
+				--mSelection;
 			if (mSelection != mPrevSelection) {
 				s16 id = sStatusItemTable.mItems[mSelection].mItem;
 				if (id >= 0 && CountMenuItems() > 0) {
-					char* text = GetItemName(id);
-					mShowHelp  = 1;
-					mHelp      = text;
+					const char* text = GetItemName(id);
+					mShowHelp        = 1;
+					mHelp            = text;
 				} else {
 					mShowHelp = 1;
 					mHelp     = NULL;
@@ -8790,7 +8630,6 @@ BOOL MenuItem::Update(u32 frames)
 		case 20:
 			if (mGridY == mTargetGridY) {
 				mPhase = 2;
-				CountMenuItems();
 				if (sStatusItemTable.mPage > 0) {
 					--sStatusItemTable.mPage;
 					PopulateOwnedItemPage(&sStatusItemTable);
@@ -8968,11 +8807,11 @@ static inline void DrawSaveSlotCaption(const char* text, f32 x, f32 y, f32 size,
 }
 static inline void DrawSaveSlotMessage(s32 id, bool twoLines, f32 x, f32 y, f32 alpha, f32 sx, f32 sy)
 {
-	char* text = GetLocalizedInterfaceText(id);
-	sx         = 23.0f * sx;
-	u32 color  = (u8)(255.0f * alpha) | 0xEDA83600;
-	u32 shadow = (u32)(255.0f * alpha);
-	y          = (y - 5.0f * (17.0f * sy)) - 6.0f * sy;
+	const char* text = GetLocalizedInterfaceText(id);
+	sx               = 23.0f * sx;
+	u32 color        = (u8)(255.0f * alpha) | 0xEDA83600;
+	u32 shadow       = (u32)(255.0f * alpha);
+	y                = (y - 5.0f * (17.0f * sy)) - 6.0f * sy;
 	DrawColoredSlotCaption(text, x, (twoLines ? 76.0f : 86.0f) * sy + y, sx, shadow, color);
 	if (twoLines) {
 		text = GetLocalizedInterfaceText(id + 1);
@@ -8992,8 +8831,6 @@ static inline f32 SaveSlotStatX(f32 x, f32 scale)
 
 static inline void DrawSlotFrame(u8 selected, f32 x, f32 y, f32 width, f32 height, f32 alpha)
 {
-	// The original constructs a separate texture while drawing the slot frame.
-	CTexObj frameTexture;
 	u32 fill, border;
 	if (selected == 1) {
 		fill   = (u32)(255.0f * alpha) | 0xFFFFFF00;
@@ -9566,7 +9403,6 @@ StatusGridTextures gStatusGridTextures[24] = {
 	{ 198, 199 }, { 206, 207 }, { 196, 197 }, { 214, 215 }, { 192, 193 }, { 212, 213 }, { 218, 219 }, { 222, 223 },
 #endif
 };
-extern "C" u8* GetStatusIconDescription(s32 id);
 
 static inline void DrawStatusGridIcon(CTexObj& tex, u32 color, f32 x, f32 y, f32 bob, f32& width, f32& height, bool selected)
 {
@@ -9584,16 +9420,11 @@ static inline void DrawStatusGridIcon(CTexObj& tex, u32 color, f32 x, f32 y, f32
 	SetGsDepthCompareBeforeTexture(gGame.mGs.mCurRenderMode, 1);
 }
 
-extern "C" u8* GetStatusOverviewDescription(s32);
 static inline void DrawStatusGridDescription(MenuStatus* menu, bool iconGrid)
 {
 	s32 id    = iconGrid ? menu->mIconSelection : menu->mOverviewSelection;
 	f32 scale = menu->mDetailScale;
 	f32 alpha = menu->mAlpha;
-	// The original constructs a texture and advances its panel counter even when closed.
-	static u32 frame = 0;
-	CTexObj panelTexture;
-	++frame;
 	if (scale <= 0)
 		return;
 	f32 height  = 153.0f * scale;
@@ -10068,11 +9899,6 @@ extern "C" void DrawSeparatedStatusValue(s32 icon, s32 value, bool selected, f32
 	                    0.8f * (1.2f * slashHeight));
 }
 
-// The atlas is measured twice; the discard dialog uses the enlarged sample.
-static inline f32 DiscardDigitExtent(s32 normal, s32 enlarged, f32 mix)
-{
-	return (1.0f - mix) * normal + (1.4f * mix) * enlarged;
-}
 static inline void DrawDiscardDigit(MenuStatus* menu, CTexObj& tex, s32 digit, f32 x, f32 y, f32 width, f32 height, f32 alpha)
 {
 	PSMTXTrans(tex.mMtx[0], 0, 0.1f * digit, 0);
@@ -10100,13 +9926,6 @@ extern "C" void DrawDiscardCountPanel(MenuStatus* menu)
 	if (menu->mCount == 0) {
 		DrawDiscardOutline(menu, x, y);
 	}
-	// All three retail objects pass stack buffers to the label renderer without writing any text.
-	char label[256];
-	u32 halfWidth = (24 * (strlen(label) / 2 - 1)) / 2;
-	f32 labelX    = 12.0f + ((12.0f + (4.0f + ((40.0f + ((72.0f + x) - halfWidth)) - 120.0f))) - 20.0f);
-	f32 labelY    = (12.0f + ((2.0f + (((22.0f + y) - 12.0f) - 2.0f)) - 22.0f)) - 36.0f;
-	DrawDoubleByteMenuText(label, labelX, labelY, -10.0f, 24.0f, 24.0f, menu->mAlpha);
-
 	CTexObj tex;
 	f32 radius = 30.0f + wave;
 	for (s32 i = 0; i < 2; i++) {
@@ -10121,15 +9940,12 @@ extern "C" void DrawDiscardCountPanel(MenuStatus* menu)
 		SetGsTevMode(gGame.mGs.mCurTevStage, 4);
 	}
 
-	switch (menu->mPhase) {
-	case 1: {
+	if (menu->mPhase == 1) {
 		LoadOverviewTexture(tex, 125);
 		SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 		s32 count  = menu->mCount;
-		u16 firstW = GXGetTexObjWidth(&tex), secondW = GXGetTexObjWidth(&tex);
-		f32 width  = DiscardDigitExtent(firstW, secondW, 1);
-		u16 firstH = GXGetTexObjHeight(&tex), secondH = GXGetTexObjHeight(&tex);
-		f32 height = DiscardDigitExtent(firstH / 10, secondH / 10, 1);
+		f32 width  = 1.4f * GXGetTexObjWidth(&tex);
+		f32 height = 1.4f * (GXGetTexObjHeight(&tex) / 10);
 		PSMTXScale(tex.mMtx[1], 1, 0.1f, 1);
 		tex.mMtxDirty = TRUE;
 		if (count >= 10) {
@@ -10138,15 +9954,6 @@ extern "C" void DrawDiscardCountPanel(MenuStatus* menu)
 		} else {
 			DrawDiscardDigit(menu, tex, count, x, 14.0f + y, width, height, 1.0f);
 		}
-		break;
-	}
-	case 2: {
-		char message[256];
-		// Retail measures the confirmation label even though it draws it at a fixed position.
-		(void)strlen(message);
-		DrawDoubleByteMenuText(message, x, 14.0f + y, -10.0f, 24.0f, 24.0f, menu->mAlpha);
-		break;
-	}
 	}
 }
 
@@ -10168,7 +9975,6 @@ void MenuPC::State3(u32 frames)
 					SelectNextShopRow(menu->mItemShopSelection, gItemShopPage, true);
 				}
 				if (pad.mPad->mRepeat & (HSD_PAD_STICK_UP | HSD_PAD_DPADUP)) {
-					CountPCShopItems(sItemShopEntries);
 					if (gItemShopPage.mStart > 0) {
 						menu->mScrollTarget = 17.0f;
 						menu->mPhase        = 20;
@@ -10326,7 +10132,6 @@ void MenuPC::State3(u32 frames)
 	case 20:
 		if (menu->mScroll == menu->mScrollTarget) {
 			menu->mPhase = 0;
-			CountPCShopItems(sItemShopEntries);
 			if (gItemShopPage.mStart > 0) {
 				gItemShopPage.mStart--;
 				PopulateItemShopPage(&gItemShopPage);
@@ -10343,7 +10148,7 @@ static inline void FinishStatusItemScroll(MenuStatus* menu)
 {
 	menu->mY            = 36.0f;
 	menu->mTargetY      = 36.0f;
-	char* help          = GetItemName(sStatusItemTable.mItems[menu->mItem].mItem);
+	const char* help    = GetItemName(sStatusItemTable.mItems[menu->mItem].mItem);
 	menu->mShowHelp     = 1;
 	menu->mHelp         = help;
 	menu->mPreviousItem = menu->mItem;
@@ -10351,13 +10156,10 @@ static inline void FinishStatusItemScroll(MenuStatus* menu)
 
 static inline void UpdateOwnedItemHelp(MenuStatus* menu)
 {
-	if (sStatusItemTable.mItems[menu->mItem].mItem < 0) {
-		do {
-			--menu->mItem;
-		} while (sStatusItemTable.mItems[menu->mItem].mItem < 0 && menu->mItem != 0);
-	}
+	while (menu->mItem > 0 && sStatusItemTable.mItems[menu->mItem].mItem < 0)
+		--menu->mItem;
 	if (menu->mItem != menu->mPreviousItem) {
-		char* help = NULL;
+		const char* help = NULL;
 		{
 			s16 id = sStatusItemTable.mItems[menu->mItem].mItem;
 			if (id >= 0 && CountMenuItems() > 0)
@@ -10405,7 +10207,6 @@ void MenuStatus::State2(u32)
 					PlayGameSound(&gGame.mSound, 0x87, 0xFF);
 				}
 				if (pad.mPad->mRepeat & 0x10008) {
-					CountMenuItems();
 					if (sStatusItemTable.mPage > 0) {
 						menu->mTargetY = 128.0f;
 						menu->mPhase   = 20;
@@ -10436,7 +10237,8 @@ void MenuStatus::State2(u32)
 
 			u32 color = (u32)(255.0f * menu->mAlpha) | 0xFFFFFF00;
 			menu->mTitle.Set(GetLocalizedInterfaceText(StatusTitleText), color);
-			char* msg = GetLocalizedInterfaceText(StatusTitleText + (menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]));
+			const char* msg
+			    = GetLocalizedInterfaceText(StatusTitleText + (menu->mSelection >= 4 ? 0 : gStatusTabTextOffsets[menu->mSelection]));
 			menu->mShowHelp       = 1;
 			menu->mHelp           = msg;
 			menu->mAnimationFrame = 0;
@@ -10471,7 +10273,6 @@ void MenuStatus::State2(u32)
 	case 20:
 		if (menu->mY == menu->mTargetY) {
 			menu->mPhase = 0;
-			CountMenuItems();
 			if (sStatusItemTable.mPage > 0) {
 				--sStatusItemTable.mPage;
 				PopulateOwnedItemPage(&sStatusItemTable);
@@ -10525,7 +10326,7 @@ static inline void DrawPCRecycleLabel(s32 id, f32 x, f32 offset, f32 margin, f32
 	x = margin + (offset + (x - (strlen(text) / 2 - 1) * size * 0.5f));
 #else
 	const char* text = GetLocalizedInterfaceText(id);
-	x -= MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(id), 1, size) * 0.5f;
+	x -= MeasureGameTextWidth(&gGame.mGs, text, 1, size) * 0.5f;
 #endif
 	DrawGsProportionalTextFormat(&gGame.mGs, color, text, x, y, 0, size, size);
 }
@@ -10706,19 +10507,17 @@ static inline void DrawPCPurchaseResult(char (&text)[256], s32 bought, f32 x, f3
 	sprintf(text, "%s", GetLocalizedInterfaceText(bought));
 	DrawPCShopCenteredText(text, white, x, y, size);
 #else
-	f32 labelWidth = MeasureGameTextWidth(&gGame.mGs, GetLocalizedInterfaceText(bought), 1, size);
-	DrawGsProportionalTextFormat(&gGame.mGs, white, GetLocalizedInterfaceText(bought), x - labelWidth / 2.0f, y, 0, size, size);
+	const char* label = GetLocalizedInterfaceText(bought);
+	f32 labelWidth    = MeasureGameTextWidth(&gGame.mGs, label, 1, size);
+	DrawGsProportionalTextFormat(&gGame.mGs, white, label, x - labelWidth / 2.0f, y, 0, size, size);
 #endif
 }
 
 extern "C" void DrawPCScrapPurchasePanel(s32 selected, s32 choice, f32 x, f32 y, f32 scroll, f32 alpha, f32 scale)
 {
-	static u32 frame = 0;
-
-	++frame;
-	CTexObj tex;
 	if (scale <= 0)
 		return;
+	CTexObj tex;
 	f32 extraH = IsJapanese() ? 0 : 17;
 	f32 extraW = IsJapanese() ? 0 : 8;
 
@@ -10774,12 +10573,9 @@ extern "C" void DrawPCScrapPurchasePanel(s32 selected, s32 choice, f32 x, f32 y,
 
 extern "C" void DrawPCItemPurchasePanel(s32 selected, s32 choice, f32 x, f32 y, f32 scroll, f32 alpha, f32 scale)
 {
-	static u32 frame = 0;
-
-	++frame;
-	CTexObj tex;
 	if (scale <= 0)
 		return;
+	CTexObj tex;
 	f32 extraH = IsJapanese() ? 0 : 17;
 	f32 extraW = IsJapanese() ? 0 : 8;
 
@@ -11004,14 +10800,12 @@ static inline void DrawInventoryDigit(CTexObj& tex, s32 digit, u32 color, f32 x,
 	DrawOverviewTexture(tex, color, x, y, width, height);
 }
 
-static inline void PrepareInventoryDigits(CTexObj& tex, f32 scale, f32& width, f32& height)
+static inline void PrepareInventoryDigits(CTexObj& tex, f32& width, f32& height)
 {
 	tex = InitPCPanelTexture(125);
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-	u16 firstWidth = GXGetTexObjWidth(&tex), secondWidth = GXGetTexObjWidth(&tex);
-	width           = scale * (1.2f * secondWidth) + (1.0f - scale) * (scale * firstWidth);
-	int firstHeight = GXGetTexObjHeight(&tex) / 10, secondHeight = GXGetTexObjHeight(&tex) / 10;
-	height = scale * (1.2f * secondHeight) + 0.0f * (scale * firstHeight);
+	width  = 1.2f * GXGetTexObjWidth(&tex);
+	height = 1.2f * (GXGetTexObjHeight(&tex) / 10);
 	PSMTXScale(tex.mMtx[1], 1, 0.1f, 1);
 	tex.mMtxDirty = TRUE;
 }
@@ -11047,12 +10841,9 @@ static inline void DrawInventoryHighlight(f32 x, f32 y, f32 w, f32 h, f32 alpha,
 	SetGsDepthMode(gs.mCurRenderMode, 1, 7, 0);
 }
 
-static inline void DrawInventoryPreviewIcon(CTexObj& tex, s32 icon, u32 color, f32 x, f32 y, f32 scale, u32 frame)
+static inline void DrawInventoryPreviewIcon(CTexObj& tex, s32 icon, u32 color, f32 x, f32 y, f32 scale)
 {
 	tex = gGame.mTpl.mTex.Init(&((TPLPalette*)gGame.mTpl.mBuffer)->descriptorArray[icon], 0);
-	GXGetTexObjWidth(&tex);
-	GXGetTexObjHeight(&tex);
-	sin(DEG2RAD * (((s32)(frame * 20)) % 360));
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 	u16 w = GXGetTexObjWidth(&tex), h = GXGetTexObjHeight(&tex);
 	DrawOverviewTexture(tex, color, x, y, scale * w, scale * h);
@@ -11081,7 +10872,7 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 	u32 opacity = (u32)(255.0f * alpha), color = opacity | 0xC8C8C800;
 	for (int i = 0; i < 8; i++) {
 		f32 w = 92.0f * scale, h = 80.0f * scale;
-		f32 dx = w * 0.125f + w, dy = h * 0.125f + h;
+		f32 dy = h * 0.125f + h;
 		f32 xx = (i % 4) * (w * 0.125f + w) + x;
 		f32 yy = 12.0f + ((-dy * 0.5f) + ((i / 4) * dy + y));
 		CTexObj tex;
@@ -11099,13 +10890,13 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 					DrawInventoryHighlight(xx, yy + bob, iw, ih, alpha, phase);
 			}
 			f32 digitWidth, digitHeight;
-			PrepareInventoryDigits(tex, scale, digitWidth, digitHeight);
+			PrepareInventoryDigits(tex, digitWidth, digitHeight);
 			DrawInventoryCount(tex, count, color, xx + 22.0f, bob + (yy + 14.0f), digitWidth, digitHeight);
 		} else
 			DrawEmptyInventorySlot(tex, color, xx, yy, scale);
 	}
 	f32 w = 92.0f * scale, h = 80.0f * scale;
-	f32 dx = w * 0.125f + w, dy = h * 0.125f + h;
+	f32 dy = h * 0.125f + h;
 	f32 yy = 12.0f + ((-dy * 0.5f) + (2.0f * dy + y));
 	for (int i = 0; i < 4; i++) {
 		if (sStatusItemTable.mPage >= (CountMenuItems() - 1) / 4 - 1)
@@ -11116,20 +10907,15 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 		if (id >= 0 && count > 0) {
 			s32 icon = GetItemIconTextureIndex(id);
 			if (icon >= 0)
-				DrawInventoryPreviewIcon(tex, icon, color, xx, yy, scale, frame);
+				DrawInventoryPreviewIcon(tex, icon, color, xx, yy, scale);
 			f32 digitWidth, digitHeight;
-			PrepareInventoryDigits(tex, scale, digitWidth, digitHeight);
+			PrepareInventoryDigits(tex, digitWidth, digitHeight);
 			DrawInventoryCount(tex, count, color, xx + 22.0f * scale, yy + 14.0f * scale, digitWidth, digitHeight);
 		} else
 			DrawEmptyInventorySlot(tex, color, xx, yy, scale);
 	}
-	dx = w * 0.125f + w;
-	dy = h * 0.125f + h;
-	dx = w * 0.125f + w;
-	dy = h * 0.125f + h;
 	yy = 12.0f + ((-dy * 0.5f) + (-dy + y));
 	for (int i = 0; i < 4; i++) {
-		CountMenuItems();
 		if (sStatusItemTable.mPage <= 0)
 			break;
 		f32 xx = (i % 4) * (w * 0.125f + w) + x;
@@ -11138,9 +10924,9 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 		if (id >= 0 && count > 0) {
 			s32 icon = GetItemIconTextureIndex(id);
 			if (icon >= 0)
-				DrawInventoryPreviewIcon(tex, icon, opacity | 0xFFFFFF00, xx, yy, scale, frame);
+				DrawInventoryPreviewIcon(tex, icon, opacity | 0xFFFFFF00, xx, yy, scale);
 			f32 digitWidth, digitHeight;
-			PrepareInventoryDigits(tex, scale, digitWidth, digitHeight);
+			PrepareInventoryDigits(tex, digitWidth, digitHeight);
 			DrawInventoryCount(tex, count, color, xx + 22.0f * scale, yy + 14.0f * scale, digitWidth, digitHeight);
 		} else
 			DrawEmptyInventorySlot(tex, color, xx, yy, scale);
@@ -11151,28 +10937,28 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
  * @note Address: 0x8003135C
  * @note Size: 0x48
  */
-extern "C" void Close__5CMenuFv(CMenu* menu)
+void CMenu::Close()
 {
-	menu->mState = 5;
-	menu->Resume();
-	menu->mWindow.mOpen = FALSE;
+	mState = 5;
+	Resume();
+	mWindow.mOpen = FALSE;
 }
 
 /**
  * @note Address: 0x800313A4
  * @note Size: 0x24
  */
-extern "C" BOOL IsOpen__5CMenuFv(CMenu* menu)
+BOOL CMenu::IsOpen()
 {
-	return menu->CMenu::IsOpen();
+	return mState >= 1 && mState < 6;
 }
 
 /**
  * @note Address: 0x800313C8
  * @note Size: 0x10
  */
-extern "C" void Suspend__5CMenuFi(CMenu* menu, s32 dir)
+void CMenu::Suspend(BOOL fade)
 {
-	menu->mSuspended   = TRUE;
-	menu->mSuspendFade = dir;
+	mSuspended   = TRUE;
+	mSuspendFade = fade;
 }

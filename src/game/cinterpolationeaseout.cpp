@@ -46,18 +46,18 @@ bool CInterpolationEaseOut::Update(u32 step, f32 dt)
  * @note Address: 0x80135220
  * @note Size: 0x58
  */
-extern "C" bool Start__21CInterpolationEaseOutFfff(CInterpolationEaseOut* interp, f32 from, f32 to, f32 time)
+bool CInterpolationEaseOut::Start(f32 from, f32 to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
 	}
-	interp->mValue    = from;
-	interp->mStart    = from;
-	interp->mTarget   = to;
-	interp->mSpeed    = (2.0f * (to - from)) / time;
-	interp->mAccel    = -interp->mSpeed / time; // the speed decays to zero at the end
-	interp->mDuration = time;
-	interp->mTime     = time;
+	mValue    = from;
+	mStart    = from;
+	mTarget   = to;
+	mSpeed    = (2.0f * (to - from)) / time;
+	mAccel    = -mSpeed / time; // the speed decays to zero at the end
+	mDuration = time;
+	mTime     = time;
 	return true;
 }
 
@@ -110,16 +110,16 @@ bool CInterpolationEaseInOut::Update(u32 step, f32 dt)
  * @note Address: 0x80135398
  * @note Size: 0x4C
  */
-extern "C" bool Start__23CInterpolationEaseInOutFfff(CInterpolationEaseInOut* interp, f32 from, f32 to, f32 time)
+bool CInterpolationEaseInOut::Start(f32 from, f32 to, f32 time)
 {
 	if (time <= 0.0f) {
 		return false;
 	}
-	interp->mValue    = from;
-	interp->mTarget   = to;
-	interp->mSpeed    = 0.0f;
-	interp->mAccel    = (to - from) / (time * time / 4.0f);
-	interp->mDuration = time;
-	interp->mTime     = time;
+	mValue    = from;
+	mTarget   = to;
+	mSpeed    = 0.0f;
+	mAccel    = (to - from) / (time * time / 4.0f);
+	mDuration = time;
+	mTime     = time;
 	return true;
 }

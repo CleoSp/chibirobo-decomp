@@ -16,22 +16,17 @@ extern "C" {
 extern "C" void DrawPlugCordSegments(XObjPlugCord* cord, Mtx view, f32 scaleX, f32 scaleY, f32 scaleZ)
 {
 	CGs* graphics = CaptureGraphics();
-	SetGsColorUpdate(graphics->mCurRenderMode, cord->mFlags & 1);
-	SetGsAlphaUpdate(graphics->mCurRenderMode, (cord->mFlags >> 1) & 1);
-	SetGsDestinationAlpha(graphics->mCurRenderMode, (cord->mFlags >> 2) & 1, cord->mAlpha);
+	SetGsColorUpdate(graphics->mCurRenderMode, (cord->mFlags & XObjPlugCord::UpdateColor) != 0);
+	SetGsAlphaUpdate(graphics->mCurRenderMode, (cord->mFlags & XObjPlugCord::UpdateAlpha) != 0);
+	SetGsDestinationAlpha(graphics->mCurRenderMode, (cord->mFlags & XObjPlugCord::SetDestinationAlpha) != 0, cord->mAlpha);
 	SetGsDepthMode(graphics->mCurRenderMode, 1, 3, 1);
 	SetGsBlendMode(graphics->mCurRenderMode, 1, 4, 5, 15);
 	FlushCaptureGraphics(graphics);
-	f32(*selectedView)[4];
-	if (view == NULL)
-		selectedView = gGame.mGs.mCamera->mViewMtx;
-	else
-		selectedView = view;
+	MtxPtr selectedView = view != NULL ? view : gGame.mGs.mCamera->mViewMtx;
 	Mtx combined, local;
 	Vec scale, rotation, position;
-	s32 i   = 0;
 	scale.x = scale.y = cord->mWidth;
-	for (; i < cord->mCount - 2; i++) {
+	for (s32 i = 0; i < cord->mCount - 2; ++i) {
 		CVec* current = &cord->mPoints[i].mPos;
 		CVec* next    = &cord->mPoints[i + 1].mPos;
 		f32 x         = next->x - current->x;
@@ -48,5 +43,4 @@ extern "C" void DrawPlugCordSegments(XObjPlugCord* cord, Mtx view, f32 scaleX, f
 		PSMTXConcat(selectedView, local, combined);
 		DrawGsCylinderWithMatrix(&gGame.mGs, combined, cord->mColor, 6);
 	}
-	scale.z = 0.9f * cord->mWidth;
 }

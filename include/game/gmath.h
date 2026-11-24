@@ -28,24 +28,9 @@ static inline f32 WrapAngle(f32 a)
 	return a;
 }
 
-// msl's sqrtf, math.h had it inline so every file that calls it gets its own copy
-// of the two constants. our math.h only has dolsqrtf, which skips the nan checks
 static inline f32 sqrtf(f32 x)
 {
-	static const f64 _half  = 0.5;
-	static const f64 _three = 3.0;
-	if (x > 0.0f) {
-		f64 guess = __frsqrte((f64)x);
-		guess     = _half * guess * (_three - guess * guess * x);
-		guess     = _half * guess * (_three - guess * guess * x);
-		guess     = _half * guess * (_three - guess * guess * x);
-		return (f32)(x * guess);
-	} else if (x < 0.0) {
-		return NAN;
-	} else if (__fpclassifyf(x) == FP_NAN) {
-		return NAN;
-	}
-	return x;
+	return msl_sqrtf(x);
 }
 
 #endif

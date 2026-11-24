@@ -27,5 +27,3 @@ Vec XObjActor::GetCameraTarget()
 void XObjActor::OnPushDisplacement(const Vec& displacement)
 {
 }
-
-DECL_SECT(".sdata2") const f32 XObjActor::sZero = 0.0f;

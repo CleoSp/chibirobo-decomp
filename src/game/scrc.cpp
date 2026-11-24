@@ -36,16 +36,13 @@ void InitParticlePool(CPtcl* pool, void* particles, s32 count, s32 stride);
 void ResetActor3Fields(XObjActor3* actor);
 extern AnimSfxEvent gHaisuiNezumiAnimSfxEvents[];
 
-Vec gActor3PlacementPosition;
-Vec gActor3PlacementRotation;
-
 s32 gSpiderBossVolleySlot;
 s32 gActor3Kind15ActivationCounter;
 }
 
 static inline Vec ActorPlacementRotation(const XObjActor3* actor)
 {
-	return PlacementRotation(actor->mCoord, gActor3PlacementRotation);
+	return PlacementRotation(actor->mCoord);
 }
 
 // the robot is out of reach, past the front edge or in one of its climbing anims
@@ -368,7 +365,6 @@ void XObjActor3::Kind9(u32 frames)
 			f32 dx = projected.x - mMoveTranslate.x, dy = projected.y - mMoveTranslate.y, dz = projected.z - mMoveTranslate.z;
 			if (sqrtf(dz * dz + (dx * dx + dy * dy)) < 10 && !IsPlayerFlashingFromHit(player)
 			    && !IsPlayerAway(gGame.GetPlayer(), gGame.GetPlayer()->mMoveTranslate)) {
-				CPad pad(0);
 				if (radius < 2) { // the robot isn't holding up its mug
 					SetAnim(11, FALSE, NULL, NULL, NULL, 0, 1, 0, 10);
 					if (!IsBusyAnim(gGame.GetPlayer()->mAnimId) && gGame.GetPlayer()->mAttachmentRequest < 0
@@ -475,13 +471,9 @@ BOOL XObjActor3::LoadFromPlacement(const CoordInfo& info)
 		mOrbitHeight       = zero.y;
 		mOrbitZ            = zero.z;
 
-		mMoveTranslate.x = PlacementPosition(mCoord, gActor3PlacementPosition).x;
-		mMoveTranslate.y = PlacementPosition(mCoord, gActor3PlacementPosition).y;
-		mMoveTranslate.z = PlacementPosition(mCoord, gActor3PlacementPosition).z;
-		mMoveRotate.x    = ActorPlacementRotation(this).x;
-		mMoveRotate.y    = ActorPlacementRotation(this).y;
-		mMoveRotate.z    = ActorPlacementRotation(this).z;
-		mHeading         = ActorPlacementRotation(this).y;
+		mMoveTranslate.Set(PlacementPosition(mCoord));
+		mMoveRotate.Set(ActorPlacementRotation(this));
+		mHeading = mMoveRotate.y;
 		for (int i = 0; i < 8; ++i)
 			mParts[i].Clear();
 		if (mPoolIndex == 0) {
@@ -1926,8 +1918,8 @@ void XObjActor3::Kind18(u32 frames)
 		break;
 	case 1:
 		mMoveTranslate.x -= 0.2f * frames;
-		if (mMoveTranslate.x <= PlacementPosition(mCoord, gActor3PlacementPosition).x - 10.0f) {
-			mMoveTranslate.x = PlacementPosition(mCoord, gActor3PlacementPosition).x - 10.0f;
+		if (mMoveTranslate.x <= PlacementPosition(mCoord).x - 10.0f) {
+			mMoveTranslate.x = PlacementPosition(mCoord).x - 10.0f;
 			mKindStep++;
 		}
 		break;
@@ -1938,8 +1930,8 @@ void XObjActor3::Kind18(u32 frames)
 		break;
 	case 3:
 		mMoveTranslate.x += 0.2f * frames;
-		if (mMoveTranslate.x >= PlacementPosition(mCoord, gActor3PlacementPosition).x) {
-			mMoveTranslate.x = PlacementPosition(mCoord, gActor3PlacementPosition).x;
+		if (mMoveTranslate.x >= PlacementPosition(mCoord).x) {
+			mMoveTranslate.x = PlacementPosition(mCoord).x;
 			mKindStep        = 0;
 		}
 		break;

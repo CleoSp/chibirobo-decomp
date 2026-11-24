@@ -22,7 +22,6 @@ void XObjSpiderBoss::State0(u32 frames)
 		mState     = 4;
 		ResetPatrolArea();
 	} else {
-		mStep      = 0;
 		mTimer     = 0;
 		mPrevState = mState;
 		mState     = 3;

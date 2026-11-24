@@ -21,13 +21,12 @@ void ApplyPlayerHitReaction(XObjChr* player, BOOL react, BOOL stop, f32 time);
  */
 extern "C" void UpdateSpiderBossAttachments(XObjSpiderBoss* spider, u32)
 {
-	CJObj joint;
 	XObjChr* player = gGame.GetPlayer();
 	CPad pad(0);
 	if ((spider->mSpiderStatus.mFlags & 0x20000) && (player->mPlayerStatus.mFlags & 0x80000000)) { // it carries the player
-		s32 path[] = { 0, 2, 0, 1, 1, 0, 0 };
-		joint.Attach(FindJointByPath(spider->mJObj, path, 7));
-		CVec position(GetJointPosition(joint.mJObj));
+		s32 path[]      = { 0, 2, 0, 1, 1, 0, 0 };
+		HSD_JObj* joint = FindJointByPath(spider->mJObj, path, 7);
+		CVec position(GetJointPosition(joint));
 		f32 radius = GetPlayerCollisionRadius(gGame.GetPlayer());
 		position.y -= 6.0f; // sits 6 below the joint
 		f32 heading         // away from the spider's center
@@ -54,9 +53,11 @@ extern "C" void UpdateSpiderBossAttachments(XObjSpiderBoss* spider, u32)
 			PSMTXCopy(HSD_JObjGetMtxPtr(part.mJoint), mount);
 			Vec scale;
 			HSD_MtxGetScale(mount, &scale);
-			scale.x = GetStagePlacementScale(part.mObj).x / scale.x; // undo the joint's scale, keep the placement's
-			scale.y = GetStagePlacementScale(part.mObj).y / scale.y;
-			scale.z = GetStagePlacementScale(part.mObj).z / scale.z;
+			const CVec placement = GetStagePlacementScale(part.mObj);
+			// Undo the joint's scale and keep the placement's scale.
+			scale.x = placement.x / scale.x;
+			scale.y = placement.y / scale.y;
+			scale.z = placement.z / scale.z;
 			PSMTXScale(scaling, scale.x, scale.y, scale.z);
 			PSMTXConcat(mount, scaling, result);
 			const CVec& pos = part.mObj->mMoveTranslate;
@@ -69,22 +70,12 @@ extern "C" void UpdateSpiderBossAttachments(XObjSpiderBoss* spider, u32)
 	}
 }
 
-static inline void DrainPlayerBattery(f32 amount)
-{
-	f32 battery = gGame.GetPlayer()->mParams.mBattery - amount;
-	if (battery < 0.0f) {
-		battery = 0.0f;
-	}
-	gGame.GetPlayer()->mParams.SetBattery(battery);
-}
-
 /**
  * @note Address: 0x8010473C
  * @note Size: 0xA64
  */
 extern "C" void UpdateSpiderBossDamage(XObjSpiderBoss* spider, u32 frames)
 {
-	CPad pad(0);
 	switch (spider->mDamageStep) {
 	case 0: // flag 2 took a hit, 0x10 means already reacting
 		if ((spider->mSpiderStatus.mFlags & 2) && !(spider->mSpiderStatus.mFlags & 0x10)) {
@@ -190,7 +181,8 @@ extern "C" void UpdateSpiderBossDamage(XObjSpiderBoss* spider, u32 frames)
 		player->OnHitFromPosition(ppos, 4.0f);
 	if (GetPlayerCollisionRadius(gGame.GetPlayer()) < 2.0f && (spider->mSpiderStatus.mFlags & 0x20000)) { // a small rider gets drained
 		if (--spider->mDrainTimer <= 0) { // every thirty frames, four battery
-			DrainPlayerBattery(4.0f);
+			Params& params = gGame.GetPlayer()->mParams;
+			params.SetBattery(params.mBattery - 4.0f);
 			spider->mDrainTimer = 30;
 			if (!gSpiderDrainFlashClaimed) {
 				spider->mSpiderStatus.mFlags |= 0x1000000;

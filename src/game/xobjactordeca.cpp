@@ -83,8 +83,7 @@ s32 XObjActorDeca::HandleEventCommand(s32 count, s32* command)
 {
 	XObjChr* player = gGame.GetPlayer();
 	CJObj jobj;
-	CVec unused; // never read, the dol still constructs it
-	HandleEventCommand__9XObjActorFlPl(this, count, command);
+	XObjActor::HandleEventCommand(count, command);
 	switch (command[0]) {
 	case 1: // where to look
 		switch (command[1]) {
@@ -339,7 +338,7 @@ void XObjActorDeca::StateHold(u32 frames)
  */
 void XObjActorDeca::UpdateAfterAnim(u32 frames)
 {
-	UpdateAfterAnim__9XObjActorFUl(this, frames);
+	XObjActor::UpdateAfterAnim(frames);
 	CJObj joint;
 	XObjChr* player = gGame.GetPlayer();
 	if (mJointFlags.mFlags & 1) { // joint flag 1 hides the joints

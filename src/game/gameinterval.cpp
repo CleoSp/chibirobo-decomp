@@ -1,28 +1,5 @@
 #include "game/cgame.h"
 
-// todo: cleanup
-static inline u8 LogoActive(CGame* game)
-{
-	s32 state = game->mLogo.mState;
-	return (u8)(state >= 1 && state < 15);
-}
-
-// todo: cleanup
-static inline u8 TitleActive(CGame* game)
-{
-	s32 state = game->mTitle.mState;
-	return (u8)(state >= 1 && state < 23);
-}
-
-// todo: cleanup
-static inline u8 IntroActive(CGame* game)
-{
-	u8 active = 0;
-	if (LogoActive(game) || TitleActive(game))
-		active = 1;
-	return active;
-}
-
 /**
  * @note Address: 0x8000A4B8
  * @note Size: 0x68
@@ -30,7 +7,7 @@ static inline u8 IntroActive(CGame* game)
 // CGame's FrameInterval, the logo and title run at 60, the game at 30
 s32 CGame::FrameInterval()
 {
-	return IntroActive(this) ? 1 : 2;
+	return IsIntroActive() ? 1 : 2;
 }
 
 /**

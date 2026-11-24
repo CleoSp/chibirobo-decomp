@@ -7,14 +7,15 @@
 // loads the item he's asked to hold, true once it's ready
 extern "C" BOOL LoadRequestedHeldItem(XObjChr* chr)
 {
-	if (chr->mSuits.mLoadStep == 0)
-		chr->mSuits.mLoadStep = 1;
-	if (chr->mSuits.mCurrent != chr->mSuits.mRequested) {
-		chr->mSuits.mChangeStep = TRUE;
-		chr->mSuits.mCurrent    = chr->mSuits.mRequested;
+	PlayerSuits& suits = chr->mSuits;
+	if (suits.mLoadStep == 0)
+		suits.mLoadStep = 1;
+	if (suits.mCurrent != suits.mRequested) {
+		suits.mChangeStep = TRUE;
+		suits.mCurrent    = suits.mRequested;
 	}
 	if (LoadPlayerSuitItem(chr)) {
-		chr->mSuits.mChangeStep = FALSE;
+		suits.mChangeStep = FALSE;
 		ApplyPlayerSuit(chr);
 		return TRUE;
 	}

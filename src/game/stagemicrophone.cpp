@@ -2,6 +2,7 @@
 #include "game/mic.h"
 #include "game/cgameutil.h"
 
+#include "Dolphin/m2s.h"
 #include "Dolphin/mic.h"
 
 /**
@@ -13,26 +14,7 @@ extern "C" void OnMicrophoneDetached(s32 index, s32)
 	gMicrophoneChannels[index].mResult = MIC_RESULT_NOCARD;
 }
 
-extern "C" {
-void UpdateMicrophoneMount(void);
-u32 CheckStageFlag(s32 stage, u32 mask);
-BOOL M2SSetActiveChannel(s32 chan);
-BOOL M2SSetMode(s32 mode);
-BOOL M2SSetPrerecordSamples(s32 milliseconds);
-void M2SOpen(void);
-void M2SClose(void);
-void M2SStart(void);
-void M2SStop(void);
-}
-
-// whether the stage takes the mic, which ended up true either way
-static inline BOOL IsMicStage()
-{
-	if (CheckStageFlag(gGame.mStage, 2)) {
-		return TRUE;
-	}
-	return TRUE;
-}
+extern "C" void UpdateMicrophoneMount(void);
 
 /**
  * @note Address: 0x8000A870
@@ -40,33 +22,31 @@ static inline BOOL IsMicStage()
  */
 // the mic: opens it in whichever slot has one, records while its button is held and a little
 // after, and hands the loudest sample to every object
-extern "C" void UpdateStageMicrophone(u32 frames)
+extern "C" void UpdateStageMicrophone(u32)
 {
 	if (gGame.mStatus.mFlags & 1) {
 		UpdateMicrophoneMount();
-		if (IsMicStage()) {
-			if (gActiveMicChannel < 0) {
-				if (gMicrophoneChannels[0].mResult == 0) {
-					gActiveMicChannel = 0;
-				} else if (gMicrophoneChannels[1].mResult == 0) {
-					gActiveMicChannel = 1;
-				}
-				if (gActiveMicChannel >= 0 && gMicrophoneChannels[gActiveMicChannel].mDeviceID == 0) {
-					M2SSetActiveChannel(gActiveMicChannel);
-					M2SSetMode(3);
-					M2SSetPrerecordSamples(400);
-					M2SOpen();
-					MICSetGain(gActiveMicChannel, 0);
-					MICStart(gActiveMicChannel);
-				}
-			} else if (gMicrophoneChannels[gActiveMicChannel].mResult != 0) {
-				M2SClose();
-				gActiveMicChannel = -1;
+		if (gActiveMicChannel < 0) {
+			if (gMicrophoneChannels[0].mResult == MIC_RESULT_READY) {
+				gActiveMicChannel = 0;
+			} else if (gMicrophoneChannels[1].mResult == MIC_RESULT_READY) {
+				gActiveMicChannel = 1;
 			}
+			if (gActiveMicChannel >= 0 && gMicrophoneChannels[gActiveMicChannel].mDeviceID == 0) {
+				M2SSetActiveChannel(gActiveMicChannel);
+				M2SSetMode(M2S_MODE_PRERECORD | M2S_MODE_KEEP_MIC_RUNNING);
+				M2SSetPrerecordSamples(400);
+				M2SOpen();
+				MICSetGain(gActiveMicChannel, 0);
+				MICStart(gActiveMicChannel);
+			}
+		} else if (gMicrophoneChannels[gActiveMicChannel].mResult != MIC_RESULT_READY) {
+			M2SClose();
+			gActiveMicChannel = -1;
 		}
 
 		if (gActiveMicChannel >= 0 && gMicrophoneChannels[gActiveMicChannel].mDeviceID == 0) {
-			u32 button;
+			u32 button = 0;
 			MICGetButton(gActiveMicChannel, &button);
 			if (button & MIC_BUTTON_TALK) {
 				if (!gMicRecording && gMicButtonReleaseTime == 0) {

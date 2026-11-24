@@ -38,6 +38,7 @@ public:
 	u8 _A4C[0xA50 - 0xA4C]; // _A4C
 
 	XObjLeticker();
+	virtual ~XObjLeticker();
 
 	virtual void ResetObjectState();                                 // _98
 	virtual void UpdateObject(u32 frames);                           // _A4

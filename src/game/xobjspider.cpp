@@ -25,7 +25,6 @@ extern "C" {
 
 extern "C" {
 u8 gSpiderPlacementWork[0xD4];
-Vec gSpiderPosition, gSpiderScale, gSpiderRotation;
 #if defined(VERSION_JP)
 u8 gSpiderWorkEnd[0x134 - 0xF8];
 #else
@@ -194,7 +193,7 @@ void XObjSpider::ResetForNewGame()
  */
 void XObjSpider::InitializeObject(u32 id)
 {
-	InitializeObject__4XObjFUl(this, id);
+	XObj::InitializeObject(id);
 	ResetSpiderState(this);
 	SetState(0);
 	mFlags.mFlags |= 0x04000000;
@@ -220,14 +219,10 @@ static inline void PlaceWallSpider(XObjSpider* spider)
  */
 extern "C" void ApplySpiderPlacement(XObjSpider* spider)
 {
-	spider->mMoveTranslate.x = PlacementPosition(spider->mCoord, gSpiderPosition).x;
-	spider->mMoveTranslate.y = PlacementPosition(spider->mCoord, gSpiderPosition).y;
-	spider->mMoveTranslate.z = PlacementPosition(spider->mCoord, gSpiderPosition).z;
-	spider->mHome.x          = PlacementPosition(spider->mCoord, gSpiderPosition).x;
-	spider->mHome.y          = PlacementPosition(spider->mCoord, gSpiderPosition).y;
-	spider->mHome.z          = PlacementPosition(spider->mCoord, gSpiderPosition).z;
-	spider->mDir             = PlacementRotation(spider->mCoord, gSpiderRotation).y;
-	spider->mRadius          = 20.0f * PlacementScale(spider->mCoord, gSpiderScale).x;
+	spider->mHome = PlacementPosition(spider->mCoord);
+	spider->mMoveTranslate.Set(spider->mHome);
+	spider->mDir    = PlacementRotation(spider->mCoord).y;
+	spider->mRadius = 20.0f * PlacementScale(spider->mCoord).x;
 	switch (spider->mPlacementParam0) {
 	case 0: // held still until event command 7 lets it go
 		spider->SetState(0);
@@ -270,12 +265,7 @@ extern "C" void ApplySpiderPlacement(XObjSpider* spider)
 	case 3:
 		PlaceWallSpider(spider);
 		spider->mFlags.mFlags |= 0x02000000;
-		// Retail writes the facing direction before reloading the placement angle.
-		if (PlacementRotation(spider->mCoord, gSpiderRotation).z != 0.0f)
-			spider->mDir = PI;
-		else
-			spider->mDir = 0.0f;
-		spider->mDir = PlacementRotation(spider->mCoord, gSpiderRotation).z;
+		spider->mDir = PlacementRotation(spider->mCoord).z;
 		break;
 	default: // fights the robot inside a fixed area
 		spider->SetState(4);
@@ -301,7 +291,7 @@ extern "C" void ApplySpiderPlacement(XObjSpider* spider)
  */
 BOOL XObjSpider::LoadFromPlacement(const CoordInfo& info)
 {
-	if (LoadFromPlacement__4XObjFRC9CoordInfo(this, &info)) {
+	if (XObj::LoadFromPlacement(info)) {
 		mFlags.mFlags &= ~0x04000000U;
 		ResetSpiderState(this);
 		ApplySpiderPlacement(this);
@@ -317,7 +307,7 @@ BOOL XObjSpider::LoadFromPlacement(const CoordInfo& info)
 // NONMATCHING: regalloc
 void XObjSpider::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	mSfx.mEvents = gSpiderAnimSfxEvents;
 	// the first spider collects the shared carry slot models, the first 16 objects with id 0x13C
 	if (mPoolIndex == 0) {
@@ -351,8 +341,6 @@ void XObjSpider::ResetObjectState()
  */
 void XObjSpider::UpdateObject(u32 frames)
 {
-	CPad pad(0);
-
 	// set to 1 when a charge hits the robot, rumbles the pad for 24 frames if rumble is turned on
 	switch (mRumble) {
 	case 0:
@@ -448,7 +436,7 @@ void XObjSpider::UpdateObject(u32 frames)
 #if defined(VERSION_PAL)
 	mAnimStartFrame = GetAnimFrame(mJObj);
 #endif
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	UpdateSpiderCarryModel(&mCarry, mSlot, frames, 0);
 	UpdateSpiderAttachments(this, frames);
 }
@@ -613,7 +601,6 @@ void XObjSpider::DrawObjectEffects()
 // of them, anything else is kept for ExecuteSpiderCommand
 s32 XObjSpider::HandleEventCommand(s32 argc, s32* argv)
 {
-	for (int i = 0; i < argc; i++) { }
 	switch (argv[0]) {
 	case 100: {
 		const s32 objectId = argv[1];
@@ -627,9 +614,11 @@ s32 XObjSpider::HandleEventCommand(s32 argc, s32* argv)
 				}
 			}
 		} else {
-			u32 i;
-			for (i = 0; mTies[i].mObj != NULL && i < 8; i++) { }
-			if (i < 8) {
+			u32 i = 0;
+			while (i < ARRAY_SIZE(mTies) && mTies[i].mObj) {
+				++i;
+			}
+			if (i < ARRAY_SIZE(mTies)) {
 #if !defined(VERSION_PAL)
 				OSReport("id = %d, argv[1]=%d\n", i, objectId);
 #endif
@@ -709,7 +698,7 @@ void XObjSpider::OnHitFromPosition(const Vec& from, f32 strength)
 	// only the robot's blaster (attachment 2) at level 2 or up hurts it
 	if (GetAttachmentCountById(&gGame.GetPlayer()->mAttachments, 2) < 2)
 		return;
-	OnHitFromPosition__4XObjFRC3Vecf(this, &from, strength);
+	XObj::OnHitFromPosition(from, strength);
 	mFlags.mFlags |= 2;
 	Vec pos      = { 0.0f, 0.0f, 0.0f };
 	pos          = from;
@@ -721,7 +710,7 @@ void XObjSpider::OnHitFromPosition(const Vec& from, f32 strength)
  * @note Address: 0x800F2350
  * @note Size: 0x14
  */
-s32 XObjSpider::OnPlayerContact(s32 unused, s32 value)
+s32 XObjSpider::OnPlayerContact(const CVec&, s32 value)
 {
 	mFlags.mFlags |= 1;
 	return value;

@@ -16,22 +16,6 @@ struct StageDesc {
 };
 extern "C" StageDesc stageTable[];
 
-// the stage file's environment block, class name from RTTI
-class EnvInfo {
-public:
-	u8* mData; // _00
-	// _04 vtable
-
-	EnvInfo(u8* data)
-	    : mData(data)
-	{
-	}
-	virtual ~EnvInfo() { } // _08
-};
-STATIC_ASSERT(sizeof(EnvInfo) == 8);
-
-typedef s32 (*StageFunction)(s32 function, s32 count, s32* args);
-
 // the loaded stage, its file and rel, class name from RTTI
 class Stage {
 public:
@@ -68,7 +52,7 @@ public:
 	s32 CallModule(s32 function, s32 count, s32* args)
 	{
 		if (mModule.IsLoaded())
-			return ((StageFunction)mModule.mModule->prolog)(function, count, args);
+			return ((CModuleProlog)mModule.mModule->prolog)(function, count, args);
 		return -1;
 	}
 };

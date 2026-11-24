@@ -2,8 +2,6 @@
 #include "game/xchr.h"
 #include "game/gmath.h"
 
-extern "C" void Attach__5CJObjFP9_HSD_JObj(CJObj*, HSD_JObj*);
-
 static inline void PlaceInTaoMouth(CJObj& joint, XObj* carried, Mtx mount, f32 z)
 {
 	Mtx result, translation;
@@ -300,11 +298,11 @@ void XObjActorTao::StateNone(u32 frames)
 
 void XObjActorTao::UpdateAfterAnim(u32 frames)
 {
-	UpdateAfterAnim__9XObjActorFUl(this, frames);
+	XObjActor::UpdateAfterAnim(frames);
 	CJObj joint;
 	if (mHideKinds.mFlags & 0x2f) {
 		s32 mouth[6] = { 0, 0, 0, 0, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, mouth, 6));
+		joint.Attach(FindJointByPath(mJObj, mouth, 6));
 		CVec mouthPosition;
 		mouthPosition = joint.GetPos();
 		s32 kind      = -1;
@@ -317,11 +315,11 @@ void XObjActorTao::UpdateAfterAnim(u32 frames)
 		else if (mHideKinds.mFlags & 8) {
 			kind        = 0x2a3; // one level up from the mouth
 			s32 path[5] = { 0, 0, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 5));
+			joint.Attach(FindJointByPath(mJObj, path, 5));
 		} else if (mHideKinds.mFlags & 0x20) {
 			kind        = 0x46f; // three levels up from the mouth
 			s32 path[3] = { 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 3));
+			joint.Attach(FindJointByPath(mJObj, path, 3));
 		}
 		if (kind >= 0)
 			switch (kind) {
@@ -458,7 +456,7 @@ void XObjActorTao::UpdateAfterAnim(u32 frames)
 			mMountObj->SetScale(1, 1, 1, 0);
 			CJObj extra;
 			s32 path[3] = { 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&extra, FindJointByPath(mJObj, path, 3));
+			extra.Attach(FindJointByPath(mJObj, path, 3));
 			Mtx result;
 			PSMTXCopy(extra.GetMtx(), mMountMtx);
 			Vec scale;
@@ -483,33 +481,27 @@ void XObjActorTao::UpdateAfterAnim(u32 frames)
 	}
 }
 
-static inline u32 GetTaoDropFlags(const CStatus& status, u32 mask)
-{
-	return status.mFlags & mask;
-}
-
 /**
  * @note Address: 0x8012EFF4
  * @note Size: 0x320
  */
 // lets go of what it carries
-// The two scans for 0x159 and 0xF8 advance through the pools without changing any objects.
 void XObjActorTao::Drop()
 {
 	s32 kind = -1;
-	if (GetTaoDropFlags(mHideKinds, 2)) {
+	if (mHideKinds.Check(2)) {
 		mHideKinds.mFlags &= ~2;
 		kind = 0x102;
-	} else if (GetTaoDropFlags(mHideKinds, 1)) {
+	} else if (mHideKinds.Check(1)) {
 		mHideKinds.mFlags &= ~1;
 		kind = 0x159;
-	} else if (GetTaoDropFlags(mHideKinds, 4)) {
+	} else if (mHideKinds.Check(4)) {
 		mHideKinds.mFlags &= ~4;
 		kind = 0xF8;
-	} else if (GetTaoDropFlags(mHideKinds, 8)) {
+	} else if (mHideKinds.Check(8)) {
 		mHideKinds.mFlags &= ~8;
 		kind = 0x2A3;
-	} else if (GetTaoDropFlags(mHideKinds, 0x20)) {
+	} else if (mHideKinds.Check(0x20)) {
 		mHideKinds.mFlags &= ~0x20;
 		kind = 0x46F;
 	}
@@ -523,18 +515,6 @@ void XObjActorTao::Drop()
 			if (kind == obj->GetKind()) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
-		}
-		break;
-	case 0x159:
-		for (s32 i = 0; i < 15; ++i) {
-			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
-			(void)(kind == obj->GetKind());
-		}
-		break;
-	case 0xF8:
-		for (s32 i = 0; i < 21; ++i) {
-			XObj* obj = gGame.mXObjs.mPools[16].Get(i);
-			(void)(kind == obj->GetKind());
 		}
 		break;
 	case 0x2A3:

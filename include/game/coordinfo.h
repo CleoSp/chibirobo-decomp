@@ -32,23 +32,17 @@ public:
 	virtual ~CoordInfo() { } // _08
 };
 
-// an entry of objTable or objTableEx, 0x18 bytes. the kind record an object points at
+// The data for an object kind in objTable or objTableEx.
 struct XObjSource;
 struct UnkObjData {
-	union {
-		u32 _00;
-		XObjSource* mSource;
-	}; // _00
-	u32 mModel;        // _04
-	u32 mFlags;        // _08
-	u32 mShadowSize;   // _0C, shadow size
-	s16 mLookPriority; // _10
-	s16 mLookRange;    // _12
-	s16 mCategory;     // _14, category, also which pool in XOBJS
-	s16 mItemIndex;    // _16, item index, some callers test it as flags
-
-	s16 GetCategory() const { return this != NULL ? mCategory : 0; }
-	s16 GetItem() const { return this != NULL ? mItemIndex : 0; }
+	XObjSource* mSource; // _00
+	u32 mModel;          // _04
+	u32 mFlags;          // _08
+	u32 mShadowSize;     // _0C, shadow size
+	s16 mLookPriority;   // _10
+	s16 mLookRange;      // _12
+	s16 mCategory;       // _14, category, also which pool in XOBJS
+	s16 mItemIndex;      // _16, item index, some callers test it as flags
 };
 STATIC_ASSERT(sizeof(UnkObjData) == 0x18);
 extern "C" UnkObjData* GetObjData(const CoordInfo* info);

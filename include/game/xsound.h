@@ -74,6 +74,8 @@ public:
 	StageSoundRequests mStageRequests; // _2D0, stage sfx names waiting for HSD_SynthSFXLoad
 	s32 mLoadRequestCount;             // _3E0
 
+	virtual ~XSound();
+
 	inline void registerName(const char* name, s32 bank);
 	inline s32 resolveTrack(s32 track);
 

@@ -165,31 +165,15 @@ void CCameraActionEvt::SetFov_Interp(s32 mode, f32 fov, f32 time)
 	}
 }
 
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: ?
- */
-inline void TurnShortWay(f32& to, f32& from)
+static inline void TurnShortWay(f32& to, f32& from)
 {
-	f32 f = WrapAngle(from);
-	f32 t = WrapAngle(to);
-	from  = f;
-	to    = t;
-	if (t != f) {
-		f32 diff = t - f;
-		if (diff < 0.0f) {
-			diff = -diff;
-		}
-		if (diff >= TWO_PI) {
-			diff -= TWO_PI;
-		}
-		if (diff > PI) { // more than half a turn: wrap the other way
-			if (t < f) {
-				to = TWO_PI + t;
-			} else {
-				to = t - TWO_PI;
-			}
+	from = WrapAngle(from);
+	to   = WrapAngle(to);
+	if (Abs(to - from) > PI) {
+		if (to < from) {
+			to += TWO_PI;
+		} else {
+			to -= TWO_PI;
 		}
 	}
 }
@@ -211,8 +195,7 @@ void CCameraActionEvt::SetAngle_Interp(s32 mode, const Vec& angle, u32 axes, u32
 	if (relative) { // relative angles add to the current ones
 		dest = mAngle;
 		PSVECAdd(&dest, (Vec*)&angle, &dest);
-	}
-	if (!relative) {
+	} else {
 		dest = CVec(angle);
 	}
 

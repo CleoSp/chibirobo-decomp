@@ -117,7 +117,7 @@ public:
 	virtual void DrawObjectEffects();                                  // _C0
 	virtual void DrawScreenOverlay();                                  // _C8
 	virtual void DrawDebugStatus();                                    // _CC
-	virtual s32 OnPlayerContact(s32 unused, s32 value);                // _100
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);  // _100
 	virtual s32 HandleEventCommand(s32 count, s32* args);              // _124
 	virtual void OnHitFromPosition(const Vec& position, f32 strength); // _138
 	virtual void UpdateAnimationSounds();                              // _148, anim sounds
@@ -187,21 +187,14 @@ u8 IsSmallSpiderGrabbingPlayer(XObjSpiderSmall* spider);
 void ApplySmallSpiderPlacement(XObjSpiderSmall* spider);
 void ResetSmallSpiderState(XObjSpiderSmall* spider);
 
-// gSmallSpiderStatusByStage's construct and destroy helpers
-void DestroySmallSpiderStatusTable();
-CStatus* __dt__22SmallSpiderStageStatusFv(CStatus* row, s32 flags);
-CStatus* DestroySmallSpiderStatusEntry(CStatus* status, s32 flags);
-CStatus* __ct__22SmallSpiderStageStatusFv(CStatus* row);
-CStatus* __ct__7CStatusFv(CStatus* status);
-
 extern void (XObjSpiderSmall::*gSmallSpiderStateHandlers[10])(u32);
 
 // the spider file's bss
 extern XObj* gSmallSpiderEffectObjects[12];                  // the stage's fx_spider_01 objects
 extern s32 gSmallSpiderEffectSlotOwners[12];                 // which spider has each, -1 for none
-extern u8 gSmallSpiderStatusDestructorChain[12];             // gSmallSpiderStatusByStage's DestructorChain
 extern SmallSpiderStageStatus gSmallSpiderStatusByStage[39]; // a row per stage, a spider per pool index
-extern AnimSfxEvent gSmallSpiderAnimSfxEvents[];             // the anim sound events
+extern XObjFloor* sSmallSpiderFloors[2];
+extern AnimSfxEvent gSmallSpiderAnimSfxEvents[]; // the anim sound events
 }
 
 #endif

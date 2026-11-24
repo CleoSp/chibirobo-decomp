@@ -35,7 +35,7 @@ void CLight::Init(u32 flags, BOOL useShadow)
 		mColor.b = 255;
 		mColor.a = 255;
 		HSD_LObjSetColor(this, mColor);
-		HSD_LObjSetDistAttn(this, 10000.0f, 0.99f, 3); // a far reference distance
+		HSD_LObjSetDistAttn(this, 10000.0f, 0.99f, GX_DA_STEEP); // a far reference distance
 		break;
 	case LOBJ_SPOT:
 		HSD_LObjSetFlags(this, LOBJ_SPOT | LOBJ_DIFFUSE);
@@ -44,8 +44,8 @@ void CLight::Init(u32 flags, BOOL useShadow)
 		mColor.b = 255;
 		mColor.a = 255;
 		HSD_LObjSetColor(this, mColor);
-		HSD_LObjSetDistAttn(this, 10000.0f, 0.99f, 3);
-		HSD_LObjSetSpot(this, 29.999956f, 3); // a ~30-degree cone
+		HSD_LObjSetDistAttn(this, 10000.0f, 0.99f, GX_DA_STEEP);
+		HSD_LObjSetSpot(this, 29.999956f, GX_SP_COS2); // a ~30-degree cone
 		break;
 	}
 

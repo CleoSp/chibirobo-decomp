@@ -8,14 +8,6 @@
 #include "game/xobjlight.h"
 #include "game/stagedata.h"
 
-// todo: cleanup, EnvInfo lives in stage.h which breaks next to the hsd headers
-// its data pointer is the first field, data[4] picks who owns the stage lights, 1 the map
-// and 2 the light objects, data[5] has a bit per light
-static inline u8* GetEnvData()
-{
-	return *(u8**)GetStageEnvironment();
-}
-
 // a stage's map model, class name from RTTI and the vtable at 0x80225F74. its floors are
 // up to 16 CTrigons, sorted by height. offsets are usa, japan is 0x10 lower
 class XObjMap : public XObj {
@@ -30,7 +22,7 @@ public:
 
 	XObjMap();
 
-	virtual ~XObjMap() { }                                 // _08
+	virtual ~XObjMap();                                    // _08
 	virtual void Release();                                // _54
 	virtual void InitializeObject(u32 id);                 // _90
 	virtual void ResetObjectState();                       // _98

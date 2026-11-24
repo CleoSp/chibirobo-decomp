@@ -20,11 +20,21 @@ extern "C" {
 
 // HSD_JObjWalkTree passes the flag mask in its callback argument.
 extern "C" {
-void JObjSetMObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
-void JObjClearMObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
-void JObjSetPObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
-void JObjClearPObjFlags(HSD_JObj* jobj, f32** flags, s32 type);
+void JObjSetMObjFlags(HSD_JObj* jobj, void* flags, s32 type);
+void JObjClearMObjFlags(HSD_JObj* jobj, void* flags, s32 type);
+void JObjSetPObjFlags(HSD_JObj* jobj, void* flags, s32 type);
+void JObjClearPObjFlags(HSD_JObj* jobj, void* flags, s32 type);
+void SetJointMaterialColorsAndAlpha(HSD_JObj* joint, void* context, s32 type);
+void EnableJointMaterialTranslucency(HSD_JObj* joint, void* context, s32 type);
 }
+
+struct _GXColor;
+
+struct JointMaterialColors {
+	const _GXColor* diffuse;
+	const _GXColor* ambient;
+	const f32* alpha;
+};
 
 #ifndef JOBJ_H_ASSERT
 #define JOBJ_H_ASSERT(line, cond) ((cond) ? ((void)0) : __assert("jobj.h", line, #cond))

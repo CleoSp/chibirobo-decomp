@@ -8,6 +8,8 @@
 // the object the title plays its demo scene through, its own camera and lights. class name from RTTI
 class XObjDemo : public XObj {
 public:
+	XObjDemo();
+
 	// _00-_980 = XObj
 	s32 mState;         // _980, _970 in japan, 2 waits for the fade to finish
 	BOOL mLoop;         // _984, starts the anim over once it ends
@@ -17,7 +19,7 @@ public:
 	CLight mLights[8];  // _B24
 	s32 mLightAnims[8]; // _25E4
 
-	virtual ~XObjDemo() { } // _08
+	virtual ~XObjDemo();
 	virtual void Release();
 	virtual void ResetObjectState();
 	virtual BOOL LoadFromPlacement(const CoordInfo& info);

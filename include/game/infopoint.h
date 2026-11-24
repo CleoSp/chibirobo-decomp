@@ -24,7 +24,7 @@ public:
 	s32 _80;                 // _80, written 0 in InitHudPointCounter, never read
 	// _84 vtable
 
-	virtual ~InfoPoint() { } // _08 (weak)
+	virtual ~InfoPoint(); // _08
 };
 STATIC_ASSERT(sizeof(InfoPoint) == 0x88);
 

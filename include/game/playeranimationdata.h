@@ -34,6 +34,7 @@ s32 FrameSoundOnStartFrame(const u32* aobjFlags, FrameEventTime* time, const Fra
 s32 FrameSoundStartIfSilent(const u32* aobjFlags, FrameEventTime* time, const FrameEvent* event);
 s32 FrameSoundStopIfPlaying(const u32* aobjFlags, FrameEventTime* time, const FrameEvent* event);
 s32 FrameSoundUntilAnimEnd(const u32* aobjFlags, FrameEventTime* time, const FrameEvent* event);
+extern s32 gPlayerSuitIdleAnimations[9];
 extern FrameEvent gPlayerAnimationFrameEvents[];
 extern FrameEvent gCopterAnimationFrameEvents[];
 extern PlayerAnimVariants gPlayerAnimVariants[];

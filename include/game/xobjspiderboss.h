@@ -96,14 +96,13 @@ public:
 	virtual void DrawObjectEffects();                                  // _C0
 	virtual void DrawScreenOverlay();                                  // _C8
 	virtual void DrawDebugStatus();                                    // _CC
-	virtual s32 OnPlayerContact(s32 unused, s32 value);                // _100
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);  // _100
 	virtual s32 HandleEventCommand(s32 count, s32* args);              // _124
 	virtual void OnHitFromPosition(const Vec& position, f32 strength); // _138
 	virtual void UpdateAnimationSounds();                              // _148, anim sounds
 };
 
 extern "C" {
-XObjSpiderBoss* __dt__14XObjSpiderBossFv(XObjSpiderBoss* spider, s32 flags);
 void UpdateSpiderBossAttachments(XObjSpiderBoss* spider, u32 frames);
 void UpdateSpiderBossDamage(XObjSpiderBoss* spider, u32 frames);
 void ApplySpiderBossPlacement(XObjSpiderBoss* spider);

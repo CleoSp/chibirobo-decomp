@@ -7,13 +7,10 @@
 #include "game/cprimitive.h"
 #include "game/cfont.h"
 extern "C" {
+#include <dolphin/gx/gx.h>
 #include <sysdolphin/tev.h>
 #include <sysdolphin/mobj.h>
 #include <sysdolphin/texp.h>
-
-// hsd's gx headers don't have these two, the tev stage setup needs them
-void GXSetNumTexGens(u8 nTexGens);
-void GXSetTexCoordGen2(u32 dst_coord, u32 func, u32 src_param, u32 mtx, u8 normalize, u32 pt_texmtx);
 }
 
 // the game's graphics state. class names are RTTI, layout from the constructor at
@@ -192,7 +189,8 @@ public:
 		if (force || mTexGenDirty) {
 			HSD_StateInvalidate(HSD_STATE_TEV_REGISTER);
 			HSD_StateInvalidate(HSD_STATE_TEX_COORD_GEN);
-			GXSetTexCoordGen2(mTexCoord, mTexGenFunc, mTexGenSrc, mTexMtx, GX_FALSE, GX_PTIDENTITY);
+			GXSetTexCoordGen2(static_cast<GXTexCoordID>(mTexCoord), static_cast<GXTexGenType>(mTexGenFunc),
+			                  static_cast<GXTexGenSrc>(mTexGenSrc), mTexMtx, GX_FALSE, GX_PTIDENTITY);
 		}
 	}
 	void SetOrder(s32 coord, s32 map, s32 color)

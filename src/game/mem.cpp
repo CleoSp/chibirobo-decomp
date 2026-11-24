@@ -1,4 +1,5 @@
 #include "game/mm.h"
+#include "game/evt.h"
 #include <dolphin/os.h>
 #include <string.h>
 
@@ -346,28 +347,19 @@ void mm::Init()
 	sNum        = 0;
 }
 
-// small container with a word buffer, class unknown
-struct WordBuffer {
-	u32* mBuf; // _00
-	s32 _04;   // _04
-	s32 mSize; // _08
-};
-
 /**
  * @note Address: 0x80192214
  * @note Size: 0x7C
  */
-extern "C" void AllocateWordBuffer(WordBuffer* p, s32 n)
+extern "C" void AllocateWordBuffer(CStack* stack, s32 capacity)
 {
-	if (p->mBuf != NULL) {
-		if (p->mBuf != NULL) { // the inner check is redundant
-			OSFreeToHeap(__OSCurrHeap, p->mBuf);
-			p->mBuf = NULL;
-		}
-		p->mSize = 0;
-		p->_04   = 0;
+	if (stack->mBuf != NULL) {
+		OSFreeToHeap(__OSCurrHeap, stack->mBuf);
+		stack->mBuf   = NULL;
+		stack->mSize  = 0;
+		stack->mCount = 0;
 	}
-	p->mBuf  = (u32*)OSAllocFromHeap(__OSCurrHeap, n * 4);
-	p->_04   = 0;
-	p->mSize = n;
+	stack->mBuf   = static_cast<s32*>(OSAllocFromHeap(__OSCurrHeap, capacity * sizeof(*stack->mBuf)));
+	stack->mCount = 0;
+	stack->mSize  = capacity;
 }

@@ -25,7 +25,7 @@ public:
 	    , mCount(0)
 	{
 	}
-	virtual ~ARCacheInfo() { } // _08
+	virtual ~ARCacheInfo(); // _08
 };
 STATIC_ASSERT(sizeof(ARCacheInfo) == 0x400C);
 
@@ -41,7 +41,7 @@ public:
 	// _1E4 vtable
 
 	ARPreCache() { mLoadStep = 0; }
-	virtual ~ARPreCache() { } // _08
+	virtual ~ARPreCache(); // _08
 };
 STATIC_ASSERT(sizeof(ARPreCache) == 0x1E8);
 

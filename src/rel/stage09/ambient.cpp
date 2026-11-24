@@ -1,37 +1,11 @@
-#include "Version.h"
+#include "game/relana.h"
+#include "game/relmodule.h"
 #include "game/hsd_jobj.h"
-
-// CGame
-extern "C" u8 gGame[];
-#define GAME_AT(off) (gGame + (off))
-#if defined(VERSION_JP)
-#define SOUND() GAME_AT(0xE713C)
-#else
-#define SOUND() GAME_AT(0xE7E24)
-#endif
+#include "game/cgame.h"
+#include <sysdolphin/axdriver.h>
 
 extern "C" {
-s32 HSD_Randi(s32 max);
-void RegisterGameSoundName(void* p, const char* name);
-s32 IsGameSoundPlaying(void* p, s32 id);
-void PlayGameSound(void* p, s32 id, s32 v);
-void HSD_AudioSFXSetPanByID(s32 id, s32 v);
-s32 GetSoundVolumeAtPosition(void* p, void* q, s32 v);
-void SetGameSfxVolume(void* p, s32 id, s32 v, s32 w);
-void StopGameSfx(void* p, s32 id);
-
-// rel/ana.cpp
-void DrawAnas(void);
-void UpdateAnas(s32 dt);
-void InitAnas(void);
-s32 CmdAttachAnaToRobo(s32 cmd, s32 count, s32* args);
-s32 CmdSetAnaRotY(s32 cmd, s32 count, s32* args);
-s32 CmdSetAnaJObj(s32 cmd, s32 count, s32* args);
-s32 CmdPlantTane(s32 cmd, s32 count, s32* args);
-s32 CmdFindNearestAna(s32 cmd, s32 count, s32* args);
-s32 CmdSetTutiAna(s32 cmd, s32 count, s32* args);
-s32 CmdAddAna(s32 cmd, s32 count, s32* args);
-s32 CmdDropHeldObj(s32 cmd, s32 count, s32* args);
+#include <sysdolphin/random.h>
 }
 
 class AmbientSeq;
@@ -127,9 +101,6 @@ void InitStage(s32 dt);
 void AmbientSeq_Update(AmbientSeq* seq, s32 dt);
 }
 
-typedef void (*RelSlotFunc)(s32 arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
-
 extern "C" {
 // the rel's slots (three used) and its script commands
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, DrawStage };
@@ -151,9 +122,9 @@ extern "C" s32 CmdSetAmbientSound(s32 cmd, s32 count, s32* args)
 	case 0: // pause or unpause the ambience
 		if (count >= 2) {
 			if (args[1] != 0) {
-				void* sound;
+				XSound* sound;
 				ambient.mPaused = 1;
-				sound           = SOUND();
+				sound           = &gGame.mSound;
 				if (IsGameSoundPlaying(sound, 0x140001) != 0) {
 					StopGameSfx(sound, 0x140001);
 				}
@@ -165,7 +136,7 @@ extern "C" s32 CmdSetAmbientSound(s32 cmd, s32 count, s32* args)
 		}
 		break;
 	case 1: // construction work
-		RegisterGameSoundName(SOUND(), "sfx_uraniwa_ambient1.ssm");
+		RegisterGameSoundName(&gGame.mSound, "sfx_uraniwa_ambient1.ssm");
 		ambient.Start(ambientConstructionHammer1);
 		ambient.Start(ambientConstructionHammer2);
 		ambient.Start(ambientConstructionNoko);
@@ -177,7 +148,7 @@ extern "C" s32 CmdSetAmbientSound(s32 cmd, s32 count, s32* args)
 		ambient.mBirdSoundCount = 5;
 		break;
 	case 2: // construction work, faster hammering
-		RegisterGameSoundName(SOUND(), "sfx_uraniwa_ambient1.ssm");
+		RegisterGameSoundName(&gGame.mSound, "sfx_uraniwa_ambient1.ssm");
 		ambient.Start(ambientConstructionHammer1Fast);
 		ambient.Start(ambientConstructionHammer2Fast);
 		ambient.Start(ambientConstructionNoko);
@@ -189,7 +160,7 @@ extern "C" s32 CmdSetAmbientSound(s32 cmd, s32 count, s32* args)
 		ambient.mBirdSoundCount = 5;
 		break;
 	case 3: // the neighbor's mower
-		RegisterGameSoundName(SOUND(), "sfx_uraniwa_ambient2.ssm");
+		RegisterGameSoundName(&gGame.mSound, "sfx_uraniwa_ambient2.ssm");
 		ambient.Start(ambientNeighborMower);
 		ambient.Start(ambientTrafficCarLr);
 		ambient.Start(ambientTrafficCarRl);
@@ -199,7 +170,7 @@ extern "C" s32 CmdSetAmbientSound(s32 cmd, s32 count, s32* args)
 		ambient.mBirdSoundCount = 5;
 		break;
 	case 4: // night
-		RegisterGameSoundName(SOUND(), "sfx_uraniwa_ambient3.ssm");
+		RegisterGameSoundName(&gGame.mSound, "sfx_uraniwa_ambient3.ssm");
 		ambient.Start(ambientNightHowling);
 		ambient.Start(ambientNightCricket);
 		ambient.Start(ambientTrafficCarLr);
@@ -764,7 +735,7 @@ extern "C" void DrawStage(s32 dt)
  */
 extern "C" void UpdateStage(s32 dt)
 {
-	void* sound = SOUND();
+	XSound* sound = &gGame.mSound;
 	Vec pos;
 
 	// these two sounds always sit on fixed pans
@@ -964,7 +935,7 @@ extern "C" void InitStage(s32 dt)
  */
 extern "C" void AmbientSeq_Update(AmbientSeq* seq, s32 dt)
 {
-	void* sound;
+	XSound* sound;
 	bool cont;
 
 	if (seq->wait > 0) {
@@ -974,7 +945,7 @@ extern "C" void AmbientSeq_Update(AmbientSeq* seq, s32 dt)
 		}
 	}
 	cont  = true;
-	sound = SOUND();
+	sound = &gGame.mSound;
 	while (cont) {
 		s32* cmd = &seq->data[seq->pos];
 		switch (cmd[0]) {

@@ -96,7 +96,6 @@ s32 ARCConvertPathToEntrynum(ARCHandle* handle, const char* pathPtr)
 	u32 length;
 	u32 dirLookAt;
 	u32 i;
-	const char* origPathPtr = pathPtr; // never read, the dvd version prints it on bad 8.3 names
 	FSTEntry* FSTEntries;
 
 	dirLookAt  = handle->currDir;

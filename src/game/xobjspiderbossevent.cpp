@@ -29,9 +29,11 @@ s32 XObjSpiderBoss::HandleEventCommand(s32 count, s32* args)
 				}
 			}
 		} else {
-			u32 i;
-			for (i = 0; mParts[i].mObj != NULL && i < 8; i++) { }
-			if (i >= 8)
+			u32 i = 0;
+			while (i < ARRAY_SIZE(mParts) && mParts[i].mObj) {
+				++i;
+			}
+			if (i >= ARRAY_SIZE(mParts))
 				break;
 #if !defined(VERSION_PAL)
 			OSReport("id = %d, argv[1]=%d\n", i, id);

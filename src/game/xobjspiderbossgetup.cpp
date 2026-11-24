@@ -25,7 +25,6 @@ void XObjSpiderBoss::State1(u32 frames)
 		++mBlinkTimer;
 		HSD_AObj* aobj = GetAObj(mJObj);
 		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
-		aobj           = GetAObj(mJObj);
 		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
 		if (end - frames <= frame) {
 			SetAnim(7, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);

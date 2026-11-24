@@ -17,13 +17,13 @@ extern "C" BOOL UpdateDustEvent(XObjDust* dust, u32 frames);
 extern "C" BOOL CheckDustScatterHeading(XObjDust* dust)
 {
 	if (__fpclassifyf(dust->mHeading) == FP_NAN) {
-		if (gGame.GetPlayer()->mAnimId == 0x27) { // the player's anim that scatters dust
-			f32 z        = dust->mMoveTranslate.z - gGame.GetPlayer()->mMoveTranslate.z;
-			f32 x        = dust->mMoveTranslate.x - gGame.GetPlayer()->mMoveTranslate.x;
+		const XObjChr* player = gGame.GetPlayer();
+		if (player->mAnimId == 0x27) { // the player's anim that scatters dust
+			const f32 z  = dust->mMoveTranslate.z - player->mMoveTranslate.z;
+			const f32 x  = dust->mMoveTranslate.x - player->mMoveTranslate.x;
 			dust->mSpeed = sqrtf(x * x + z * z);
 			if (dust->mSpeed < 20.0f) { // only close dust scatters
-				dust->mHeading = atan2(dust->mMoveTranslate.x - gGame.GetPlayer()->mMoveTranslate.x,
-				                       dust->mMoveTranslate.z - gGame.GetPlayer()->mMoveTranslate.z);
+				dust->mHeading = atan2(x, z);
 				dust->mSpeed   = 0.2f * (25.0f - dust->mSpeed); // away from the player, capped at 2
 				if (dust->mSpeed > 2.0f)
 					dust->mSpeed = 2.0f;
@@ -70,8 +70,8 @@ extern "C" BOOL UpdateDriftingDust(XObjDust* dust, u32 frames)
 		dust->mFade = opacity;
 		if (opacity <= 0.0f)
 			dust->mFade = 0.0f;
-		PSVECScale((Vec*)&dust->mMoveScale, (Vec*)&dust->mMoveScale, 1.12f * dust->mFade);
-		if (0.0f == PSVECMag((Vec*)&dust->mMoveScale)) { // fully gone
+		PSVECScale(&dust->mMoveScale, &dust->mMoveScale, 1.12f * dust->mFade);
+		if (0.0f == PSVECMag(&dust->mMoveScale)) { // fully gone
 			if (dust->mStatus.mFlags & 0xC0000000000ULL) {
 				dust->TriggerEvent(dust->mEventId, dust->mEventArg); // flagged dust fires its event on removal
 			}
@@ -87,7 +87,7 @@ extern "C" BOOL UpdateDriftingDust(XObjDust* dust, u32 frames)
  */
 void XObjDust::UpdateObject(u32 frames)
 {
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	if (GetObjFlags() & 1) {
 		if (UpdateDriftingDust(this, frames)) {
 			Release();
@@ -121,7 +121,7 @@ BOOL XObjDust::LoadFromPlacement(const CoordInfo& info)
 	mPlacementParam1 = info.mPlacement->mParam1;
 	if (IsFlagSet())
 		return TRUE;
-	BOOL result = LoadFromPlacement__4XObjFRC9CoordInfo(this, &info);
+	BOOL result = XObj::LoadFromPlacement(info);
 	if (result) {
 		mStatus.mFlags |= 0x18100000ULL;
 		HSD_AObj* aobj = GetAObj(mJObj);
@@ -135,12 +135,10 @@ BOOL XObjDust::LoadFromPlacement(const CoordInfo& info)
 		mAnimCount = mArchive.mNum[0];
 		if (GetObjFlags() & 1) {
 			f32 scale = (rand() % 100 + 100) / 100.0f; // scale 1.00-1.99
-			PSVECScale((Vec*)&mMoveScale, (Vec*)&mMoveScale, scale);
+			PSVECScale(&mMoveScale, &mMoveScale, scale);
 		}
 		if (GetObjFlags() & 2) {
-			mStartScale.x = mMoveScale.x;
-			mStartScale.y = mMoveScale.y;
-			mStartScale.z = mMoveScale.z;
+			mStartScale = mMoveScale;
 		}
 	}
 	return result;

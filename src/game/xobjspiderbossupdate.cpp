@@ -16,7 +16,6 @@ static inline void SetPosAndTarget(CObjVec* vec, const Vec& value)
 // UpdateObject, the update
 void XObjSpiderBoss::UpdateObject(u32 frames)
 {
-	CPad pad(0); // retail does this
 	if (gGame.mStatus.mFlags & 0x400ULL) {
 		Vec& move = gGame.GetPlayer()->_158C4;
 		move.x    = 0.0f;
@@ -25,7 +24,7 @@ void XObjSpiderBoss::UpdateObject(u32 frames)
 		return;
 	}
 	if (mPoolIndex == 0) {
-		UpdateSpiderCoinBounces(&gSpiderBossCoinBounceContext, frames);
+		UpdateSpiderCoinBounces(NULL, frames);
 	}
 	if (!(mStatus.mFlags & 0x10000ULL) && mState != 1) {
 		return;
@@ -47,6 +46,6 @@ void XObjSpiderBoss::UpdateObject(u32 frames)
 		SetPosAndTarget(&mMoveTranslate, mMoveTranslate + step * (f32)frames);
 		SetPos(mMoveTranslate, 0);
 	}
-	UpdateObject__4XObjFUl(this, frames);
+	XObj::UpdateObject(frames);
 	UpdateSpiderBossAttachments(this, frames);
 }

@@ -3,8 +3,6 @@
 #include "game/memcard.h"
 #include <stdio.h>
 
-// NONMATCHING: retail materializes the loop counters as li+mr, derives the stat
-// pointer from its card base and rematerializes failed=FALSE on the loop-exit edge
 /**
  * @note Address: 0x80089D3C
  * @note Size: 0x484
@@ -21,8 +19,7 @@ extern "C" BOOL WriteMemoryCardSaveFile(Memcard* card, s32 channel, s32 slot)
 		return TRUE;
 	BuildSaveBanner(card, slot);
 	CaptureGameSaveData(card);
-	card->mState = 13;
-	BOOL failed;
+	card->mState   = Memcard::Writing;
 	CARDStat* stat = &card->mStat;
 	for (s32 copy = 0, offset = 0; copy < 2; ++copy, offset += sizeof(SaveFile)) {
 		card->mCard.Write(card->mBuffer, sizeof(SaveFile), offset);
@@ -30,36 +27,28 @@ extern "C" BOOL WriteMemoryCardSaveFile(Memcard* card, s32 channel, s32 slot)
 		if (card->mCard.mResult != CARD_RESULT_READY) {
 			card->mCard.Close();
 			card->mCard.Unmount();
-			failed = TRUE;
-			break;
+			return TRUE;
 		}
 		if (copy == 1) {
 			CARDStat st;
 			card->mCard.GetStatus(&st);
 			if (!HasSaveFileLayout(st)) {
-				card->mState = 11;
+				card->mState = Memcard::WritingStatus;
 				card->mCard.SetStatus(stat);
 				card->LogResult();
 				if (card->mCard.mResult != CARD_RESULT_READY) {
 					card->mCard.Close();
 					card->mCard.Unmount();
-					failed = TRUE;
-					break;
+					return TRUE;
 				}
 			}
 		}
-		failed = FALSE;
 	}
-	if (failed)
-		return TRUE;
 	if (card->Close())
 		return TRUE;
-	card->mState = 3;
-	card->mCard.UnmountEx();
-	card->LogResult();
-	if (card->mCard.mResult != CARD_RESULT_READY)
+	if (card->Unmount())
 		return TRUE;
-	card->mState = 0;
+	card->mState = Memcard::Idle;
 	OSCalendarTime calendar;
 	OSTicksToCalendarTime(OSSecondsToTicks((OSTime)card->mStat.time), &calendar);
 	return FALSE;

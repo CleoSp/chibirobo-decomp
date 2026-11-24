@@ -8,62 +8,8 @@
 #include "game/cobj.h"
 #include "game/cfile.h"
 
-extern "C" CObjArchive* FindFreeObjectArchive(CObjArchive* archives);
-
 extern "C" {
 void GXProject(f32 x, f32 y, f32 z, const Mtx view, const f32* projection, const f32* viewport, f32* screenX, f32* screenY, f32* screenZ);
-}
-
-/**
- * @note Address: 0x8008A360
- * @note Size: 0x2C
- */
-// CJAnim::Release
-void CJAnim::Release()
-{
-	if (mArchive != NULL)
-		CJArchive::Release();
-}
-
-/**
- * @note Address: 0x8008A38C
- * @note Size: 0x170
- */
-// starts the read, then sets it up once it's in, TRUE when done
-extern "C" BOOL LoadJointAnimationAsync(CJAnim* anim, const char* path)
-{
-	if (anim->mLoading == 0) {
-		anim->Release();
-		if (path == NULL || *path == '\0')
-			return TRUE; // no animation asked for
-		CFile file;
-		if (file.ConvertPathToEntrynum(path) < 0)
-			return TRUE; // the file isn't there
-		CObjArchive* storage = FindFreeObjectArchive(gGame.mObjArchives.mArchives);
-		if (storage != NULL) {
-			anim->ReadAsync(storage, path, 0, 0, 0);
-			anim->mLoading++;
-		} else {
-			return TRUE; // no free archive slot: treat as done
-		}
-	} else {
-		if (anim->ReadCheck()) {
-			anim->SetupScene(0, 0);
-			anim->mLoading = 0;
-		}
-	}
-	return anim->mLoading == 0;
-}
-
-/**
- * @note Address: 0x8008A4FC
- * @note Size: 0x34
- */
-// CJAnim::Clear
-void CJAnim::Clear()
-{
-	CJArchive::Clear();
-	mLoading = 0;
 }
 
 /**
@@ -246,27 +192,27 @@ void XObj::SetCullMode(s32 mode)
 	switch (mode) { // the two PObj flags pick which faces to drop
 	case 0:
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, (f32**)0x4000);
+			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, reinterpret_cast<void*>(0x4000));
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, (f32**)0x8000);
+			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, reinterpret_cast<void*>(0x8000));
 		break;
 	case 2:
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, (f32**)0x4000);
+			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, reinterpret_cast<void*>(0x4000));
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, (f32**)0x8000);
+			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, reinterpret_cast<void*>(0x8000));
 		break;
 	case 1:
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, (f32**)0x4000);
+			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, reinterpret_cast<void*>(0x4000));
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, (f32**)0x8000);
+			HSD_JObjWalkTree(mJObj, JObjClearPObjFlags, reinterpret_cast<void*>(0x8000));
 		break;
 	case 3:
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, (f32**)0x4000);
+			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, reinterpret_cast<void*>(0x4000));
 		if (mJObj != NULL)
-			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, (f32**)0x8000);
+			HSD_JObjWalkTree(mJObj, JObjSetPObjFlags, reinterpret_cast<void*>(0x8000));
 		break;
 	}
 }
@@ -275,9 +221,9 @@ void XObj::SetCullMode(s32 mode)
  * @note Address: 0x8008B224
  * @note Size: 0x114
  */
-extern "C" BOOL IsOutsideCameraDepth__4XObjFP7CCamera(const XObj* object, CCamera* camera)
+BOOL XObj::IsOutsideCameraDepth(CCamera* camera)
 {
-	HSD_JObj* joint = object->mJObj;
+	HSD_JObj* joint = mJObj;
 	if (joint != NULL) {
 		Vec position = GetJointPosition(joint);
 		f32 screenX, screenY, screenZ;
@@ -402,8 +348,8 @@ BOOL XObj::TestFloorCrossing(const Vec& start, const Vec& end)
 
 	f32 rotation = mMoveRotate.y;
 	for (s32 i = 0; floors[i].mId != -1; ++i) {
-		CVec center  = mMoveScale * (mToppleOffset + ReadFloorCoordinates(floors[i].mCenterOffset, gObjectFloorOffsetTemplate));
-		extent       = mMoveScale * ReadFloorCoordinates(floors[i].mExtent, lbl_80378148);
+		CVec center  = mMoveScale * (mToppleOffset + ReadObjectFloorOffset(floors[i]));
+		extent       = mMoveScale * ReadObjectFloorExtent(floors[i]);
 		f32 localYaw = FloorRotationRadians(floors[i].mYawDegrees);
 		f32 yaw      = rotation + localYaw;
 		switch (floors[i].mId) {
@@ -462,8 +408,8 @@ BOOL XObj::TestFloorCrossing(const Vec& start, const Vec& end)
 			XObjFloor* polygon = mFloors;
 			Vec corners[4];
 			for (s32 j = 0; j < 4; ++j)
-				corners[j] = mToppleOffset + ReadFloorCoordinates(polygon[i + j].mCenterOffset, gObjectFloorOffsetTemplate);
-			Vec size  = mMoveScale * ReadFloorCoordinates(polygon[i].mExtent, lbl_80378148);
+				corners[j] = mToppleOffset + ReadObjectFloorOffset(polygon[i + j]);
+			Vec size  = mMoveScale * ReadObjectFloorExtent(polygon[i]);
 			f32 angle = mMoveRotate.y + FloorRotationRadians(polygon[i].mYawDegrees);
 			Mtx translate, rotate, scale, transform;
 			PSMTXTrans(translate, mMoveTranslate.x, mMoveTranslate.y, mMoveTranslate.z);

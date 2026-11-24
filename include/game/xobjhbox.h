@@ -12,6 +12,7 @@ struct XObjHBoxPart {
 	s32 mSfx;               // _98C, keyed off on a hit
 
 	XObjHBoxPart();
+	~XObjHBoxPart();
 };
 
 // a box that reads a second object (placement 36) and draws it inside itself
@@ -23,6 +24,7 @@ public:
 	XObjHBoxPart mPart; // _988
 
 	XObjHBox();
+	virtual ~XObjHBox();
 	virtual void UpdateObject(u32 frames); // _A4
 	virtual void Release();
 	virtual void InitializeObject(u32 id);
@@ -32,7 +34,7 @@ public:
 	virtual void DrawWithView(Mtx view);
 	virtual void DrawGroundShadowAt(const Vec* origin, f32 opacity);
 	virtual void DrawScreenOverlay();
-	virtual s32 OnPlayerContact(s32 unused, s32 value);
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value);
 	virtual void OnHitFromPosition(const Vec& position, f32 strength);
 };
 #if defined(VERSION_JP)

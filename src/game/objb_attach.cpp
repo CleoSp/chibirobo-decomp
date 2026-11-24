@@ -1,7 +1,6 @@
 #include "game/xobjattachment.h"
 #include "game/cgame.h"
 #include "game/csound.h"
-#include "game/cjobjinlineattach.h"
 #include "game/evt.h"
 #include <math.h>
 
@@ -47,12 +46,12 @@ BOOL XObjRadar::LoadFromPlacement(const CoordInfo& info)
 	BOOL loaded = XObj::LoadFromPlacement(info);
 	if (loaded) {
 		CJObj joint;
-		if (__fpclassifyf(mYaw) == FP_NAN) { // unset: the placement's joint supplies it
+		if (__fpclassifyf(mYaw) == FP_NAN) { // The placement's joint supplies the initial yaw.
 			s32 path[] = { 0 };
 			joint.Attach(FindJointByPath(mJObj, path, 1));
 			mYaw = HSD_JObjGetRotationY(joint.mJObj);
 		}
-		if (__fpclassifyf(mPitch) == FP_NAN) { // same for the pitch
+		if (__fpclassifyf(mPitch) == FP_NAN) {
 			s32 path[] = { 0, 0, 0, 0 };
 			joint.Attach(FindJointByPath(mJObj, path, 4));
 			mPitch = HSD_JObjGetRotationX(joint.mJObj);
@@ -67,26 +66,17 @@ BOOL XObjRadar::LoadFromPlacement(const CoordInfo& info)
  */
 void XObjOX::UpdateObject(u32 frames)
 {
-	if (mVisible) {
-		CopyParentMtx(this);
-		HSD_AObj* aobj = GetAObj(mJObj);
-		s32 anim       = mAnimId;
-		f32 frame      = aobj != NULL ? HSD_AObjGetCurrentFrame(aobj) : 0.0f;
-		f32 end        = aobj != NULL ? HSD_AObjGetEndFrame(aobj) : 0.0f;
-		switch (anim) {
-		case 0: // the mark plays once, then hides
-			if (aobj->flags & 0x44000000) {
-				Hide();
-			}
-			break;
-		case 1:
-			if (aobj->flags & 0x44000000) {
-				Hide();
-			}
-			break;
-		}
-		XObj::UpdateObject(frames);
+	if (!mVisible) {
+		return;
 	}
+
+	CopyParentMtx(this);
+	HSD_AObj* aobj = GetAObj(mJObj);
+	// A circle or cross plays once and then hides.
+	if ((mAnimId == 0 || mAnimId == 1) && (aobj->flags & (AOBJ_REWINDED | AOBJ_NO_ANIM))) {
+		Hide();
+	}
+	XObj::UpdateObject(frames);
 }
 
 /**
@@ -114,7 +104,6 @@ extern "C" void ShowOXCircle(XObjOX* object)
  * @note Address: 0x800D58E4
  * @note Size: 0x374
  */
-// NONMATCHING: rodata order
 extern "C" void SetRadarDishPitch(XObjRadar* object, f32 angle)
 {
 	s32 path[4] = { 0, 0, 0, 0 };
@@ -143,13 +132,13 @@ void XObjRadar::UpdateObject(u32 frames)
 		HSD_AObj* aobj = GetAObj(mJObj);
 		switch (mState) {
 		case 1: // deployed: settle to idle
-			if (aobj->flags & 0x44000000) {
+			if (aobj->flags & (AOBJ_REWINDED | AOBJ_NO_ANIM)) {
 				SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 				mState = 10;
 			}
 			break;
 		case 2: // stowed: hide
-			if (aobj->flags & 0x44000000) {
+			if (aobj->flags & (AOBJ_REWINDED | AOBJ_NO_ANIM)) {
 				SetAnim(0, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
 				Hide();
 				mState = 0;
@@ -181,7 +170,7 @@ extern "C" void ShowIdlePlayerRadar(XObjRadar* object)
  * @note Address: 0x800D6340
  * @note Size: 0x4
  */
-extern "C" void StartPlayerRadarScan(XObjRadar* object)
+extern "C" void StartPlayerRadarScan(XObjRadar*)
 {
 }
 

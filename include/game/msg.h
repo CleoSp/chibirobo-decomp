@@ -85,7 +85,7 @@ public:
 #endif
 	}
 
-	virtual ~CMsgData() { } // _08
+	virtual ~CMsgData(); // _08
 
 	void Format(u8* script, MsgFormatArgs* args);
 	void Measure();
@@ -126,6 +126,8 @@ STATIC_ASSERT(sizeof(MsgFontGlyph) == 0x2AC);
 
 // the slot CMsgFont keeps its Cursor in
 struct MsgCursor {
+	MsgCursor();
+
 	Cursor mCursor; // _00
 };
 
@@ -177,7 +179,7 @@ public:
 	f32 mTexOffset;   // _43C74
 	s32 mCharCount;   // _43C78
 	s32 mLine;        // _43C7C
-	s32 mPlacement;   // _43C80, an XObj to follow
+	XObj* mPlacement; // _43C80, an XObj to follow
 	Vec mPosition;    // _43C84
 	f32 mCursorX;     // _43C90, current line start x
 	f32 mWindowX;     // _43C94
@@ -216,7 +218,7 @@ public:
 		mOtherSelection = -1;
 	}
 
-	virtual ~CMsgFont() { } // _08
+	virtual ~CMsgFont(); // _08
 };
 #if defined(VERSION_JP)
 STATIC_ASSERT(sizeof(CMsgFont) == 0x436D0);
@@ -260,13 +262,12 @@ public:
 	s32 mGlyphSoundGroup; // _445FC, -1 disables glyph sounds
 	f32 mWindowX;         // _44600, 320.0f at reset, maybe a screen x
 	f32 mWindowY;         // _44604, 344.0f at reset, maybe a screen y
-	s32 mPlacement;       // _44608, the XObj the window follows (declared s32, holds an XObj*), NULL for a fixed screen spot; stored in
-	                      // mFont.mPlacement by CMsgFont_Init, WIN @OBJ sets it
+	XObj* mPlacement;     // _44608, the object the window follows, or NULL for a fixed screen position
 	Vec mFontPosition;    // _4460C
 
 	// _44618 vtable
 
-	virtual ~CMsg() { } // _08
+	virtual ~CMsg();
 
 	u32 _4461C; // _4461C, after the vtable, never read or written
 

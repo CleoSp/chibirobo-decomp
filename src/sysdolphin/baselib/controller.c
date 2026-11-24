@@ -1,22 +1,13 @@
 #include <global.h>
 
+#include <Dolphin/OS/OSReset.h>
+#include <dolphin/os.h>
 #include <dolphin/ostime.h>
-#include <dolphin/pad.h>
 #include <kar/math.h>
+#include <math.h>
 #include <sysdolphin/controller.h>
 #include <sysdolphin/forward.h>
 #include <sysdolphin/rumble.h>
-
-extern u32 OSDisableInterrupts(void);
-extern void OSRestoreInterrupts(u32 level);
-extern bool OSGetResetSwitchState(void);
-extern int PADRead(PADStatus* status);
-extern void PADReset(u32 mask);
-extern BOOL PADRecalibrate(u32 mask);
-extern BOOL PADInit(void);
-extern f64 atan2(f64 y, f64 x);
-
-extern HSD_RumbleData gPadRumbleStates[4]; /* rumble.c per port state */
 
 HSD_PadStatus default_status_data = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
 PadLibData default_libinfo_data   = { 0, 0, 0, 0, 0, 0, 0x2D, 8, 0, 0x1E, 0, 0, 0, 0x7F, 0, 0, 0xFF, 0, 0, 0xFF, 0, 0x7F, 0xFF, 0xFF };
@@ -26,32 +17,12 @@ HSD_PadStatus HSD_PadCopyStatus[4];
 const u32 pad_bit[4] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT, PAD_CHAN2_BIT, PAD_CHAN3_BIT };
 
 /**
- * @note Address: N/A
- * @note Size: ?
- */
-static inline f32 controller_sqrtf(f32 x)
-{
-	volatile f32 y;
-
-	if (x > 0.0F) {
-		f64 guess = __frsqrte((f64)x);
-		guess     = 0.5 * guess * __fnmsub(x, guess * guess, 3.0);
-		guess     = 0.5 * guess * __fnmsub(x, guess * guess, 3.0);
-		guess     = 0.5 * guess * __fnmsub(x, guess * guess, 3.0);
-		y         = (f32)(x * guess);
-		return y;
-	}
-	return x;
-}
-
-/**
  * @note Address: 0x801CC0A0
  * @note Size: 0x3C
  */
-// symbols.txt calls this SetPadQueueType but it sets qtype, the name is off
 void SetPadQueueType(u8 qtype)
 {
-	u32 intr;
+	BOOL intr;
 
 	intr                 = OSDisableInterrupts();
 	HSD_PadLibData.qtype = qtype;
@@ -177,7 +148,7 @@ static inline void HSD_PadClampCheck3(s8* x, s8* y, u8 shift, s8 min, s8 max)
 {
 	f32 r;
 
-	r = controller_sqrtf((f32)*x * (f32)*x + (f32)*y * (f32)*y);
+	r = dolsqrtf((f32)*x * (f32)*x + (f32)*y * (f32)*y);
 
 	if (r < min) {
 		*y = 0;
@@ -187,7 +158,7 @@ static inline void HSD_PadClampCheck3(s8* x, s8* y, u8 shift, s8 min, s8 max)
 	if (r > max) {
 		*x = (s8)(((f32)*x * (f32)max) / r);
 		*y = (s8)(((f32)*y * (f32)max) / r);
-		r  = controller_sqrtf((f32)*x * (f32)*x + (f32)*y * (f32)*y);
+		r  = dolsqrtf((f32)*x * (f32)*x + (f32)*y * (f32)*y);
 	}
 
 	if (shift == 1 && r > 1e-10F) {
@@ -229,7 +200,7 @@ static inline void HSD_PadADConvertCheck1(HSD_PadStatus* mp, s8 x, s8 y, u32 up,
 	f32 a;
 	f32 ha;
 
-	r = controller_sqrtf(__fmadds((f32)x, (f32)x, (f32)y * (f32)y));
+	r = dolsqrtf(__fmadds((f32)x, (f32)x, (f32)y * (f32)y));
 
 	if (0.0F == (f32)x) {
 		if ((f32)y >= 0.0F) {
@@ -357,7 +328,7 @@ void HSD_PadRenewMasterStatus(void)
 	u32 mask;
 	s32 repeat_count;
 	int i;
-	u32 intr;
+	BOOL intr;
 
 	p    = &HSD_PadLibData;
 	mp   = &HSD_PadMasterStatus[0];
@@ -507,7 +478,7 @@ void HSD_PadRenewCopyStatus(void)
 static inline void HSD_PadFlushQueueThrowaway(void)
 {
 	PadLibData* p = &HSD_PadLibData;
-	u32 intr;
+	BOOL intr;
 
 	intr      = OSDisableInterrupts();
 	p->qread  = p->qwrite;
@@ -522,7 +493,7 @@ static inline void HSD_PadFlushQueueThrowaway(void)
 void HSD_PadReset(void)
 {
 	PadLibData* p;
-	u32 intr;
+	BOOL intr;
 	int i;
 
 	p    = &HSD_PadLibData;
@@ -566,7 +537,7 @@ void HSD_PadInit(u8 qnum, HSD_PadData* queue, u16 nb_list, HSD_PadRumbleListData
 u8 GetPadRumbleStatus(u8 no)
 {
 	HSD_RumbleData* rp = &gPadRumbleStates[no];
-	u32 intr;
+	BOOL intr;
 	u8 status;
 
 	intr   = OSDisableInterrupts();

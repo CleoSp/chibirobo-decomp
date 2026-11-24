@@ -19,11 +19,6 @@
 // these are backwards on purpose, deferred inlining
 
 /**
- * @note Address: 0x80148614
- * @note Size: 0x8
- */
-
-/**
  * @note Address: 0x801485A4
  * @note Size: 0x70
  */
@@ -151,22 +146,4 @@ void CCameraActionScroll::Update(u32 step)
 	}
 
 	SetInterest(gGame.GetPlayer()->GetCameraTarget(), 0x10002);
-}
-
-/**
- * @note Address: 0x80147EB8
- * @note Size: 0x8
- */
-
-// todo: cleanup
-/**
- * @note Address: N/A
- * @note Size: unknown
- */
-// UNUSED FUNCTION
-// stands in for a stripped function. retail's .sdata2 starts with the 0.0f that only
-// CCameraActionLadr::Reset uses, and with deferred inlining the last function's constants come first
-extern "C" void UnusedLadrReset(CCameraActionLadr* ladr)
-{
-	ladr->mAngle = 0.0f;
 }

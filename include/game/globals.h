@@ -29,8 +29,11 @@ extern "C" {
 // lookups into the globals file's tables by index
 const char* GetLocalizedPCDialogue(s32 index);
 const char* GetLocalizedInterfaceText(s32 index);
+const char* GetStatusOverviewDescription(s32 index);
+const char* GetStatusOverviewLabel(s32 index);
 u32 GetStatusIconEventFlagId(s32 index);
-u8* GetStatusIconName(s32 index);
+const char* GetStatusIconDescription(s32 index);
+const char* GetStatusIconName(s32 index);
 u8* GetCostumeName(s32 index);    // a costume's name
 u8* GetAttachmentName(s32 index); // an attachment's name
 u8* GetActorName(s32 index);
@@ -39,7 +42,7 @@ s16 GetItemScrapValue(s32 index);
 void ClearItemFlags(s32 index, u16 mask);
 void SetItemFlags(s32 index, u16 mask);
 u16 GetItemFlagsMasked(s32 index, u16 mask);
-u8* GetItemName(s32 index);
+const char* GetItemName(s32 index);
 u32 GetMaterialSoundId(s32 material);
 u32 GetItemReleaseSoundId(s32 index);
 u8 GetItemSoundIndex(s32 item, s32 member);

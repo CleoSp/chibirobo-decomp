@@ -1,10 +1,12 @@
 #include "game/cgame.h"
+#include <Dolphin/ai.h>
+#include <Dolphin/OS/OSReset.h>
 #include <Dolphin/vi.h>
 #include "game/cgameutil.h"
 
 extern "C" {
-void HSD_VISetBlack(u8 black);
-void HSD_VICopyXFBAsync(s32 pri);
+#include <sysdolphin/video.h>
+void AXQuit(void);
 void InitGameRuntime();
 void InitGameRenderState(CBase* base);
 void InitGameARAM();
@@ -115,13 +117,8 @@ void CBase::Draw()
 }
 
 extern "C" {
-void AXQuit(void);
-void AIReset(void);
-void AIStopDMA(void);
-void* HSD_VISetUserGXDrawDoneCallback(void* cb);
 void GXDrawDone(void);
 void GXAbortFrame(void);
-void OSResetSystem(int reset, u32 code, BOOL forceMenu);
 }
 
 /**
@@ -201,7 +198,7 @@ void main(int argc, char** argv)
 {
 	((CBase*)&gGame)->Initialize(argc, argv);
 	((CBase*)&gGame)->Start();
-	HSD_VISetBlack(0);
+	HSD_VISetBlack(false);
 	while (true) {
 		VIWaitForRetrace();
 		gGame.mRetraceStep = VIGetRetraceCount() - gGame.mLastRetrace;
@@ -215,7 +212,7 @@ void main(int argc, char** argv)
 		OSStartStopwatch(&gGame.mStopwatch[1]);
 		OSResetStopwatch(&gGame.mStopwatch[2]);
 		OSStartStopwatch(&gGame.mStopwatch[2]);
-		HSD_VICopyXFBAsync(0);
+		HSD_VICopyXFBAsync(HSD_RP_SCREEN);
 		gGame.mStopwatch[0].mElapsed = OSCheckStopwatch(&gGame.mStopwatch[0]);
 		OSStopStopwatch(&gGame.mStopwatch[0]);
 		gGame.mPad.Update(gGame.mRetraceStep);

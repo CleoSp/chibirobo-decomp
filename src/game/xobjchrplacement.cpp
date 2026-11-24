@@ -1,12 +1,10 @@
 #include "game/xchr.h"
 #include "game/cgame.h"
-#include "game/xobjmap.h"
+#include "game/stagedata.h"
 
 extern "C" {
 CVec GetPlayerJointLocalTranslationByPath(CJObj* object, s32 depth, s32* path);
 void SetObjectJointTranslationByPath(CJObj* object, s32 depth, s32* path, f32 x, f32 y, f32 z);
-BOOL IsStageDataLoaded();
-void EnableJointMaterialTranslucency(HSD_JObj* joint, f32** args, s32 type);
 void ShowIdlePlayerCopter(XObjCopter* copter);
 void ShowIdlePlayerRadar(XObjRadar* radar);
 }
@@ -35,9 +33,10 @@ static inline BOOL LoadPlayerModel(XObj& model, s32 id)
 	return model.LoadFromPlacement(CoordInfo(GetSpawnData(id)));
 }
 
-static inline void SetAttachmentParent(XObjChr* player, XObjAttachment& attachment, s32* path, int depth)
+static void SetHeadAttachmentParent(XObjChr* player, XObjAttachment& attachment)
 {
-	attachment.SetParent(FindJointByPath(player->mJObj, path, depth), TRUE);
+	s32 path[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
+	attachment.SetParent(FindJointByPath(player->mJObj, path, ARRAY_SIZE(path)), TRUE);
 }
 
 /**
@@ -51,7 +50,7 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 	// Each ready model falls through to the next load. A pending one resumes at the same step.
 	switch (mLoadStep) {
 	case 0: {
-		if (!LoadFromPlacement__4XObjFRC9CoordInfo(this, &info))
+		if (!XObj::LoadFromPlacement(info))
 			break;
 		CJObj::SetRotationY(0.0f, TRUE);
 		SamplePlayerPose(this, 8);
@@ -84,8 +83,7 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 			}
 			s32 attachment[]     = { 0, 1, 0, 1, 2, 0, 0, 5 };
 			mAttachmentJoint     = FindJointByPath(mJObj, attachment, 8);
-			s32 animationPath[]  = { 0, 1, 0, 1, 2, 0, 0, 5 };
-			mAttachmentJointAnim = mArchive.GetAnimJoint(0x4A, 8, animationPath);
+			mAttachmentJointAnim = mArchive.GetAnimJoint(0x4A, ARRAY_SIZE(attachment), attachment);
 			if (!mSuits.mJoints[0]) {
 				s32 suit[]        = { 0, 1, 0, 0 };
 				mSuits.mJoints[0] = FindJointByPath(mJObj, suit, 4);
@@ -102,8 +100,7 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 
 		if (!LoadPlayerModel(mCopterObj, 17))
 			break;
-		s32 path[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-		SetAttachmentParent(this, mCopterObj, path, 8);
+		SetHeadAttachmentParent(this, mCopterObj);
 		++mLoadStep;
 	}
 	case 3: { // the popper
@@ -111,15 +108,14 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 		if (!LoadPlayerModel(mPopperObj, 18))
 			break;
 		s32 path[] = { 0, 1, 0, 1, 3 };
-		SetAttachmentParent(this, mPopperObj, path, 5);
+		mPopperObj.SetParent(FindJointByPath(mJObj, path, ARRAY_SIZE(path)), TRUE);
 		++mLoadStep;
 	}
 	case 4: { // the radar
 
 		if (!LoadPlayerModel(mRadarObj, 19))
 			break;
-		s32 path[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-		SetAttachmentParent(this, mRadarObj, path, 8);
+		SetHeadAttachmentParent(this, mRadarObj);
 		++mLoadStep;
 	}
 	case 5: {
@@ -131,8 +127,7 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 #endif
 		if (!LoadPlayerModel(mOXObj, modelId))
 			break;
-		s32 path[] = { 0, 1, 0, 1, 2, 0, 0, 4 };
-		SetAttachmentParent(this, mOXObj, path, 8);
+		SetHeadAttachmentParent(this, mOXObj);
 		++mLoadStep;
 	}
 	case 6:
@@ -167,10 +162,11 @@ BOOL XObjChr::LoadFromPlacement(const CoordInfo& info)
 			EnableLighting(GetEnvData()[9] / 100.0f);
 		++mLoadStep;
 	case 10: {
-		CTpl& tpl               = gGame.mTpl;
-		TPLDescriptor* textures = ((TPLPalette*)tpl.mBuffer)->descriptorArray;
-		mTex[0]                 = tpl.mTex.Init(&textures[122 - StatusTextureOffset], 0);
-		mTex[1]                 = tpl.mTex.Init(&((TPLPalette*)tpl.mBuffer)->descriptorArray[123 - StatusTextureOffset], 0);
+		CTpl& tpl = gGame.mTpl;
+		for (u32 i = 0; i < ARRAY_SIZE(mTex); ++i) {
+			TPLPalette* palette = static_cast<TPLPalette*>(tpl.mBuffer);
+			mTex[i]             = tpl.mTex.Init(&palette->descriptorArray[122 - StatusTextureOffset + i], 0);
+		}
 		++mLoadStep;
 	}
 	case 11:

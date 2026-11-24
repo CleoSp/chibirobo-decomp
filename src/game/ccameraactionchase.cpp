@@ -4,6 +4,7 @@ extern "C" {
 }
 #include "game/hsd_jobj.h"
 #include "game/gmath.h"
+#include "game/cvec.h"
 #include "sysdolphin/controller.h"
 #include "Version.h"
 #include <math.h>
@@ -11,14 +12,6 @@ extern "C" {
 #include "game/xchr.h"
 
 extern "C" f32 gChaseCameraSpringSettings[3] = { 0.5f, 2.5f, 4.5f };
-
-// backwards from here, deferred inlining
-
-// CVec's += takes a reference, this one copies b first like retail does here
-inline void AddCopy(CVec& a, Vec b)
-{
-	PSVECAdd(&a, &b, &a);
-}
 
 /**
  * @note Address: 0x80142AF8
@@ -35,7 +28,7 @@ CVec CalcSpring(CVec& eye, const CVec& target, const CVec& last, f32 dt, f32 sti
 	PSVECNormalize(&dir, &dir);
 	f32 force = stiffness * (rest - len) + damping * (dot / len); // spring toward the rest distance
 	PSVECScale(&dir, &dir, force * dt);
-	AddCopy(eye, dir);
+	eye += dir;
 	return eye;
 }
 

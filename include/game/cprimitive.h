@@ -3,16 +3,6 @@
 
 #include "game/ctpl.h"
 #ifdef _MTXTYPES_h_
-// built with the HSD headers, which don't have GXPrimitive
-typedef enum _GXPrimitive {
-	GX_POINTS        = 0xB8,
-	GX_LINES         = 0xA8,
-	GX_LINESTRIP     = 0xB0,
-	GX_TRIANGLES     = 0x90,
-	GX_TRIANGLESTRIP = 0x98,
-	GX_TRIANGLEFAN   = 0xa0,
-	GX_QUADS         = 0x80,
-} GXPrimitive;
 typedef MtxPtr MtxP;
 extern "C" {
 #include <dolphin/mtx/mtx.h>

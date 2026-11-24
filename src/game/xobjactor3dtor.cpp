@@ -1,31 +1,22 @@
 #include "game/xobjactor.h"
 #include "game/xchr.h"
 #include "game/animframe.h"
-#include <stdlib.h>
+#include <sysdolphin/axdriver.h>
 
 // XObjActor3's destructor, its anim sounds and its script commands
 
 extern "C" {
-BOOL HSD_AudioSFXCheck(s32 id);
-void HSD_AudioSFXKeyOff(s32 id);
-void OSReport(const char* fmt, ...);
 void HandleKind9ActorCommand(XObjActor3* actor);
 void HandleActorRiderCommand(XObjActor3* actor);
 }
 
-// hides the items of the kind, the 0x40B ones only
-static inline void HideItems(s32 kind)
+static void HideHeldItems()
 {
-	if (kind >= 0) {
-		switch (kind) {
-		case 0x40B:
-			for (s32 i = 0; i < 0x120; i++) {
-				XObj* obj = gGame.mXObjs.mPools[22].Get(i);
-				if (kind == obj->GetKind()) {
-					obj->mStatus.mFlags &= ~0x10000ULL;
-				}
-			}
-			break;
+	const XObjPool& pool = gGame.mXObjs.mPools[22];
+	for (s32 i = 0; i < 0x120; ++i) {
+		XObj* obj = pool.Get(i);
+		if (obj->GetKind() == 0x40B) {
+			obj->mStatus.mFlags &= ~0x10000ULL;
 		}
 	}
 }
@@ -36,7 +27,6 @@ static inline void HideItems(s32 kind)
  */
 // the event commands: 100 carries another object at one of its joints, or lets go of all
 // of them, anything else is kept for the kind's function to read
-// NONMATCHING: argv[1] and the 0x40B item loop take other registers, as in game/xobjspider
 s32 XObjActor3::HandleEventCommand(s32 argc, s32* argv)
 {
 	switch (argv[0]) {
@@ -51,11 +41,13 @@ s32 XObjActor3::HandleEventCommand(s32 argc, s32* argv)
 				}
 			}
 		} else {
-			u32 i;
-			for (i = 0; mParts[i].mObj != NULL && i < 8; i++) { } // first free part slot
-			if (i < 8) {
+			u32 i = 0;
+			while (i < ARRAY_SIZE(mParts) && mParts[i].mObj) {
+				++i;
+			}
+			if (i < ARRAY_SIZE(mParts)) {
 #if !defined(VERSION_PAL)
-				OSReport("id = %d, argv[1]=%d\n", i);
+				OSReport("id = %d, argv[1]=%d\n", static_cast<int>(i), static_cast<int>(argv[1]));
 #endif
 				mActorFlags.mFlags |= 2;
 				if (argv[1] >= 10000) { // a placement id vs a slot index
@@ -118,12 +110,10 @@ s32 XObjActor3::HandleEventCommand(s32 argc, s32* argv)
 			case 0:
 				break;
 			case 1:
-				s32 kind = -1;
 				if (mActorFlags.Check(0x100)) { // a 0x40B item is on show
-					kind = 0x40B;
 					mActorFlags.mFlags &= ~0x100;
+					HideHeldItems();
 				}
-				HideItems(kind);
 				switch (mEventArg1) {
 				case 0x40B:
 					for (s32 i = 0; i < 0x120; i++) {

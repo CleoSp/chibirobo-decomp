@@ -1,33 +1,14 @@
-#include "game/cjobj.h"
+#include "game/relmodule.h"
+#include "game/hsd_jobj.h"
+#include "game/cgame.h"
 #include "game/cjobjset.h"
 #include "game/video.h"
+#include "game/xchr.h"
 #include "Version.h"
 extern "C" {
 #include <sysdolphin/aobj.h>
 #include <sysdolphin/mtx.h>
 }
-
-// CGame
-extern "C" u8 gGame[];
-
-struct ShunObj {
-#if defined(VERSION_GGTJ01_01)
-	u8 _00[0x220]; // _00, set to half a minute in frames (FRAMES_PER_SECOND * 30) by CmdResetOnOff; never read, shun's UpdateStage is empty
-#else
-	u8 _00[0x228]; // _00
-#endif
-	u64 mFlags; // _228, JP _220
-};
-#if defined(VERSION_GGTJ01_01)
-typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x228 ? 1 : -1];
-#else
-typedef char ShunObjViewSizeCheck[sizeof(ShunObj) == 0x230 ? 1 : -1];
-#endif
-
-struct ShunObjList {
-	void* mScript; // _00, CEvtData::mScript of gGame.mEvt (CGame + 0x5D080 = mEvt _5D07C + mData _04); objects are looked up only while a
-	               // script is loaded
-};
 
 struct SavedObjFlag {
 	s32 mId;  // _00
@@ -41,66 +22,13 @@ struct SavedObjFlagList {
 	s32 mCount;                   // _800
 };
 
-extern "C" void SetJunkUnkoFlag(s32);
-extern "C" ShunObj* ResolveEventObjectId(ShunObjList* list, s16 id);
-extern "C" void InfoScrn_SetTimerHundredths(void* obj, s32 arg);
-extern "C" s32 InfoScrn_GetTimerHundredths(void* obj);
-extern "C" void InfoScrn_ShowTimer(void* obj);
-extern "C" void InfoScrn_HideTimer(void* obj);
-extern "C" void InfoScrn_ApplyTimerHudCommand(void* obj, s32, s32);
+extern "C" void SetJunkUnkoFlag(u8);
+extern "C" void InfoScrn_SetTimerHundredths(InfoScrn* screen, s32 arg);
+extern "C" s32 InfoScrn_GetTimerHundredths(InfoScrn* screen);
+extern "C" void InfoScrn_ShowTimer(InfoScrn* screen);
+extern "C" void InfoScrn_HideTimer(InfoScrn* screen);
+extern "C" void InfoScrn_ApplyTimerHudCommand(InfoScrn* screen, u8 show, s32 mode);
 extern "C" void SetFafaPartVisibility(s32 arg);
-
-// an offset into CGame: japan lays it out differently from the others
-#if defined(VERSION_JP)
-#define GAME_OFS(other, japan) (japan)
-#else
-#define GAME_OFS(other, japan) (other)
-#endif
-#define SHUN_OBJ_LIST()  ((ShunObjList*)(gGame + GAME_OFS(0x5D080, 0x5D038)))
-#define SHUN_INFO_SCRN() ((void*)(gGame + GAME_OFS(0x8F38, 0x8EF0))) // CGame::mInfoScrn, the HUD that owns the timer
-#define SHUN_PLAYER()    (*(RoboView**)(gGame + GAME_OFS(0x96BC, 0x9674)))
-
-inline ShunObj* ShunFindObj(s16 id)
-{
-	ShunObjList* list = SHUN_OBJ_LIST();
-	if (list->mScript != NULL) {
-		return ResolveEventObjectId(list, id);
-	}
-	return NULL;
-}
-
-// object at CGame + 0x96BC, a CJObj subclass
-class RoboView : public CJObj {
-public:
-	virtual void vf_4C();
-	virtual void vf_50();
-	virtual void vf_54();
-	virtual void vf_58();
-	virtual void vf_5C();
-	virtual void vf_60();
-	virtual void vf_64();
-	virtual void SetPos(f32 x, f32 y, f32 z, s32 force);
-	virtual void vf_6C();
-	virtual void vf_70();
-	virtual void vf_74();
-	virtual void SetMoveDir(const Vec* dir, f32 speed);
-	virtual void vf_7C();
-	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
-	                     f32 blendRate);
-
-#if defined(VERSION_JP)
-	u8 _38[0x970 - 0x38];     // _38, three CVecs, no access in any edition
-	u32 mPlayerStatus;        // _970
-	u8 _984[0x12CF4 - 0x974]; // _974
-	s32 mPadReset;            // _12CF4
-#else
-	u8 _38[0x980 - 0x38]; // _38
-	u32 mPlayerStatus; // _980, XObjChr::mPlayerStatus.mFlags (JP _970); 0x40000000 hands him to a script, 0x20000000 | 7 gives control back
-	u8 _984[0x12DF4 - 0x984]; // _984
-	s32 mPadReset; // _12DF4, XObjChr::mPad.mReset (XPad at _12DA0, mReset at +0x54; JP _12CF4); 1 with the give-back flags, 0 with the
-	               // script flags
-#endif
-};
 
 struct OnOffWork {
 	s32 _00;         // _00, half a minute in frames, written by CmdResetOnOff and never read
@@ -135,13 +63,10 @@ s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args);
 s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args);
 s32 CmdResetOnOff(s32 cmd, s32 count, s32* args);
 s32 CmdPrintArgs(s32 cmd, s32 count, s32* args);
-void ShunNoOpSlot5(void* arg);
-void DrawStageHud(void* arg);
-void UpdateStage(void* arg);
-void InitStage(void* arg);
-
-typedef void (*RelSlotFunc)(void* arg);
-typedef s32 (*RelCmdFunc)(s32 cmd, s32 count, s32* args);
+void ShunNoOpSlot5(s32 arg);
+void DrawStageHud(s32 arg);
+void UpdateStage(s32 arg);
+void InitStage(s32 arg);
 
 RelSlotFunc _prolog_slots[7] = { InitStage, UpdateStage, NULL, NULL, DrawStageHud, ShunNoOpSlot5, NULL };
 RelCmdFunc _prolog_cmds[]    = {
@@ -160,7 +85,7 @@ RelCmdFunc _prolog_cmds[]    = {
 inline void SavedObjFlagList::Apply(s32 mode)
 {
 	s32 i;
-	ShunObj* obj;
+	XObj* obj;
 
 	// mode 0 clears the drawn bit, anything else restores the bits CmdSaveObjFlag saw
 	if (mode != 0) {
@@ -170,9 +95,9 @@ inline void SavedObjFlagList::Apply(s32 mode)
 				if (mEntries[j].mId == -1) { // -1 ends the list
 					break;
 				}
-				obj = ShunFindObj(mEntries[j].mId);
+				obj = FindObj(mEntries[j].mId);
 				if (mEntries[j].mFlag & 1) { // its drawn bit was saved
-					obj->mFlags |= 0x10000;
+					obj->mStatus.mFlags |= 0x10000;
 				}
 			}
 		}
@@ -182,8 +107,8 @@ inline void SavedObjFlagList::Apply(s32 mode)
 				if (mEntries[i].mId == -1) { // -1 ends the list
 					break;
 				}
-				obj = ShunFindObj(mEntries[i].mId);
-				obj->mFlags &= ~0x10000ULL;
+				obj = FindObj(mEntries[i].mId);
+				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}
 	}
@@ -320,13 +245,13 @@ extern "C" s32 CmdApplySavedObjFlags(s32 cmd, s32 count, s32* args)
 extern "C" s32 CmdSaveObjFlag(s32 cmd, s32 count, s32* args)
 {
 	s32 id = args[0];
-	ShunObj* obj;
+	XObj* obj;
 
 	if (savedObjFlags.mCount < 0x100) {
 		savedObjFlags.mEntries[savedObjFlags.mCount].mId = id;
-		obj                                              = ShunFindObj(savedObjFlags.mEntries[savedObjFlags.mCount].mId);
-		if (obj != NULL && (obj->mFlags & 1)) { // objects without flag 1 are skipped
-			if (obj->mFlags & 0x10000) {        // drawn now: remember it
+		obj                                              = FindObj(savedObjFlags.mEntries[savedObjFlags.mCount].mId);
+		if (obj != NULL && (obj->mStatus.mFlags & 1)) { // objects without flag 1 are skipped
+			if (obj->mStatus.mFlags & 0x10000) {        // drawn now: remember it
 				savedObjFlags.mEntries[savedObjFlags.mCount].mFlag |= 1;
 			}
 			savedObjFlags.mCount++;
@@ -352,24 +277,6 @@ extern "C" s32 CmdClearSavedObjFlags(s32 cmd, s32 count, s32* args)
 }
 
 /**
- * @note Address: N/A
- * @note Size: unknown
- */
-// UNUSED FUNCTION
-// stripped function that used a CJObj. mwcc puts header inlines after their first
-// user, that's why the CJObj dtor follows CmdClearSavedObjFlags. same in stage07
-extern "C" void UnusedCJObjUser(void)
-{
-	CJObj jobj;
-}
-
-/**
- * @note Address: shun .text 0x338
- * @note Size: 0x88
- */
-// CJObj::~CJObj, inline in game/cjobj.h
-
-/**
  * @note Address: shun .text 0x3C0
  * @note Size: 0x48
  */
@@ -385,9 +292,9 @@ extern "C" s32 CmdSetOrGetTimer(s32 cmd, s32 count, s32* args)
 
 	// args[0] != 0 writes args[1] hundredths, 0 reads them
 	if (args[0] != 0) {
-		InfoScrn_SetTimerHundredths(SHUN_INFO_SCRN(), args[1]);
+		InfoScrn_SetTimerHundredths(&gGame.mInfoScrn, args[1]);
 	} else {
-		ret = InfoScrn_GetTimerHundredths(SHUN_INFO_SCRN());
+		ret = InfoScrn_GetTimerHundredths(&gGame.mInfoScrn);
 	}
 	return ret;
 }
@@ -400,9 +307,9 @@ extern "C" s32 CmdSetTimerRunning(s32 cmd, s32 count, s32* args)
 {
 	// starts or stops the timer counting (InfoScrn::mTimerShown gates mTimer += frames)
 	if (args[0] != 0) {
-		InfoScrn_ShowTimer(SHUN_INFO_SCRN());
+		InfoScrn_ShowTimer(&gGame.mInfoScrn);
 	} else {
-		InfoScrn_HideTimer(SHUN_INFO_SCRN());
+		InfoScrn_HideTimer(&gGame.mInfoScrn);
 	}
 	return 0;
 }
@@ -415,9 +322,9 @@ extern "C" s32 CmdShowTimer(s32 cmd, s32 count, s32* args)
 {
 	// args[0] becomes the hud command's first arg
 	if (args[0] != 0) {
-		InfoScrn_ApplyTimerHudCommand(SHUN_INFO_SCRN(), 1, 1);
+		InfoScrn_ApplyTimerHudCommand(&gGame.mInfoScrn, 1, 1);
 	} else {
-		InfoScrn_ApplyTimerHudCommand(SHUN_INFO_SCRN(), 0, 1);
+		InfoScrn_ApplyTimerHudCommand(&gGame.mInfoScrn, 0, 1);
 	}
 	return 0;
 }
@@ -450,11 +357,9 @@ extern "C" s32 CmdCheckOnOffFlag(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
 {
-	RoboView* player = SHUN_PLAYER();
+	XObjChr* player = gGame.GetPlayer();
 
-	player->mPlayerStatus = 0;
-	player->mPlayerStatus |= 0x40000000; // hand him to the script
-	player->mPadReset = 0;
+	player->LockControl();
 	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 2;
@@ -467,11 +372,9 @@ extern "C" s32 CmdStartOnOff2(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
 {
-	RoboView* player = SHUN_PLAYER();
+	XObjChr* player = gGame.GetPlayer();
 
-	player->mPlayerStatus = 0;
-	player->mPlayerStatus |= 0x40000000; // hand him to the script
-	player->mPadReset = 0;
+	player->LockControl();
 	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 1;
@@ -484,11 +387,9 @@ extern "C" s32 CmdStartOnOff1(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdStartOnOff0(s32 cmd, s32 count, s32* args)
 {
-	RoboView* player = SHUN_PLAYER();
+	XObjChr* player = gGame.GetPlayer();
 
-	player->mPlayerStatus = 0;
-	player->mPlayerStatus |= 0x40000000; // hand him to the script
-	player->mPadReset = 0;
+	player->LockControl();
 	player->SetAnim(0x3E, FALSE, NULL, NULL, NULL, 0.0f, 2.0f, 0.0f, 10.0f); // anim 0x3E at double rate
 	onOffWork._68 = 0;
 	onOffWork._84 = 0;
@@ -513,12 +414,8 @@ extern "C" s32 CmdResetOnOff(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7A0
  * @note Size: 0x50
  */
-extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
+extern "C" s32 CmdPrintArgs(s32, s32, s32*)
 {
-	int i;
-
-	// body compiled out
-	for (i = 0; i < count; i++) { }
 	return 0;
 }
 
@@ -526,7 +423,7 @@ extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
  * @note Address: shun .text 0x7F0
  * @note Size: 0x4
  */
-extern "C" void ShunNoOpSlot5(void* arg)
+extern "C" void ShunNoOpSlot5(s32 arg)
 {
 }
 
@@ -534,7 +431,7 @@ extern "C" void ShunNoOpSlot5(void* arg)
  * @note Address: shun .text 0x7F4
  * @note Size: 0x4
  */
-extern "C" void DrawStageHud(void* arg)
+extern "C" void DrawStageHud(s32 arg)
 {
 }
 
@@ -542,7 +439,7 @@ extern "C" void DrawStageHud(void* arg)
  * @note Address: shun .text 0x7F8
  * @note Size: 0x4
  */
-extern "C" void UpdateStage(void* arg)
+extern "C" void UpdateStage(s32 arg)
 {
 }
 
@@ -550,7 +447,7 @@ extern "C" void UpdateStage(void* arg)
  * @note Address: shun .text 0x7FC
  * @note Size: 0x4
  */
-extern "C" void InitStage(void* arg)
+extern "C" void InitStage(s32 arg)
 {
 }
 

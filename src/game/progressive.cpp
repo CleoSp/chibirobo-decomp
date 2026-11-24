@@ -1,14 +1,13 @@
 #include "game/progressive.h"
 #include "game/cgame.h"
 #include "game/cmdline.h"
+#include <stdlib.h>
+#include <string.h>
 
 extern "C" {
-u32 OSGetSoundMode(void);
 char* strtok(char*, const char*);
-int strcmp(const char*, const char*);
-int atoi(const char*);
+u32 OSGetSoundMode(void);
 s32 GetStageNum();
-const char* GetStageFileName(s32);
 s32 GetDefaultStageIndex();
 }
 
@@ -131,7 +130,6 @@ extern "C" void LoadBootConfig()
 							stage += GetStageNum() - 99;
 						gCmdLineArgs.mStage = stage;
 						gGame.SetStage(stage);
-						GetStageFileName(stage);
 					}
 					break;
 				case BootCrosshair: {
@@ -141,14 +139,11 @@ extern "C" void LoadBootConfig()
 					if (text) {
 						gCmdLineArgs.mCrosshairX = x;
 						gCmdLineArgs.mCrosshairY = atoi(text);
-						atoi(text);
 					}
 					break;
 				}
-				// restricted like the settings, but nothing is left of it in this build
 				case BootEventLog:
-					if (restricted)
-						break;
+					// Reserved for event logging.
 					break;
 				case BootSetting:
 					if (restricted)
@@ -179,7 +174,6 @@ extern "C" void LoadBootConfig()
 						gCmdLineArgs.mTitleCursor = atoi(text);
 						break;
 					}
-					atoi(text);
 					break;
 				}
 			}

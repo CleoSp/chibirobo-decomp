@@ -10,9 +10,7 @@
 #include "game/stagedata.h"
 #include "game/xchr.h"
 
-extern "C" {
 #include <sysdolphin/axdriver.h>
-}
 
 /**
  * @note Address: 0x800DF9A0
@@ -20,7 +18,7 @@ extern "C" {
  */
 void XObjDust::ResetObjectState()
 {
-	ResetObjectState__4XObjFv(this);
+	XObj::ResetObjectState();
 	if (GetObjFlags() & 1) { // flag 1: the drifting dust gets a random phase
 		mBaseY        = mMoveTranslate.y;
 		mPhase        = fmod((f32)rand(), TWO_PI);
@@ -53,18 +51,18 @@ s32 XObjDust::GetFlagIndex()
  * @note Address: 0x800DFB68
  * @note Size: 0x100
  */
-extern "C" u32 OnPlayerContact__8XObjHBoxFll(XObjHBox* box, s32 unused, u32 flags)
+s32 XObjHBox::OnPlayerContact(const CVec&, s32 flags)
 {
 	if ((flags & 3) == 1) // not a new touch
 		return flags;
-	if (box->mAnimId == 0)
+	if (mAnimId == 0)
 		return flags;
 	gGame.GetPlayer()->mFallDistance = 0.0f;
-	box->mStatus.mFlags |= 0x4000000000000000ULL;
-	box->mPart.mHit = 1.0f;
+	mStatus.mFlags |= 0x4000000000000000ULL;
+	mPart.mHit = 1.0f;
 	PlayGameSound(&gGame.mSound, 285, 255);
-	box->TriggerEvent(-1, -1);
-	HSD_AudioSFXKeyOff(box->mPart.mSfx);
+	TriggerEvent(-1, -1);
+	HSD_AudioSFXKeyOff(mPart.mSfx);
 	return 0;
 }
 
@@ -75,7 +73,7 @@ extern "C" u32 OnPlayerContact__8XObjHBoxFll(XObjHBox* box, s32 unused, u32 flag
 void XObjHBox::OnHitFromPosition(const Vec& pos, f32 strength)
 {
 	if (mAnimId <= 0) {
-		OnHitFromPosition__4XObjFRC3Vecf(this, &pos, strength);
+		XObj::OnHitFromPosition(pos, strength);
 		if ((mStatus.mFlags & 0x04000000ULL) && strength >= (s32)GetPlayerActionParameter(31) / 100.0f) // param 31, in 1/100
 			mStatus.mFlags |= 0x2000000000000000ULL;                                                    // strong enough hits open it
 	}
@@ -96,11 +94,9 @@ void XObjHBox::DrawScreenOverlay()
 		f32 outer = 400.0f * (1.0f - ring);
 		SetGsDepthMode(gGame.mGs.mCurRenderMode, 0, 7, 0);
 		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 2, 4, 15);
-		// retail adds an int zero to both radii
-		s32 pad   = 0;
 		u32 color = (u32)(255.0f * ring) | 0xFFFFFF00;
-		DrawGsCircle(&gGame.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, inner + pad, inner + pad, 0.0f, 0.0f, 0.0f);
-		DrawGsCircle(&gGame.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outer + pad, outer + pad, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, inner, inner, 0.0f, 0.0f, 0.0f);
+		DrawGsCircle(&gGame.mGs, 16, color, 0xFFFFFF00, x, y, 0.0f, outer, outer, 0.0f, 0.0f, 0.0f);
 		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
 		SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 3, 0);
 	}
@@ -113,7 +109,7 @@ void XObjHBox::DrawScreenOverlay()
 void XObjHBox::DrawGroundShadowAt(const Vec* origin, f32 opacity)
 {
 	if (mPart.mObj.mStatus.mFlags & 0x10000ULL) // only when the part is drawn
-		DrawGroundShadowAt__4XObjFPC3Vecf(this, origin, opacity);
+		XObj::DrawGroundShadowAt(origin, opacity);
 }
 
 /**
@@ -122,7 +118,7 @@ void XObjHBox::DrawGroundShadowAt(const Vec* origin, f32 opacity)
  */
 void XObjHBox::DrawWithView(Mtx view)
 {
-	DrawWithView__4XObjFPA4_f(this, view);
+	XObj::DrawWithView(view);
 	if (mPart.mObj.mStatus.mFlags & 0x10000ULL) // only when the part is drawn
 		mPart.mObj.DrawWithView(view);
 }

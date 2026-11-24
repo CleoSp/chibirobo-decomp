@@ -12,6 +12,7 @@
 // and anything after mAnim, another CJArchive, 0x10 lower
 
 class CShadow;
+class CVec;
 
 struct CAnmQueueEntry {
 	s32 mId;    // _00, -1 when free
@@ -120,7 +121,7 @@ public:
 	u32 GetMarkerOverride() const;
 	u32 GetMarkerOverride(u32 mask) const;
 
-	virtual ~XObj() { }     // _08
+	virtual ~XObj();
 	virtual void Release(); // _54
 	virtual void SetAnim(s32 id, BOOL force, void* jointAnim, void* matAnim, void* shapeAnim, f32 frame, f32 rate, f32 blend,
 	                     f32 blendRate);   // _80
@@ -152,9 +153,9 @@ public:
 	virtual HSD_AnimJoint* GetJointAnimation(s32 id);       // _F0, joint anim
 	virtual HSD_MatAnimJoint* GetMaterialAnimation(s32 id); // _F4, material anim
 	virtual HSD_ShapeAnimJoint* GetShapeAnimation(s32 id);  // _F8, shape anim
-	virtual u32 TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 height, Vec* push, Vec* contact, s32 arg6,
-	                               s32 arg7);                         // _FC, collision test
-	virtual s32 OnPlayerContact(s32 unused, s32 value);               // _100, the player touched or used the object
+	virtual u32 TestFloorCollision(const Vec* from, const Vec* to, f32 radius, f32 height, Vec* push, Vec* contact, s32* cursor,
+	                               s32 flags);                        // _FC, collision test
+	virtual s32 OnPlayerContact(const CVec& displacement, s32 value); // _100, the player touched or used the object
 	virtual BOOL TestFloorCrossing(const Vec& start, const Vec& end); // _104
 	virtual f32 GetShadowRadius();                                    // _108, shadow radius
 	virtual void ProjectOffsetToScreen(const Vec* offset, f32* x, f32* y, f32* z,
@@ -278,6 +279,7 @@ public:
 	s32 mCameraAnim; // _B14, -1 when no anim is playing
 
 	XObjCamera();
+	virtual ~XObjCamera();
 	virtual void Release();
 	virtual void InitializeObject(u32 id);
 	virtual void ResetObjectState();
@@ -294,33 +296,20 @@ extern "C" CVec GetStagePlacementScale(XObj* object);
 
 // the object base functions, the units from 0x8008A000 to 0x80093000
 extern "C" {
-// ~XObj, the subclass dtors call it with 0
-XObj* __dt__4XObjFv(XObj* object, s32 flags);
 BOOL LoadJointAnimationAsync(CJAnim* anim, const char* path);
-// the default OnHitFromPosition
-void OnHitFromPosition__4XObjFRC3Vecf(XObj* object, const Vec* position, f32 strength);
 CVec GetFloorContactPosition(XObj* object, s32 floor, const Vec* offset);
 // the default SetColor
 f32 GetFloorFacingAngle(XObj* object, const Vec* pos, s32 index, s32 requireSegment, Vec* contact, Vec* normalOut);
 void UpdateObjectFloorHeights(XObj* object);
 void UpdateObjectFloorXZExtent(XObj* object);
-void DrawGroundShadowAt__4XObjFPC3Vecf(XObj* object, const Vec* origin, f32 opacity);
-void DrawGroundShadow__4XObjFv(XObj* object);
-void DrawWithView__4XObjFPA4_f(XObj* object, f32 (*view)[4]);
-void UpdateObject__4XObjFUl(XObj* object, u32 frames);
 // walk callback, sets up each material's pe and toon flags
-void ApplyJointMaterialPEPresets(HSD_JObj* joint, f32** arguments, s32 type);
-// the default LoadFromPlacement, reads the object's coord info
-BOOL LoadFromPlacement__4XObjFRC9CoordInfo(XObj* object, const CoordInfo* info);
-void ResetObjectState__4XObjFv(XObj* object);
-void InitializeObject__4XObjFUl(XObj* object, u32 id);
+void ApplyJointMaterialPEPresets(HSD_JObj* joint, void* context, s32 type);
 
 // the object kinds from 0x800D4000 to 0x80108000
 void SyncMoveFromJoint(CXObj* object);
 void UpdateSpiderCoinBounces(void* context, u32 frames);
 void ResetSpiderCoinBounces(void* context);
 void ResetSpiderBossState(XObj* object);
-s32 HandleEventCommand__9XObjActorFlPl(CXObj* object, s32 index, s32* out);
 void SetActorLookAtPosition(CXObj* object, const Vec* target, f32 rate);
 void SetActorLookAngle(CXObj* object, f32 value, f32 rate);
 void SetActorLookTarget(CXObj* object, const Vec* target, f32 rate);
@@ -338,7 +327,6 @@ extern u8 gSpiderDrainFlashClaimed;
 extern s32 gAttachedSmallSpiderCount;
 extern XObj* lbl_8065B2DC;
 extern u8 lbl_8065B2E0;
-extern u32 gSpiderBossCoinBounceContext;
 extern s32 gSpiderBossVolleySlot;
 extern s32 gActor3Kind15ActivationCounter;
 }
@@ -364,11 +352,5 @@ struct XObjSource {
 
 extern "C" XObjSource gObjectSources[];
 extern "C" XObjSource* GetObjectSources();
-
-// todo: cleanup, coordinfo.h has UnkObjData's first word as padding
-inline XObjSource*& GetObjDataSource(UnkObjData* data)
-{
-	return *(XObjSource**)data->_00;
-}
 
 #endif

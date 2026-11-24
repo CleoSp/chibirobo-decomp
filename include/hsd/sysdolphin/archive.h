@@ -46,7 +46,8 @@ typedef struct HSD_Archive {
 
 s32 HSD_ArchiveParse(HSD_Archive*, u8*, u32);
 void* HSD_ArchiveGetPublicAddress(HSD_Archive*, char*);
-char* HSD_ArchiveGetExtern(HSD_Archive*, s32);
+/* Return the name at index in the archive's public symbol table. */
+char* HSD_ArchiveGetExtern(HSD_Archive* archive, s32 index);
 void HSD_ArchiveLocateExtern(HSD_Archive*, char*, void*);
 void HSD_ArchiveFree(HSD_Archive*);
 

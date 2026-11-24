@@ -4,14 +4,6 @@ extern "C" {
 }
 #include "game/cvec.h"
 
-// todo: cleanup
-static inline void CopyPosition(XObjPlugCordNode* node, XObjPlugCordPoint* point)
-{
-	node->mPos.x = point->mPos.x;
-	node->mPos.y = point->mPos.y;
-	node->mPos.z = point->mPos.z;
-}
-
 /**
  * @note Address: 0x800DC43C
  * @note Size: 0x1F0
@@ -19,24 +11,16 @@ static inline void CopyPosition(XObjPlugCordNode* node, XObjPlugCordPoint* point
 extern "C" void StartPlugCordNode(XObjPlugCordNode* node, XObjPlugCordPoint* points, s32 count, f32 time, s32 mode)
 {
 	node->mMode = mode;
-	switch (node->mMode) {
-	case 1:
-		node->mIndex = (s32)((u32)count - 2);
-		CopyPosition(node, &points[node->mIndex]);
-		node->mStep.Start(0.5f, 0.2f, time);
-		node->mDir = points[node->mIndex - 1].mPos - points[node->mIndex].mPos;
-		node->mDir.Normalize();
-		node->mState    = 1;
-		node->mDistance = 0.0f;
-		break;
-	case -1:
-		node->mIndex = 0;
-		CopyPosition(node, &points[node->mIndex]);
-		node->mStep.Start(0.5f, 0.2f, time);
-		node->mDir = points[node->mIndex + 1].mPos - points[node->mIndex].mPos;
-		node->mDir.Normalize();
-		node->mState    = 1;
-		node->mDistance = 0.0f;
-		break;
-	}
+	if (mode != 1 && mode != -1)
+		return;
+
+	const s32 index = mode == 1 ? count - 2 : 0;
+	const s32 next  = index - mode;
+	node->mIndex    = index;
+	node->mPos      = points[index].mPos;
+	node->mStep.Start(0.5f, 0.2f, time);
+	node->mDir = points[next].mPos - points[index].mPos;
+	node->mDir.Normalize();
+	node->mState    = 1;
+	node->mDistance = 0.0f;
 }

@@ -4,9 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-// todo: cleanup
 // a quad over the whole w by h screen with the whole texture on it
-// 0 and 1 sit in locals, as literals mwcc reloads them for every store
 static inline void DrawQuad(f32 w, f32 h)
 {
 	f32 zero = 0.0f;
@@ -25,7 +23,6 @@ static inline void DrawQuad(f32 w, f32 h)
 	GXEnd();
 }
 
-// todo: cleanup
 // grabs the efb into mBuf
 inline void CFbOutline::Copy(GXTexFmt format)
 {
@@ -310,7 +307,6 @@ void CFbOutline::Update(s32 frames)
  */
 void CFbOutline::Draw(u32 flags)
 {
-	// NONMATCHING: retail reloads the offsets for every vertex
 	Mtx mtx;
 	Mtx44 proj;
 	Mtx texMtx;
@@ -599,13 +595,7 @@ void CFbOutline::Draw(u32 flags)
 
 		// the ghosts' phase, advanced 2 degrees a draw
 		static f32 rot = 0.0f;
-		// placeholders, the loop fills them every draw
-		f32 offset[4][2] = {
-			{ -3.0f, -3.0f },
-			{ 3.0f, -3.0f },
-			{ 3.0f, 3.0f },
-			{ -3.0f, 3.0f },
-		};
+		f32 offset[4][2];
 		int i;
 		for (i = 0; i < 4; i++) {
 			offset[i][0] = 3.0f * (f32)sin(rot + i * (PI / 2));
@@ -629,4 +619,3 @@ void CFbOutline::Draw(u32 flags)
 		GXEnd();
 	}
 }
-// fn_801A66A4

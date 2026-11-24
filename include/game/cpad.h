@@ -26,7 +26,7 @@ public:
 	BOOL mConnected;     // _4C
 	// _50 vtable
 
-	virtual ~CPadOne() { }           // _08, its one copy is in game part 1
+	virtual ~CPadOne() { }           // _08
 	virtual void Init(u8 port);      // _0C
 	virtual void Clear();            // _10
 	virtual void Update(s32 frames); // _14

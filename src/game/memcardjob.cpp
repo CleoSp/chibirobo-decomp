@@ -52,7 +52,7 @@ extern "C" void InitMemoryCardManager(Memcard* card)
 	card->mCard.Init();
 	CARDSetFastMode(TRUE);
 	memset(card->mBuffer, 0, sizeof(card->mBuffer));
-	card->mState = 0;
+	card->mState = Memcard::Idle;
 	card->_169F8 = 0;
 	card->mBusy  = FALSE;
 	card->mFound = FALSE;

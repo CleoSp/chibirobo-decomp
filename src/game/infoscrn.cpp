@@ -2,6 +2,7 @@
 #include "game/infopoint.h"
 #include "game/hudcounterhelpers.h"
 #include "game/cgs.h"
+#include "game/globals.h"
 #include "game/ctpl.h"
 #include "game/xchr.h"
 #include "game/stg.h"
@@ -32,22 +33,9 @@ void DrawHudClock(InfoScrn* scrn);
 void DrawHudBatteryGauge(InfoScrn* scrn);
 void DrawGameHud(InfoScrn* scrn);
 void UpdateHudIndicators(InfoScrn* scrn, u32 frames);
-const char* GetLocalizedInterfaceText(s32 id);
+void ResetGameHudState(InfoScrn* scrn);
 }
 
-// The original HUD code addresses the counters relative to this regional BSS prefix.
-extern "C" {
-#if defined(VERSION_JP)
-u8 gHudPointCounterStorage[0x134];
-#else
-u8 gHudPointCounterStorage[0x140];
-#endif
-}
-// todo: the three counters are infopointinit.cpp's, which is cut from this file. These are the file's own
-// copies, as on main, so that its code reaches them the way retail does
-static InfoPoint gHudMoneyCounter;
-static InfoPoint gHudHappyPointCounter;
-static InfoPoint gHudScrapCounter;
 extern "C" {
 f32 gHudScanlineHistory[10];
 }
@@ -103,26 +91,6 @@ void DrawScreenColorOverlay(CScrnColor* color, CGs* gs);
 void UpdateScreenFade(CScrnColor* color, u32 frames);
 }
 
-// the disc can't be read, the same test as CBase::IsDiscError
-static inline bool IsDiscError()
-{
-	bool error = false;
-	if ((gGame.mDvdStatus != 0 || gGame.mPrevDvdStatus != 0) && gGame.mDiskOk == 0) {
-		error = true;
-	}
-	return error;
-}
-
-// a stage is up and nothing stops it, the same test as CBase::IsRunning
-static inline bool IsHudOn()
-{
-	bool on = false;
-	if ((gGame.mStatus.mFlags & 1) && !(gGame.mStatus.mFlags & 0x22) && !IsDiscError()) {
-		on = true;
-	}
-	return on;
-}
-
 /**
  * @note Address: 0x8006D850
  * @note Size: 0x2A4
@@ -131,85 +99,7 @@ extern "C" void InitInfoScreen(InfoScrn* scrn)
 {
 	scrn->mFade.Reset();
 	scrn->mWipe.Reset();
-	scrn->mHudAlpha        = 0.0f;
-	scrn->mAttachmentAlpha = 0.0f;
-	scrn->mMenuHudAlpha    = 0.0f;
-	scrn->mDimAlpha        = 0.0f;
-	scrn->mTargetDimAlpha  = 0.0f;
-	scrn->_98              = 0;
-	scrn->mHudState        = 0;
-	scrn->mAttachmentState = 0;
-	scrn->mMenuHudState    = 0;
-	scrn->mFrameCount      = 0;
-	scrn->mBatteryGauge    = 0.0f;
-	scrn->_B8              = 0;
-	scrn->mIconFrameTimer  = 0;
-	scrn->mIconFrame       = 0;
-	InitHudPointCounter(&gHudHappyPointCounter, INFOPOINT_ID + 2);
-	InitHudPointCounter(&gHudMoneyCounter, INFOPOINT_ID);
-	InitHudPointCounter(&gHudScrapCounter, INFOPOINT_ID + 1);
-	gHudHappyPointCounter.mVisible = FALSE;
-	gHudMoneyCounter.mVisible      = FALSE;
-	gHudScrapCounter.mVisible      = FALSE;
-	scrn->mBatteryState            = 0;
-	scrn->mBatteryAlpha            = 0.0f;
-	scrn->mBatteryOffsetY          = 0.0f;
-	scrn->mTargetBatteryOffsetY    = 0.0f;
-	const Vec v0                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_128.x                   = v0.x;
-	scrn->_128.y                   = v0.y;
-	scrn->_128.z                   = v0.z;
-	scrn->mClockState              = 0;
-	scrn->mClockAlpha              = 0.0f;
-	scrn->mTimeWarningBeeps        = 0;
-	scrn->mTimeWarningTick         = 0;
-	scrn->mTimeWarningBeeped       = 0;
-	const Vec v1                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_170.x                   = v1.x;
-	scrn->_170.y                   = v1.y;
-	scrn->_170.z                   = v1.z;
-	scrn->mClockScale              = 1.0f;
-	scrn->mObjectGaugeState        = 0;
-	scrn->mObjectGaugeAlpha        = 0.0f;
-	const Vec v2                   = { 0.0f, 0.0f, 0.0f };
-	scrn->mObjectGaugePos.x        = v2.x;
-	scrn->mObjectGaugePos.y        = v2.y;
-	scrn->mObjectGaugePos.z        = v2.z;
-	scrn->mGaugeTarget             = NULL;
-	scrn->mPlayerIconState         = 0;
-	scrn->mPlayerIconAlpha         = 0.0f;
-	const Vec v3                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_1A8.x                   = v3.x;
-	scrn->_1A8.y                   = v3.y;
-	scrn->_1A8.z                   = v3.z;
-	scrn->mTimerState              = 0;
-	scrn->mTimerAlpha              = 0.0f;
-	scrn->mTimer                   = 0.0f;
-	scrn->mTimerShown              = 0;
-	scrn->mScanlineVisibilityState = 0;
-	scrn->mScanlineAlpha           = 0.0f;
-	scrn->_1CC                     = 0.0f;
-	scrn->_184                     = 0;
-	scrn->mSelectedSaveSlot        = 0;
-	scrn->mBatteryValue            = 0.0f;
-	scrn->mBatteryTarget           = 0.0f;
-	scrn->mBatteryEmptyTimer       = 0;
-	scrn->mBatteryEmptyStep        = 0;
-	scrn->mBatteryScale            = 1.4f;
-	f32 d                          = scrn->mBatteryValue - scrn->mBatteryTarget;
-	for (int i = 0; i < 4; i++) {
-		scrn->mDigitRoll[i]      = 0.0f;
-		scrn->mDigitValue[i]     = 0;
-		scrn->mDigitRolling[i]   = 0;
-		scrn->mDigitDelta[i]     = d;
-		scrn->mDigitLastDelta[i] = 0.0f;
-	}
-	scrn->mBatteryEmpty          = 0;
-	scrn->mBatteryDim            = 0;
-	scrn->mBatteryDimAlpha       = 0.0f;
-	scrn->mTargetBatteryDimAlpha = 0.0f;
-	gHudOpacityScale             = 1.0f;
-	scrn->mItemMax               = 5;
+	ResetGameHudState(scrn);
 }
 
 /**
@@ -230,6 +120,8 @@ extern "C" BOOL HideHudPointCounters(InfoScrn* scrn)
  */
 extern "C" void ResetGameHudState(InfoScrn* scrn)
 {
+	const Vec zero = { 0.0f, 0.0f, 0.0f };
+
 	scrn->mHudAlpha        = 0.0f;
 	scrn->mAttachmentAlpha = 0.0f;
 	scrn->mMenuHudAlpha    = 0.0f;
@@ -244,43 +136,30 @@ extern "C" void ResetGameHudState(InfoScrn* scrn)
 	scrn->_B8              = 0;
 	scrn->mIconFrameTimer  = 0;
 	scrn->mIconFrame       = 0;
+
 	InitHudPointCounter(&gHudHappyPointCounter, INFOPOINT_ID + 2);
 	InitHudPointCounter(&gHudMoneyCounter, INFOPOINT_ID);
 	InitHudPointCounter(&gHudScrapCounter, INFOPOINT_ID + 1);
-	gHudHappyPointCounter.mVisible = FALSE;
-	gHudMoneyCounter.mVisible      = FALSE;
-	gHudScrapCounter.mVisible      = FALSE;
+
 	scrn->mBatteryState            = 0;
 	scrn->mBatteryAlpha            = 0.0f;
 	scrn->mBatteryOffsetY          = 0.0f;
 	scrn->mTargetBatteryOffsetY    = 0.0f;
-	const Vec v0                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_128.x                   = v0.x;
-	scrn->_128.y                   = v0.y;
-	scrn->_128.z                   = v0.z;
+	scrn->_128                     = zero;
 	scrn->mClockState              = 0;
 	scrn->mClockAlpha              = 0.0f;
 	scrn->mTimeWarningBeeps        = 0;
 	scrn->mTimeWarningTick         = 0;
 	scrn->mTimeWarningBeeped       = 0;
-	const Vec v1                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_170.x                   = v1.x;
-	scrn->_170.y                   = v1.y;
-	scrn->_170.z                   = v1.z;
+	scrn->_170                     = zero;
 	scrn->mClockScale              = 1.0f;
 	scrn->mObjectGaugeState        = 0;
 	scrn->mObjectGaugeAlpha        = 0.0f;
-	const Vec v2                   = { 0.0f, 0.0f, 0.0f };
-	scrn->mObjectGaugePos.x        = v2.x;
-	scrn->mObjectGaugePos.y        = v2.y;
-	scrn->mObjectGaugePos.z        = v2.z;
+	scrn->mObjectGaugePos          = zero;
 	scrn->mGaugeTarget             = NULL;
 	scrn->mPlayerIconState         = 0;
 	scrn->mPlayerIconAlpha         = 0.0f;
-	const Vec v3                   = { 0.0f, 0.0f, 0.0f };
-	scrn->_1A8.x                   = v3.x;
-	scrn->_1A8.y                   = v3.y;
-	scrn->_1A8.z                   = v3.z;
+	scrn->_1A8                     = zero;
 	scrn->mTimerState              = 0;
 	scrn->mTimerAlpha              = 0.0f;
 	scrn->mTimer                   = 0.0f;
@@ -295,12 +174,11 @@ extern "C" void ResetGameHudState(InfoScrn* scrn)
 	scrn->mBatteryEmptyTimer       = 0;
 	scrn->mBatteryEmptyStep        = 0;
 	scrn->mBatteryScale            = 1.4f;
-	f32 d                          = scrn->mBatteryValue - scrn->mBatteryTarget;
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < ARRAY_SIZE(scrn->mDigitRoll); i++) {
 		scrn->mDigitRoll[i]      = 0.0f;
 		scrn->mDigitValue[i]     = 0;
 		scrn->mDigitRolling[i]   = 0;
-		scrn->mDigitDelta[i]     = d;
+		scrn->mDigitDelta[i]     = 0.0f;
 		scrn->mDigitLastDelta[i] = 0.0f;
 	}
 	scrn->mBatteryEmpty          = 0;
@@ -349,7 +227,6 @@ static struct {
  * @note Address: 0x8006CB68
  * @note Size: 0x930
  */
-// NONMATCHING: the robot's x reads the struct through a register, scratch registers
 extern "C" void DrawObjectLoadingProgress(InfoScrn* scrn)
 {
 	if (gGame.mStatus.mFlags & 0x40) {
@@ -522,7 +399,7 @@ static inline void ApproachHudScale(f32& current, f32 target)
  */
 extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
 {
-	if (!IsHudOn() && !(gGame.mStatus.mFlags & 0x200000000000ULL))
+	if (!gGame.IsRunning() && !(gGame.mStatus.mFlags & 0x200000000000ULL))
 		return;
 	UpdateHudPointValue(&gHudHappyPointCounter, frames);
 	UpdateHudPointValue(&gHudMoneyCounter, frames);
@@ -557,7 +434,6 @@ extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
 	}
 	// whatever the state machine above did, the alpha ends up 1
 	h->mHudAlpha = 1;
-	CPad pad(0); // unused, retail builds one here
 	switch (h->mAttachmentState) {
 	case 0:
 		if (gGame.GetPlayer()->GetAttachment()) {
@@ -710,8 +586,8 @@ extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
 	}
 	// the clock's warning blink ticks on the frames the day's time moves on (CGame's update makes the same test; 0xc00 is
 	// chibi robo's menu rings or yes/no menu open) and once time is up
-	if ((IsHudOn() && !gGame.mEvt.mData.mScript && !gGame.mMenu.mActive && !(gGame.mStatus.mFlags & 0xc00) && gGame.mTimeState.mDuration > 0
-	     && !gGame.mTimeState.mRunning)
+	if ((gGame.IsRunning() && !gGame.mEvt.mData.mScript && !gGame.mMenu.mActive && !(gGame.mStatus.mFlags & 0xc00)
+	     && gGame.mTimeState.mDuration > 0 && !gGame.mTimeState.mRunning)
 	    || gGame.mTimeState.mTime >= 1)
 		++h->mTimeWarningTick;
 	CJObj joint;
@@ -779,10 +655,9 @@ extern "C" void UpdateHudIndicators(InfoScrn* h, u32 frames)
  * @note Address: 0x8006AB00
  * @note Size: 0x434
  */
-// NONMATCHING: the bss address and the zero swap r6 and r7
 extern "C" void DrawGameHud(InfoScrn* scrn)
 {
-	if (IsHudOn() || (gGame.mStatus.mFlags & 0x200000000000ULL)) {
+	if (gGame.IsRunning() || (gGame.mStatus.mFlags & 0x200000000000ULL)) {
 		DrawHudPointCounter(&gHudHappyPointCounter);
 		DrawHudPointCounter(&gHudMoneyCounter);
 		DrawHudPointCounter(&gHudScrapCounter);
@@ -1088,18 +963,9 @@ extern "C" s32 InfoScrn_GetTimerHundredths(InfoScrn* scrn)
  * @note Address: 0x8006697C
  * @note Size: 0x108
  */
-// NONMATCHING: the three int to float conversions land in other registers
 extern "C" f32 TimerFramesToHundredths(f32 frames)
 {
-	f32 seconds    = frames / (f32)TIMER_RATE;
-	s32 hundredths = ((s32)frames % TIMER_RATE) * 100 / TIMER_RATE;
-	if (frames >= (f32)TIMER_MAX) {
-		hundredths = 99;
-	}
-	f32 minutes = seconds / 60.0f;
-	f32 clock   = hundredths;
-	clock += 6000.0f * (s32)minutes + ((s32)seconds % 60) * 100;
-	return clock;
+	return FramesToClock(frames);
 }
 
 /**
@@ -1127,7 +993,7 @@ extern "C" void DrawHudScanlines(InfoScrn* scrn)
 		SetGsBlendMode(gGame.mGs.mCurRenderMode, 3, 4, 5, 15);
 		SetGsLineWidth(gGame.mGs.mCurRenderMode, 12, 5);
 		u32 color = a | 0x30303000;
-		for (s32 y = 0; y < 448; y += 4.0f) {
+		for (s32 y = 0; y < 448; y += 4) {
 			DrawGsLineSegment(&gGame.mGs, NULL, 0.0f, y + sScanline, 0.0f, color, 640.0f, y + sScanline, 0.0f, color);
 		}
 		SetGsBlendMode(gGame.mGs.mCurRenderMode, 1, 4, 5, 15);
@@ -1164,12 +1030,15 @@ extern "C" BOOL InfoScrn_IsBatteryGaugeEmpty(InfoScrn* scrn)
  */
 extern "C" void InitBatteryGauge(InfoScrn* scrn, f32 x)
 {
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < ARRAY_SIZE(scrn->mDigitRoll); i++) {
 		scrn->mDigitRoll[i]      = 1.0f;
 		scrn->mDigitRolling[i]   = 0;
 		scrn->mDigitDelta[i]     = 0.0f;
 		scrn->mDigitLastDelta[i] = 0.0f;
 	}
+	// Invalidate the current tenths digit so the next draw restarts its roll.
+	scrn->mDigitValue[0] = -1;
+	scrn->mBatteryEmpty  = false;
 	scrn->mBatteryTarget = 10.0f * x;
 	scrn->mBatteryValue  = scrn->mBatteryTarget;
 }
@@ -1216,7 +1085,6 @@ extern "C" void InfoScrn_ApplyBatteryHudCommand(InfoScrn* scrn, u8 show, s32 mod
  * @note Address: 0x80066250
  * @note Size: 0x274
  */
-// NONMATCHING: regalloc in the item loop
 extern "C" void InfoScrn_ApplyClockHudCommand(InfoScrn* scrn, u8 show, s32 mode, s32 flag)
 {
 	switch (mode) {
@@ -1391,13 +1259,13 @@ extern "C" void DrawHudRoundedRectangle(u32 color, f32 x, f32 y, f32 w, f32 h, f
 		f32 angle = 0.09817477f * i - HALF_PI;
 		s         = sin(angle);
 		f32 c     = -(f32)cos(angle);
-		if ((i >= 0 && i < 16) || i == 64) {
+		if (i < 16 || i == 64) {
 			cx = x;
 			cy = y;
-		} else if ((i >= 16 && i < 32) || i == 64) {
+		} else if (i < 32) {
 			cx = right;
 			cy = y;
-		} else if ((i >= 32 && i < 48) || i == 64) {
+		} else if (i < 48) {
 			cx = right;
 			cy = bottom;
 		} else {
@@ -1417,16 +1285,14 @@ extern "C" void DrawHudRoundedRectangle(u32 color, f32 x, f32 y, f32 w, f32 h, f
  * @note Address: 0x800652C0
  * @note Size: 0xB84
  */
-// NONMATCHING: vertex temporaries and floating-point register allocation
 extern "C" void DrawTexturedWindowFrame(u32 color, u32 textureColor, f32 x, f32 y, f32 width, f32 height, f32 alpha, f32 scaleX, f32 scaleY)
 {
 	f32 angle  = 4.712389f * (1.0f - alpha);
-	f32 sx     = 4.0f * (f32)sin(angle);
-	f32 sy     = 4.0f * (f32)sin(angle);
-	f32 left   = x - width / 2.0f - 40.0f - sx;
-	f32 right  = sx + (40.0f + (x + width / 2.0f));
-	f32 top    = y - 8.0f - sy;
-	f32 bottom = sy + (8.0f + (y + height));
+	f32 inset  = 4.0f * (f32)sin(angle);
+	f32 left   = x - width / 2.0f - 40.0f - inset;
+	f32 right  = inset + (40.0f + (x + width / 2.0f));
+	f32 top    = y - 8.0f - inset;
+	f32 bottom = inset + (8.0f + (y + height));
 	SetGsDepthMode(gGame.mGs.mCurRenderMode, 1, 7, 1);
 	DrawGsVertexQuad(&gGame.mGs, left - 8.0f, top - 8.0f, -1.0f, 0xFF000000, 9.0f + (8.0f + right), top - 8.0f, -1.0f, 0xFF000000,
 	                 9.0f + (8.0f + right), 9.0f + (8.0f + bottom), -1.0f, 0xFF000000, left - 8.0f, 9.0f + (8.0f + bottom), -1.0f,
@@ -1505,7 +1371,6 @@ extern "C" void DrawTexturedWindowFrame(u32 color, u32 textureColor, f32 x, f32 
  * @note Address: 0x8006389C
  * @note Size: 0xB08
  */
-// NONMATCHING: float registers
 extern "C" void DrawHudPointCounter(InfoPoint* point)
 {
 	f32 alpha = point->mOpacity * gHudOpacityScale;
@@ -1962,7 +1827,6 @@ extern "C" void DrawHudClock(InfoScrn* scrn)
 	PSMTXTrans(tex.mMtx[0], 0, 0, 0);
 	tex.mMtxDirty = TRUE;
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
-	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 	DrawClockQuad(tex, (u32)(160 * alpha), 80, 80 - (1 - fill) * height * 0.5f, 1, width, height * fill);
 	tex    = HudTexture(159);
 	width  = 0.9f * (scale * GXGetTexObjWidth(&tex));
@@ -1976,7 +1840,7 @@ extern "C" void DrawHudClock(InfoScrn* scrn)
 	SetGsTevMode(gGame.mGs.mCurTevStage, 0);
 	DrawClockQuad(tex, color, 80 - 16 * scale, 80 - 2 * scale, 1, 0.7f * (scale * tw), 0.7f * (scale * th));
 	f32 badgeAlpha = scrn->mItemMaxAlpha * gHudOpacityScale;
-	switch ((s32)(f32)scrn->mItemMax) {
+	switch (scrn->mItemMax) {
 	case 10:
 		tex = HudTexture(232);
 		break;
@@ -2018,12 +1882,6 @@ static inline BOOL IsPCOpen()
 	CMenu* menu = gGame.mMenu.mMenus[3];
 	return menu ? menu->IsOpen() : FALSE;
 #endif
-}
-
-// the y the counters' rows are placed from, the same as GetHudBottomEdge in hudcounterhelpers.h
-static inline f32 GetCounterRowY()
-{
-	return (gGame.mWipeTile1.mHeight / 2 + gGame.mWipeTile1.mY >= 418.0f) ? 418.0f : gGame.mWipeTile1.mHeight / 2 + gGame.mWipeTile1.mY;
 }
 
 /**
@@ -2080,25 +1938,21 @@ extern "C" void UpdateHudPointValue(InfoPoint* point, u32 frames)
 	if (0.0f == gGame.GetPlayer()->mIdleTimer) {
 		empty = true;
 	}
-#if defined(VERSION_JP)
-	// japan looks the bedroom up here and drops the result
-	FindStageIndexByName("stage19");
-#endif
 	if (point->mSuppressIdleDisplay) {
 		empty = false;
 	}
 	switch (point->mIndex) {
 	case INFOPOINT_ID + 2:
-		point->mPos[0].y = GetCounterRowY() - 64.0f - 40.0f;
-		point->mPos[1].y = GetCounterRowY() - 64.0f - 40.0f;
+		point->mPos[0].y = GetHudBottomEdge() - 64.0f - 40.0f;
+		point->mPos[1].y = GetHudBottomEdge() - 64.0f - 40.0f;
 		break;
 	case INFOPOINT_ID:
-		point->mPos[0].y = GetCounterRowY() - 64.0f;
-		point->mPos[1].y = GetCounterRowY() - 64.0f;
+		point->mPos[0].y = GetHudBottomEdge() - 64.0f;
+		point->mPos[1].y = GetHudBottomEdge() - 64.0f;
 		break;
 	case INFOPOINT_ID + 1:
-		point->mPos[0].y = 40.0f + (GetCounterRowY() - 64.0f);
-		point->mPos[1].y = 40.0f + (GetCounterRowY() - 64.0f);
+		point->mPos[0].y = 40.0f + (GetHudBottomEdge() - 64.0f);
+		point->mPos[1].y = 40.0f + (GetHudBottomEdge() - 64.0f);
 		break;
 	}
 
@@ -2331,18 +2185,18 @@ extern "C" void InitHudPointCounter(InfoPoint* point, s32 id)
 	switch (point->mIndex) {
 	case INFOPOINT_ID + 2:
 		point->mResource = point->mIndex;
-		point->mPos[0].y = GetCounterRowY() - 64.0f - 40.0f;
-		point->mPos[1].y = GetCounterRowY() - 64.0f - 40.0f;
+		point->mPos[0].y = GetHudBottomEdge() - 64.0f - 40.0f;
+		point->mPos[1].y = GetHudBottomEdge() - 64.0f - 40.0f;
 		break;
 	case INFOPOINT_ID:
 		point->mResource = point->mIndex;
-		point->mPos[0].y = GetCounterRowY() - 64.0f;
-		point->mPos[1].y = GetCounterRowY() - 64.0f;
+		point->mPos[0].y = GetHudBottomEdge() - 64.0f;
+		point->mPos[1].y = GetHudBottomEdge() - 64.0f;
 		break;
 	case INFOPOINT_ID + 1:
 		point->mResource = point->mIndex;
-		point->mPos[0].y = 40.0f + (GetCounterRowY() - 64.0f);
-		point->mPos[1].y = 40.0f + (GetCounterRowY() - 64.0f);
+		point->mPos[0].y = 40.0f + (GetHudBottomEdge() - 64.0f);
+		point->mPos[1].y = 40.0f + (GetHudBottomEdge() - 64.0f);
 		break;
 	}
 	point->mState          = 0;

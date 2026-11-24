@@ -51,7 +51,7 @@ public:
 	// _1E70 vtable
 
 	CCameraActions();
-	virtual ~CCameraActions() { } // _08
+	virtual ~CCameraActions(); // _08
 
 	void Init();
 };
@@ -62,7 +62,7 @@ class CCameraMemento {
 public:
 	CCameraMemento() { }
 	// _00 vtable
-	virtual ~CCameraMemento() { } // _08
+	virtual ~CCameraMemento(); // _08
 
 	CVec mEye;                       // _04
 	CVec mInterest;                  // _14
@@ -115,7 +115,7 @@ public:
 	s32 mEyeMode;                          // _1F0, 2 and 3 follow the eye in
 	// _1F4 vtable
 
-	virtual ~CMotionControlCamera() { } // _08
+	virtual ~CMotionControlCamera(); // _08
 
 	CVec mFollowTarget;      // _1F8, Follow steps mFollowValue towards it
 	CVec mFollowValue;       // _208

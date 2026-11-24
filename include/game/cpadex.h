@@ -6,7 +6,7 @@ extern "C" {
 }
 #include "game/cpad.h"
 
-// CBase owns the four controller ports and their input and rumble queues
+// owns the four controller ports and their input and rumble queues
 class CPadEx {
 public:
 	HSD_PadData mQueue;               // _00

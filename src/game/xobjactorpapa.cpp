@@ -7,7 +7,6 @@
 #include <stdlib.h>
 
 extern "C" {
-void Attach__5CJObjFP9_HSD_JObj(CJObj* obj, HSD_JObj* joint);
 }
 
 /**
@@ -236,7 +235,7 @@ void XObjActorPapa::StateNone(u32 frames)
 // Carries the selected prop at its hand joint and positions the player when held.
 void XObjActorPapa::UpdateAfterAnim(u32 frames)
 {
-	UpdateAfterAnim__9XObjActorFUl(this, frames);
+	XObjActor::UpdateAfterAnim(frames);
 	CJObj joint;
 	XObjChr* player = gGame.GetPlayer();
 	if (mHideKinds.mFlags & 0x3f) {
@@ -245,32 +244,32 @@ void XObjActorPapa::UpdateAfterAnim(u32 frames)
 		if (mHideKinds.Check(1)) {
 			kind        = 0x1f4;
 			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(2)) {
 			kind        = 0x360;
 			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(4)) {
 			kind        = 0x1d3;
 			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(8)) {
 			kind        = 0x375;
 			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(16)) {
 			kind        = 0x3fa;
 			s32 path[6] = { 0, 2, 1, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		} else if (mHideKinds.Check(32)) {
 			kind        = 0x401;
 			s32 path[6] = { 0, 2, 2, 0, 0, 0 };
-			Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 6));
+			joint.Attach(FindJointByPath(mJObj, path, 6));
 			position = joint.GetPos();
 		}
 		Mtx mount, translation, rotation, result;
@@ -370,22 +369,22 @@ void XObjActorPapa::UpdateAfterAnim(u32 frames)
 	// while carrying the player: park him on the hand joint and turn him toward the joint
 	if ((mActorStatus.mFlags & 0x100) && (player->mPlayerStatus.mFlags & XObjChr::ControlLocked)) {
 		s32 held[6] = { 0, 2, 2, 0, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, held, 6));
+		joint.Attach(FindJointByPath(mJObj, held, 6));
 		CVec pos = joint.GetPos();
 		pos.y += 4;
 		player->SetPos(pos, 0);
 		s32 face[4] = { 0, 2, 0, 0 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, face, 4));
+		joint.Attach(FindJointByPath(mJObj, face, 4));
 		pos = joint.GetPos();
 		player->SetRotateY(atan2(pos.x - player->mMoveTranslate.x, pos.z - player->mMoveTranslate.z), 0);
 	}
 	if (!mJointShown) {
 		s32 path[5] = { 0, 2, 0, 0, 1 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 5));
+		joint.Attach(FindJointByPath(mJObj, path, 5));
 		HSD_JObjSetFlags(joint.mJObj, HIDDEN);
 	} else {
 		s32 path[5] = { 0, 2, 0, 0, 1 };
-		Attach__5CJObjFP9_HSD_JObj(&joint, FindJointByPath(mJObj, path, 5));
+		joint.Attach(FindJointByPath(mJObj, path, 5));
 		HSD_JObjClearFlags(joint.mJObj, HIDDEN);
 	}
 }
@@ -421,13 +420,6 @@ void XObjActorPapa::Drop()
 		return;
 	}
 	switch (kind) {
-	case 0x1D3:
-		// Retail walks these two pools without changing the matching objects.
-		for (s32 i = 0; i < 15; ++i) {
-			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
-			(void)(kind == obj->GetKind());
-		}
-		break;
 	case 0x1F4:
 	case 0x360:
 	case 0x3FA:
@@ -437,12 +429,6 @@ void XObjActorPapa::Drop()
 			if (kind == obj->GetKind()) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
-		}
-		break;
-	case 0x375:
-		for (s32 i = 0; i < 64; ++i) {
-			XObj* obj = gGame.mXObjs.mPools[8].Get(i);
-			(void)(kind == obj->GetKind());
 		}
 		break;
 	}

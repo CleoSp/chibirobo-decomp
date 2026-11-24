@@ -25,7 +25,7 @@ public:
 	ScrnColorF mSpeed;  // _20, per frame, all zero once it's done
 	// _30 vtable
 
-	virtual ~CScrnColor() { } // _08 (weak)
+	virtual ~CScrnColor(); // _08
 
 	CScrnColor() { ResetChannels(0.0f); }
 
@@ -50,14 +50,14 @@ typedef char CScrnColor_size_check[sizeof(CScrnColor) == 0x34 ? 1 : -1];
 
 class CScrnFade : public CScrnColor {
 public:
-	virtual ~CScrnFade() { } // _08 (weak)
-	virtual void Reset();    // _0C
+	virtual ~CScrnFade(); // _08
+	virtual void Reset(); // _0C
 };
 
 // a color with a hole that opens or closes, the subclasses pick the shape
 class CScrnWipe : public CScrnColor {
 public:
-	virtual ~CScrnWipe() { }              // _08 (weak)
+	virtual ~CScrnWipe();                 // _08
 	virtual void Reset();                 // _0C, Reset__9CScrnWipeFv
 	virtual void Update(u32 frames);      // _10, Update__9CScrnWipeFUl
 	virtual void Draw(CGs* gs, s32 mode); // _14, Draw__9CScrnWipeFP3CGsl
@@ -81,12 +81,12 @@ typedef char CScrnWipe_size_check[sizeof(CScrnWipe) == 0x64 ? 1 : -1];
 
 class CScrnWipeCircle : public CScrnWipe {
 public:
-	virtual ~CScrnWipeCircle() { } // _08 (weak)
+	virtual ~CScrnWipeCircle(); // _08
 };
 
 class CScrnWipeTex : public CScrnWipe {
 public:
-	virtual ~CScrnWipeTex() { } // _08 (weak)
+	virtual ~CScrnWipeTex(); // _08
 	void Draw(CGs* gs, s32 mode);
 
 	CTexObj mTex; // _64
@@ -95,20 +95,20 @@ typedef char CScrnWipeTex_size_check[sizeof(CScrnWipeTex) == 0x164 ? 1 : -1];
 
 class CScrnWipeCustom : public CScrnWipe {
 public:
-	virtual ~CScrnWipeCustom() { } // _08 (weak)
+	virtual ~CScrnWipeCustom(); // _08
 	void Draw(CGs* gs, s32 mode);
 };
 
 class CScrnWipeTile : public CScrnWipe {
 public:
-	virtual ~CScrnWipeTile() { } // _08 (weak)
+	virtual ~CScrnWipeTile(); // _08
 	void Draw(CGs* gs, s32 mode);
 };
 
 // chibi robo's eyes closing over the screen
 class CScrnRoboeyes : public CScrnWipe {
 public:
-	virtual ~CScrnRoboeyes() { }          // _08 (weak)
+	virtual ~CScrnRoboeyes();             // _08
 	virtual void Reset();                 // _0C, Reset__13CScrnRoboeyesFv
 	virtual void Update(u32 frames);      // _10, Update__13CScrnRoboeyesFUl
 	virtual void Draw(CGs* gs, s32 mode); // _14, Draw__13CScrnRoboeyesFP3CGsl
@@ -125,7 +125,7 @@ public:
 	s32 mSign;      // _30
 	// _34 vtable
 
-	virtual ~CScrnQuake() { } // _08 (weak)
+	virtual ~CScrnQuake(); // _08
 };
 typedef char CScrnQuake_size_check[sizeof(CScrnQuake) == 0x38 ? 1 : -1];
 

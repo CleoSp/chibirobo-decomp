@@ -3,7 +3,7 @@
 
 #include <dolphin/types.h>
 
-#include <dolphin/pad.h>
+#include <Dolphin/pad.h>
 #include <sysdolphin/forward.h>
 #include <sysdolphin/rumble.h>
 
@@ -89,9 +89,7 @@ struct PadLibData {
 	u8 cross_dir;                            // _29
 	u8 reset_switch_status;                  // _2A
 	u8 reset_switch;                         // _2B
-	u16 rumble_max_list;                     // _2C
-	u8 rumble_unk2E;                         // _2E
-	HSD_PadRumbleListData* rumble_listdatap; // _30
+	RumbleInfo rumble_info;                  // _2C
 };
 
 extern PadLibData HSD_PadLibData;
