@@ -23,20 +23,15 @@ extern "C" void SetJointMaterialOpaque(HSD_JObj* joint, void*, s32)
 	}
 }
 
-struct TranslucentMaterial {
-	CXObj* object;
-	f32 alpha;
-};
-
 /**
  * @note Address: 0x8009136C
  * @note Size: 0x100
  */
 extern "C" void SetJointMaterialTranslucent(HSD_JObj* joint, void* context, s32)
 {
-	const TranslucentMaterial& materialParams = *static_cast<const TranslucentMaterial*>(context);
-	CXObj* object                             = materialParams.object;
-	f32 alpha                                 = materialParams.alpha;
+	void** arguments = static_cast<void**>(context);
+	CXObj* object    = static_cast<CXObj*>(arguments[0]);
+	f32 alpha        = *static_cast<f32*>(arguments[1]);
 	HSD_JObjModifyFlags(joint, 0x80000, 0x1C0000);
 	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
 		HSD_DObjModifyFlags(draw, 4, 0xE);
@@ -57,8 +52,9 @@ extern "C" void SetJointMaterialTranslucent(HSD_JObj* joint, void* context, s32)
  */
 void XObj::SetOpaque()
 {
+	void* arguments[1] = { this };
 	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialOpaque, NULL);
+		HSD_JObjWalkTree(mJObj, SetJointMaterialOpaque, arguments);
 	HSD_JObjModifyFlags(mJObj, 0x10000000, 0x70000000);
 }
 
@@ -68,9 +64,9 @@ void XObj::SetOpaque()
  */
 void XObj::SetTranslucent(f32 alpha)
 {
-	TranslucentMaterial material = { this, alpha };
+	void* arguments[2] = { this, &alpha };
 	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialTranslucent, &material);
+		HSD_JObjWalkTree(mJObj, SetJointMaterialTranslucent, arguments);
 	HSD_JObjModifyFlags(mJObj, 0x20000000, 0x70000000);
 }
 
@@ -80,7 +76,7 @@ void XObj::SetTranslucent(f32 alpha)
  */
 extern "C" void ScaleJointMaterialDiffuse(HSD_JObj* joint, void* context, s32)
 {
-	f32 factor = *static_cast<const f32*>(context);
+	f32 factor = *static_cast<f32*>(static_cast<void**>(context)[1]);
 	HSD_JObjSetFlags(joint, 0x80);
 	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
 		HSD_MObj* material = HSD_DObjGetMObj(draw);
@@ -106,14 +102,10 @@ extern "C" void ScaleJointMaterialDiffuse(HSD_JObj* joint, void* context, s32)
  */
 void XObj::EnableLighting(f32 factor)
 {
+	void* arguments[2] = { this, &factor };
 	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, ScaleJointMaterialDiffuse, &factor);
+		HSD_JObjWalkTree(mJObj, ScaleJointMaterialDiffuse, arguments);
 }
-
-struct DestinationAlpha {
-	BOOL enabled;
-	u8 alpha;
-};
 
 /**
  * @note Address: 0x80091784
@@ -121,9 +113,9 @@ struct DestinationAlpha {
  */
 extern "C" void SetJointMaterialDestAlpha(HSD_JObj* joint, void* context, s32)
 {
-	const DestinationAlpha& settings = *static_cast<const DestinationAlpha*>(context);
-	BOOL enabled                     = settings.enabled;
-	u8 alpha                         = settings.alpha;
+	u32* arguments = static_cast<u32*>(context);
+	BOOL enabled   = arguments[0];
+	u8 alpha       = arguments[1];
 	for (HSD_DObj* draw = HSD_JObjGetDObj(joint); draw != NULL; draw = HSD_DObjGetNext(draw)) {
 		HSD_MObj* material = HSD_DObjGetMObj(draw);
 		if (material != NULL && material->pe != NULL) {
@@ -142,9 +134,9 @@ extern "C" void SetJointMaterialDestAlpha(HSD_JObj* joint, void* context, s32)
  */
 void XObj::SetDestinationAlpha(BOOL enabled, u8 value)
 {
-	DestinationAlpha settings = { enabled, value };
+	u32 arguments[2] = { enabled, value };
 	if (mJObj != NULL)
-		HSD_JObjWalkTree(mJObj, SetJointMaterialDestAlpha, &settings);
+		HSD_JObjWalkTree(mJObj, SetJointMaterialDestAlpha, arguments);
 }
 
 static const HSD_PEDesc sDefaultMaterialPE = {
