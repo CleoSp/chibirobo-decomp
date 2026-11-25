@@ -72,6 +72,7 @@ struct Mato {
 	}
 
 	CVec GetPos() const { return mObj->mMoveTranslate; }
+	s32 GetPoints() const;
 
 	s32 mId;           // _00, id the stage script passed to AddMato; -1 when unused; returned by TakeDestroyedMatoId
 	XObj* mObj;        // _04, the dol actor this target is (XObj, an XObj); its mStatus bit 0x10000 marks it live
@@ -106,6 +107,11 @@ struct MatoList {
 	Mato mMatos[0x50];  // _2C, the targets, 0x50 slots, first _00 used
 };
 
+inline s32 Mato::GetPoints() const
+{
+	return mList->mKindPoints[mKind];
+}
+
 struct Shot {
 	Shot() { }
 	~Shot() { }
@@ -126,6 +132,7 @@ struct Shot {
 			mTrail[i] = mPos;
 		}
 	}
+	void Update(u32 dt);
 
 	u8 mActive;      // _00, shot in flight: set by Start, cleared when mTimer runs out, free slots are the ones with it false
 	u8 _01[0x3];     // _01
@@ -3495,6 +3502,9 @@ extern "C" void SetSoundCueTable(u8* data)
 	soundCueTable[0] = data;
 }
 
+// the parameter file is little endian
+#define READ_LE32(p) ((p)[0] + (p)[1] * 0x100 + (p)[2] * 0x10000 + (p)[3] * 0x1000000)
+
 /**
  * @note Address: stage02 .text 0x2A20
  * @note Size: 0x1D4
@@ -3502,13 +3512,13 @@ extern "C" void SetSoundCueTable(u8* data)
 extern "C" void SetFighterParams(u8* data)
 {
 	fighterWork.mParams       = data;
-	fighterWork.mMinSpeed     = (s32)ReadResourceOffset(data + 0x10) / 100.0f;
-	fighterWork.mMaxSpeed     = (s32)ReadResourceOffset(data + 0x14) / 100.0f;
-	fighterWork.mAccel        = (s32)ReadResourceOffset(data + 0x18) / 100.0f;
-	fighterWork.mFireSlowdown = (s32)ReadResourceOffset(data + 0x1C) / 100.0f;
-	fighterWork.mTimeLimit    = ReadResourceOffset(data + 0x20) * 60 + 59;
-	matoList.mKindPoints[0]   = ReadResourceOffset(data + 0x24);
-	matoList.mKindPoints[1]   = ReadResourceOffset(data + 0x28);
+	fighterWork.mMinSpeed     = (s32)READ_LE32(data + 0x10) / 100.0f;
+	fighterWork.mMaxSpeed     = (s32)READ_LE32(data + 0x14) / 100.0f;
+	fighterWork.mAccel        = (s32)READ_LE32(data + 0x18) / 100.0f;
+	fighterWork.mFireSlowdown = (s32)READ_LE32(data + 0x1C) / 100.0f;
+	fighterWork.mTimeLimit    = READ_LE32(data + 0x20) * 60 + 59;
+	matoList.mKindPoints[0]   = READ_LE32(data + 0x24);
+	matoList.mKindPoints[1]   = READ_LE32(data + 0x28);
 }
 
 /**
@@ -3803,7 +3813,7 @@ extern "C" void PilotNwing_Update(PilotNwing* link, u32 dt, f32 animFrame)
 
 	PSMTXScale(scale, 0.5f, 0.5f, 0.5f);
 	s32 carriedJoint[2] = { 0, 0 };
-	jobj                = GetJointByPath(link->mPathObj->mJObj, carriedJoint, 2);
+	jobj                = FindJointByPath(link->mPathObj->mJObj, carriedJoint, 2);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, link->mCarriedMtx);
 	HSD_JObjCopyMtx(link->mCarriedObj->mJObj, link->mCarriedMtx);
 	link->mAnimFrame = animFrame;
@@ -4727,24 +4737,40 @@ extern "C" void Fighter_Fire(Fighter* work, s32 batteryCost)
     blr
 */
 
+// the script's percent rate for this frame: non-positive becomes 1, capped at 2.5
+static inline f32 SampleSpeedRate(const u8* rates, f32 frame)
+{
+	f32 rate;
+	if (rates == NULL) {
+		rate = 0.0f;
+	} else {
+		rate = rates[(s32)frame] / 100.0f;
+		if (rate <= 0.0f) {
+			rate = 1.0f;
+		}
+		if (2.5f < rate) {
+			rate = 2.5f;
+		}
+	}
+	return rate;
+}
+
 /**
  * @note Address: stage02 .text 0x3BB0
  * @note Size: 0x664
  */
 extern "C" void Fighter_Update(Fighter* work, u32 dt)
 {
+	Mtx rot;
 	Mtx scale;
 	Mtx offset;
-	Mtx rot;
 	Vec zero;
 	HSD_JObj* jobj;
-	f32 rate;
 
 	work->mTimeLeft -= dt;
 	PSMTXScale(scale, 0.5f, 0.5f, 0.5f);
 	s32 flightJoint[2] = { 0, 0 };
-	s32 seatJoint[1]   = { 0 };
-	jobj               = GetJointByPath(work->mPath->mJObj, flightJoint, 2);
+	jobj               = FindJointByPath(work->mPath->mJObj, flightJoint, 2);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), scale, work->mBodyMtx);
 	HSD_JObjCopyMtx(work->mBody->mJObj, work->mBodyMtx);
 	zero.x = zero.y = zero.z = 0.0f;
@@ -4752,7 +4778,8 @@ extern "C" void Fighter_Update(Fighter* work, u32 dt)
 	PSMTXRotRad(rot, 'Y', work->mPlayerRotY);
 	PSMTXTrans(offset, 0.0f, -1.89f, -7.16f);
 	PSMTXConcat(offset, rot, offset);
-	jobj = GetJointByPath(work->mBody->mJObj, seatJoint, 1);
+	s32 seatJoint[1] = { 0 };
+	jobj             = FindJointByPath(work->mBody->mJObj, seatJoint, 1);
 	PSMTXConcat(HSD_JObjGetMtxPtr(jobj), offset, work->mPlayerMtx);
 	HSD_JObjCopyMtx(gGame.GetPlayer()->mJObj, work->mPlayerMtx);
 	if (work->mExtra != NULL) {
@@ -4765,19 +4792,7 @@ extern "C" void Fighter_Update(Fighter* work, u32 dt)
 		work->mSpeed = work->mMaxSpeed;
 	}
 	work->mPrevFrame = work->mFrame;
-	if (work->mSpeedRates == NULL) {
-		rate = 0.0f;
-	} else {
-		// the script's percent rate for this frame: non-positive becomes 1, capped at 2.5
-		rate = work->mSpeedRates[(s32)work->mFrame] / 100.0f;
-		if (rate <= 0.0f) {
-			rate = 1.0f;
-		}
-		if (2.5f < rate) {
-			rate = 2.5f;
-		}
-	}
-	work->mFrame = work->mSpeed * rate + work->mFrame;
+	work->mFrame += work->mSpeed * SampleSpeedRate(work->mSpeedRates, work->mFrame);
 	work->mPath->SetAnim(0, TRUE, NULL, NULL, NULL, work->mFrame, 1.0f, 0.0f, 10.0f);
 	ShotList_Update(&work->mShots, dt);
 }
@@ -6948,6 +6963,38 @@ FighterPanels panels;
 s32 fireHoldFrames;
 u8* soundCueTable[2];
 
+// moves the shot along, or ends it and scores its target when the time runs out
+inline void Shot::Update(u32 dt)
+{
+	if (mActive) {
+		mTimer -= dt;
+		if (mTimer <= 0) {
+			mActive    = false;
+			Mato* item = mTarget;
+			if (item != NULL) {
+				if (--item->mHitsLeft > 0) {
+					item->mPending = false;
+				} else if (item->mObj != NULL && (item->mObj->mStatus.mFlags & 0x10000)) {
+					item->mList->mDestroyed = item;
+					item->mList->mScore += item->GetPoints();
+					shotEvents.mFlags |= 1;
+				}
+				mResult.mFlags |= 1;
+			} else {
+				mResult.mFlags |= 2;
+			}
+		} else {
+			mPos.x = mVelocity.x * dt + mPos.x;
+			mPos.y = mVelocity.y * dt + mPos.y;
+			mPos.z = mVelocity.z * dt + mPos.z;
+			for (s32 j = 9; j > 0; j--) {
+				mTrail[j] = mTrail[j - 1];
+			}
+			mTrail[0] = mPos;
+		}
+	}
+}
+
 /**
  * @note Address: stage02 .text 0x5A48
  * @note Size: 0x2A0
@@ -6959,31 +7006,7 @@ extern "C" void ShotList_Update(ShotList* list, u32 dt)
 		if (!entry->mActive) {
 			continue;
 		}
-		entry->mTimer -= dt;
-		if (entry->mTimer <= 0) {
-			entry->mActive = false;
-			Mato* item     = entry->mTarget;
-			if (item != NULL) {
-				if (--item->mHitsLeft > 0) {
-					item->mPending = false;
-				} else if (item->mObj != NULL && (item->mObj->mStatus.mFlags & 0x10000)) {
-					item->mList->mDestroyed = item;
-					item->mList->mScore += item->mList->mKindPoints[item->mKind];
-					shotEvents.mFlags |= 1;
-				}
-				entry->mResult.mFlags |= 1;
-			} else {
-				entry->mResult.mFlags |= 2;
-			}
-		} else {
-			entry->mPos.x = entry->mVelocity.x * dt + entry->mPos.x;
-			entry->mPos.y = entry->mVelocity.y * dt + entry->mPos.y;
-			entry->mPos.z = entry->mVelocity.z * dt + entry->mPos.z;
-			for (s32 j = 9; j > 0; j--) {
-				entry->mTrail[j] = entry->mTrail[j - 1];
-			}
-			entry->mTrail[0] = entry->mPos;
-		}
+		entry->Update(dt);
 		if (entry->mResult.mFlags & 1) {
 			list->mHitStreak++;
 			list->mMissStreak = 0;
