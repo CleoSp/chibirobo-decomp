@@ -277,17 +277,18 @@ extern "C" HSD_AObj* FindMaterialOrTextureAnimationInJointTree(HSD_JObj* jobj)
 	for (; jobj != NULL; jobj = jobj->child) {
 		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
 			HSD_MObj* mobj = HSD_DObjGetMObj(dobj);
-			if (mobj != NULL) {
-				if (mobj->aobj != NULL) {
-					return mobj->aobj;
+			if (mobj) {
+				if ((aobj = mobj->aobj)) {
+					return aobj;
 				}
 				HSD_TObj* tobj = HSD_MObjGetTObj(mobj);
-				if (tobj != NULL && tobj->aobj != NULL) {
-					return tobj->aobj;
+				if (tobj && (aobj = tobj->aobj)) {
+					return aobj;
 				}
 			}
 		}
-		if ((aobj = FindMaterialOrTextureAnimationInJointTree(jobj->next)) != NULL) {
+		aobj = FindMaterialOrTextureAnimationInJointTree(jobj->next);
+		if (aobj) {
 			break;
 		}
 	}
@@ -305,11 +306,12 @@ extern "C" HSD_AObj* FindPolygonAnimationInJointTree(HSD_JObj* jobj)
 	for (; jobj != NULL; jobj = jobj->child) {
 		for (HSD_DObj* dobj = HSD_JObjGetDObj(jobj); dobj != NULL; dobj = HSD_DObjGetNext(dobj)) {
 			HSD_PObj* pobj = HSD_DObjGetPObj(dobj);
-			if (pobj != NULL && (aobj = pobj->aobj) != NULL) {
+			if (pobj && (aobj = pobj->aobj)) {
 				return aobj;
 			}
 		}
-		if ((aobj = FindPolygonAnimationInJointTree(jobj->next)) != NULL) {
+		aobj = FindPolygonAnimationInJointTree(jobj->next);
+		if (aobj) {
 			break;
 		}
 	}
@@ -322,7 +324,7 @@ extern "C" HSD_AObj* FindPolygonAnimationInJointTree(HSD_JObj* jobj)
 // drops a jobj's own dobjs
 extern "C" inline void RemoveJointDisplayObjectsJP(HSD_JObj* jobj)
 {
-	if (jobj->u.dobj != NULL) {
+	if (jobj->u.dobj) {
 		HSD_DObjRemoveAll(jobj->u.dobj);
 		jobj->u.dobj = NULL;
 	}
@@ -337,7 +339,7 @@ extern "C" void RemoveJointTreeDisplayObjects(HSD_JObj* jobj)
 {
 	RemoveJointDisplayObjectsJP(jobj);
 	if (!(jobj->flags & INSTANCE)) {
-		for (HSD_JObj* child = jobj->child; child != NULL; child = child->next) {
+		for (HSD_JObj* child = jobj->child; child; child = child->next) {
 			RemoveJointTreeDisplayObjects(child);
 		}
 	}
