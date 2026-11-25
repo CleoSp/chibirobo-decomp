@@ -45,7 +45,7 @@ public:
 	s32 CloseHandle(); // in ctpl.cpp
 
 	s32 Open();
-	void StartRead(BOOL fromAram);
+	s32 StartRead(BOOL fromAram);
 };
 // size checks by hand, STATIC_ASSERT lives in types.h
 typedef char CFile_size_check[sizeof(CFile) == 0xEC ? 1 : -1];
