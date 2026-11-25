@@ -106,6 +106,7 @@ void CMsgData::Format(u8* script, MsgFormatArgs* args)
 				for (i = 0; i < count; ++i)
 					buffers.text[i] = buffers.format[(count - 1) - i];
 				buffers.text[count] = 0;
+				strcpy((char*)dst, buffers.text);
 			}
 			if (wide && gGame.mLanguage == 6)
 				strcpy((char*)dst, ConvertHalfWidthToFullWidthSJIS(buffers.text, NULL));

@@ -656,45 +656,51 @@ extern "C" void CMsg_Update(CMsg* msg, u32 step)
 	}
 	CMsgFont_Update(&msg->mFont, step);
 }
+// the Wii build keeps this as its own function, shared with the message reset
+static inline void ResetMsgFont(CMsgFont* font)
+{
+	font->mActive    = FALSE;
+	font->mFadeIn    = FALSE;
+	font->mFadeOut   = FALSE;
+	font->mBlink     = FALSE;
+	font->mFitLine   = TRUE;
+	font->_04_04     = TRUE;
+	font->mCharCount = 0;
+	font->mLine      = 0;
+	font->mPlacement = NULL;
+	Vec zero         = { 0.0f, 0.0f, 0.0f };
+	font->mPosition  = zero;
+#if defined(VERSION_JP)
+	font->mSize = font->mPrevSize = 22.0f;
+#else
+	font->mSize     = 22.0f;
+	font->mPrevSize = NAN;
+#endif
+	font->mGlyphColor     = msgColorTable[0];
+	font->mGlyphAngle     = 0.0f;
+	font->mGlyphScaleY    = 1.0f;
+	font->mGlyphScaleX    = 1.0f;
+	font->mEffect         = 0;
+	font->mSelectedLine   = -1;
+	font->mOtherSelection = -1;
+	font->mAlpha          = 0.0f;
+	font->mTextAlpha      = 1.0f;
+	font->mHighlightAlpha = 0.0f;
+	font->mBlinkIcon      = 0;
+	font->mBlinkPhase     = 0.0f;
+	font->mTexOffset      = 0.0f;
+	for (int i = 0; i < 400; i++) {
+		font->mGlyphs[i].mPhaseX = font->mGlyphs[i].mPhaseY = (i * 75) % 360;
+	}
+}
+
 static inline void ResetMsgState(CMsg* msg)
 {
 	msg->mData.mCursor = NULL;
 #if !defined(VERSION_JP)
 	msg->mData.mIconColumns = 0;
 #endif
-	msg->mFont.mActive    = 0;
-	msg->mFont.mFadeIn    = 0;
-	msg->mFont.mFadeOut   = 0;
-	msg->mFont.mBlink     = 0;
-	msg->mFont.mFitLine   = 1;
-	msg->mFont._04_04     = 1;
-	msg->mFont.mCharCount = 0;
-	msg->mFont.mLine      = 0;
-	msg->mFont.mPlacement = 0;
-	Vec zero              = { 0.0f, 0.0f, 0.0f };
-	msg->mFont.mPosition  = zero;
-#if defined(VERSION_JP)
-	msg->mFont.mSize = msg->mFont.mPrevSize = 22.0f;
-#else
-	msg->mFont.mSize     = 22.0f;
-	msg->mFont.mPrevSize = NAN;
-#endif
-	msg->mFont.mGlyphColor     = msgColorTable[0];
-	msg->mFont.mGlyphAngle     = 0.0f;
-	msg->mFont.mGlyphScaleY    = 1.0f;
-	msg->mFont.mGlyphScaleX    = 1.0f;
-	msg->mFont.mEffect         = 0;
-	msg->mFont.mSelectedLine   = -1;
-	msg->mFont.mOtherSelection = -1;
-	msg->mFont.mAlpha          = 0.0f;
-	msg->mFont.mTextAlpha      = 1.0f;
-	msg->mFont.mHighlightAlpha = 0.0f;
-	msg->mFont.mBlinkIcon      = 0;
-	msg->mFont.mBlinkPhase     = 0.0f;
-	msg->mFont.mTexOffset      = 0.0f;
-	for (int i = 0; i < 400; i++) {
-		msg->mFont.mGlyphs[i].mPhaseX = msg->mFont.mGlyphs[i].mPhaseY = (i * 75) % 360;
-	}
+	ResetMsgFont(&msg->mFont);
 	msg->mIdle         = 1;
 	msg->mCharDelay    = 0.0f;
 	msg->mCharTimer    = 0.0f;
@@ -1483,44 +1489,10 @@ extern "C" u16 GXGetTexObjHeight(const GXTexObj* obj);
  * @note Address: 0x80085B34
  * @note Size: 0x950
  */
-extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, XObj* placement, s32 fitLine, s32 mode)
+extern "C" void CMsgFont_Init(CMsgFont* font, u8* data, f32 x, f32 y, XObj* placement, s32 fitLine, s32 mode)
 {
-	CMsgFont* font    = (CMsgFont*)window;
-	font->mData       = (CMsgData*)data;
-	font->mActive     = FALSE;
-	font->mFadeIn     = FALSE;
-	font->mFadeOut    = FALSE;
-	font->mBlink      = FALSE;
-	font->mFitLine    = TRUE;
-	font->_04_04      = TRUE;
-	font->mCharCount  = 0;
-	font->mLine       = 0;
-	font->mPlacement  = 0;
-	Vec origin        = { 0.0f, 0.0f, 0.0f };
-	font->mPosition.x = origin.x;
-	font->mPosition.y = origin.y;
-	font->mPosition.z = origin.z;
-#if defined(VERSION_JP)
-	font->mSize = font->mPrevSize = 22.0f;
-#else
-	font->mSize     = 22.0f;
-	font->mPrevSize = NAN;
-#endif
-	font->mGlyphColor  = msgColorTable[0];
-	font->mGlyphAngle  = 0.0f;
-	font->mGlyphScaleX = font->mGlyphScaleY = 1.0f;
-	font->mEffect                           = 0;
-	font->mSelectedLine                     = -1;
-	font->mOtherSelection                   = -1;
-	font->mAlpha                            = 0.0f;
-	font->mTextAlpha                        = 1.0f;
-	font->mHighlightAlpha                   = 0.0f;
-	font->mBlinkIcon                        = 0;
-	font->mBlinkPhase                       = 0.0f;
-	font->mTexOffset                        = 0.0f;
-	for (int i = 0; i < 400; i++) {
-		font->mGlyphs[i].mPhaseX = font->mGlyphs[i].mPhaseY = (i * 75) % 360;
-	}
+	font->mData = (CMsgData*)data;
+	ResetMsgFont(font);
 	font->mActive  = TRUE;
 	font->mFadeIn  = TRUE;
 	font->mFadeOut = FALSE;
@@ -1552,13 +1524,13 @@ extern "C" void CMsgFont_Init(CMsgFont* window, u8* data, f32 x, f32 y, XObj* pl
 		font->mGlyphs[i].mLine        = 0;
 	}
 	font->mPlacement                 = placement;
-	font->mCursorX                   = -((font->mFitLine ? font->mData->mWidths[font->mLine] : width) * 0.5f);
+	font->mCursorX                   = -((font->mFitLine ? font->mData->mWidths[font->mLine] : width) / 2.0f);
 	font->mWindowX                   = x;
 	font->mWidth                     = width;
 	font->mCursorY                   = 0.0f;
 	font->mWindowY                   = y;
 	font->mHeight                    = height;
-	font->mLineY[font->mLine]        = font->mCursorY + (font->mData->mHeights[0] - 22.0f) * 0.5f;
+	font->mLineY[font->mLine]        = font->mCursorY + (font->mData->mHeights[0] - 22.0f) / 2.0f;
 	font->mTexs.mTex[MSG_TEX_CURSOR] = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(115)], 0);
 	font->mTexs.mTex[MSG_TEX_DIGIT]  = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(116)], 0);
 	font->mTexs.mTex[MSG_TEX_ICON]   = texture->Init(&((TPLPalette*)(&gGame.mTpl)->mBuffer)->descriptorArray[MSG_INIT_DESCRIPTOR(119)], 0);
