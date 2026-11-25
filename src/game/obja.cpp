@@ -779,8 +779,9 @@ void XObj::Release()
 		ResetEventScriptState(&mEvt, TRUE, FALSE);
 	if (mStatus.mFlags & 1) {
 		CXObjIntp::Release();
-		XObjSource* source = mAttr.mObjData != NULL ? mAttr.mObjData->mSource : NULL;
-		if (source != NULL) {
+		UnkObjData* data = mAttr.mObjData;
+		if (data != NULL && data->mSource != NULL) {
+			XObjSource* source = data->mSource;
 			if (source->mArchive != NULL && source->mArchive->mRefCount <= 0) // its last user is gone
 				source->mArchive = NULL;
 		}
