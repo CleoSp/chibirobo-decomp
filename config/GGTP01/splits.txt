@@ -1009,6 +1009,8 @@ game/xobjactorevent.cpp:
 
 game/xobjactorlook.cpp:
 	.text       start:0x80109D60 end:0x80109F74
+	.rodata     start:0x80211B78 end:0x80211B84
+	.sdata2     start:0x80665264 end:0x80665274
 
 game/xobjactorjointupdate.cpp:
 	.text       start:0x80109F74 end:0x8010A604
@@ -1074,6 +1076,10 @@ game/xobjactortoyread.cpp:
 
 game/xobjactorjenny.cpp:
 	.text       start:0x80125618 end:0x80128C28
+	.rodata     start:0x802123E0 end:0x80212630
+	.data       start:0x80233D70 end:0x80233FC8
+	.sdata      start:0x80661740 end:0x80661770
+	.sdata2     start:0x80665658 end:0x806656E8
 
 game/xobjactormama.cpp:
 	.text       start:0x80128C28 end:0x8012AA1C
