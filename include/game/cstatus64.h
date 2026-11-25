@@ -13,6 +13,9 @@ public:
 	// _08 vtable
 
 	virtual ~CStatus64() { } // _08
+
+	// any of the mask's bits set, as CStatus::Check
+	bool Check(u64 mask) const { return (mFlags & mask) ? true : false; }
 };
 typedef char CStatus64_size_check[sizeof(CStatus64) == 0x10 ? 1 : -1];
 

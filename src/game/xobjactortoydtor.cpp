@@ -42,7 +42,7 @@ XObjActorToy::~XObjActorToy()
  */
 bool XObjActorToy::IsFree() const
 {
-	if (!(mStatus.mFlags & 1)) {
+	if (!mStatus.Check(1)) {
 		return true;
 	}
 	return !mActorStatus.Check(0x2000);
