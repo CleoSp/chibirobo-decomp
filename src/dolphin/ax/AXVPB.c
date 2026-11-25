@@ -6,7 +6,7 @@
 #include "__ax.h"
 #include "global.h"
 
-static const u32 __AXSrcCycles[5] = {
+static u32 __AXSrcCycles[5] = {
     0x00000DF8,
     0x00000F78,
     0x000014B8,
@@ -14,7 +14,7 @@ static const u32 __AXSrcCycles[5] = {
     0x000019F8
 };
 
-static const u32 __AXMainMixCycles[16] = {
+static u32 __AXMainMixCycles[16] = {
     0x00000000, 0x000002F8, 0x000002F8,
 	0x000005BE, 0x000002F8, 0x000005F0,
 	0x000005F0, 0x000008B6, 0x00000000,
@@ -23,7 +23,7 @@ static const u32 __AXMainMixCycles[16] = {
 	0x00000E97
 };
 
-static const u32 __AXAuxMixCycles[32] = {
+static u32 __AXAuxMixCycles[32] = {
     0x00000000, 0x000002F8, 0x000002F8,
 	0x000005BE, 0x00000000, 0x000004F1,
 	0x000004F1, 0x000009A6, 0x000002F8,
@@ -338,6 +338,7 @@ void __AXVPBInit(void) {
     AXPBITDBUFFER* ppbi;
     AXPBU* ppbu;
     AXVPB* pvpb;
+    u32* p;
 
 #if DEBUG
     OSReport("Initializing AXVPB code module\n");
@@ -350,9 +351,15 @@ void __AXVPBInit(void) {
     ASSERTLINE(914, OFFSET(__AXITD, AX_DSP_BUFFER_ALIGNMENT) == 0);
     ASSERTLINE(915, OFFSET(__AXUpdates, AX_DSP_BUFFER_ALIGNMENT) == 0);
 
-    memset(__AXPB, 0, sizeof(__AXPB));
-    memset(__AXITD, 0, sizeof(__AXITD));
-    memset(__AXVPB, 0, sizeof(__AXVPB));
+    for (p = (u32*)__AXPB, i = sizeof(__AXPB) / sizeof(u32); i != 0; i--) {
+        *p++ = 0;
+    }
+    for (p = (u32*)__AXITD, i = sizeof(__AXITD) / sizeof(u32); i != 0; i--) {
+        *p++ = 0;
+    }
+    for (p = (u32*)__AXVPB, i = sizeof(__AXVPB) / sizeof(u32); i != 0; i--) {
+        *p++ = 0;
+    }
 
     for (i = 0; i < AX_MAX_VOICES; i++) {
         ppb = &__AXPB[i];
@@ -769,9 +776,16 @@ void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* adpcm) {
  * @note Size: 0x98
  */
 void AXSetVoiceSrc(AXVPB* p, AXPBSRC* src_) {
+    AXPBSRC* dst = &p->pb.src;
     BOOL old = OSDisableInterrupts();
 
-    p->pb.src = *src_;
+    dst->ratioHi = src_->ratioHi;
+    dst->ratioLo = src_->ratioLo;
+    dst->currentAddressFrac = src_->currentAddressFrac;
+    dst->last_samples[0] = src_->last_samples[0];
+    dst->last_samples[1] = src_->last_samples[1];
+    dst->last_samples[2] = src_->last_samples[2];
+    dst->last_samples[3] = src_->last_samples[3];
     p->sync &= ~AX_SYNC_FLAG_COPYRATIO;
     p->sync |= AX_SYNC_FLAG_COPYSRC;
     OSRestoreInterrupts(old);
@@ -801,9 +815,12 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
  * @note Size: 0x6C
  */
 void AXSetVoiceAdpcmLoop(AXVPB* p, AXPBADPCMLOOP* adpcmloop) {
+    AXPBADPCMLOOP* dst = &p->pb.adpcmLoop;
     BOOL old = OSDisableInterrupts();
 
-    p->pb.adpcmLoop = *adpcmloop;
+    dst->loop_pred_scale = adpcmloop->loop_pred_scale;
+    dst->loop_yn1 = adpcmloop->loop_yn1;
+    dst->loop_yn2 = adpcmloop->loop_yn2;
     p->sync |= AX_SYNC_FLAG_COPYADPCMLOOP;
     OSRestoreInterrupts(old);
 }

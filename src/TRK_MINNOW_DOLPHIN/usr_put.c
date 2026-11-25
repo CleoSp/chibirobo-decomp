@@ -1,5 +1,25 @@
-#include "Dolphin/os.h"
 #include "PowerPC_EABI_Support/MetroTRK/trk.h"
+
+// MetroTRK declares this without a prototype, so the call has no varargs setup.
+void OSReport();
+
+/**
+ * @note Address: N/A
+ * @note Size: 0x58
+ */
+BOOL usr_putchar_serial(char c)
+{
+	char buf[2];
+	BOOL connect = GetTRKConnected();
+
+	buf[0] = c;
+	buf[1] = '\0';
+
+	SetTRKConnected(FALSE);
+	OSReport(buf);
+	SetTRKConnected(connect);
+	return FALSE;
+}
 
 /**
  * @note Address: 0x8014BAF0
@@ -7,15 +27,13 @@
  */
 BOOL usr_puts_serial(const char* msg)
 {
-	for (; *msg != '\0'; msg++) {
-		BOOL connected = GetTRKConnected();
+	BOOL connect_ = FALSE;
+	char c;
 
-		// Route this character through the local console.
-		SetTRKConnected(FALSE);
-		OSReport("%c", (unsigned char)*msg);
-		SetTRKConnected(connected);
+	while (!connect_ && (c = *msg++) != '\0') {
+		connect_ = usr_putchar_serial(c);
 	}
-	return FALSE;
+	return connect_;
 }
 
 /**

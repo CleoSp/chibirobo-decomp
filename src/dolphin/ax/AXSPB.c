@@ -25,27 +25,27 @@ u32 __AXGetStudio(void) {
 
 #define AX_MAX_DEPOP_DELTA 20
 
-// The DSP stores the initial volume in two consecutive halfwords.
-static s32 AXDepopFade(s32 volume, u16* volumeHi, u16* volumeLo, s16* dspDelta) {
-    s32 step = volume / AX_SAMPLES_PER_FRAME;
+// The DSP keeps the initial volume as a hi/lo halfword pair, written here as one word.
+static void AXDepopFade(s32* hostSum, s32* dspVolume, s16* dspDelta) {
+    s32 delta = *hostSum / AX_SAMPLES_PER_FRAME;
 
-    if (step == 0) {
-        *volumeHi = 0;
-        *volumeLo = 0;
-        *dspDelta = 0;
-        return 0;
+    if (delta != 0) {
+        if (delta > AX_MAX_DEPOP_DELTA) {
+            delta = AX_MAX_DEPOP_DELTA;
+        }
+        if (delta < -AX_MAX_DEPOP_DELTA) {
+            delta = -AX_MAX_DEPOP_DELTA;
+        }
+
+        *dspVolume = *hostSum;
+        *hostSum -= delta * AX_SAMPLES_PER_FRAME;
+        *dspDelta = -delta;
+        return;
     }
 
-    if (step > AX_MAX_DEPOP_DELTA) {
-        step = AX_MAX_DEPOP_DELTA;
-    } else if (step < -AX_MAX_DEPOP_DELTA) {
-        step = -AX_MAX_DEPOP_DELTA;
-    }
-
-    *volumeHi = (u16)((u32)volume >> 16);
-    *volumeLo = (u16)volume;
-    *dspDelta = (s16)-step;
-    return volume - step * AX_SAMPLES_PER_FRAME;
+    *hostSum = 0;
+    *dspVolume = 0;
+    *dspDelta = 0;
 }
 
 /**
@@ -53,15 +53,15 @@ static s32 AXDepopFade(s32 volume, u16* volumeHi, u16* volumeLo, s16* dspDelta) 
  * @note Size: 0x3F8
  */
 void __AXPrintStudio(void) {
-    __AXSpbAL = AXDepopFade(__AXSpbAL, &__AXStudio.dpopLHi, &__AXStudio.dpopLLo, &__AXStudio.dpopLDelta);
-    __AXSpbAR = AXDepopFade(__AXSpbAR, &__AXStudio.dpopRHi, &__AXStudio.dpopRLo, &__AXStudio.dpopRDelta);
-    __AXSpbAS = AXDepopFade(__AXSpbAS, &__AXStudio.dpopSHi, &__AXStudio.dpopSLo, &__AXStudio.dpopSDelta);
-    __AXSpbAAL = AXDepopFade(__AXSpbAAL, &__AXStudio.dpopALHi, &__AXStudio.dpopALLo, &__AXStudio.dpopALDelta);
-    __AXSpbAAR = AXDepopFade(__AXSpbAAR, &__AXStudio.dpopARHi, &__AXStudio.dpopARLo, &__AXStudio.dpopARDelta);
-    __AXSpbAAS = AXDepopFade(__AXSpbAAS, &__AXStudio.dpopASHi, &__AXStudio.dpopASLo, &__AXStudio.dpopASDelta);
-    __AXSpbABL = AXDepopFade(__AXSpbABL, &__AXStudio.dpopBLHi, &__AXStudio.dpopBLLo, &__AXStudio.dpopBLDelta);
-    __AXSpbABR = AXDepopFade(__AXSpbABR, &__AXStudio.dpopBRHi, &__AXStudio.dpopBRLo, &__AXStudio.dpopBRDelta);
-    __AXSpbABS = AXDepopFade(__AXSpbABS, &__AXStudio.dpopBSHi, &__AXStudio.dpopBSLo, &__AXStudio.dpopBSDelta);
+    AXDepopFade(&__AXSpbAL, (s32*)&__AXStudio.dpopLHi, &__AXStudio.dpopLDelta);
+    AXDepopFade(&__AXSpbAR, (s32*)&__AXStudio.dpopRHi, &__AXStudio.dpopRDelta);
+    AXDepopFade(&__AXSpbAS, (s32*)&__AXStudio.dpopSHi, &__AXStudio.dpopSDelta);
+    AXDepopFade(&__AXSpbAAL, (s32*)&__AXStudio.dpopALHi, &__AXStudio.dpopALDelta);
+    AXDepopFade(&__AXSpbAAR, (s32*)&__AXStudio.dpopARHi, &__AXStudio.dpopARDelta);
+    AXDepopFade(&__AXSpbAAS, (s32*)&__AXStudio.dpopASHi, &__AXStudio.dpopASDelta);
+    AXDepopFade(&__AXSpbABL, (s32*)&__AXStudio.dpopBLHi, &__AXStudio.dpopBLDelta);
+    AXDepopFade(&__AXSpbABR, (s32*)&__AXStudio.dpopBRHi, &__AXStudio.dpopBRDelta);
+    AXDepopFade(&__AXSpbABS, (s32*)&__AXStudio.dpopBSHi, &__AXStudio.dpopBSDelta);
     DCFlushRange(&__AXStudio, sizeof(__AXStudio));
 }
 
