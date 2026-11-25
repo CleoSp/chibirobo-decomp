@@ -78,6 +78,14 @@ public:
 		mAreaDepth = sDefaultPatrolSize;
 	}
 
+	void SetState(s32 state)
+	{
+		mStep      = 0;
+		mTimer     = 0;
+		mPrevState = mState;
+		mState     = state;
+	}
+
 	void State0(u32 frames);
 	void State1(u32 frames);
 	void State2(u32 frames);

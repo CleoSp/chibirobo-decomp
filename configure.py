@@ -644,7 +644,7 @@ config.libs = [
             Object(NonMatching, "game/memcardpreview_buffers.cpp"),
             Object(Equivalent, "game/xobjchratcanim.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/playerattachmentpaths.cpp"),
-            Object(Equivalent, "game/xobjspiderbossstate.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(Matching, "game/xobjspiderbossstate.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Matching, "game/xobjflagsclear.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Matching, "game/xobjcoinparam.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/titlestates.cpp", cflags=with_hsd_headers(cflags_game)),
@@ -1343,7 +1343,7 @@ config.libs = [
         "cflags": with_hsd_headers(cflags_rel),
         "progress_category": "rels",
         "objects": [
-            Object(Equivalent, "rel/ahk/ahk.cpp"),
+            Object(Matching, "rel/ahk/ahk.cpp"),
             Object(Matching, "rel/hori/hori.cpp"),
             Object(Equivalent, "rel/shun/shun.cpp"),
             Object(Equivalent, "rel/fafa.cpp"),
