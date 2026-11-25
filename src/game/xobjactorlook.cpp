@@ -151,7 +151,7 @@ extern "C" void ResetActorLook(CXObj* object, f32 rate)
 	actor->mActorStatus.mFlags |= 0x80;
 	actor->mLookMode  = 0; // back to forward
 	actor->mLookRate  = rate;
-	actor->mLookAngle = 0.0f;
+	actor->mLookAngle = XObjActor::sZero;
 	actor->mActorStatus.mFlags &= ~0x400;
-	actor->mHeadPitch = 0.0f;
+	actor->mHeadPitch = XObjActor::sZero;
 }
