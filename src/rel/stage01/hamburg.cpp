@@ -135,7 +135,7 @@ void ClearTempActors(void);
 HamDish* FindHamDish(s32 id);
 HamDish* RegisterHamDish(s32 id);
 s32 CountHamDishObjs(HamDish* group);
-void SetYakiRates(const u8* data);
+void SetYakiRates(u8* data);
 s32 PutHeldHamObjOnDish(s32 id);
 bool HamObj_CheckSlideHit(HamObj* slot);
 void UpdateHamPickupFlags(void);
@@ -368,7 +368,7 @@ extern "C" s32 CmdPlayYakiSound(s32 cmd, s32 count, s32* args)
  */
 extern "C" s32 CmdSetYakiRates(s32 cmd, s32 count, s32* args)
 {
-	SetYakiRates(reinterpret_cast<const u8*>(args[0]));
+	SetYakiRates(reinterpret_cast<u8*>(args[0]));
 	return 0;
 }
 
@@ -1038,13 +1038,12 @@ extern "C" s32 CountHamDishObjs(HamDish* group)
  * @note Address: stage01 .text 0xDD8
  * @note Size: 0x180
  */
-extern "C" void SetYakiRates(const u8* data)
+extern "C" void SetYakiRates(u8* data)
 {
 	s32 i;
 	for (i = 0; i < 5; i++) {
 		// a little-endian s32 per doneness level, /100; slot 0 keeps the reset 1.0
-		const u32 rate = data[0] + (static_cast<u32>(data[1]) << 8) + (static_cast<u32>(data[2]) << 16) + (static_cast<u32>(data[3]) << 24);
-		yakiRates[i + 1] = static_cast<s32>(rate) / 100.0f;
+		yakiRates[i + 1] = (s32)(data[0] + data[1] * 0x100 + data[2] * 0x10000 + data[3] * 0x1000000) / 100.0f;
 		data += 4;
 	}
 }
