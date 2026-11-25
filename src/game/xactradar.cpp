@@ -363,27 +363,20 @@ void UpdateRadarTargeting(XActRadar* act, s32 anim, HSD_AObj* aobj, u32 frames, 
  */
 XObj* FindNearestRadarTarget(XActRadar* act)
 {
-	XObj* obj;
 	CVec pos        = act->mOwner->mMoveTranslate;
 	XObj* nearest   = NULL;
-	f32 nearestDist = NAN;
-	for (int i = 0; i < gGame.mXObjs.mObjectCount; i++) {
-		obj = gGame.GetObject(i);
-		if ((obj->mStatus.mFlags & 1) && (obj->mStatus.mFlags & 0x10000) && !(obj->mStatus.mFlags & 0x4000000000000000ULL)
-		    && (obj->mStatus.mFlags & 0x80000) && (s32)act->mOwner->mId != (s32)obj->mId && obj->GetKind() < 10000) {
-			f32 dist;
-			if (nearest == NULL) {
-				dist = PSVECDistance(&pos, &obj->mMoveTranslate);
-			} else {
-				dist = PSVECDistance(&pos, &obj->mMoveTranslate);
-				if (!(dist < nearestDist)) {
-					dist = NAN;
-				}
-			}
-			if (fpclassify(dist) != FP_NAN) {
-				nearest     = obj;
-				nearestDist = dist;
-			}
+	f32 nearestDist = 0.0f;
+	for (s32 i = 0; i < gGame.mXObjs.mObjectCount; ++i) {
+		XObj* obj = gGame.GetObject(i);
+		u64 flags = obj->mStatus.mFlags;
+		if (!(flags & 1) || !(flags & 0x10000) || (flags & 0x4000000000000000ULL) || !(flags & 0x80000) || act->mOwner->mId == obj->mId
+		    || obj->GetKind() >= 10000) {
+			continue;
+		}
+		f32 distance = PSVECDistance(&pos, &obj->mMoveTranslate);
+		if ((nearest == NULL || distance < nearestDist) && fpclassify(distance) != FP_NAN) {
+			nearest     = obj;
+			nearestDist = distance;
 		}
 	}
 	return nearest;
