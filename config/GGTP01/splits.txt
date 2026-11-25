@@ -549,6 +549,7 @@ game/xobjfloor.cpp:
 
 game/obja.cpp:
 	.text       start:0x8008E8F8 end:0x80093360
+	.sdata2     start:0x80664290 end:0x80664378
 
 game/xobjmaterial.cpp:
 	.text       start:0x80093360 end:0x80093CF0
