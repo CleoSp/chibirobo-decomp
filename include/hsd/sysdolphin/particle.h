@@ -227,8 +227,6 @@ enum { PS_BANK_COUNT = 64 };
 
 extern HSD_PSTexGroup** psTexGroupArray[PS_BANK_COUNT];
 extern HSD_PSFormGroup** psFormGroupArray[PS_BANK_COUNT];
-extern s32 psNumCmdList[PS_BANK_COUNT];
-extern HSD_PSCmdList** psCmdListArray[PS_BANK_COUNT];
 extern HSD_JObj* psPointJObj[8];
 /* Optional command index remapping table for each bank. */
 extern const u32* ptclref[PS_BANK_COUNT];

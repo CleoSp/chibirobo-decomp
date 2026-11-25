@@ -427,7 +427,7 @@ BOOL hsdChangeClass(HSD_Class* object, HSD_ClassInfo* class_info)
  * @note Address: 0x801D6400
  * @note Size: 0xA0
  */
-BOOL hsdIsDescendantOf(void* info, HSD_ClassInfo* class_info)
+BOOL hsdIsDescendantOf(HSD_ClassInfo* info, HSD_ClassInfo* class_info)
 {
     HSD_ClassInfo* ancestor;
 

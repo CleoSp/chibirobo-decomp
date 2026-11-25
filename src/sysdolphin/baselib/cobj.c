@@ -1221,7 +1221,7 @@ HSD_CObj* HSD_CObjGetCurrent(void)
  */
 void HSD_CObjSetDefaultClass(HSD_CObjInfo* info)
 {
-	if (info != NULL && !hsdIsDescendantOf(info, HSD_CLASS_INFO(&hsdCObj))) {
+	if (info != NULL && !hsdIsDescendantOf(HSD_CLASS_INFO(info), HSD_CLASS_INFO(&hsdCObj))) {
 		__assert(__FILE__, __LINE__, "hsdIsDescendantOf(info, &hsdCObj)");
 	}
 	sDefaultCameraClass = info;
