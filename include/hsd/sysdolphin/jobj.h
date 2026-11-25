@@ -95,7 +95,7 @@
 #define JOBJ_USE_QUATERNION(o) ((o->flags & USE_QUATERNION))
 #define union_type_dobj(o) (((o)->flags & (PTCL | SPLINE)) ? FALSE : TRUE)
 #define union_type_ptcl(o) ((o->flags & PTCL) != 0)
-#define union_type_spline(o) ((o->flags & SPLINE) != 0)
+#define union_type_spline(o) (((o)->flags & SPLINE) ? TRUE : FALSE)
 
 #define JOBJ_ROOT_MASK (ROOT_OPA | ROOT_XLU | ROOT_TEXEDGE)
 #define JOBJ_JOINT (JOINT1 | JOINT2 | EFFECTOR)

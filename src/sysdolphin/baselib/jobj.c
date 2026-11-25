@@ -689,11 +689,7 @@ static void JObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
 				HSD_MtxGetTranslate(mtx, &jobj->translate);
 			}
 			if (channel == HSD_A_J_MTX_TO_SRT || channel == HSD_A_J_MTX_TO_ROTATION) {
-				Vec euler;
-				HSD_MtxGetRotation(mtx, &euler);
-				jobj->rotate.x = euler.x;
-				jobj->rotate.y = euler.y;
-				jobj->rotate.z = euler.z;
+				HSD_MtxGetRotation(mtx, (Vec*)&jobj->rotate);
 			}
 			if (channel == HSD_A_J_MTX_TO_SRT || channel == HSD_A_J_MTX_TO_SCALE) {
 				HSD_MtxGetScale(mtx, &jobj->scale);
@@ -963,10 +959,12 @@ void HSD_JObjResolveRefsAll(HSD_JObj* jobj, HSD_Joint* joint)
 
 static BOOL ReleaseIndividualRef(HSD_JObj* jobj)
 {
-	if (jobj->object.ref_count_individual == 0) {
-		return TRUE;
+	BOOL released = jobj->object.ref_count_individual == 0;
+	if (released) {
+		return released;
 	}
-	return --jobj->object.ref_count_individual == 0;
+	jobj->object.ref_count_individual -= 1;
+	return jobj->object.ref_count_individual == 0;
 }
 
 /**
@@ -976,7 +974,7 @@ static BOOL ReleaseIndividualRef(HSD_JObj* jobj)
 void HSD_JObjUnref(HSD_JObj* jobj)
 {
 	if (jobj != NULL && ref_DEC(jobj)) {
-		if (jobj->object.ref_count_individual == 0) {
+		if (jobj->object.ref_count_individual - 1 < 0) {
 			hsdDelete(jobj);
 		} else {
 			iref_INC(jobj);
@@ -994,7 +992,7 @@ void HSD_JObjUnref(HSD_JObj* jobj)
  */
 void HSD_JObjUnrefThis(HSD_JObj* jobj)
 {
-	if (jobj != NULL && ReleaseIndividualRef(jobj) && jobj->object.ref_count == HSD_OBJ_NOREF) {
+	if (jobj != NULL && ReleaseIndividualRef(jobj) && ref_CNT(jobj) < 0) {
 		hsdDelete(jobj);
 	}
 }
