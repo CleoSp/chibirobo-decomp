@@ -17,11 +17,14 @@ static CFileArchive* gCurrentFileArchive;
  * @note Address: 0x8019FD78
  * @note Size: 0x24
  */
-static void ReadCallback(int, void* context, void*, BOOL cancel)
+static void ReadCallback(s32, DVDFileInfo* info, void*, BOOL cancel)
 {
-	DVDFileInfo* info = static_cast<DVDFileInfo*>(context);
-	s32* result       = static_cast<s32*>(info->cBlock.userData);
-	*result           = cancel ? -2 : 0;
+	s32* result = static_cast<s32*>(info->cBlock.userData);
+	if (cancel) {
+		*result = -2;
+	} else {
+		*result = 0;
+	}
 }
 
 /**
@@ -101,7 +104,7 @@ void CFile::StartRead(BOOL fromAram)
 
 	mResult               = 1;
 	file->cBlock.userData = &mResult;
-	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, ReadCallback, file);
+	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, (HSD_DevComCallback)ReadCallback, file);
 }
 
 inline s32 CFile::Open()
@@ -201,7 +204,14 @@ s32 CFile::Read(const char* path, u32 offset, u32 size)
  */
 void CFile::Close()
 {
-	CloseHandle();
+	if (mEntrynum >= 0) {
+		mEntrynum = -1;
+		if (mArchive != NULL) {
+			ARCClose(&mArcInfo);
+		} else {
+			DVDClose(this);
+		}
+	}
 	Free();
 	mState = 1;
 }
@@ -317,11 +327,6 @@ BOOL CFileArchive::ReadEx(const char* path, u32 offset, u32 size)
 	return FALSE;
 }
 
-static bool IsLineBreak(char c)
-{
-	return c == '\r' || c == '\n' || c == 0x1A;
-}
-
 /**
  * @note Address: 0x8019F378
  * @note Size: 0x94
@@ -331,15 +336,22 @@ BOOL CFileText::GetLine(char* line)
 	if (mPos >= mSize)
 		return FALSE;
 
-	const char* text    = static_cast<const char*>(mBuffer);
-	const char* current = text + mPos;
-	const char* end     = text + mSize;
-	while (current != end && !IsLineBreak(*current))
-		*line++ = *current++;
-	while (current != end && IsLineBreak(*current))
-		++current;
+	char* p      = (char*)mBuffer + mPos;
+	BOOL lineEnd = FALSE;
+	do {
+		char c = *p;
+		if (c == '\r' || c == '\n' || c == 0x1A) { // all three end a line
+			lineEnd = TRUE;
+			p++;
+		} else {
+			if (lineEnd) {
+				break;
+			}
+			*line++ = *p++;
+		}
+	} while ((u32)(p - (char*)mBuffer) < mSize);
 
 	*line = '\0';
-	mPos  = current - text;
+	mPos  = p - (char*)mBuffer;
 	return TRUE;
 }
