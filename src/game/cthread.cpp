@@ -18,6 +18,14 @@ BOOL CThread::Create(OSThreadStartFunction func, void* arg, u32 stackSize, OSPri
 }
 
 /**
+ * @note Address: 0x8001950C
+ * @note Size: 0x48
+ */
+CThread::~CThread()
+{
+}
+
+/**
  * @note Address: 0x80019554
  * @note Size: 0x74
  */

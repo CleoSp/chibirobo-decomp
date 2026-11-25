@@ -1138,44 +1138,41 @@ void SetupSharedVtxModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 
 	flags |= GetSetupFlags(jobj);
 
-	// the original tests flags | SETUP_JOINTn, which is always true
-	if (flags | SETUP_JOINT0) {
-		GXSetCurrentMtx(GX_PNMTX0);
-		GXLoadPosMtxImm(pmtx, GX_PNMTX0);
-		HSD_PerfCurrentStat.nb_mtx_load++;
+	// A cache miss for either joint reloads both position matrices.
+	GXSetCurrentMtx(GX_PNMTX0);
+	GXLoadPosMtxImm(pmtx, GX_PNMTX0);
+	HSD_PerfCurrentStat.nb_mtx_load++;
 
-		if (flags & SETUP_NORMAL) {
-			if (!PSMTXInvXpose(pmtx, n0)) {
-				PSMTXCopy(pmtx, n0);
-			}
-			if (jobj->flags & LIGHTING) {
-				GXLoadNrmMtxImm(n0, GX_PNMTX0);
-				HSD_PerfCurrentStat.nb_mtx_load++;
-			}
-			if (flags & SETUP_NORMAL_PROJECTION) {
-				GXLoadTexMtxImm(n0, GX_TEXMTX0, GX_MTX3x4);
-				HSD_PerfCurrentStat.nb_mtx_load++;
-			}
+	if (flags & SETUP_NORMAL) {
+		if (!PSMTXInvXpose(pmtx, n0)) {
+			PSMTXCopy(pmtx, n0);
+		}
+		if (jobj->flags & LIGHTING) {
+			GXLoadNrmMtxImm(n0, GX_PNMTX0);
+			HSD_PerfCurrentStat.nb_mtx_load++;
+		}
+		if (flags & SETUP_NORMAL_PROJECTION) {
+			GXLoadTexMtxImm(n0, GX_TEXMTX0, GX_MTX3x4);
+			HSD_PerfCurrentStat.nb_mtx_load++;
 		}
 	}
-	if (flags | SETUP_JOINT1) {
-		HSD_JObjSetupMatrix(pobj->u.jobj);
-		PSMTXConcat(vmtx, pobj->u.jobj->mtx, m);
-		GXLoadPosMtxImm(m, GX_PNMTX1);
-		HSD_PerfCurrentStat.nb_mtx_load++;
 
-		if (flags & SETUP_NORMAL) {
-			if (!PSMTXInvXpose(m, n1)) {
-				PSMTXCopy(m, n1);
-			}
-			if (jobj->flags & LIGHTING) {
-				GXLoadNrmMtxImm(n1, GX_PNMTX1);
-				HSD_PerfCurrentStat.nb_mtx_load++;
-			}
-			if (flags & SETUP_NORMAL_PROJECTION) {
-				GXLoadTexMtxImm(n1, GX_TEXMTX1, GX_MTX3x4);
-				HSD_PerfCurrentStat.nb_mtx_load++;
-			}
+	HSD_JObjSetupMatrix(pobj->u.jobj);
+	PSMTXConcat(vmtx, pobj->u.jobj->mtx, m);
+	GXLoadPosMtxImm(m, GX_PNMTX1);
+	HSD_PerfCurrentStat.nb_mtx_load++;
+
+	if (flags & SETUP_NORMAL) {
+		if (!PSMTXInvXpose(m, n1)) {
+			PSMTXCopy(m, n1);
+		}
+		if (jobj->flags & LIGHTING) {
+			GXLoadNrmMtxImm(n1, GX_PNMTX1);
+			HSD_PerfCurrentStat.nb_mtx_load++;
+		}
+		if (flags & SETUP_NORMAL_PROJECTION) {
+			GXLoadTexMtxImm(n1, GX_TEXMTX1, GX_MTX3x4);
+			HSD_PerfCurrentStat.nb_mtx_load++;
 		}
 	}
 }

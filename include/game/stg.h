@@ -76,12 +76,7 @@ public:
 	virtual BOOL Update(u32 frames); // _14 (weak), returns mState
 	virtual BOOL Draw();             // _18
 	virtual void Open();             // _1C
-	virtual void Close() // _20
-	{
-		mState = 5;
-		Resume();
-		mWindow.mOpen = FALSE;
-	}
+	virtual void Close();            // _20
 	virtual BOOL IsOpen();           // _24
 	virtual void Suspend(BOOL fade); // _28
 	virtual void Resume();           // _2C

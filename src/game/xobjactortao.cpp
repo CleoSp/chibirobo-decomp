@@ -517,20 +517,6 @@ void XObjActorTao::Drop()
 			}
 		}
 		break;
-	case 0x159:
-		for (s32 i = 0; i < 15; i++) {
-			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
-			if (kind == obj->GetKind()) {
-			}
-		}
-		break;
-	case 0xF8:
-		for (s32 i = 0; i < 21; i++) {
-			XObj* obj = gGame.mXObjs.mPools[16].Get(i);
-			if (kind == obj->GetKind()) {
-			}
-		}
-		break;
 	case 0x2A3:
 	case 0x46F:
 		for (s32 i = 0; i < 288; i++) {

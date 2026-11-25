@@ -24,11 +24,11 @@ enum {
  * @note Address: 0x801645AC
  * @note Size: 0x188
  */
-static BOOL PackArgs(void* addr, s32 argc, char** argv) {
+static BOOL PackArgs(void* addr, s32 argc, const char** argv) {
     s32 numArgs;
     char* bootInfo2;
     char* ptr;
-    char** list;
+    const char** list;
     u32 i;
 
     bootInfo2 = (char*)addr;
@@ -43,12 +43,12 @@ static BOOL PackArgs(void* addr, s32 argc, char** argv) {
         while (--argc >= 0) {
             ptr -= strlen(argv[argc]) + 1;
             strcpy(ptr, argv[argc]);
-            argv[argc] = (char*)(ptr - bootInfo2);
+            argv[argc] = (const char*)(ptr - bootInfo2);
         }
 
         ptr = bootInfo2 + ((ptr - bootInfo2) & ~0x3);
         ptr -= (numArgs + 1) * sizeof(*list);
-        list = (char**)ptr;
+        list = (const char**)ptr;
 
         for (i = 0; i < numArgs + 1; i++) {
             list[i] = argv[i];
@@ -271,7 +271,7 @@ static BOOL IsNewApploader(AppLoaderStruct* header) {
  * @note Address: 0x801648EC
  * @note Size: 0x484
  */
-void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char* const* argv) {
+void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char** argv) {
     OSExecParams* params;
     void* dolEntry;
     AppLoaderStruct* header;
@@ -290,7 +290,7 @@ void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* 
 
     if (!argsUseDefault) {
         params->argsAddr = OSAllocFromArenaLo(EXEC_ARG_BLOCK_SIZE, 1);
-        PackArgs(params->argsAddr, argc, (char**)argv);
+        PackArgs(params->argsAddr, argc, argv);
     }
 
     DVDInit();

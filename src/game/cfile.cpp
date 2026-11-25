@@ -17,14 +17,11 @@ static CFileArchive* gCurrentFileArchive;
  * @note Address: 0x8019FD78
  * @note Size: 0x24
  */
-static void ReadCallback(s32, DVDFileInfo* info, void*, BOOL cancel)
+static void ReadCallback(int, void* context, void*, BOOL cancel)
 {
-	s32* result = static_cast<s32*>(info->cBlock.userData);
-	if (cancel) {
-		*result = -2;
-	} else {
-		*result = 0;
-	}
+	DVDFileInfo* info = static_cast<DVDFileInfo*>(context);
+	s32* result       = static_cast<s32*>(info->cBlock.userData);
+	*result           = cancel ? -2 : 0;
 }
 
 /**
@@ -104,7 +101,7 @@ void CFile::StartRead(BOOL fromAram)
 
 	mResult               = 1;
 	file->cBlock.userData = &mResult;
-	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, (HSD_DevComCallback)ReadCallback, file);
+	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, ReadCallback, file);
 }
 
 inline s32 CFile::Open()
