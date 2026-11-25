@@ -24,79 +24,6 @@ DSPTaskInfo* __DSP_tmp_task;
 DSPTaskInfo* __DSP_rude_task;
 int __DSP_rude_task_pending;
 
-static void YieldCurrentTask(void) {
-    BOOL rudePending = __DSP_rude_task_pending != 0;
-    DSPTaskInfo* next;
-    BOOL resume;
-
-    if (rudePending) {
-        next = __DSP_rude_task;
-        resume = __DSP_curr_task == next;
-    } else {
-        next = __DSP_curr_task->next;
-        resume = next == NULL && __DSP_curr_task == __DSP_first_task;
-        if (next == NULL)
-            next = __DSP_first_task;
-    }
-
-    if (resume) {
-        __DSPSendMailAndWait(DSP_CMD_RESUME_TASK);
-    } else {
-        __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
-        __DSP_exec_task(__DSP_curr_task, next);
-        __DSP_curr_task->state = DSP_TASK_STATE_YIELDED;
-        __DSP_curr_task = next;
-    }
-
-    if (rudePending) {
-        __DSP_rude_task = NULL;
-        __DSP_rude_task_pending = 0;
-    }
-
-    if (resume && __DSP_curr_task->res_cb != NULL)
-        __DSP_curr_task->res_cb(__DSP_curr_task);
-}
-
-static void CompleteCurrentTask(void) {
-    BOOL rudePending = __DSP_rude_task_pending != 0;
-    BOOL hasNext = FALSE;
-    BOOL stop = FALSE;
-
-    if (!rudePending) {
-        hasNext = __DSP_curr_task->next != NULL;
-        stop = !hasNext && __DSP_curr_task == __DSP_first_task;
-    }
-
-    // The completion callback can change the task queue.
-    if (__DSP_curr_task->done_cb != NULL)
-        __DSP_curr_task->done_cb(__DSP_curr_task);
-
-    if (rudePending) {
-        __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
-        __DSP_exec_task(NULL, __DSP_rude_task);
-        __DSP_remove_task(__DSP_curr_task);
-        __DSP_curr_task = __DSP_rude_task;
-        __DSP_rude_task = NULL;
-        __DSP_rude_task_pending = 0;
-    } else if (stop) {
-        __DSPSendMailAndWait(DSP_CMD_STOP);
-        __DSP_curr_task->state = DSP_TASK_STATE_DONE;
-        __DSP_remove_task(__DSP_curr_task);
-    } else {
-        __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
-        __DSP_curr_task->state = DSP_TASK_STATE_DONE;
-        if (hasNext) {
-            __DSP_exec_task(NULL, __DSP_curr_task->next);
-            __DSP_curr_task = __DSP_curr_task->next;
-            __DSP_remove_task(__DSP_curr_task->prev);
-        } else {
-            __DSP_exec_task(NULL, __DSP_first_task);
-            __DSP_curr_task = __DSP_first_task;
-            __DSP_remove_task(__DSP_last_task);
-        }
-    }
-}
-
 /**
  * @note Address: 0x8017D060
  * @note Size: 0x424
@@ -135,10 +62,83 @@ void __DSPHandler(__OSInterrupt intr, OSContext* context) {
             __DSP_curr_task->res_cb(__DSP_curr_task);
         break;
     case DSP_MAIL_TASK_YIELD:
-        YieldCurrentTask();
+        if (__DSP_rude_task_pending) {
+            if (__DSP_curr_task == __DSP_rude_task) {
+                __DSPSendMailAndWait(DSP_CMD_RESUME_TASK);
+                __DSP_rude_task = NULL;
+                __DSP_rude_task_pending = 0;
+
+                if (__DSP_curr_task->res_cb != NULL)
+                    __DSP_curr_task->res_cb(__DSP_curr_task);
+            } else {
+                __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+                __DSP_exec_task(__DSP_curr_task, __DSP_rude_task);
+                __DSP_curr_task->state = DSP_TASK_STATE_YIELDED;
+                __DSP_curr_task = __DSP_rude_task;
+                __DSP_rude_task = NULL;
+                __DSP_rude_task_pending = 0;
+            }
+        } else {
+            if (__DSP_curr_task->next == NULL) {
+                if (__DSP_curr_task == __DSP_first_task) {
+                    __DSPSendMailAndWait(DSP_CMD_RESUME_TASK);
+                    if (__DSP_curr_task->res_cb != NULL)
+                        __DSP_curr_task->res_cb(__DSP_curr_task);
+                } else {
+                    __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+                    __DSP_exec_task(__DSP_curr_task, __DSP_first_task);
+                    __DSP_curr_task->state = DSP_TASK_STATE_YIELDED;
+                    __DSP_curr_task = __DSP_first_task;
+                }
+            } else {
+                __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+                __DSP_exec_task(__DSP_curr_task, __DSP_curr_task->next);
+                __DSP_curr_task->state = DSP_TASK_STATE_YIELDED;
+                __DSP_curr_task = __DSP_curr_task->next;
+            }
+        }
         break;
     case DSP_MAIL_TASK_DONE:
-        CompleteCurrentTask();
+        if (__DSP_rude_task_pending) {
+            if (__DSP_curr_task->done_cb != NULL)
+                __DSP_curr_task->done_cb(__DSP_curr_task);
+
+            __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+            __DSP_exec_task(NULL, __DSP_rude_task);
+            __DSP_remove_task(__DSP_curr_task);
+            __DSP_curr_task = __DSP_rude_task;
+            __DSP_rude_task = NULL;
+            __DSP_rude_task_pending = 0;
+        } else {
+            if (__DSP_curr_task->next == NULL) {
+                if (__DSP_curr_task == __DSP_first_task) {
+                    if (__DSP_curr_task->done_cb != NULL)
+                        __DSP_curr_task->done_cb(__DSP_curr_task);
+
+                    __DSPSendMailAndWait(DSP_CMD_STOP);
+                    __DSP_curr_task->state = DSP_TASK_STATE_DONE;
+                    __DSP_remove_task(__DSP_curr_task);
+                } else {
+                    if (__DSP_curr_task->done_cb != NULL)
+                        __DSP_curr_task->done_cb(__DSP_curr_task);
+
+                    __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+                    __DSP_curr_task->state = DSP_TASK_STATE_DONE;
+                    __DSP_exec_task(NULL, __DSP_first_task);
+                    __DSP_curr_task = __DSP_first_task;
+                    __DSP_remove_task(__DSP_last_task);
+                }
+            } else {
+                if (__DSP_curr_task->done_cb != NULL)
+                    __DSP_curr_task->done_cb(__DSP_curr_task);
+
+                __DSPSendMailAndWait(DSP_CMD_SWITCH_TASK);
+                __DSP_curr_task->state = DSP_TASK_STATE_DONE;
+                __DSP_exec_task(NULL, __DSP_curr_task->next);
+                __DSP_curr_task = __DSP_curr_task->next;
+                __DSP_remove_task(__DSP_curr_task->prev);
+            }
+        }
         break;
     case DSP_MAIL_TASK_REQUEST:
         if (__DSP_curr_task->req_cb != NULL)
