@@ -3,19 +3,38 @@
 #include <math.h>
 #include <float.h>
 
+// A perspective camera's desc stops after fov and aspect: Init builds it on the stack from a
+// 0x38 byte .rodata template, where the full HSD_CObjDesc is 0x40
+struct HSD_CObjPerspectiveDesc {
+	char* class_name;                    // _00
+	u16 flags;                           // _04
+	u16 projection_type;                 // _06
+	HSD_RectS16 viewport;                // _08
+	Scissor scissor;                     // _10
+	struct _HSD_WObjDesc* eye_desc;      // _18
+	struct _HSD_WObjDesc* interest_desc; // _1C
+	f32 roll;                            // _20
+	Vec* vector;                         // _24
+	f32 near;                            // _28
+	f32 far;                             // _2C
+	f32 fov;                             // _30
+	f32 aspect;                          // _34
+};
+STATIC_ASSERT(sizeof(HSD_CObjPerspectiveDesc) == 0x38);
+
 /**
  * @note Address: 0x80193468
  * @note Size: 0x15C
  */
 void CCamera::Init(f32 near, f32 far, f32 fov, GXRenderModeObj* rmode)
 {
-	HSD_CObjDesc desc = { NULL, 0, PROJ_PERSPECTIVE, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, NULL, NULL, 0.0f, NULL, near, far };
-	desc.projection_param.perspective.fov = fov;
+	HSD_CObjPerspectiveDesc desc
+	    = { NULL, 0, PROJ_PERSPECTIVE, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, NULL, NULL, 0.0f, NULL, near, far, fov, 0.0f };
 
 	mFov        = fov;
 	mUseMtx     = FALSE;
 	mLoadedCObj = NULL;
-	HSD_CObjInit(this, &desc);
+	HSD_CObjInit(this, (HSD_CObjDesc*)&desc);
 	mEye.x      = 0.0f;
 	mEye.y      = 0.0f;
 	mEye.z      = 0.0f;

@@ -1,9 +1,9 @@
 #include "game/octamenu.h"
 
-AtcMenu::~AtcMenu()
+OctaMenu::~OctaMenu()
 {
 }
 
-OctaMenu::~OctaMenu()
+AtcMenu::~AtcMenu()
 {
 }
