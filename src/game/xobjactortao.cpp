@@ -102,7 +102,7 @@ s32 XObjActorTao::HandleEventCommand(s32 count, s32* command)
 			break;
 		case 2: // at another object
 			if (FindObj(command[2]) != NULL) {
-				SetActorLookAtPosition(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
+				SetActorLookTarget(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3: // at an angle
@@ -514,6 +514,20 @@ void XObjActorTao::Drop()
 			XObj* obj = gGame.mXObjs.mPools[8].Get(i);
 			if (kind == obj->GetKind()) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
+			}
+		}
+		break;
+	case 0x159:
+		for (s32 i = 0; i < 15; i++) {
+			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
+			if (kind == obj->GetKind()) {
+			}
+		}
+		break;
+	case 0xF8:
+		for (s32 i = 0; i < 21; i++) {
+			XObj* obj = gGame.mXObjs.mPools[16].Get(i);
+			if (kind == obj->GetKind()) {
 			}
 		}
 		break;
