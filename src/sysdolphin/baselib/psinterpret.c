@@ -38,6 +38,18 @@ static inline f32 particle_cosf(f32 x)
 }
 
 /**
+ * @note Address: 0x801E1F88
+ * @note Size: 0x70
+ */
+static inline void SetupDirtyParticleJointMatrix(HSD_JObj* jobj)
+{
+	if (jobj == NULL || !HSD_JObjMtxIsDirty(jobj)) {
+		return;
+	}
+	HSD_JObjSetupMatrixSub(jobj);
+}
+
+/**
  * @note Address: 0x801E1FF8
  * @note Size: 0xB0
  */
@@ -93,6 +105,15 @@ static inline s32 U8ClampAdd(u8 old, f32 delta)
 }
 
 /**
+ * @note Address: 0x801E22D0
+ * @note Size: 0x20
+ */
+static inline void HSD_MTXSRT(Mtx mtx, Vec* scale, Vec* rotate, Vec* translate, Vec* scale_parent)
+{
+	HSD_MtxSRT(mtx, scale, rotate, translate, scale_parent);
+}
+
+/**
  * @note Address: 0x801E22F0
  * @note Size: 0x64
  */
@@ -104,6 +125,15 @@ static inline void AttachJointToParticleGenerator(HSD_Generator* gen, HSD_JObj* 
 			ref_INC(jobj);
 		}
 	}
+}
+
+/**
+ * @note Address: N/A
+ * @note Size: 0x8
+ */
+static inline HSD_Particle* _psListGetNext(HSD_Particle* pp)
+{
+	return pp->next;
 }
 
 /**
@@ -396,7 +426,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 	HSD_Particle* child;
 
 	if (pp->kind & PS_PARTICLE_PAUSED) {
-		return pp->next;
+		return _psListGetNext(pp);
 	}
 
 	if (pp->sizeCount != 0) {
@@ -1018,7 +1048,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 						break;
 					}
 					SyncParticleGeneratorFromJoint(pp->appsrt->gp);
-					HSD_MtxSRT(pp->appsrt->mmtx, &pp->appsrt->scale, &pp->appsrt->rot, &pp->appsrt->translate, NULL);
+					HSD_MTXSRT(pp->appsrt->mmtx, &pp->appsrt->scale, &pp->appsrt->rot, &pp->appsrt->translate, NULL);
 					x  = pp->pos.x;
 					y  = pp->pos.y;
 					z  = pp->pos.z;
@@ -1683,7 +1713,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 		if (pp->gen != NULL) {
 			pp->gen->numChild--;
 		}
-		next = pp->next;
+		next = _psListGetNext(pp);
 		if (pp->appsrt != NULL && psRemoveParticleAppSRT(pp) == 0 && prev == NULL && _psListGetFirst(pp->linkNo) != next) {
 			next = _psListGetFirst(pp->linkNo);
 		}
@@ -1747,7 +1777,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 
 		jobj = psPointJObj[jobjIdx];
 		if (jobj != NULL) {
-			HSD_JObjSetupMatrix(jobj);
+			SetupDirtyParticleJointMatrix(jobj);
 			jobj = psPointJObj[jobjIdx];
 			HSD_JObjAddTx(jobj, pp->pos.x - jobj->mtx[0][3]);
 			jobj = psPointJObj[jobjIdx];
@@ -1760,7 +1790,7 @@ HSD_Particle* psInterpretParticle0(HSD_Particle* pp, HSD_Particle* prev)
 	if (pp->callback != NULL && pp->callback(pp) == -1) {
 		goto kill;
 	}
-	return pp->next;
+	return _psListGetNext(pp);
 }
 
 /**
