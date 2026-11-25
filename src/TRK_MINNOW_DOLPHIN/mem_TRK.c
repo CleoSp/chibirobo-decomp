@@ -58,14 +58,12 @@ void TRK_fill_mem(void* dst, int val, size_t n)
 
 void* TRK_memcpy(void* dst, const void* src, size_t n)
 {
-	u8* destBytes      = dst;
-	const u8* srcBytes = src;
+	const u8* s = (const u8*)src - 1;
+	u8* d       = (u8*)dst - 1;
 
-	if (n) {
-		do {
-			*destBytes++ = *srcBytes++;
-		} while (--n != 0);
-	}
+	n++;
+	while (--n != 0)
+		*++d = *++s;
 	return dst;
 }
 
