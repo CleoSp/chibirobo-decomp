@@ -1150,7 +1150,7 @@ game/ccameraactionmap2.cpp:
 	.bss        start:0x8059A5B0 end:0x8059E3D0
 	.sdata      start:0x80634EA8 end:0x80634EE0
 	.sbss       start:0x80635748 end:0x80635778
-	.sdata2     start:0x80638C54 end:0x80638D48
+	.sdata2     start:0x80638C50 end:0x80638D48
 
 game/ccameraactionchase.cpp:
 	.text       start:0x80143FB8 end:0x80144968

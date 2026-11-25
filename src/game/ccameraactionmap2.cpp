@@ -22,6 +22,9 @@ extern "C" {
 
 static CamCollisionPolygon sCameraCollisionPolygons[256];
 static Vec sPreviousMapOrbitAngle;
+// the last eye/center pair TrySetUnobstructedMapCameraYaw tested
+static CVec sMapCameraTestEye;
+static CVec sMapCameraTestCenter;
 extern "C" void SetMapCameraModeFlags(CCameraActionMap* map, u32 flags);
 
 extern "C" Vec GetMapCameraTargetWithHeightOffset(CCameraActionMap* map);
@@ -721,19 +724,21 @@ static inline BOOL SetMapYaw(CCameraActionMap* map, f32 yaw, f32 time)
 extern "C" BOOL TrySetUnobstructedMapCameraYaw(CCameraActionMap* map, f32 yaw)
 {
 	Vec center = map->mTarget->mMoveTranslate;
-	f32 pitch  = map->mAngle.x;
-	CVec angles(pitch, yaw, map->mAngle.z);
+	CVec angles(map->mAngle.x, yaw, map->mAngle.z);
 	f32 angle = HALF_PI + angles.y;
+	f32 pitch = angles.x;
+	Vec pos;
 	f32 distance;
 	{
 		CVec target(map->mTarget->GetCameraTarget());
 		CVec eye(map->mEye);
 		distance = PSVECDistance(&target, &eye);
 	}
-	Vec pos;
-	pos.x = center.x + distance * (f32)cos(angle) * (f32)cos(pitch);
-	pos.z = center.z + distance * -(f32)sin(angle) * (f32)cos(pitch);
-	pos.y = center.y;
+	pos.x                = center.x + distance * std::cosf(angle) * std::cosf(pitch);
+	pos.z                = center.z + distance * -std::sinf(angle) * std::cosf(pitch);
+	pos.y                = center.y;
+	sMapCameraTestEye    = CVec(pos);
+	sMapCameraTestCenter = CVec(center);
 
 	map->mIntersectionCount = map->CalcIntersectVec(pos, center, map->mIntersectionEntries, 0);
 	if (map->mIntersectionCount == 0 && SetMapYaw(map, yaw, 25.0f)) {
@@ -1077,12 +1082,12 @@ extern "C" s32 SelectMapCameraArea(CCameraActionMap* map)
 	map->mAreaIntersectionCount = CollectMapCameraAreaIntersections(map, eye, target, map->mAreaIntersections, 1);
 
 	s32 eyeArea = FindEnabledCameraAreaContainingPoint(&gCameraAreaState, eye);
-	if (eyeArea >= 0 && gCameraAreaState.mAreaRecords[eyeArea].mCameraAction == CAMACTION_AREA) {
+	if (CamAreaInfo(&gCameraAreaState.mAreaRecords[eyeArea]).UsesAreaCamera()) {
 		eyeArea = -1;
 	}
 
 	s32 targetArea = FindEnabledCameraAreaContainingPoint(&gCameraAreaState, target);
-	if (targetArea >= 0 && gCameraAreaState.mAreaRecords[targetArea].mCameraAction == CAMACTION_AREA) {
+	if (CamAreaInfo(&gCameraAreaState.mAreaRecords[targetArea]).UsesAreaCamera()) {
 		targetArea = -1;
 	}
 
