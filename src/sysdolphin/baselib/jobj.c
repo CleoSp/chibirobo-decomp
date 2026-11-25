@@ -689,11 +689,7 @@ static void JObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
 				HSD_MtxGetTranslate(mtx, &jobj->translate);
 			}
 			if (channel == HSD_A_J_MTX_TO_SRT || channel == HSD_A_J_MTX_TO_ROTATION) {
-				Vec euler;
-				HSD_MtxGetRotation(mtx, &euler);
-				jobj->rotate.x = euler.x;
-				jobj->rotate.y = euler.y;
-				jobj->rotate.z = euler.z;
+				HSD_MtxGetRotation(mtx, (Vec*)&jobj->rotate);
 			}
 			if (channel == HSD_A_J_MTX_TO_SRT || channel == HSD_A_J_MTX_TO_SCALE) {
 				HSD_MtxGetScale(mtx, &jobj->scale);
