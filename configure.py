@@ -1352,7 +1352,7 @@ config.libs = [
         "cflags": with_hsd_headers(cflags_rel),
         "progress_category": "rels",
         "objects": [
-            Object(Equivalent, "rel/ahk/ahk.cpp"),
+            Object(Matching, "rel/ahk/ahk.cpp"),
             Object(Matching, "rel/hori/hori.cpp"),
             Object(Equivalent, "rel/shun/shun.cpp"),
             Object(Equivalent, "rel/fafa.cpp"),
