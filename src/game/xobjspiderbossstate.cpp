@@ -16,11 +16,16 @@ void XObjSpiderBoss::State0(u32 frames)
 		return;
 	}
 	if (flags & 0x40000000) {
-		SetState(4);
+		mStep      = 0;
+		mTimer     = 0;
+		mPrevState = mState;
+		mState     = 4;
 		ResetPatrolArea();
 	} else {
-		SetState(3);
-		mStep = 100;
+		mTimer     = 0;
+		mPrevState = mState;
+		mState     = 3;
+		mStep      = 100;
 	}
 	mSpiderStatus.mFlags &= ~0x8000U;
 }

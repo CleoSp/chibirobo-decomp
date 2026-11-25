@@ -644,7 +644,7 @@ config.libs = [
             Object(NonMatching, "game/memcardpreview_buffers.cpp"),
             Object(Equivalent, "game/xobjchratcanim.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/playerattachmentpaths.cpp"),
-            Object(Matching, "game/xobjspiderbossstate.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(Equivalent, "game/xobjspiderbossstate.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Matching, "game/xobjflagsclear.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Matching, "game/xobjcoinparam.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/titlestates.cpp", cflags=with_hsd_headers(cflags_game)),

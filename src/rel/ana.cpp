@@ -501,21 +501,15 @@ extern "C" s32 AddAna(s32 id, f32 x, f32 y, f32 z)
 	u32 i;
 
 	if (id >= 0 && id < ARRAY_SIZE(anas)) {
-#if defined(VERSION_GGTP01)
 		Ana& ana = anas[id];
 		if (!(ana.mStatus.mFlags & 1)) {
 			activeAnaNum++;
 		}
+#if !defined(VERSION_GGTP01)
+		OSReport("id=%d,%4.2f,%4.2f,%4.2f\n", id, x, y, z);
+#endif
 		ana.Set(x, y, z);
 		ana.mId = id;
-#else
-		if (!(anas[id].mStatus.mFlags & 1)) {
-			activeAnaNum++;
-		}
-		OSReport("id=%d,%4.2f,%4.2f,%4.2f\n", id, x, y, z);
-		anas[id].Set(x, y, z);
-		anas[id].mId = id;
-#endif
 		return id;
 	}
 
