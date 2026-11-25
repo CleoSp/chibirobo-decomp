@@ -23,8 +23,7 @@ void CCameraActionEye::Init()
 void CCameraActionEye::Reset()
 {
 	const f32 restPitch = 0.05235988f;
-	mLook.Set(0.0f, 0.0f, 0.0f);
-	mLook.SetTarget(0.0f, 0.0f, 0.0f);
+	mLook.Reset(0.0f, 0.0f, 0.0f);
 	mOverride.Set(0.0f, 0.0f, 0.0f);
 	mLook.mSpeed.Set(0.05f, 0.05f, 0.05f);
 
