@@ -74,8 +74,6 @@ static int ReverbHICreate(AXFX_REVHI_WORK* rv, f32 coloration, f32 time, f32 mix
         0x00000043
     };
 
-    memset(rv, 0, sizeof(AXFX_REVHI_WORK));
-
 	ASSERTMSGLINE(105, coloration >= 0.0f && coloration <= 1.0f &&
 				  time >= 0.01f && time <= 10.0f &&
 				  mix >= 0.0f && mix <= 1.0f &&
@@ -84,14 +82,16 @@ static int ReverbHICreate(AXFX_REVHI_WORK* rv, f32 coloration, f32 time, f32 mix
 				  preDelay >= 0.0f && preDelay <= 0.1f,
 				  "The value of specified parameter is out of range.");
 
-    if (!(coloration >= 0.0f && coloration <= 1.0f &&
-          time >= 0.01f && time <= 10.0f &&
-          mix >= 0.0f && mix <= 1.0f &&
-          crosstalk >= 0.0f && crosstalk <= 1.0f &&
-          damping >= 0.0f && damping <= 1.0f &&
-          preDelay >= 0.0f && preDelay <= 0.1f)) {
+    if ((coloration < 0.0f ) || (coloration > 1.0f )
+     || (time       < 0.01f) || (time       > 10.0f)
+     || (mix        < 0.0f ) || (mix        > 1.0f )
+     || (crosstalk  < 0.0f ) || (crosstalk  > 1.0f )
+     || (damping    < 0.0f ) || (damping    > 1.0f )
+     || (preDelay   < 0.0f ) || (preDelay   > 0.1f )) {
         return 0;
     }
+
+    memset(rv, 0, sizeof(AXFX_REVHI_WORK));
 
     for (k = 0; k < 3; k++) {
         for (i = 0; i < 3; i++) {
@@ -129,8 +129,8 @@ static int ReverbHICreate(AXFX_REVHI_WORK* rv, f32 coloration, f32 time, f32 mix
     }
     rv->damping = (1.0f - (0.05f + (0.8f * rv->damping)));
 
-    rv->preDelayTime = (s32)(32000.0f * preDelay);
-    if (rv->preDelayTime != 0) {
+    if (0.0f != preDelay) {
+        rv->preDelayTime = (32000.0f * preDelay);
         for(i = 0; i < 3; i++) {
             rv->preDelayLine[i] = __AXFXAlloc(rv->preDelayTime * 4);
 			ASSERTMSGLINE(173, rv->preDelayLine[i], "Can't allocate the memory.");
@@ -141,6 +141,12 @@ static int ReverbHICreate(AXFX_REVHI_WORK* rv, f32 coloration, f32 time, f32 mix
 
             memset(rv->preDelayLine[i], 0, rv->preDelayTime * 4);
             rv->preDelayPtr[i] = rv->preDelayLine[i];
+        }
+    } else {
+        rv->preDelayTime = 0;
+        for(i = 0; i < 3; i++) {
+            rv->preDelayPtr[i] = 0;
+            rv->preDelayLine[i] = 0;
         }
     }
 
