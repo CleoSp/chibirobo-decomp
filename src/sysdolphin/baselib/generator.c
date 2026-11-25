@@ -597,7 +597,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.y += gen->pos.y;
 			pos.z += gen->pos.z;
 			PSMTXMultVec(mtx, &vec, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}
@@ -612,7 +612,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.y += gen->pos.y;
 			pos.z += gen->pos.z;
 			PSMTXMultVec(mtx, &vel, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}
@@ -631,7 +631,7 @@ static f32 generateParticle(HSD_Generator* gen)
 				azimuth = 2.0 * (M_PI * HSD_Randf());
 			}
 			gen->aux.tornado.vel = speed;
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind | PS_PARTICLE_TORNADO, gen->texGroup, gen->cmdList, gen->life, 0.0F,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind | PS_PARTICLE_TORNADO, gen->texGroup, gen->cmdList, gen->life, 0.0F,
 			                   0.0F, 0.0F, azimuth, radiusFraction, 0.0F, gen->size, rx, ry, 0, gen);
 			break;
 		}
@@ -718,7 +718,7 @@ static f32 generateParticle(HSD_Generator* gen)
 				vec.z     = gen->aux.rect.zz * scale;
 			}
 			PSMTXMultVec(mtx, &vec, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 
@@ -750,7 +750,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.x = radius * pos.x + gen->pos.x;
 			pos.y = radius * pos.y + gen->pos.y;
 			pos.z = radius * pos.z + gen->pos.z;
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}

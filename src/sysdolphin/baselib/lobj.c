@@ -17,6 +17,13 @@
 #define MIN_LIGHT_ATTENUATION_REFERENCE 1.1920929e-07F
 #define INFINITE_LIGHT_DISTANCE 1048576.0F
 
+/* Use the MSL inline form, with the library function available as a fallback. */
+#undef fabs
+extern inline f64 fabs(f64 x)
+{
+	return __fabs(x);
+}
+
 enum {
 	GX_LIGHT_COUNT = 8,
 	AMBIENT_LIGHT_INDEX = GX_LIGHT_COUNT,
@@ -137,7 +144,7 @@ HSD_LObj* HSD_LObjGetActiveByID(u32 id)
  * @note Address: 0x801BD0C8
  * @note Size: 0x2C
  */
-HSD_LObj* HSD_LObjGetActiveByIndex(s32 idx)
+HSD_LObj* HSD_LObjGetActiveByIndex(int idx)
 {
 	if (idx >= 0 && idx < GX_LIGHT_COUNT) {
 		return active_lights[idx];
@@ -602,6 +609,7 @@ static inline void LObjClearActive(void)
 	for (i = 0; i < ACTIVE_LIGHT_SLOTS; i++) {
 		active_lights[i] = NULL;
 	}
+	nb_active_lights = 0;
 }
 
 /**
@@ -614,18 +622,15 @@ void HSD_LObjSetupInit(HSD_CObj* cobj)
 	s32 light_index, active_count, next_light_index;
 	HSD_SList* list;
 
+	next_light_index = 0;
 	lightmask_diffuse = GX_LIGHT_NULL;
-	list = current_lights;
-	view_mtx = cobj->view_mtx;
-
-	LObjClearActive();
 	lightmask_specular = GX_LIGHT_NULL;
 	lightmask_attnfunc = GX_LIGHT_NULL;
 	lightmask_alpha = GX_LIGHT_NULL;
-	nb_active_lights = 0;
-	next_light_index = 0;
+	view_mtx = HSD_CObjGetViewingMtxPtrDirect(cobj);
+	LObjClearActive();
 
-	for (; next_light_index < GX_LIGHT_COUNT && list; list = list->next) {
+	for (list = current_lights; next_light_index < GX_LIGHT_COUNT && list; list = list->next) {
 		HSD_LObj* lobj = list->data;
 		u32 flags;
 		u32 type;
@@ -806,7 +811,6 @@ void HSD_LObjDeleteCurrent(HSD_LObj* lobj)
 static inline void LObjRemoveAll(void)
 {
 	LObjClearActive();
-	nb_active_lights = 0;
 	while (current_lights != NULL) {
 		HSD_LObj* lp = current_lights->data;
 		HSD_LObjUnrefThis(lp);
@@ -1135,6 +1139,19 @@ static inline void HSD_LObjSetAttn(HSD_LObj* lobj, f32 a0, f32 a1, f32 a2, f32 k
 {
 	HSD_LObjSetAttnA(lobj, a0, a1, a2);
 	HSD_LObjSetAttnK(lobj, k0, k1, k2);
+}
+
+/**
+ * @note Address: N/A
+ * @note Size: ?
+ */
+void HSD_LObjSetDefaultClass(HSD_LObjInfo* info)
+{
+	if (info != NULL) {
+		if (!hsdIsDescendantOf(HSD_CLASS_INFO(info), HSD_CLASS_INFO(&hsdLObj)))
+			__assert(__FILE__, 1481, "hsdIsDescendantOf(info, &hsdLObj)");
+	}
+	default_class = info;
 }
 
 /**
