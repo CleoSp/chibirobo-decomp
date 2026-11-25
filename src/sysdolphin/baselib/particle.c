@@ -16,6 +16,8 @@ const u32* ptclref[PS_BANK_COUNT];
 s32 psBankTextureCounts[PS_BANK_COUNT];
 HSD_PSTexGroup** psTexGroupArray[PS_BANK_COUNT];
 HSD_PSFormGroup** psFormGroupArray[PS_BANK_COUNT];
+s32 psNumCmdList[PS_BANK_COUNT];
+HSD_PSCmdList** psCmdListArray[PS_BANK_COUNT];
 HSD_JObj* psPointJObj[8];
 
 u16 psParticleCount;
@@ -26,145 +28,41 @@ u16 psPeakGeneratorCount;
 u16 psPeakAppSRTCount;
 PSParticleCallback* psParticleCallbackTable;
 
-typedef struct {
-	HSD_PSCmdList** entries;
-	s32 firstId;
-	s32 count;
-} PSCommandBank;
-
-static PSCommandBank sCommandBanks[PS_BANK_COUNT];
-
-static BOOL readBankHeader(s32* cmdBank, const s32* texBank, const s32* formBank, PSCommandBank* commands)
-{
-	u16 version;
-
-	if (formBank != NULL && *formBank != *texBank) {
-		OSPanic("particle.c", 95, "illigal form data (strange number of group)\n");
-		return FALSE;
-	}
-
-	memcpy(&version, cmdBank, sizeof(version));
-	switch (version) {
-	case 0:
-		commands->entries = (HSD_PSCmdList**)(cmdBank + 2);
-		commands->firstId = 0;
-		commands->count = cmdBank[1];
-		break;
-	case 0x40:
-	case 0x41:
-	case 0x42:
-	case 0x43:
-		commands->entries = (HSD_PSCmdList**)(cmdBank + 3);
-		commands->firstId = cmdBank[1];
-		commands->count = cmdBank[2];
-		break;
-	default:
-		OSPanic("particle.c", 125, "psInitDataBanks: unknown version\n");
-		return FALSE;
-	}
-
-	return commands->firstId >= 0 && commands->count >= 0;
-}
-
-static void loadBank(s32 bank, const PSCommandBank* commands, s32* texBank, const void* ref, s32* formBank)
-{
-	sCommandBanks[bank] = *commands;
-	ptclref[bank] = ref;
-	psBankTextureCounts[bank] = *texBank;
-	psTexGroupArray[bank] = (HSD_PSTexGroup**)(texBank + 1);
-	psFormGroupArray[bank] = formBank != NULL ? (HSD_PSFormGroup**)(formBank + 1) : NULL;
-}
-
 /**
  * @note Address: 0x801DD33C
  * @note Size: 0x140
  */
 void psInitDataBankLoad(s32 bank, s32* cmdBank, s32* texBank, void* ref, s32* formBank)
 {
-	PSCommandBank commands;
-
-	if (bank >= 0 && bank < PS_BANK_COUNT && readBankHeader(cmdBank, texBank, formBank, &commands)) {
-		loadBank(bank, &commands, texBank, ref, formBank);
-	}
-}
-
-static inline u8* bankPointer(void* bank, const void* offset)
-{
-	return (u8*)bank + (unsigned long)offset;
-}
-
-static void relocateBank(const PSCommandBank* commands, s32* cmdBank, s32* texBank, s32* formBank)
-{
-	s32 i;
-	HSD_PSTexGroup** textureGroups = (HSD_PSTexGroup**)(texBank + 1);
-	s32 groupCount = texBank[0];
-
-	for (i = 0; i < commands->count; i++) {
-		if (commands->entries[i] != NULL) {
-			commands->entries[i] = (HSD_PSCmdList*)bankPointer(cmdBank, commands->entries[i]);
-		}
+	if (formBank != NULL && *formBank != *texBank) {
+		OSPanic("particle.c", 95, "illigal form data (strange number of group)\n");
 	}
 
-	for (i = 0; i < commands->count; i++) {
-		HSD_PSCmdList* command = commands->entries[i];
-		if (command != NULL) {
-			command->kind &= ~PS_PARTICLE_SORT_ORDER_MASK;
-			command->kind |= (PS_PARTICLE_SORT_ORDER_COUNT / 2) << PS_PARTICLE_SORT_ORDER_SHIFT;
-		}
-	}
-
-	for (i = 0; i < groupCount; i++) {
-		if (textureGroups[i] != NULL) {
-			textureGroups[i] = (HSD_PSTexGroup*)bankPointer(texBank, textureGroups[i]);
-		}
-	}
-
-	for (i = 0; i < groupCount; i++) {
-		HSD_PSTexGroup* group = textureGroups[i];
-		u32 entryCount;
-		u32 j;
-
-		if (group == NULL) {
-			continue;
-		}
-		entryCount = group->num;
-		switch (group->fmt) {
-		case GX_TF_C4:
-		case GX_TF_C8:
-		case GX_TF_C14X2:
-			if (group->palflag & 1) {
-				entryCount++;
-			} else if (group->palnum != 0) {
-				entryCount += group->palnum;
-			} else {
-				entryCount += group->num;
-			}
-			break;
-		}
-		for (j = 0; j < entryCount; j++) {
-			if (group->texTable[j] != NULL) {
-				group->texTable[j] = bankPointer(texBank, group->texTable[j]);
-			}
-		}
-	}
-
+	ptclref[bank]             = ref;
+	psBankTextureCounts[bank] = *texBank;
+	psTexGroupArray[bank]     = (HSD_PSTexGroup**)(texBank + 1);
 	if (formBank != NULL) {
-		HSD_PSFormGroup** formGroups = (HSD_PSFormGroup**)(formBank + 1);
+		psFormGroupArray[bank] = (HSD_PSFormGroup**)(formBank + 1);
+	} else {
+		psFormGroupArray[bank] = NULL;
+	}
 
-		for (i = 0; i < groupCount; i++) {
-			HSD_PSFormGroup* group = formGroups[i];
-			if (group != NULL) {
-				u32 j;
-
-				group = (HSD_PSFormGroup*)bankPointer(formBank, group);
-				formGroups[i] = group;
-				for (j = 0; j < group->num; j++) {
-					if (group->formTable[j] != NULL) {
-						group->formTable[j] = (u32*)bankPointer(formBank, group->formTable[j]);
-					}
-				}
-			}
-		}
+	switch (*(u16*)cmdBank) {
+	case 0:
+		psNumCmdList[bank]   = cmdBank[1];
+		psCmdListArray[bank] = (HSD_PSCmdList**)(cmdBank + 2);
+		break;
+	case 0x40:
+	case 0x41:
+	case 0x42:
+	case 0x43: {
+		s32 first            = cmdBank[1];
+		psNumCmdList[bank]   = cmdBank[2] + first;
+		psCmdListArray[bank] = (HSD_PSCmdList**)(cmdBank + 3 - first);
+		break;
+	}
+	default:
+		OSPanic("particle.c", 125, "psInitDataBanks: unknown version\n");
 	}
 }
 
@@ -174,10 +72,100 @@ static void relocateBank(const PSCommandBank* commands, s32* cmdBank, s32* texBa
  */
 void psInitDataBankLocate(s32* cmdBank, s32* texBank, s32* formBank)
 {
-	PSCommandBank commands;
+	s32 i;
+	s32 j;
+	s32 first;
+	s32 last;
+	s32 numGroups;
+	HSD_PSCmdList** cmdList;
+	HSD_PSTexGroup** texGroups;
 
-	if (readBankHeader(cmdBank, texBank, formBank, &commands)) {
-		relocateBank(&commands, cmdBank, texBank, formBank);
+	switch (*(u16*)cmdBank) {
+	case 0:
+		last    = cmdBank[1];
+		cmdList = (HSD_PSCmdList**)(cmdBank + 2);
+		first   = 0;
+		for (i = 0; i < last; i++) {
+			cmdBank[i + 2] += (s32)cmdBank;
+		}
+		break;
+	case 0x40:
+	case 0x41:
+	case 0x42:
+	case 0x43:
+		first   = cmdBank[1];
+		last    = cmdBank[2] + first;
+		cmdList = (HSD_PSCmdList**)(cmdBank + 3 - first);
+		for (i = 0; i < cmdBank[2]; i++) {
+			if (cmdBank[i + 3] != 0) {
+				cmdBank[i + 3] += (s32)cmdBank;
+			}
+		}
+		break;
+	}
+
+	for (i = first; i < last; i++) {
+		if (cmdList[i] != NULL) {
+			cmdList[i]->kind &= ~PS_PARTICLE_SORT_ORDER_MASK;
+			cmdList[i]->kind |= (PS_PARTICLE_SORT_ORDER_COUNT / 2) << PS_PARTICLE_SORT_ORDER_SHIFT;
+		}
+	}
+
+	numGroups = texBank[0];
+	texGroups = (HSD_PSTexGroup**)(texBank + 1);
+	for (i = 1; i <= numGroups; i++) {
+		if (texBank[i] != 0) {
+			texBank[i] += (s32)texBank;
+		}
+	}
+
+	for (i = 0; i < numGroups; i++) {
+		if (texGroups[i] == NULL) {
+			continue;
+		}
+		for (j = 0; j < texGroups[i]->num; j++) {
+			if (texGroups[i]->texTable[j] != NULL) {
+				texGroups[i]->texTable[j] += (u32)texBank;
+			}
+		}
+		if (texGroups[i]->fmt != GX_TF_C4 && texGroups[i]->fmt != GX_TF_C8 && texGroups[i]->fmt != GX_TF_C14X2) {
+			continue;
+		}
+		if (texGroups[i]->palflag & 1) {
+			j = texGroups[i]->num;
+			if (texGroups[i]->texTable[j] != NULL) {
+				texGroups[i]->texTable[j] += (u32)texBank;
+			}
+		} else if (texGroups[i]->palnum != 0) {
+			for (j = texGroups[i]->num; j < texGroups[i]->num + texGroups[i]->palnum; j++) {
+				if (texGroups[i]->texTable[j] != NULL) {
+					texGroups[i]->texTable[j] += (u32)texBank;
+				}
+			}
+		} else {
+			for (j = texGroups[i]->num; j < texGroups[i]->num * 2; j++) {
+				if (texGroups[i]->texTable[j] != NULL) {
+					texGroups[i]->texTable[j] += (u32)texBank;
+				}
+			}
+		}
+	}
+
+	if (formBank == NULL) {
+		return;
+	}
+	for (i = 1; i <= numGroups; i++) {
+		if (formBank[i] != 0) {
+			HSD_PSFormGroup* fg;
+
+			formBank[i] += (s32)formBank;
+			fg = (HSD_PSFormGroup*)formBank[i];
+			for (j = 0; j < fg->num; j++) {
+				if (fg->formTable[j] != NULL) {
+					fg->formTable[j] = (u32*)((u8*)fg->formTable[j] + (u32)formBank);
+				}
+			}
+		}
 	}
 }
 
@@ -187,44 +175,18 @@ void psInitDataBankLocate(s32* cmdBank, s32* texBank, s32* formBank)
  */
 void psInitDataBank(s32 bank, s32* cmdBank, s32* texBank, void* ref, s32* formBank)
 {
-	PSCommandBank commands;
-
-	if (bank >= 0 && bank < PS_BANK_COUNT && readBankHeader(cmdBank, texBank, formBank, &commands)) {
-		relocateBank(&commands, cmdBank, texBank, formBank);
-		loadBank(bank, &commands, texBank, ref, formBank);
+	if (bank < PS_BANK_COUNT) {
+		psInitDataBankLocate(cmdBank, texBank, formBank);
+		psInitDataBankLoad(bank, cmdBank, texBank, ref, formBank);
 	}
 }
 
 HSD_PSCmdList* psGetBankCommand(s32 bank, s32 id)
 {
-	const PSCommandBank* commands;
-	s32 index;
-
-	if (bank < 0 || bank >= PS_BANK_COUNT) {
+	if (bank < 0 || bank >= PS_BANK_COUNT || id >= psNumCmdList[bank]) {
 		return NULL;
 	}
-	commands = &sCommandBanks[bank];
-	if (id < commands->firstId) {
-		return NULL;
-	}
-	index = id - commands->firstId;
-	if (index >= commands->count) {
-		return NULL;
-	}
-	return commands->entries[index];
-}
-
-static void clearBanks(void)
-{
-	s32 i;
-
-	memset(sCommandBanks, 0, sizeof(sCommandBanks));
-	for (i = 0; i < PS_BANK_COUNT; i++) {
-		psBankTextureCounts[i] = 0;
-		psTexGroupArray[i]     = NULL;
-		psFormGroupArray[i]    = NULL;
-		ptclref[i]             = NULL;
-	}
+	return psCmdListArray[bank][id];
 }
 
 /**
@@ -238,7 +200,14 @@ void psInitParticle(s32 count)
 	_psLinkInit(count);
 	psParticleCount     = 0;
 	psPeakParticleCount = 0;
-	clearBanks();
+	for (i = 0; i < PS_BANK_COUNT; i++) {
+		psNumCmdList[i]        = 0;
+		psBankTextureCounts[i] = 0;
+		psCmdListArray[i]      = NULL;
+		psTexGroupArray[i]     = NULL;
+		psFormGroupArray[i]    = NULL;
+		ptclref[i]             = NULL;
+	}
 	psParticleCallbackTable = NULL;
 	for (i = 0; i < 8; i++) {
 		psPointJObj[i] = NULL;
@@ -251,10 +220,19 @@ void psInitParticle(s32 count)
  */
 void psRemoveParticle(void)
 {
+	int i;
+
 	psKillAllParticle();
 	psKillAllGenerator();
 	_psListClear();
-	clearBanks();
+	for (i = 0; i < PS_BANK_COUNT; i++) {
+		psNumCmdList[i]        = 0;
+		psBankTextureCounts[i] = 0;
+		psCmdListArray[i]      = NULL;
+		psTexGroupArray[i]     = NULL;
+		psFormGroupArray[i]    = NULL;
+		ptclref[i]             = NULL;
+	}
 	psClearPointJObj();
 }
 
@@ -262,7 +240,7 @@ void psRemoveParticle(void)
  * @note Address: N/A
  * @note Size: 0x2FC
  */
-HSD_Particle* psGenerateParticle0(HSD_Particle* parent, int linkNo, int bank, int reserved0, int reserved1, u32 kind, int texGroup,
+HSD_Particle* psGenerateParticle0(HSD_Particle* parent, int linkNo, int bank, u64 kind, int texGroup,
                                   u8* list, f32 x, f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav, int life, f32 fric,
                                   int palflag, HSD_Generator* gp, int flgInterpret)
 {
@@ -372,11 +350,17 @@ HSD_Particle* psGenerateParticleID0(HSD_Particle* head, int linkNo, int bank, in
 	HSD_PSTexGroup* tg;
 	s32 palflag;
 
-	if (linkNo < 0 || linkNo >= 8) {
+	if (linkNo >= 8) {
+		return NULL;
+	}
+	if (bank >= PS_BANK_COUNT) {
+		return NULL;
+	}
+	if (id >= psNumCmdList[bank]) {
 		return NULL;
 	}
 
-	cl = psGetBankCommand(bank, id);
+	cl = psCmdListArray[bank][id];
 	if (cl == NULL) {
 		return NULL;
 	}
@@ -388,7 +372,7 @@ HSD_Particle* psGenerateParticleID0(HSD_Particle* head, int linkNo, int bank, in
 		palflag = 0;
 	}
 
-	return psGenerateParticle0(head, linkNo, bank, 0, 0, cl->kind, cl->texGroup, cl->cmdList, 0.0F, 0.0F, 0.0F, cl->vx, cl->vy,
+	return psGenerateParticle0(head, linkNo, bank, cl->kind, cl->texGroup, cl->cmdList, 0.0F, 0.0F, 0.0F, cl->vx, cl->vy,
 	                           cl->vz, cl->size, cl->grav, cl->life, cl->fric, palflag, NULL, flgInterpret);
 }
 
@@ -396,10 +380,10 @@ HSD_Particle* psGenerateParticleID0(HSD_Particle* head, int linkNo, int bank, in
  * @note Address: N/A
  * @note Size: 0x64
  */
-HSD_Particle* psGenerateParticle(int linkNo, int bank, int reserved, u32 kind, int texGroup, u8* list, int life, f32 x, f32 y, f32 z,
+HSD_Particle* psGenerateParticle(int linkNo, int bank, u64 kind, int texGroup, u8* list, int life, f32 x, f32 y, f32 z,
                                  f32 vx, f32 vy, f32 vz, f32 size, f32 grav, f32 fric, int palflag, HSD_Generator* gp)
 {
-	return psGenerateParticle0(NULL, linkNo, bank, kind, reserved, kind, texGroup, list, x, y, z, vx, vy, vz, size, grav, life, fric,
+	return psGenerateParticle0(NULL, linkNo, bank, kind, texGroup, list, x, y, z, vx, vy, vz, size, grav, life, fric,
 	                           palflag, gp, 1);
 }
 

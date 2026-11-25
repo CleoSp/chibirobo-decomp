@@ -483,7 +483,7 @@ static inline HSD_TObj** PrepareRenderTextures(HSD_TObj** textures, u32 rendermo
 void HSD_MObjCompileTev(HSD_MObj* mobj)
 {
 	HSD_TObj* textures;
-	HSD_TObj** shadow_tail;
+	HSD_TObj** shadow_tail = NULL;
 	HSD_TExp* texp;
 
 	if (mobj == NULL) {
@@ -498,7 +498,17 @@ void HSD_MObjCompileTev(HSD_MObj* mobj)
 		mobj->texp = NULL;
 	}
 	textures = mobj->tobj;
-	shadow_tail = PrepareRenderTextures(&textures, mobj->rendermode);
+	if (mobj->rendermode & RENDER_SHADOW && tobj_shadows != NULL) {
+		shadow_tail = &textures;
+		while (*shadow_tail != NULL) {
+			shadow_tail = &(*shadow_tail)->next;
+		}
+		*shadow_tail = tobj_shadows;
+	}
+	if (mobj->rendermode & RENDER_TOON && tobj_toon != NULL && tobj_toon->imagedesc != NULL) {
+		tobj_toon->next = textures;
+		textures = tobj_toon;
+	}
 	HSD_TObjAssignResources(textures);
 	texp = HSD_MOBJ_METHOD(mobj)->make_texp(mobj, textures, &mobj->texp);
 	HSD_TExpCompile(texp, &mobj->tevdesc, &mobj->texp);
