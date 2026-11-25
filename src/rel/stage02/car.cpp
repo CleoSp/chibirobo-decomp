@@ -21,9 +21,11 @@ public:
 	{
 		mCarMtx           = NULL;
 		mInterestOffset.x = mInterestOffset.y = mInterestOffset.z = 0.0f;
+		mTarget.x = mTarget.y = mTarget.z = 0.0f;
 	}
 	virtual ~CCameraActionCar() { }
 
+	void SetTarget(Vec pos) { mTarget = pos; }
 	void SetOffset(Vec pos) { mInterestOffset = pos; }
 
 	virtual void Update(u32 step);
@@ -33,7 +35,8 @@ public:
 
 	MtxPtr mCarMtx;      // _40, matrix of the car the camera follows, NULL stops it
 	Vec mInterestOffset; // _44, interest point in the car's space, set by SetOffset
-	u8 _50[0x18];        // _50
+	Vec mTarget;         // _50, set by SetTarget (0,30,-120 in StartCarCamera); never read
+	u8 _5C[0xC];         // _5C
 };
 
 class CarRoot {
@@ -101,16 +104,13 @@ s32 RegisterCar(XObj* car, XObj* path, XObj* attached);
 #define CAR_PARAM_BRAKE_JUDGE 0x8 // braking before this frame plays 0x2000E, after it 0x20011
 #define CAR_PARAM_RACER_BRAKE 0xC // the frame the rival's car brakes at
 
-static s32 ReadS32LE(const u8* data, u32 offset)
+// little endian ints out of a loaded data file
+inline s32 ReadS32LE(u8* p)
 {
-	if (data == NULL) {
-		return 0;
+	if (p != NULL) {
+		return p[0] + p[1] * 0x100 + p[2] * 0x10000 + p[3] * 0x1000000;
 	}
-
-	const u8* bytes = data + offset;
-	const u32 value = static_cast<u32>(bytes[0]) | (static_cast<u32>(bytes[1]) << 8) | (static_cast<u32>(bytes[2]) << 16)
-	                | (static_cast<u32>(bytes[3]) << 24);
-	return static_cast<s32>(value);
+	return 0;
 }
 
 inline void Car::CarRoot::Register(XObj* car, XObj* path, XObj* attached)
@@ -219,7 +219,7 @@ void Car::CarRoot::Update(u32 frames)
 		return;
 	}
 	if (0.0f < mSpeed) {
-		f32 rate = mSpeed - ReadS32LE(carParams, CAR_PARAM_BRAKE_DECEL) / 1000.0f;
+		f32 rate = mSpeed - ReadS32LE(carParams + CAR_PARAM_BRAKE_DECEL) / 1000.0f;
 		if (rate < 0.0f) {
 			rate = 0.0f;
 		}
@@ -666,7 +666,7 @@ void Car::PlayerCarRoot::Update(u32 frames)
 		mBrakeFrame = mFrame;
 		sound       = &gGame.mSound;
 		StopGameSfx(sound, 0x2000D);
-		if (mBrakeFrame < ReadS32LE(carParams, CAR_PARAM_BRAKE_JUDGE)) {
+		if (mBrakeFrame < ReadS32LE(carParams + CAR_PARAM_BRAKE_JUDGE)) {
 			PlayGameSound(sound, 0x2000E, 0xFF);
 		} else {
 			PlayGameSound(sound, 0x20011, 0xFF);
@@ -674,12 +674,9 @@ void Car::PlayerCarRoot::Update(u32 frames)
 	}
 	sound = &gGame.mSound;
 	// cue records of (frame, sound id); a non-positive frame ends the list
-	for (u32 offset = 0;; offset += 8) {
-		const s32 frame = ReadS32LE(carSoundCues, offset);
-		if (frame <= 0) {
-			break;
-		}
-		const s32 id = ReadS32LE(carSoundCues, offset + 4);
+	for (s32 i = 0; ReadS32LE(carSoundCues + i * 8) > 0; i++) {
+		s32 frame = ReadS32LE(carSoundCues + i * 8);
+		s32 id    = ReadS32LE(carSoundCues + (i * 2 + 1) * 4);
 		if (mPrevFrame < frame && frame <= mFrame) {
 			PlayGameSound(sound, id, 0xFF);
 			if (id == 0x2001F) { // starting 0x2001F fades the music (track 0xFFFF0000) out
@@ -689,7 +686,7 @@ void Car::PlayerCarRoot::Update(u32 frames)
 			}
 		}
 	}
-	if (ReadS32LE(carParams, CAR_PARAM_FINISH) <= mFrame) {
+	if (ReadS32LE(carParams + CAR_PARAM_FINISH) <= mFrame) {
 		mSpeed = 1.0f;
 		if (mBraking && mCar->mAnimId != 4) {
 			mCar->SetAnim(4, FALSE, NULL, NULL, NULL, 0.0f, 1.0f, 0.0f, 10.0f);
@@ -742,8 +739,15 @@ extern "C" void StartCarCamera(void)
 {
 	gGame.GetPlayer()->LockControl();
 	gGame.mMotionControlCamera.ChangeAction(&carCamera);
-	const Vec offset = { 0.0f, 0.0f, 60.0f };
-	carCamera.SetOffset(offset);
+	Vec v;
+	v.x = 0.0f;
+	v.y = 30.0f;
+	v.z = -120.0f;
+	carCamera.SetTarget(v);
+	v.x = 0.0f;
+	v.y = 0.0f;
+	v.z = 60.0f;
+	carCamera.SetOffset(v); // the interest sits 60 out on the car's z
 	carCamera.mCarMtx = playerCar.mCarMtx;
 }
 
@@ -764,6 +768,7 @@ extern "C" void StartCars(void)
  */
 extern "C" void UpdateCars(u32 frames)
 {
+	CPad pad(0);
 	bool done;
 
 	if (!carsStarted) {
@@ -780,7 +785,7 @@ extern "C" void UpdateCars(u32 frames)
 	if (!playerCar.mStarted) {
 		done = false;
 	} else {
-		done = ReadS32LE(carParams, CAR_PARAM_FINISH) <= playerCar.mFrame;
+		done = ReadS32LE(carParams + CAR_PARAM_FINISH) <= playerCar.mFrame;
 	}
 	if (done) {
 		carCamera.mCarMtx = NULL; // the camera lets go
@@ -798,7 +803,7 @@ extern "C" void UpdateCars(u32 frames)
 			carCameraTrailIndex = 0;
 		}
 	}
-	if (!racerCar.mBraking && ReadS32LE(carParams, CAR_PARAM_RACER_BRAKE) <= racerCar.mFrame) {
+	if (!racerCar.mBraking && ReadS32LE(carParams + CAR_PARAM_RACER_BRAKE) <= racerCar.mFrame) {
 		racerCar.Brake();
 	}
 }
@@ -1085,6 +1090,7 @@ extern "C" void SetCarSoundCues(u8* data)
  */
 extern "C" s32 GetPlayerCarResult(void)
 {
+	CPad pad(0);
 	HSD_AObj* aobj;
 	f32 end;
 
