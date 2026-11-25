@@ -77,8 +77,7 @@ bool CVectorLinearInterpolation::Update(u32 step, f32 dt)
  */
 Vec CVectorLinearInterpolation::Get()
 {
-	const Vec value = { mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get() };
-	return value;
+	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
 }
 
 /**
@@ -139,8 +138,7 @@ bool CVectorEaseInOutInterpolation::Step(f32 dt)
  */
 Vec CVectorEaseInOutInterpolation::Get()
 {
-	const Vec value = { mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get() };
-	return value;
+	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
 }
 
 /**
@@ -188,8 +186,7 @@ bool CVectorEaseOutInterpolation::Step(f32 dt)
  */
 Vec CVectorEaseOutInterpolation::Get()
 {
-	const Vec value = { mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get() };
-	return value;
+	return CVec(mAxes[0].Get(), mAxes[1].Get(), mAxes[2].Get());
 }
 
 /**
@@ -198,7 +195,10 @@ Vec CVectorEaseOutInterpolation::Get()
  */
 BOOL CCameraActionAreaExM::IsCameraArea(s32 index)
 {
-	return CamAreaInfo(&gCameraAreaState.mAreaRecords[index]).IsCameraArea();
+	if (CamAreaInfo(&gCameraAreaState.mAreaRecords[index]).IsCameraArea()) {
+		return TRUE;
+	}
+	return FALSE;
 }
 
 /**
@@ -207,5 +207,8 @@ BOOL CCameraActionAreaExM::IsCameraArea(s32 index)
  */
 BOOL CCameraActionAreaExM::IsAreaEnabled(s32 index)
 {
-	return !CamAreaInfo(&gCameraAreaState.mAreaExRecords[index]).IsDisabled();
+	if (CamAreaInfo(&gCameraAreaState.mAreaExRecords[index]).IsDisabled()) {
+		return FALSE;
+	}
+	return TRUE;
 }

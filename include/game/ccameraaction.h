@@ -418,7 +418,11 @@ public:
 		u16 flags = mRecord->mFlags & 4;
 		return flags != 0;
 	}
-	u16 IsDisabled() const { return mRecord->mFlags & 0x80; }
+	bool IsDisabled() const
+	{
+		u16 flags = mRecord->mFlags & 0x80;
+		return flags != 0;
+	}
 	f32 GetTop() const { return mRecord->mTop / 100.0f; }
 	f32 GetBottom() const { return mRecord->mBottom / 100.0f; }
 	Vec GetCorner(s32 index) const
