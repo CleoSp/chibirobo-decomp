@@ -10934,17 +10934,6 @@ extern "C" void DrawInventoryGrid(s32 selected, f32 x, f32 y, f32 alpha, f32 sca
 }
 
 /**
- * @note Address: 0x8003135C
- * @note Size: 0x48
- */
-void CMenu::Close()
-{
-	mState = 5;
-	Resume();
-	mWindow.mOpen = FALSE;
-}
-
-/**
  * @note Address: 0x800313A4
  * @note Size: 0x24
  */
