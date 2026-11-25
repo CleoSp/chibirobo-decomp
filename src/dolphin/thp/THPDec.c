@@ -18,11 +18,12 @@ static void __THPHuffGenerateDecoderTables(u8 tabIndex);
 static void __THPRestartDefinition(void);
 static void __THPDecompressYUV(void*, void*, void*);
 
-static const u8 __THPJpegNaturalOrder[64] = {
+static const u8 __THPJpegNaturalOrder[80] = {
 	0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5,
 	12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
 	35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51,
 	58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63,
+	63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63,
 };
 
 static const f64 __THPAANScaleFactor[8] = {
@@ -31,6 +32,12 @@ static const f64 __THPAANScaleFactor[8] = {
 
 char* __THPVersion = "<< Dolphin SDK - THP\trelease build: Jan  9 2004 13:06:55 (0x2301) >>";
 
+static THPHuffmanTab* Ydchuff ATTRIBUTE_ALIGN(32);
+static THPHuffmanTab* Udchuff ATTRIBUTE_ALIGN(32);
+static THPHuffmanTab* Vdchuff ATTRIBUTE_ALIGN(32);
+static THPHuffmanTab* Yachuff ATTRIBUTE_ALIGN(32);
+static THPHuffmanTab* Uachuff ATTRIBUTE_ALIGN(32);
+static THPHuffmanTab* Vachuff ATTRIBUTE_ALIGN(32);
 static u8* __THPHuffmanBits;
 static u8* __THPHuffmanSizeTab;
 static u16* __THPHuffmanCodeTab;
@@ -364,7 +371,7 @@ static u8 __THPReadHuffmanTableSpecification(void)
 	u16 length, num_Vij;
 
 	__THPHuffmanSizeTab = __THPWorkArea;
-	__THPHuffmanCodeTab = (u16*)(__THPWorkArea + 258);
+	__THPHuffmanCodeTab = (u16*)(__THPWorkArea + 256 + 1);
 	length              = (u16)((__THPInfo->file[0] << 8) | __THPInfo->file[1]);
 	__THPInfo->file += 2;
 	length -= 2;
@@ -461,6 +468,8 @@ static void __THPHuffGenerateDecoderTables(u8 tabIndex)
 			h->valPtr[l]  = -1;
 		}
 	}
+
+	h->maxCode[17] = 0xfffffL;
 }
 
 /**
@@ -504,37 +513,60 @@ static inline u32 __THPReadBits(THPFileInfo* info, u32 count)
 	return bits;
 }
 
-static void __THPPrepBitStream(THPFileInfo* info)
+static void __THPPrepBitStream(void)
 {
-	u32 offset = (u32)info->file & 3;
-	int i;
+	u32* ptr;
+	u32 offset, i, j, k;
 
-	info->file -= offset;
-	info->currByte = __THPReadStreamWord(info->file);
-	info->cnt = offset * 8 + 1;
+	ptr    = (u32*)((u32)__THPInfo->file & 0xFFFFFFFC);
+	offset = (u32)__THPInfo->file & 3;
+
+	if (__THPInfo->cnt != 33) {
+		__THPInfo->cnt -= (3 - offset) * 8;
+	} else {
+		__THPInfo->cnt = (offset * 8) + 1;
+	}
+
+	__THPInfo->file     = (u8*)ptr;
+	__THPInfo->currByte = *ptr;
 
 	for (i = 0; i < 4; i++) {
-		THPHuffmanTab* table = &info->huffmanTabs[i];
-		int prefix;
+		if (__THPInfo->validHuffmanTabs & (1 << i)) {
+			for (j = 0; j < 32; j++) {
+				__THPInfo->huffmanTabs[i].quick[j] = 0xFF;
 
-		if (!(info->validHuffmanTabs & (1 << i))) {
-			continue;
-		}
+				for (k = 0; k < 5; k++) {
+					s32 code = (s32)(j >> (5 - k - 1));
 
-		for (prefix = 0; prefix < 32; prefix++) {
-			int length;
-
-			table->increment[prefix] = 0;
-			for (length = 1; length <= 5; length++) {
-				s32 code = prefix >> (5 - length);
-
-				if (code <= table->maxCode[length]) {
-					table->quick[prefix] = table->Vij[code + table->valPtr[length]];
-					table->increment[prefix] = (u8)length;
-					break;
+					if (code <= __THPInfo->huffmanTabs[i].maxCode[k + 1]) {
+						__THPInfo->huffmanTabs[i].quick[j]
+						    = __THPInfo->huffmanTabs[i].Vij[(s32)(code + __THPInfo->huffmanTabs[i].valPtr[k + 1])];
+						__THPInfo->huffmanTabs[i].increment[j] = (u8)(k + 1);
+						k                                      = 99;
+					}
 				}
 			}
 		}
+	}
+
+	{
+		s32 YdcTab, UdcTab, VdcTab, YacTab, UacTab, VacTab;
+
+		YdcTab = (__THPInfo->components[0].DCTableSelector << 1);
+		UdcTab = (__THPInfo->components[1].DCTableSelector << 1);
+		VdcTab = (__THPInfo->components[2].DCTableSelector << 1);
+
+		YacTab = (__THPInfo->components[0].ACTableSelector << 1) + 1;
+		UacTab = (__THPInfo->components[1].ACTableSelector << 1) + 1;
+		VacTab = (__THPInfo->components[2].ACTableSelector << 1) + 1;
+
+		Ydchuff = &__THPInfo->huffmanTabs[YdcTab];
+		Udchuff = &__THPInfo->huffmanTabs[UdcTab];
+		Vdchuff = &__THPInfo->huffmanTabs[VdcTab];
+
+		Yachuff = &__THPInfo->huffmanTabs[YacTab];
+		Uachuff = &__THPInfo->huffmanTabs[UacTab];
+		Vachuff = &__THPInfo->huffmanTabs[VacTab];
 	}
 }
 
@@ -545,10 +577,8 @@ static int __THPReadHuffmanSymbol(THPFileInfo* info, const THPHuffmanTab* table)
 
 	if (info->cnt <= 28) {
 		u32 prefix = (info->currByte >> (28 - info->cnt)) & 31;
-		u32 increment = table->increment[prefix];
-
-		if (increment != 0) {
-			info->cnt += increment;
+		if (table->quick[prefix] != 0xFF) {
+			info->cnt += table->increment[prefix];
 			return table->quick[prefix];
 		}
 		info->cnt += 5;
@@ -824,7 +854,7 @@ static void __THPDecompressYUV(void* tileY, void* tileU, void* tileV)
 	info->dLC[0] = tileY;
 	info->dLC[1] = tileU;
 	info->dLC[2] = tileV;
-	__THPPrepBitStream(info);
+	__THPPrepBitStream();
 
 	if (info->xPixelSize == 512 && info->yPixelSize == 448) {
 		work = __THPLCWork512;
@@ -850,6 +880,7 @@ BOOL THPInit(void)
 	__THPLCWork512[1] = base;
 	base += 0x800;
 	__THPLCWork512[2] = base;
+	base += 0x200;
 
 	base              = (u8*)0xE0000000u;
 	__THPLCWork672[0] = base;
@@ -857,6 +888,7 @@ BOOL THPInit(void)
 	__THPLCWork672[1] = base;
 	base += 0xA80;
 	__THPLCWork672[2] = base;
+	base += 0xA80;
 
 	OSInitFastCast();
 
