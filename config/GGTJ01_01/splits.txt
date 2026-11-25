@@ -392,7 +392,7 @@ game/sound.cpp:
 	.rodata     start:0x801FFC7C end:0x802006D0
 	.data       start:0x802114A0 end:0x8021204C
 	.sdata      start:0x806345E0 end:0x806345F0
-	.sdata2     start:0x806364A4 end:0x806364DC
+	.sdata2     start:0x80636498 end:0x806364DC
 
 game/gxa.cpp:
 	.text       start:0x8001CE44 end:0x8001D8E8
@@ -803,6 +803,7 @@ game/inventory.cpp:
 
 game/params.cpp:
 	.text       start:0x800DEA74 end:0x800DF070
+	.sdata2     start:0x80637C80 end:0x80637C88
 
 game/xobjfreedtor.cpp:
 	.text       start:0x800DF2E4 end:0x800DF344

@@ -335,7 +335,7 @@ extern "C" s32 FrameSoundStopIfPlaying(const u32* aobjFlags, FrameEventTime* tim
  */
 extern "C" s32 FrameSoundStartIfSilent(const u32* aobjFlags, FrameEventTime* time, const FrameEvent* event)
 {
-	return !IsGameSoundPlaying(&gGame.mSound, event->mId);
+	return IsGameSoundPlaying(&gGame.mSound, event->mId) ? FALSE : TRUE;
 }
 
 // keep the sound playing inside the window only
