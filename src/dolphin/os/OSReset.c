@@ -13,29 +13,35 @@ static u32 bootThisDol;
  * @note Size: 0x84
  */
 void OSRegisterResetFunction(OSResetFunctionInfo* info) {
-    OSResetFunctionInfo* next = ResetFunctionQueue.head;
+    OSResetFunctionInfo* next;
     OSResetFunctionInfo* prev;
 
     ASSERTLINE(208, info->func);
 
     // Equal-priority callbacks run in registration order.
-    while (next && next->priority <= info->priority) {
-        next = next->next;
+    for (next = ResetFunctionQueue.head; next && next->priority <= info->priority; next = next->next) {
     }
 
-    prev = next ? next->prev : ResetFunctionQueue.tail;
-    info->prev = prev;
-    info->next = next;
-
-    if (prev) {
-        prev->next = info;
-    } else {
-        ResetFunctionQueue.head = info;
-    }
-    if (next) {
-        next->prev = info;
-    } else {
+    if (next == NULL) {
+        prev = ResetFunctionQueue.tail;
+        if (prev == NULL) {
+            ResetFunctionQueue.head = info;
+        } else {
+            prev->next = info;
+        }
+        info->prev = prev;
+        info->next = NULL;
         ResetFunctionQueue.tail = info;
+    } else {
+        info->next = next;
+        prev = next->prev;
+        next->prev = info;
+        info->prev = prev;
+        if (prev == NULL) {
+            ResetFunctionQueue.head = info;
+        } else {
+            prev->next = info;
+        }
     }
 }
 
@@ -62,22 +68,24 @@ void OSUnregisterResetFunction(OSResetFunctionInfo* info) {
  */
 int __OSCallResetFunctions(BOOL final) {
     OSResetFunctionInfo* info;
-    BOOL callbacksReady = TRUE;
+    int err = 0;
     u32 priority = 0;
 
     // Finish the current priority group even when a callback needs another pass.
     for (info = ResetFunctionQueue.head; info != NULL; info = info->next) {
-        if (!callbacksReady && priority != info->priority) {
+        if (err != 0 && priority != info->priority) {
             break;
         }
-        if (!info->func(final)) {
-            callbacksReady = FALSE;
-        }
+        err |= !info->func(final);
         priority = info->priority;
     }
 
     // SRAM synchronization still runs when a reset callback needs another pass.
-    return __OSSyncSram() && callbacksReady;
+    err |= !__OSSyncSram();
+    if (err) {
+        return 0;
+    }
+    return 1;
 }
 
 /**
