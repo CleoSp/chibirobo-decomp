@@ -760,7 +760,7 @@ def generate_build_ninja(
     n.rule(
         name="elf2dol",
         command=(
-            f"{dtk} elf2dol $in $out && $python {fill_padding} $out $in.MAP $link_inputs"
+            f"{CHAIN}{dtk} elf2dol $in $out && $python {fill_padding} $out $in.MAP $link_inputs"
             if fill_dol_padding
             else f"{dtk} elf2dol $in $out"
         ),
@@ -1856,18 +1856,19 @@ def generate_objdiff_config(
         return str(input).replace(os.sep, "/") if input else ""
 
     # Use symbol names from the objects in progress and baseline reports.
+    report_project = config.report_project_path()
     report_units = []
     for unit in objdiff_config["units"]:
         report_unit = {"name": unit["name"], "metadata": unit["metadata"]}
         for key in ("target_path", "base_path"):
             if unit[key] is not None:
-                report_unit[key] = Path(unit[key]).absolute()
+                # relative to the report project: objdiff drops the root of "F:/..." on Windows
+                report_unit[key] = Path(os.path.relpath(unit[key], report_project))
         report_units.append(report_unit)
     report_config = {
         "units": report_units,
         "progress_categories": objdiff_config["progress_categories"],
     }
-    report_project = config.report_project_path()
     report_project.mkdir(parents=True, exist_ok=True)
     with (report_project / "objdiff.json").open("w", encoding="utf-8") as w:
         json.dump(cleandict(report_config), w, indent=2, default=unix_path)
