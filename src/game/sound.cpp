@@ -301,14 +301,12 @@ static inline u8 getMusicVolume(s32 sfx)
 	if (!isAllSfx(sfx)) {
 		return 0;
 	}
-	const u8 index       = sfx;
-	const u32 trackCount = ARRAY_SIZE(musicTable);
-	if (index == trackCount) {
-		// Retail reads the high byte of the second falloff distance for this ID.
-		const u8* distance = reinterpret_cast<const u8*>(&gSoundFalloffRanges[0][1]);
-		return distance[0];
+	u8 idx = sfx;
+	// retail tests > where PlayGameSound tests >=, so 0x6D reads one past musicTable's 109 entries
+	if (idx > 0x6D) {
+		idx = 0;
 	}
-	return musicTable[index < trackCount ? index : 0].volume;
+	return musicTable[idx].volume;
 }
 
 static inline bool CanPlayNightStream()
@@ -329,14 +327,15 @@ static inline bool UseRaisedLiftPitch()
  */
 void AnimSfx::Update(s32 anim, f32 frame, u8 vol)
 {
+	XSound* sound;
 	s32 prev = mAnimId;
 
 	if (prev != anim) {
 		mAnimId = anim;
 		mFrame  = 0.0f;
 	}
+	sound = &gGame.mSound;
 	AnimSfxEvent* event;
-	XSound* sound = &gGame.mSound;
 	for (s32 i = 0; mEvents != NULL && (event = &mEvents[i])->mAnim >= 0; i++) { // the table ends at -1
 
 		if (event->mAnim == anim || event->mAnim == prev) {
@@ -606,7 +605,7 @@ extern "C" void PlayMessageGlyphSound(XSound* sound, u32 group, f32 strength, u8
 		if (volume >= 512) {
 			volume = 511;
 		}
-		PlayGameSound(sound, ids[index], volume);
+		PlayGameSound(sound, ids[index], volume & 0xFF);
 		if (volume > 255) {
 			PlayGameSound(sound, ids[index], 255);
 		}
