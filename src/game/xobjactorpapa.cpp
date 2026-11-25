@@ -105,7 +105,7 @@ s32 XObjActorPapa::HandleEventCommand(s32 count, s32* command)
 			break;
 		case 2: // at another object
 			if (FindObj(command[2]) != NULL) {
-				SetActorLookAtPosition(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
+				SetActorLookTarget(this, &FindObj(command[2])->mMoveTranslate, DEG2RAD * command[3]);
 			}
 			break;
 		case 3: // at an angle
@@ -420,6 +420,13 @@ void XObjActorPapa::Drop()
 		return;
 	}
 	switch (kind) {
+	case 0x1D3:
+		for (s32 i = 0; i < 15; ++i) {
+			XObj* obj = gGame.mXObjs.mPools[10].Get(i);
+			if (kind == obj->GetKind()) {
+			}
+		}
+		break;
 	case 0x1F4:
 	case 0x360:
 	case 0x3FA:
@@ -428,6 +435,13 @@ void XObjActorPapa::Drop()
 			XObj* obj = gGame.mXObjs.mPools[22].Get(i);
 			if (kind == obj->GetKind()) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
+			}
+		}
+		break;
+	case 0x375:
+		for (s32 i = 0; i < 64; ++i) {
+			XObj* obj = gGame.mXObjs.mPools[8].Get(i);
+			if (kind == obj->GetKind()) {
 			}
 		}
 		break;
