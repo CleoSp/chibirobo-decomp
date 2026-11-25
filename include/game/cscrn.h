@@ -57,7 +57,7 @@ public:
 // a color with a hole that opens or closes, the subclasses pick the shape
 class CScrnWipe : public CScrnColor {
 public:
-	virtual ~CScrnWipe();                 // _08
+	virtual ~CScrnWipe() { }              // _08
 	virtual void Reset();                 // _0C, Reset__9CScrnWipeFv
 	virtual void Update(u32 frames);      // _10, Update__9CScrnWipeFUl
 	virtual void Draw(CGs* gs, s32 mode); // _14, Draw__9CScrnWipeFP3CGsl

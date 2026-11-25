@@ -30,9 +30,8 @@ extern "C" void CaptureGameSaveData(Memcard* card)
 	file->mData.mHeader.mVersion   = SAVE_VERSION;
 	SaveData* save                 = &file->mData;
 	s32 stage                      = gGame.mStage;
-	const s32 stageCount           = GetStageNum();
-	if (stage > stageCount)
-		stage = stage - stageCount + 99;
+	if (stage > GetStageNum())
+		stage = stage - GetStageNum() + 99;
 	save->mHeader.mStage      = stage;
 	save->mHeader.mTimeMode   = gGame.mTimeState.mMode;
 	save->mHeader.mTime       = gGame.mTimeState.mTime;
