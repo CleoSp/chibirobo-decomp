@@ -1256,8 +1256,6 @@ config.libs = [
         "progress_category": "hsd",
         "objects": [
             Object(Matching, "sysdolphin/baselib/dobj.c"),
-            # Retail retains unused diagnostics alongside the class initializer.
-            Object(Equivalent, "sysdolphin/baselib/dobj_class.c"),
             Object(Equivalent, "sysdolphin/baselib/tev.c"),
             Object(Equivalent, "sysdolphin/baselib/mobj.c"),
             Object(Matching, "sysdolphin/baselib/aobj.c", padding="small_data+data"),

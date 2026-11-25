@@ -1217,6 +1217,17 @@ HSD_CObj* HSD_CObjGetCurrent(void)
 }
 
 /**
+ * @note Address: N/A
+ */
+void HSD_CObjSetDefaultClass(HSD_CObjInfo* info)
+{
+	if (info != NULL && !hsdIsDescendantOf(info, HSD_CLASS_INFO(&hsdCObj))) {
+		__assert(__FILE__, __LINE__, "hsdIsDescendantOf(info, &hsdCObj)");
+	}
+	sDefaultCameraClass = info;
+}
+
+/**
  * @note Address: 0x801C176C
  * @note Size: 0x5C
  */

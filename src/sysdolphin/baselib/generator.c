@@ -213,12 +213,12 @@ void psInitGenerator(s32 num)
 
 	sActiveGenerators = NULL;
 	sFreeGenerators = NULL;
-	for (i = 0; i < num; ++i) {
+	for (i = num - 1; i >= 0; i--) {
 		gp = HSD_Alloc(sizeof(*gp));
-		if (gp == NULL) {
-			break;
-		}
 		memset(gp, 0, sizeof(*gp));
+		if (gp == NULL) {
+			return;
+		}
 		gp->next = sFreeGenerators;
 		sFreeGenerators = gp;
 	}
@@ -848,9 +848,11 @@ void psExecGenerator(u32 mask)
 
 static inline void gen_attachJoint(HSD_Generator* gen, HSD_JObj* jobj)
 {
-	gen->jobj = jobj;
-	if (jobj != NULL) {
-		ref_INC(jobj);
+	if (gen != NULL) {
+		gen->jobj = jobj;
+		if (jobj != NULL) {
+			ref_INC(jobj);
+		}
 	}
 }
 
@@ -916,39 +918,43 @@ static inline HSD_Generator* gen_allocGenerator(void)
 HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 {
 	HSD_Generator* gen;
-	HSD_PSCmdList* command;
 	HSD_PSTexGroup* tex;
 
-	if (linkNo < 0 || linkNo >= 8) {
+	if (bank >= 0x40) {
 		return NULL;
 	}
-	command = psGetBankCommand(bank, kind);
-	if (command == NULL) {
+	if (linkNo >= 8) {
+		return NULL;
+	}
+	if (kind >= psNumCmdList[bank]) {
+		return NULL;
+	}
+	if (psCmdListArray[bank][kind] == NULL) {
 		return NULL;
 	}
 
 	gen = gen_allocGenerator();
 	if (gen != NULL) {
-		gen->type     = command->type;
+		gen->type     = psCmdListArray[bank][kind]->type;
 		gen->bank     = bank;
 		gen->linkNo   = linkNo;
-		gen->kind     = command->kind;
-		gen->texGroup = command->texGroup;
-		gen->life     = command->life;
-		gen->genLife  = command->genLife;
+		gen->kind     = psCmdListArray[bank][kind]->kind;
+		gen->texGroup = psCmdListArray[bank][kind]->texGroup;
+		gen->life     = psCmdListArray[bank][kind]->life;
+		gen->genLife  = psCmdListArray[bank][kind]->genLife;
 		gen->pos.z    = 0.0F;
 		gen->pos.y    = 0.0F;
 		gen->pos.x    = 0.0F;
-		gen->vel.x    = command->vx;
-		gen->vel.y    = command->vy;
-		gen->vel.z    = command->vz;
-		gen->grav     = command->grav;
-		gen->fric     = command->fric;
-		gen->size     = command->size;
-		gen->cmdList  = command->cmdList;
-		gen->radius   = command->radius;
-		gen->angle    = command->angle;
-		gen->random   = command->random;
+		gen->vel.x    = psCmdListArray[bank][kind]->vx;
+		gen->vel.y    = psCmdListArray[bank][kind]->vy;
+		gen->vel.z    = psCmdListArray[bank][kind]->vz;
+		gen->grav     = psCmdListArray[bank][kind]->grav;
+		gen->fric     = psCmdListArray[bank][kind]->fric;
+		gen->size     = psCmdListArray[bank][kind]->size;
+		gen->cmdList  = psCmdListArray[bank][kind]->cmdList;
+		gen->radius   = psCmdListArray[bank][kind]->radius;
+		gen->angle    = psCmdListArray[bank][kind]->angle;
+		gen->random   = psCmdListArray[bank][kind]->random;
 
 		if (gen->kind & GEN_KIND_PRIME_COUNT) {
 			if (gen->random < 0.0F) {
@@ -974,36 +980,36 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 		case GEN_SHAPE_DISC:
 		case GEN_SHAPE_DISC_RADIAL_SPEED:
 		case GEN_SHAPE_DISC_UNIFORM:
-			if (command->param1 == 0.0F && command->param2 == 0.0F) {
+			if (psCmdListArray[bank][kind]->param1 == 0.0F && psCmdListArray[bank][kind]->param2 == 0.0F) {
 				gen->aux.disc.minAngle = 0.0F;
 				gen->aux.disc.maxAngle = 6.2831855F;
 			} else {
-				gen->aux.disc.minAngle = command->param1;
-				gen->aux.disc.maxAngle = command->param2;
+				gen->aux.disc.minAngle = psCmdListArray[bank][kind]->param1;
+				gen->aux.disc.maxAngle = psCmdListArray[bank][kind]->param2;
 			}
 			break;
 		case GEN_SHAPE_LINE:
-			gen->aux.line.x2 = command->param1;
-			gen->aux.line.y2 = command->param2;
-			gen->aux.line.z2 = command->param3;
+			gen->aux.line.x2 = psCmdListArray[bank][kind]->param1;
+			gen->aux.line.y2 = psCmdListArray[bank][kind]->param2;
+			gen->aux.line.z2 = psCmdListArray[bank][kind]->param3;
 			break;
 		case GEN_SHAPE_TORNADO:
 			break;
 		case GEN_SHAPE_CONE:
 		case GEN_SHAPE_CYLINDER:
-			if (command->param1 == 0.0F && command->param2 == 0.0F) {
+			if (psCmdListArray[bank][kind]->param1 == 0.0F && psCmdListArray[bank][kind]->param2 == 0.0F) {
 				gen->aux.cone.minAngle = 0.0F;
 				gen->aux.cone.maxAngle = 6.2831855F;
 			} else {
-				gen->aux.cone.minAngle = command->param1;
-				gen->aux.cone.maxAngle = command->param2;
+				gen->aux.cone.minAngle = psCmdListArray[bank][kind]->param1;
+				gen->aux.cone.maxAngle = psCmdListArray[bank][kind]->param2;
 			}
-			gen->aux.cone.height = command->param3;
+			gen->aux.cone.height = psCmdListArray[bank][kind]->param3;
 			break;
 		case GEN_SHAPE_BOX:
-			gen->aux.rect.xx = gen->aux.rect.x = command->param1;
-			gen->aux.rect.yy = gen->aux.rect.y = command->param2;
-			gen->aux.rect.zz = gen->aux.rect.z = command->param3;
+			gen->aux.rect.xx = gen->aux.rect.x = psCmdListArray[bank][kind]->param1;
+			gen->aux.rect.yy = gen->aux.rect.y = psCmdListArray[bank][kind]->param2;
+			gen->aux.rect.zz = gen->aux.rect.z = psCmdListArray[bank][kind]->param3;
 			gen->aux.rect.zy                   = 0.0F;
 			gen->aux.rect.zx                   = 0.0F;
 			gen->aux.rect.yz                   = 0.0F;
@@ -1011,13 +1017,13 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 			gen->aux.rect.xz                   = 0.0F;
 			gen->aux.rect.xy                   = 0.0F;
 			gen->aux.rect.flag                 = 0;
-			if (command->param1 < 0.0F) {
+			if (psCmdListArray[bank][kind]->param1 < 0.0F) {
 				gen->aux.rect.flag |= GEN_BOX_FACE_X;
 			}
-			if (command->param2 < 0.0F) {
+			if (psCmdListArray[bank][kind]->param2 < 0.0F) {
 				gen->aux.rect.flag |= GEN_BOX_FACE_Y;
 			}
-			if (command->param3 < 0.0F) {
+			if (psCmdListArray[bank][kind]->param3 < 0.0F) {
 				gen->aux.rect.flag |= GEN_BOX_FACE_Z;
 			}
 			break;
@@ -1036,12 +1042,12 @@ HSD_Generator* psCreateGeneratorID(int linkNo, int bank, int kind)
 				gen->aux.sphere.latMid = gen_atan2f(gen->vel.y, horiz);
 			}
 			GEN_ANGLE(gen->aux.sphere.lonMid, gen->vel.z, gen->vel.x);
-			gen->aux.sphere.latRange = command->param1;
+			gen->aux.sphere.latRange = psCmdListArray[bank][kind]->param1;
 			if (gen->aux.sphere.latRange < 0.0F) {
 				gen->aux.sphere.latRange = -gen->aux.sphere.latRange;
 				gen->aux.sphere.speed    = -gen->aux.sphere.speed;
 			}
-			gen->aux.sphere.lonRange = command->param2;
+			gen->aux.sphere.lonRange = psCmdListArray[bank][kind]->param2;
 			break;
 		}
 		default:
@@ -1086,7 +1092,9 @@ HSD_Generator* psCreateQueuedJointGenerator(int linkNo, int bank, int kind, HSD_
  */
 static void psSetBillboardCamera(HSD_CObj* cobj)
 {
-	gen_cobjUnref(psCamera);
+	if (psCamera != NULL) {
+		gen_cobjUnref(psCamera);
+	}
 	if (cobj != NULL) {
 		ref_INC(cobj);
 	}

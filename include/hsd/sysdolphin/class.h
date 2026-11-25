@@ -52,7 +52,7 @@ void _hsdClassInfoInit(void);
 void hsdInitClassInfo(HSD_ClassInfo* class_info, HSD_ClassInfo* parent_info,
                       char* base_class_library, char* type,
                       s32 info_size, s32 class_size);
-BOOL hsdIsDescendantOf(HSD_ClassInfo* info, HSD_ClassInfo* class_info);
+BOOL hsdIsDescendantOf(void* info, HSD_ClassInfo* class_info);
 BOOL hsdObjIsDescendantOf(HSD_Class* cls, HSD_ClassInfo* class_info);
 BOOL hsdChangeClass(HSD_Class* object, HSD_ClassInfo* class_info);
 HSD_ClassInfo* hsdSearchClassInfo(char* class_name);
