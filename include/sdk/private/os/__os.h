@@ -32,7 +32,7 @@ void __OSUnhandledException(__OSException exception, OSContext* context, u32 dsi
 // OSExec
 void __OSGetExecParams(OSExecParams* params);
 void __OSSetExecParams(const OSExecParams* params, OSExecParams* addr);
-void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char* const* argv);
+void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char** argv);
 void __OSBootDol(u32 doloffset, u32 restartCode, const char** argv);
 
 // OSInterrupt

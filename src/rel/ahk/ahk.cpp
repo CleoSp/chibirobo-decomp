@@ -1,5 +1,6 @@
 #include "game/relmodule.h"
 #include "types.h"
+#include "dolphin/os.h"
 #include "game/gmath.h"
 #include <stdlib.h>
 #include <math.h>
@@ -69,8 +70,15 @@ extern "C" s32 CmdNop(s32 cmd, s32 count, s32* args)
  * @note Address: ahk .text 0x26C
  * @note Size: 0x50
  */
-extern "C" s32 CmdPrintArgs(s32, s32, s32*)
+extern "C" s32 CmdPrintArgs(s32 cmd, s32 count, s32* args)
 {
+	int i;
+
+	for (i = 0; i < count; i++) {
+#if DEBUG
+		OSReport("%d ", args[i]);
+#endif
+	}
 	return 0;
 }
 

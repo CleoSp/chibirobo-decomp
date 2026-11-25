@@ -11,20 +11,19 @@ extern "C" {
  */
 BOOL XObjPlug::LoadFromPlacement(const CoordInfo& info)
 {
-	if (mLoadState == 0) {
-		if (!XObj::LoadFromPlacement(info))
-			return FALSE;
-		++mLoadState;
-	}
-
-	if (mLoadState == 1) {
-		const CoordInfo wirePlacement(GetSpawnData(16));
-		if (!mWire.LoadFromPlacement(wirePlacement))
-			return FALSE;
-
-		const Vec& position = gGame.GetPlayer()->mMoveTranslate;
-		ResetPlugCordPoints(&mCord, position.x, position.y, position.z);
-		++mLoadState;
+	switch (mLoadState) {
+	case 0:
+		if (!XObj::LoadFromPlacement(info)) {
+			break;
+		}
+		mLoadState++;
+	case 1:
+		if (mWire.LoadFromPlacement(CoordInfo(GetSpawnData(16)))) {
+			Vec pos = gGame.GetPlayer()->mMoveTranslate;
+			ResetPlugCordPoints(&mCord, pos.x, pos.y, pos.z);
+			mLoadState++;
+		}
+		break;
 	}
 	return mLoadState > 1;
 }

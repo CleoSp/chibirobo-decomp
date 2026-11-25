@@ -76,6 +76,33 @@ static inline s32 MemoryEntryIndex(s32 size)
 }
 
 /**
+ * @note Address: N/A
+ */
+void DumpMemoryEntries(void)
+{
+    s32 i;
+    s32 j;
+    HSD_MemoryEntry* entry;
+
+    for (i = 0; i < ClassMemoryEntryCount; i++) {
+        entry = ClassMemoryEntries[i];
+        if (entry == NULL) {
+            for (j = i + 1; j < ClassMemoryEntryCount && ClassMemoryEntries[j] == NULL; j++) {
+            }
+            if (j - 1 == i) {
+                OSReport("entry %d <null>\n", i);
+            } else {
+                OSReport("entry %d - %d <null>\n", i, j - 1);
+            }
+            i = j - 1;
+        } else {
+            OSReport("entry %d(%d)", i, entry->size);
+            OSReport("  nb_alloc %d nb_free %d\n", entry->nb_alloc, entry->nb_free);
+        }
+    }
+}
+
+/**
  * @note Address: 0x801D5D1C
  * @note Size: 0x264
  */
@@ -407,7 +434,7 @@ BOOL hsdIsDescendantOf(HSD_ClassInfo* info, HSD_ClassInfo* class_info)
     if (info == NULL || class_info == NULL) {
         return FALSE;
     }
-    ancestor = info;
+    ancestor = HSD_CLASS_INFO(info);
     if (!(ancestor->head.flags & 1)) {
         ancestor->head.info_init();
     }

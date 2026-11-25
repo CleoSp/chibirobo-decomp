@@ -213,12 +213,12 @@ void psInitGenerator(s32 num)
 
 	sActiveGenerators = NULL;
 	sFreeGenerators = NULL;
-	for (i = 0; i < num; ++i) {
+	for (i = num - 1; i >= 0; i--) {
 		gp = HSD_Alloc(sizeof(*gp));
-		if (gp == NULL) {
-			break;
-		}
 		memset(gp, 0, sizeof(*gp));
+		if (gp == NULL) {
+			return;
+		}
 		gp->next = sFreeGenerators;
 		sFreeGenerators = gp;
 	}
@@ -597,7 +597,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.y += gen->pos.y;
 			pos.z += gen->pos.z;
 			PSMTXMultVec(mtx, &vec, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}
@@ -612,7 +612,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.y += gen->pos.y;
 			pos.z += gen->pos.z;
 			PSMTXMultVec(mtx, &vel, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}
@@ -631,7 +631,7 @@ static f32 generateParticle(HSD_Generator* gen)
 				azimuth = 2.0 * (M_PI * HSD_Randf());
 			}
 			gen->aux.tornado.vel = speed;
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind | PS_PARTICLE_TORNADO, gen->texGroup, gen->cmdList, gen->life, 0.0F,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind | PS_PARTICLE_TORNADO, gen->texGroup, gen->cmdList, gen->life, 0.0F,
 			                   0.0F, 0.0F, azimuth, radiusFraction, 0.0F, gen->size, rx, ry, 0, gen);
 			break;
 		}
@@ -718,7 +718,7 @@ static f32 generateParticle(HSD_Generator* gen)
 				vec.z     = gen->aux.rect.zz * scale;
 			}
 			PSMTXMultVec(mtx, &vec, &vec);
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 
@@ -750,7 +750,7 @@ static f32 generateParticle(HSD_Generator* gen)
 			pos.x = radius * pos.x + gen->pos.x;
 			pos.y = radius * pos.y + gen->pos.y;
 			pos.z = radius * pos.z + gen->pos.z;
-			psGenerateParticle(gen->linkNo, gen->bank, 0, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
+			psGenerateParticle(gen->linkNo, gen->bank, gen->kind, gen->texGroup, gen->cmdList, gen->life, pos.x, pos.y, pos.z, vec.x,
 			                   vec.y, vec.z, gen->size, gen->grav, gen->fric, 0, gen);
 			break;
 		}
@@ -848,9 +848,11 @@ void psExecGenerator(u32 mask)
 
 static inline void gen_attachJoint(HSD_Generator* gen, HSD_JObj* jobj)
 {
-	gen->jobj = jobj;
-	if (jobj != NULL) {
-		ref_INC(jobj);
+	if (gen != NULL) {
+		gen->jobj = jobj;
+		if (jobj != NULL) {
+			ref_INC(jobj);
+		}
 	}
 }
 
@@ -1086,7 +1088,9 @@ HSD_Generator* psCreateQueuedJointGenerator(int linkNo, int bank, int kind, HSD_
  */
 static void psSetBillboardCamera(HSD_CObj* cobj)
 {
-	gen_cobjUnref(psCamera);
+	if (psCamera != NULL) {
+		gen_cobjUnref(psCamera);
+	}
 	if (cobj != NULL) {
 		ref_INC(cobj);
 	}

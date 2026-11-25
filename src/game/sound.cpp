@@ -301,14 +301,12 @@ static inline u8 getMusicVolume(s32 sfx)
 	if (!isAllSfx(sfx)) {
 		return 0;
 	}
-	const u8 index       = sfx;
-	const u32 trackCount = ARRAY_SIZE(musicTable);
-	if (index == trackCount) {
-		// Retail reads the high byte of the second falloff distance for this ID.
-		const u8* distance = reinterpret_cast<const u8*>(&gSoundFalloffRanges[0][1]);
-		return distance[0];
+	u8 idx = sfx;
+	// retail tests > where PlayGameSound tests >=, so it can read one past musicTable's end
+	if (idx > ARRAY_SIZE(musicTable)) {
+		idx = 0;
 	}
-	return musicTable[index < trackCount ? index : 0].volume;
+	return musicTable[idx].volume;
 }
 
 static inline bool CanPlayNightStream()

@@ -260,11 +260,11 @@ s32 AttachGeneratorAppSRT(HSD_Generator* gp, HSD_psAppSRT* srt);
 s32 psRemoveParticleAppSRT(HSD_Particle* pp);
 s32 psRemoveGeneratorAppSRT(HSD_Generator* gp);
 
-HSD_Particle* psGenerateParticle0(HSD_Particle* parent, int linkNo, int bank, int reserved0, int reserved1, u32 kind, int texGroup,
+HSD_Particle* psGenerateParticle0(HSD_Particle* parent, int linkNo, int bank, u64 kind, int texGroup,
                                  u8* list, f32 x, f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav, int life,
                                  f32 fric, int palflag, HSD_Generator* gp, int flgInterpret);
 HSD_Particle* psGenerateParticleID0(HSD_Particle* head, int linkNo, int bank, int id, int flgInterpret);
-HSD_Particle* psGenerateParticle(int linkNo, int bank, int reserved, u32 kind, int texGroup, u8* list, int life,
+HSD_Particle* psGenerateParticle(int linkNo, int bank, u64 kind, int texGroup, u8* list, int life,
                                 f32 x, f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav,
                                 f32 fric, int palflag, HSD_Generator* gp);
 void psDeletePntJObjwithParticle(HSD_Particle* pp);

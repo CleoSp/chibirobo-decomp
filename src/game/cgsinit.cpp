@@ -31,7 +31,7 @@ static inline void GsChanSetNext(CGsChannel* ch, HSD_Chan* next)
 
 static inline bool ColorsEqual(const GXColor& first, const GXColor& second)
 {
-	return first.r == second.r && first.g == second.g && first.b == second.b && first.a == second.a;
+	return *(const u32*)&first == *(const u32*)&second;
 }
 
 static inline void GsChanSetAmbColor(CGsChannel* ch, GXColor color)
@@ -95,8 +95,8 @@ static inline void GsChanInit(CGsChannel* ch, s32 chan, GsChanCtrl ctrl, GXColor
 	ch->attn_fn    = ctrl.mAttnFn;
 	ch->unk2C      = NULL;
 	GsChanSetDirty(ch);
-	ch->amb_color = amb;
-	ch->mat_color = mat;
+	GsChanSetAmbColor(ch, amb);
+	GsChanSetMatColor(ch, mat);
 }
 
 // every active light's id

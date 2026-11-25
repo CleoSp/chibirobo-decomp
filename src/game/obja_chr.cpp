@@ -2530,15 +2530,26 @@ void StartPointParticles(PointPtcl* ptcl, s32 type, s32 amount);
 }
 
 // closes both rings, 0 cancels, above 0 confirms, below 0 backs out
+// closed without a pick, the cancel sound and the old selection back
+static inline void CancelEquipmentRings(XObjChrMenu* menu)
+{
+	PlayGameSound(&gGame.mSound, 0x86, 255);
+	if (menu->mAtc.mMenuType != 3)
+		menu->mSel = menu->mPrevSel;
+}
+
 /**
  * @note Address: 0x80097284
  * @note Size: 0xF4
  */
 extern "C" void ClosePlayerEquipmentRings(XObjChrMenu* menu, s32 result)
 {
-	PlayGameSound(&gGame.mSound, result > 0 ? 0x88 : 0x86, 255);
-	if (result <= 0 && menu->mAtc.mMenuType != 3)
-		menu->mSel = menu->mPrevSel;
+	if (result == 0)
+		CancelEquipmentRings(menu);
+	else if (result > 0)
+		PlayGameSound(&gGame.mSound, 0x88, 255);
+	else if (result < 0)
+		CancelEquipmentRings(menu);
 	menu->mAtc.Select(result);
 	menu->mDrs.Select(result);
 }
@@ -4784,13 +4795,11 @@ Vec XObjChr::GetCameraTarget()
  */
 extern "C" s32 ClassifyFloatBits(f32 value)
 {
-	u32 bits;
-	memcpy(&bits, &value, sizeof(bits));
-	switch (bits & 0x7F800000) {
+	switch (*(s32*)&value & 0x7F800000) {
 	case 0x7F800000:
-		return (bits & 0x007FFFFF) ? FP_NAN : FP_INFINITE;
+		return (*(s32*)&value & 0x007FFFFF) ? FP_NAN : FP_INFINITE;
 	case 0:
-		return (bits & 0x007FFFFF) ? FP_SUBNORMAL : FP_ZERO;
+		return (*(s32*)&value & 0x007FFFFF) ? FP_SUBNORMAL : FP_ZERO;
 	}
 	return FP_NORMAL;
 }
@@ -4904,18 +4913,12 @@ void XObjChr::SetAnimRate(f32 rate, u32 mask)
  */
 HSD_ShapeAnimJoint* XObjChr::GetShapeAnimation(s32 id)
 {
-	if (SuitAnimGroup(this, id)) {
-		HSD_ShapeAnimJoint** anims = mSuitAnim.mShapeAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AtcAnimGroup(this, id)) {
-		HSD_ShapeAnimJoint** anims = mAttachmentAnim.mShapeAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AnimGroup(this, id)) {
-		HSD_ShapeAnimJoint** anims = mAnim.mShapeAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
+	if (SuitAnimGroup(this, id))
+		return (HSD_ShapeAnimJoint*)mSuitAnim.GetShapeAnimJoint(id % 3000);
+	if (AtcAnimGroup(this, id))
+		return (HSD_ShapeAnimJoint*)mAttachmentAnim.GetShapeAnimJoint(id % 2000);
+	if (AnimGroup(this, id))
+		return (HSD_ShapeAnimJoint*)mAnim.GetShapeAnimJoint(id % 1000);
 	HSD_ShapeAnimJoint** anims = mArchive.mShapeAnimJoint;
 	return anims != NULL ? anims[id % 1000] : NULL;
 }
@@ -4927,18 +4930,12 @@ HSD_ShapeAnimJoint* XObjChr::GetShapeAnimation(s32 id)
  */
 HSD_MatAnimJoint* XObjChr::GetMaterialAnimation(s32 id)
 {
-	if (SuitAnimGroup(this, id)) {
-		HSD_MatAnimJoint** anims = mSuitAnim.mMatAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AtcAnimGroup(this, id)) {
-		HSD_MatAnimJoint** anims = mAttachmentAnim.mMatAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AnimGroup(this, id)) {
-		HSD_MatAnimJoint** anims = mAnim.mMatAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
+	if (SuitAnimGroup(this, id))
+		return (HSD_MatAnimJoint*)mSuitAnim.GetMatAnimJoint(id % 3000);
+	if (AtcAnimGroup(this, id))
+		return (HSD_MatAnimJoint*)mAttachmentAnim.GetMatAnimJoint(id % 2000);
+	if (AnimGroup(this, id))
+		return (HSD_MatAnimJoint*)mAnim.GetMatAnimJoint(id % 1000);
 	HSD_MatAnimJoint** anims = mArchive.mMatAnimJoint;
 	return anims != NULL ? anims[id % 1000] : NULL;
 }
@@ -4950,18 +4947,12 @@ HSD_MatAnimJoint* XObjChr::GetMaterialAnimation(s32 id)
  */
 HSD_AnimJoint* XObjChr::GetJointAnimation(s32 id)
 {
-	if (SuitAnimGroup(this, id)) {
-		HSD_AnimJoint** anims = mSuitAnim.mAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AtcAnimGroup(this, id)) {
-		HSD_AnimJoint** anims = mAttachmentAnim.mAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
-	if (AnimGroup(this, id)) {
-		HSD_AnimJoint** anims = mAnim.mAnimJoint;
-		return anims != NULL ? anims[id % 1000] : NULL;
-	}
+	if (SuitAnimGroup(this, id))
+		return (HSD_AnimJoint*)mSuitAnim.GetAnimJoint(id % 3000);
+	if (AtcAnimGroup(this, id))
+		return (HSD_AnimJoint*)mAttachmentAnim.GetAnimJoint(id % 2000);
+	if (AnimGroup(this, id))
+		return (HSD_AnimJoint*)mAnim.GetAnimJoint(id % 1000);
 	HSD_AnimJoint** anims = mArchive.mAnimJoint;
 	return anims != NULL ? anims[id % 1000] : NULL;
 }

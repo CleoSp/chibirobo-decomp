@@ -186,8 +186,8 @@ static void CollectTrigons(HSD_JObj* jobj, void* context, s32 type)
 		if (mobj == NULL || mobj->mat == NULL) {
 			continue;
 		}
-		const GXColor& diffuse = mobj->mat->diffuse;
-		const u32 color        = (u32(diffuse.r) << 16) | (u32(diffuse.g) << 8) | diffuse.b;
+		// the diffuse rgb, alpha shifted out
+		const u32 color = *reinterpret_cast<u32*>(&mobj->mat->diffuse) >> 8;
 		for (HSD_PObj* pobj = HSD_DObjGetPObj(dobj); pobj != NULL; pobj = HSD_PObjGetNext(pobj)) {
 			u32 n          = ParsePObj(pobj, &tri[trigon->mNum], mtx);
 			TRIGON_INFO* t = &tri[trigon->mNum];
@@ -509,7 +509,7 @@ static int GetVtxSize(HSD_VtxDescList* desc, int* pos, int* nrm, int* tex, int* 
  */
 static void* TrigonGetIdxU8U16(void* base, u8* dl)
 {
-	return static_cast<u8*>(base) + ReadDisplayListU16(dl) * 3;
+	return static_cast<u8*>(base) + *reinterpret_cast<u16*>(dl) * 3;
 }
 
 /**
@@ -527,7 +527,7 @@ static void* TrigonGetIdxU8U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxS8U16(void* base, u8* dl)
 {
-	return static_cast<s8*>(base) + ReadDisplayListU16(dl) * 3;
+	return static_cast<s8*>(base) + *reinterpret_cast<u16*>(dl) * 3;
 }
 
 /**
@@ -545,7 +545,7 @@ static void* TrigonGetIdxS8U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxU16U16(void* base, u8* dl)
 {
-	return static_cast<u16*>(base) + ReadDisplayListU16(dl) * 3;
+	return static_cast<u16*>(base) + *reinterpret_cast<u16*>(dl) * 3;
 }
 
 /**
@@ -563,7 +563,7 @@ static void* TrigonGetIdxU16U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxS16U16(void* base, u8* dl)
 {
-	return static_cast<s16*>(base) + ReadDisplayListU16(dl) * 3;
+	return static_cast<s16*>(base) + *reinterpret_cast<u16*>(dl) * 3;
 }
 
 /**
@@ -581,7 +581,7 @@ static void* TrigonGetIdxS16U8(void* base, u8* dl)
  */
 static void* TrigonGetIdxF32U16(void* base, u8* dl)
 {
-	return static_cast<f32*>(base) + ReadDisplayListU16(dl) * 3;
+	return static_cast<f32*>(base) + *reinterpret_cast<u16*>(dl) * 3;
 }
 
 /**

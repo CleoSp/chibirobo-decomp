@@ -2420,14 +2420,10 @@ game/THPDraw.cpp:
 	.sdata2     start:0x8065F9F8 end:0x8065FA10
 
 sysdolphin/baselib/dobj.c:
-	.text       start:0x801B7988 end:0x801B80B4
-	.data       start:0x80259200 end:0x80259248
+	.text       start:0x801B7988 end:0x801B8134
+	.data       start:0x80259200 end:0x80259320
 	.sdata      start:0x8065AE10 end:0x8065AE28
 	.sbss       start:0x8065B970 end:0x8065B978
-
-sysdolphin/baselib/dobj_class.c:
-	.text       start:0x801B80B4 end:0x801B8134
-	.data       start:0x80259248 end:0x80259320 align:8
 
 sysdolphin/baselib/tev.c:
 	.text       start:0x801B8134 end:0x801B8E54

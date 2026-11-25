@@ -24,45 +24,45 @@ enum {
  * @note Address: 0x801645AC
  * @note Size: 0x188
  */
-static void PackArgs(void* addr, s32 argc, const char* const* argv) {
-    char* bootInfo2 = addr;
-    u32 stringOffset = EXEC_ARG_BLOCK_SIZE;
-    u32 listOffset;
-    u32 listSize;
-    u32 minimumStringOffset;
-    u32* list;
-    s32 i;
+static BOOL PackArgs(void* addr, s32 argc, const char** argv) {
+    s32 numArgs;
+    char* bootInfo2;
+    char* ptr;
+    const char** list;
+    u32 i;
 
+    bootInfo2 = (char*)addr;
     memset(bootInfo2, 0, EXEC_ARG_BLOCK_SIZE);
-    if (argc <= 0 || (u32)argc > (EXEC_ARG_BLOCK_SIZE - EXEC_ARG_HEADER_SIZE) / sizeof(*list) - 2) {
-        return;
-    }
 
-    listSize = (argc + 2) * sizeof(*list);
-    minimumStringOffset = EXEC_ARG_HEADER_SIZE + listSize;
-
-    // The strings occupy the end of the BI2 block, after argc and argv's offsets.
-    for (i = 0; i < argc; i++) {
-        size_t length = strlen(argv[i]) + 1;
-        if (length > stringOffset - minimumStringOffset) {
-            return;
+    if (argc == 0) {
+        *(u32*)(bootInfo2 + EXEC_ARG_LIST_FIELD) = 0;
+    } else {
+        numArgs = argc;
+        ptr = bootInfo2 + EXEC_ARG_BLOCK_SIZE;
+        // The strings are packed at the end of BI2; argv is rewritten to their offsets.
+        while (--argc >= 0) {
+            ptr -= strlen(argv[argc]) + 1;
+            strcpy(ptr, argv[argc]);
+            argv[argc] = (const char*)(ptr - bootInfo2);
         }
-        stringOffset -= length;
+
+        ptr = bootInfo2 + ((ptr - bootInfo2) & ~0x3);
+        ptr -= (numArgs + 1) * sizeof(*list);
+        list = (const char**)ptr;
+
+        for (i = 0; i < numArgs + 1; i++) {
+            list[i] = argv[i];
+        }
+
+        ptr -= sizeof(u32);
+        *(u32*)ptr = numArgs;
+
+        ASSERTMSGLINE(LINE(129, 138, 140), ptr - bootInfo2 >= 0x1000U, "OSExec: Argument list is too long");
+
+        *(u32*)(bootInfo2 + EXEC_ARG_LIST_FIELD) = ptr - bootInfo2;
     }
 
-    listOffset = (stringOffset & ~3u) - listSize;
-    ASSERTMSGLINE(LINE(129, 138, 140), listOffset >= 0x1000U, "OSExec: Argument list is too long");
-    *(u32*)(bootInfo2 + EXEC_ARG_LIST_FIELD) = listOffset;
-
-    list = (u32*)(bootInfo2 + listOffset);
-    *list++ = argc;
-    for (i = 0; i < argc; i++) {
-        size_t length = strlen(argv[i]) + 1;
-        list[i] = stringOffset;
-        memcpy(bootInfo2 + stringOffset, argv[i], length);
-        stringOffset += length;
-    }
-    list[argc] = 0;
+    return TRUE;
 }
 
 /**
@@ -271,7 +271,7 @@ static BOOL IsNewApploader(AppLoaderStruct* header) {
  * @note Address: 0x801648EC
  * @note Size: 0x484
  */
-void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char* const* argv) {
+void __OSBootDolSimple(u32 doloffset, u32 restartCode, void* regionStart, void* regionEnd, BOOL argsUseDefault, s32 argc, const char** argv) {
     OSExecParams* params;
     void* dolEntry;
     AppLoaderStruct* header;

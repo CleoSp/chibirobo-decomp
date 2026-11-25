@@ -392,7 +392,7 @@ game/sound.cpp:
 	.rodata     start:0x801FFC7C end:0x802006D0
 	.data       start:0x802114A0 end:0x8021204C
 	.sdata      start:0x806345E0 end:0x806345F0
-	.sdata2     start:0x806364A4 end:0x806364DC
+	.sdata2     start:0x80636498 end:0x806364DC
 
 game/gxa.cpp:
 	.text       start:0x8001CE44 end:0x8001D8E8
@@ -407,6 +407,7 @@ game/gxb.cpp:
 	.text       start:0x800240D0 end:0x80028518
 	.data       start:0x80212128 end:0x80212188
 	.sdata      start:0x80634650 end:0x80634668
+	.sdata2     start:0x806365C0 end:0x806366A8
 
 game/titlescreen.cpp:
 	.text       start:0x80028518 end:0x80030E28
@@ -802,6 +803,7 @@ game/inventory.cpp:
 
 game/params.cpp:
 	.text       start:0x800DEA74 end:0x800DF070
+	.sdata2     start:0x80637C80 end:0x80637C88
 
 game/xobjfreedtor.cpp:
 	.text       start:0x800DF2E4 end:0x800DF344
@@ -1002,6 +1004,8 @@ game/xobjactorevent.cpp:
 
 game/xobjactorlook.cpp:
 	.text       start:0x8010927C end:0x80109490
+	.rodata     start:0x8020BFF8 end:0x8020C004
+	.sdata2     start:0x8063841C end:0x8063842C
 
 game/xobjactorjointupdate.cpp:
 	.text       start:0x80109490 end:0x80109B20
@@ -1067,6 +1071,10 @@ game/xobjactortoyread.cpp:
 
 game/xobjactorjenny.cpp:
 	.text       start:0x801249EC end:0x80127FFC
+	.rodata     start:0x8020C8C0 end:0x8020CB10
+	.data       start:0x8022C998 end:0x8022CBF0
+	.sdata      start:0x80634CE8 end:0x80634D18
+	.sdata2     start:0x80638810 end:0x806388A0
 
 game/xobjactormama.cpp:
 	.text       start:0x80127FFC end:0x80129DF0
@@ -1086,12 +1094,20 @@ game/mamareset.cpp:
 
 game/xobjactorpapa.cpp:
 	.text       start:0x8012AEFC end:0x8012E438
+	.rodata     start:0x8020CC90 end:0x8020CE80
+	.data       start:0x8022CE28 end:0x8022D088
+	.sdata      start:0x80634D48 end:0x80634D78
+	.sdata2     start:0x80638950 end:0x806389F0
 
 game/xobjactortao.cpp:
 	.text       start:0x8012E438 end:0x80131008
 
 game/xobjactordeca.cpp:
 	.text       start:0x80131008 end:0x801337C8
+	.rodata     start:0x8020CFC0 end:0x8020D100
+	.data       start:0x8022D2B0 end:0x8022D520
+	.sdata      start:0x80634DA8 end:0x80634DD8
+	.sdata2     start:0x80638A50 end:0x80638AE8
 
 game/xobjreadanmdtor.cpp:
 	.text       start:0x801337C8 end:0x8013384C
@@ -1150,7 +1166,7 @@ game/ccameraactionmap2.cpp:
 	.bss        start:0x8059A5B0 end:0x8059E3D0
 	.sdata      start:0x80634EA8 end:0x80634EE0
 	.sbss       start:0x80635748 end:0x80635778
-	.sdata2     start:0x80638C54 end:0x80638D48
+	.sdata2     start:0x80638C50 end:0x80638D48
 
 game/ccameraactionchase.cpp:
 	.text       start:0x80143FB8 end:0x80144968
@@ -2414,14 +2430,10 @@ game/THPDraw.cpp:
 	.sdata2     start:0x80639CC0 end:0x80639CD8
 
 sysdolphin/baselib/dobj.c:
-	.text       start:0x801B9268 end:0x801B9994
-	.data       start:0x80237BC0 end:0x80237C08
+	.text       start:0x801B9268 end:0x801B9A14
+	.data       start:0x80237BC0 end:0x80237CE0
 	.sdata      start:0x80635240 end:0x80635258
 	.sbss       start:0x80635D80 end:0x80635D88
-
-sysdolphin/baselib/dobj_class.c:
-	.text       start:0x801B9994 end:0x801B9A14
-	.data       start:0x80237C08 end:0x80237CE0 align:8
 
 sysdolphin/baselib/tev.c:
 	.text       start:0x801B9A14 end:0x801BA734

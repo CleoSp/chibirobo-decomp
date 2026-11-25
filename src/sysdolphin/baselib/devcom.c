@@ -40,12 +40,8 @@ struct HSD_DevCom {
 void HSD_DevComARAMWakeUp(void);
 void HSD_DevComDVDWakeUp(void);
 
-typedef struct HSD_DevComQueue {
-	HSD_DevCom* head;
-	HSD_DevCom* tail;
-} HSD_DevComQueue;
-
-static HSD_DevComQueue sDevComQueues[DEVCOM_QUEUE_COUNT];
+static HSD_DevCom* sDevComQueueHeads[DEVCOM_QUEUE_COUNT];
+static HSD_DevCom* sDevComQueueTails[DEVCOM_QUEUE_COUNT];
 static ARQRequest sDevComArqRequests[DEVCOM_BUFFER_COUNT][2];
 static u32 sDevComTransferBuffers[DEVCOM_BUFFER_COUNT][DEVCOM_BUF_SIZE / sizeof(u32)] ATTRIBUTE_ALIGN(32);
 static DVDFileInfo sDevComDvdFileInfo;
@@ -69,7 +65,7 @@ static int sDevComNextRequestID = DEVCOM_QUEUE_COUNT;
  */
 HSD_DevCom* HSD_DevComIsBusy(int priority)
 {
-	return sDevComQueues[priority].head;
+	return sDevComQueueHeads[priority];
 }
 
 /* Unlink a completed or canceled request with interrupts disabled. */
@@ -77,19 +73,19 @@ static void HSD_DevComUnlink(HSD_DevCom* dc)
 {
 	HSD_DevCom* curr;
 	BOOL enabled = OSDisableInterrupts();
-	HSD_DevComQueue* queue = &sDevComQueues[dc->dcReq & (DEVCOM_QUEUE_COUNT - 1)];
+	int i = dc->dcReq & (DEVCOM_QUEUE_COUNT - 1);
 
-	if (queue->head == dc) {
-		queue->head = dc->next;
-		if (queue->tail == dc) {
-			queue->tail = 0;
+	if (sDevComQueueHeads[i] == dc) {
+		sDevComQueueHeads[i] = dc->next;
+		if (sDevComQueueTails[i] == dc) {
+			sDevComQueueTails[i] = 0;
 		}
 	} else {
-		for (curr = queue->head; curr->next != 0; curr = curr->next) {
+		for (curr = sDevComQueueHeads[i]; curr->next != 0; curr = curr->next) {
 			if (curr->next == dc) {
 				curr->next = dc->next;
-				if (queue->tail == dc) {
-					queue->tail = curr;
+				if (sDevComQueueTails[i] == dc) {
+					sDevComQueueTails[i] = curr;
 				}
 				OSRestoreInterrupts(enabled);
 				return;
@@ -188,8 +184,8 @@ void HSD_DevComARAMWakeUp(void)
 		OSRestoreInterrupts(enabled);
 		return;
 	}
-	sDevComActiveRequest = sDevComQueues[DEVCOM_ARAM_QUEUE].head;
-	if (sDevComQueues[DEVCOM_ARAM_QUEUE].head != 0) {
+	sDevComActiveRequest = sDevComQueueHeads[DEVCOM_ARAM_QUEUE];
+	if (sDevComQueueHeads[DEVCOM_ARAM_QUEUE] != 0) {
 		if (sDevComActiveRequest->cancelflag) {
 			if (sDevComActiveRequest->callback != 0) {
 				sDevComActiveRequest->callback(sDevComActiveRequest->dcReq, sDevComActiveRequest->context, 0, 1);
@@ -414,12 +410,12 @@ void HSD_DevComDVDWakeUp(void)
 		return;
 	}
 	sDevComDvdBusy = 1;
-	if (sDevComQueues[0].head == 0) {
+	if (sDevComQueueHeads[0] == 0) {
 		ServiceNextDvdStreamingSlot();
 	}
 	sDevComDvdBusy = 0;
 	for (i = 0; i < DEVCOM_DVD_QUEUE_COUNT; i++) {
-		if ((dvdDC = sDevComQueues[i].head)) {
+		if ((dvdDC = sDevComQueueHeads[i])) {
 			if (dvdDC->cancelflag) {
 				if (dvdDC->callback != 0) {
 					dvdDC->callback(dvdDC->dcReq, dvdDC->context, 0, 1);
@@ -491,7 +487,6 @@ int HSD_DevComRequest(int file, u32 src, u32 dest, u32 size, int type, int pri, 
 	BOOL enabled;
 	HSD_DevCom* dc;
 	int result;
-	HSD_DevComQueue* queue;
 
 	dc = HSD_DevComAlloc();
 
@@ -514,16 +509,15 @@ int HSD_DevComRequest(int file, u32 src, u32 dest, u32 size, int type, int pri, 
 	dc->context    = context;
 
 	enabled = OSDisableInterrupts();
-	queue = &sDevComQueues[pri];
 	result = dc->dcReq = sDevComNextRequestID + pri;
 	sDevComNextRequestID += DEVCOM_QUEUE_COUNT;
-	if (queue->tail != 0) {
-		queue->tail->next = dc;
+	if (sDevComQueueTails[pri] != 0) {
+		sDevComQueueTails[pri]->next = dc;
 	}
-	queue->tail = dc;
+	sDevComQueueTails[pri] = dc;
 	dc->next = NULL;
-	if (queue->head == 0) {
-		queue->head = dc;
+	if (sDevComQueueHeads[pri] == 0) {
+		sDevComQueueHeads[pri] = dc;
 		HSD_DevComDVDWakeUp();
 		HSD_DevComARAMWakeUp();
 	}
