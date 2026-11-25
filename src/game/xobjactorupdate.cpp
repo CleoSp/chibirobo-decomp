@@ -30,9 +30,9 @@ void XObjActor::UpdateObject(u32 frames)
 BOOL XObjActor::LoadFromPlacement(const CoordInfo& info)
 {
 	if (XObj::LoadFromPlacement(info)) {
-		mHeading   = 0.0f;
-		mMoveSpeed = 0.0f;
-		mFacing    = 0.0f;
+		mHeading   = sZero;
+		mMoveSpeed = sZero;
+		mFacing    = sZero;
 		for (u32 i = 0; i < ARRAY_SIZE(mCmd); ++i) {
 			mCmd[i] = 0;
 		}
@@ -43,9 +43,9 @@ BOOL XObjActor::LoadFromPlacement(const CoordInfo& info)
 		ClearStateHandler();
 		ResetActorState();
 		mLookMode   = 0;
-		mHeadYaw    = 0.0f;
-		mLookAngle  = 0.0f;
-		mLookRate   = 0.0f;
+		mHeadYaw    = sZero;
+		mLookAngle  = sZero;
+		mLookRate   = sZero;
 		mLookTarget = NULL;
 		return TRUE;
 	}
