@@ -5,6 +5,8 @@
 #include "game/globals.h"
 #include "game/hsd_dobj.h"
 
+static s32 sActorToyJointPathIndices[26] = { 0, 3, 0, 0, 3, 0, 0, 2, 0, 0, 2, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 3, 0 };
+
 static AnimSfxEvent sActorToySounds110[] = {
 	{ 4, 15.0f, -1.0f, 1, 0x000D000D, 0xFF, 0, 0, 0x00 },      { 4, 60.0f, -1.0f, 1, 0x00000145, 0xFF, 0, 0, 0x00 },
 	{ 6, 22.0f, -1.0f, 1, 0x000D000F, 0xFF, 0, 0, 0x00 },      { 13, 0.0f, -1.0f, 1, 0x000D000B, 0xFF, 0, 0, 0x00 },
@@ -23,6 +25,11 @@ f32 gActorToyMovementSpeeds[60] = {
 	0.47f, 0.48f, 0.45f, 0.44f, 0.43f, 0.4f,  0.4f,  0.4f,  0.4f,  0.37f, 0.36f, 0.31f, 0.3f,  0.3f,  0.3f,
 	0.3f,  0.3f,  0.3f,  0.3f,  0.3f,  0.35f, 0.35f, 0.43f, 0.43f, 0.48f, 0.48f, 0.49f, 0.49f, 0.49f, 0.47f,
 	0.47f, 0.46f, 0.43f, 0.41f, 0.38f, 0.36f, 0.36f, 0.36f, 0.36f, 0.36f, 0.3f,  0.24f, 0.2f,  0.12f, 0.0f,
+};
+
+static Vec sActorToyPositions[7] = {
+	{ -203.97f, 0.0f, -29.19f }, { -258.79f, 0.0f, -28.54f }, { -203.97f, 0.0f, -29.19f }, { -205.69f, 0.0f, -199.83f },
+	{ -68.85f, 0.0f, -316.37f }, { -46.55f, 0.0f, -280.86f }, { -66.58f, 0.0f, 89.06f },
 };
 
 static AnimSfxEvent sActorToySounds6F[] = {
