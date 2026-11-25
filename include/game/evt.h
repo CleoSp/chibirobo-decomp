@@ -2,6 +2,7 @@
 #define _GAME_EVT_H
 
 #include "types.h"
+#include <dolphin/os.h>
 
 // event script bytecode, the stuff in qp.bin's bin/stageNN.bin that CEvt runs
 
@@ -225,6 +226,16 @@ public:
 	CStack()
 	{
 		mBuf   = NULL;
+		mSize  = 0;
+		mCount = 0;
+	}
+
+	void Free()
+	{
+		if (mBuf != NULL) {
+			OSFree(mBuf);
+			mBuf = NULL;
+		}
 		mSize  = 0;
 		mCount = 0;
 	}
