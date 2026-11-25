@@ -68,9 +68,7 @@ BOOL CheckCarriedObjectContacts(XActLift* act, const Vec* pos, f32 radius, f32 h
  */
 void UpdateCarriedObjectPosition(XActLift* act, XObj* target)
 {
-	const CVec carryPosition = GetPlayerCarryJointWorldPosition(act->mOwner);
-	const Vec contactOffset  = GetLiftTargetContactOffset(act, target);
-	target->SetPos(carryPosition - contactOffset, 0);
+	target->SetPos(GetPlayerCarryJointWorldPosition(act->mOwner) - GetLiftTargetContactOffset(act, target), 0);
 }
 
 /**
