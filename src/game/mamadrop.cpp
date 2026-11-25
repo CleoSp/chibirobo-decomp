@@ -57,10 +57,9 @@ void XObjActorMama::Drop()
 		break;
 	case 0x1A1:
 		for (s32 i = 0; i < 288; i++) {
-			XObj* obj = gGame.mXObjs.mPools[22].Get(i);
-			if (obj->GetKind() == 0x1A0) {
-				obj->mStatus.mFlags &= ~0x10000ULL;
-			} else if (kind == obj->GetKind()) {
+			XObj* obj            = gGame.mXObjs.mPools[22].Get(i);
+			const s32 objectKind = obj->GetKind();
+			if (objectKind == 0x1A0 || objectKind == kind) {
 				obj->mStatus.mFlags &= ~0x10000ULL;
 			}
 		}

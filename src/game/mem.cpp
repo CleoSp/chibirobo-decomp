@@ -354,12 +354,7 @@ void mm::Init()
 extern "C" void AllocateWordBuffer(CStack* stack, s32 capacity)
 {
 	if (stack->mBuf != NULL) {
-		if (stack->mBuf != NULL) { // retail tests it twice
-			OSFreeToHeap(__OSCurrHeap, stack->mBuf);
-			stack->mBuf = NULL;
-		}
-		stack->mSize  = 0;
-		stack->mCount = 0;
+		stack->Free();
 	}
 	stack->mBuf   = static_cast<s32*>(OSAllocFromHeap(__OSCurrHeap, capacity * sizeof(*stack->mBuf)));
 	stack->mCount = 0;

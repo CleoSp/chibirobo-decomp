@@ -32,3 +32,11 @@ CScrnWipeCustom::~CScrnWipeCustom()
 CScrnWipeTex::~CScrnWipeTex()
 {
 }
+
+/**
+ * @note Address: 0x8001B76C
+ * @note Size: 0x5C
+ */
+CScrnWipe::~CScrnWipe()
+{
+}
