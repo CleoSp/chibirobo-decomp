@@ -407,6 +407,7 @@ game/gxb.cpp:
 	.text       start:0x800240D0 end:0x80028518
 	.data       start:0x80212128 end:0x80212188
 	.sdata      start:0x80634650 end:0x80634668
+	.sdata2     start:0x806365C0 end:0x806366A8
 
 game/titlescreen.cpp:
 	.text       start:0x80028518 end:0x80030E28
