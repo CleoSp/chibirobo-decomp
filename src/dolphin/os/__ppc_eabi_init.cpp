@@ -6,11 +6,22 @@ extern "C" {
 typedef void (*StaticConstructor)(void);
 CTORS extern const StaticConstructor _ctors[];
 
+static void __init_cpp(void);
+
 /**
  * @note Address: 0x8016B7CC
  * @note Size: 0x20
  */
 void __init_user(void)
+{
+	__init_cpp();
+}
+
+/**
+ * @note Address: 0x8016B7EC
+ * @note Size: 0x54
+ */
+static void __init_cpp(void)
 {
 	for (const StaticConstructor* constructor = _ctors; *constructor; ++constructor) {
 		(*constructor)();
