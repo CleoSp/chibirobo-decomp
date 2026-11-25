@@ -374,6 +374,7 @@ config.libs = [
             Object(NonMatching, "game/game.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/gameccamera.cpp", source="game/cbasector.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/gamecstopwatch.cpp", source="game/cbasector.cpp", cflags=with_hsd_headers(cflags_game)),
+            Object(NonMatching, "game/gamecpadone.cpp", source="game/cbasector.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/gametitle.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/gamemenuex.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/gamemenucursor.cpp", cflags=with_hsd_headers(cflags_game)),
