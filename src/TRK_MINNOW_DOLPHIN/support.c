@@ -57,14 +57,15 @@ DSError TRKSuppAccessFile(u32 file_handle, u8* data, size_t* count, DSIOResult* 
 			if (need_reply) {
 				BOOL b = read && file_handle == 0;
 
-				// read and write requests use separate reply settings that are both 5 here
-				error = TRKRequestSend(buffer, &replyBufferId, read ? 5 : 5, 3, !b);
-				if (error == DS_NoError) {
-					replyBuffer = TRKGetBuffer(replyBufferId);
+				error = TRKRequestSend(buffer, &replyBufferId, 5, 3, !b);
+				if (error != DS_NoError) {
+					TRKReleaseBuffer(bufferId);
+					break;
 				}
+				replyBuffer   = TRKGetBuffer(replyBufferId);
 				replyIOResult = *(u32*)(replyBuffer->data + 0x10);
 				replyLength   = *(u16*)(replyBuffer->data + 0x14);
-				if (read && error == DS_NoError && replyLength <= length) {
+				if (read && replyLength <= length) {
 					TRKSetBufferPosition(replyBuffer, 0x40);
 					error = TRKReadBuffer_ui8(replyBuffer, data + i, replyLength);
 					if (error == DS_MessageBufferReadError) {

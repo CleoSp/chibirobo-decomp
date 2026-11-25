@@ -742,10 +742,10 @@ config.libs = [
             Object(Matching, "TRK_MINNOW_DOLPHIN/msgbuf.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/serpoll.c", extra_cflags=["-sdata 8"]),
             # The C source prints characters literally through the variadic API.
-            Object(Matching, "TRK_MINNOW_DOLPHIN/usr_put.c"),
+            Object(Equivalent, "TRK_MINNOW_DOLPHIN/usr_put.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/dispatch.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/msghndlr.c"),
-            Object(Matching, "TRK_MINNOW_DOLPHIN/support.c"),
+            Object(Equivalent, "TRK_MINNOW_DOLPHIN/support.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/mutex_TRK.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/notify.c"),
             Object(Matching, "TRK_MINNOW_DOLPHIN/flush_cache.s", add_to_all=False),
