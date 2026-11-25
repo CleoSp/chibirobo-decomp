@@ -85,49 +85,39 @@ s32 CFile::ConvertPathToEntrynum(const char* path)
 	return entrynum;
 }
 
-inline s32 CFile::StartRead(BOOL fromAram)
+void CFile::StartRead(BOOL fromAram)
 {
-	s32 status;
+	DVDFileInfo* file = this;
+	s32 entry         = mEntrynum;
+	u32 offset        = mOffset;
+	s32 transfer      = HSD_DEVCOM_DVD_TO_MRAM;
 	if (fromAram) {
-		u32 pos               = mOffset;
-		u32 len               = OSRoundUp32B(mSize);
-		DVDFileInfo* info     = mArchive != NULL ? (DVDFileInfo*)mArchive : this;
-		mResult               = 1;
-		info->cBlock.userData = &mResult;
-		HSD_DevComRequest(0, pos, reinterpret_cast<u32>(mBuffer), len, HSD_DEVCOM_ARAM_TO_MRAM, 1, (HSD_DevComCallback)ReadCallback, info);
-		status = 0;
-	} else {
-		u32 pos = mOffset;
-		s32 entrynum;
-		u32 len = OSRoundUp32B(mSize);
-		if (mArchive != NULL) {
-			entrynum = mArchive->mEntrynum;
-			memcpy(this, mArchive, sizeof(DVDFileInfo)); // the archive's file info becomes ours
-			pos += ARCGetStartOffset(&mArcInfo);         // plus the member's offset inside it
-		} else {
-			entrynum = mEntrynum;
-		}
-		mResult         = 1;
-		cBlock.userData = &mResult;
-		HSD_DevComRequest(entrynum, pos, reinterpret_cast<u32>(mBuffer), len, HSD_DEVCOM_DVD_TO_MRAM, 1, (HSD_DevComCallback)ReadCallback, this);
-		status = 0;
+		entry    = 0;
+		transfer = HSD_DEVCOM_ARAM_TO_MRAM;
+		if (mArchive != NULL)
+			file = mArchive;
+	} else if (mArchive != NULL) {
+		entry = mArchive->mEntrynum;
+		*file = static_cast<const DVDFileInfo&>(*mArchive);
+		offset += ARCGetStartOffset(&mArcInfo);
 	}
-	return status;
+
+	mResult               = 1;
+	file->cBlock.userData = &mResult;
+	HSD_DevComRequest(entry, offset, reinterpret_cast<u32>(mBuffer), OSRoundUp32B(mSize), transfer, 1, (HSD_DevComCallback)ReadCallback, file);
 }
 
 inline s32 CFile::Open()
 {
+	mEntrynum = mArchive != NULL ? ARCConvertPathToEntrynum(&mArchive->mHandle, mPath) : DVDConvertPathToEntrynum(mPath);
+	if (mEntrynum < 0)
+		return -3;
+
 	if (mArchive != NULL) {
-		mEntrynum = ARCConvertPathToEntrynum(&mArchive->mHandle, mPath);
-		if (mEntrynum < 0)
-			return -3;
 		if (!ARCFastOpen(&mArchive->mHandle, mEntrynum, &mArcInfo))
 			return -4;
 		mSize = ARCGetLength(&mArcInfo);
 	} else {
-		mEntrynum = DVDConvertPathToEntrynum(mPath);
-		if (mEntrynum < 0)
-			return -3;
 		if (!DVDFastOpen(mEntrynum, this))
 			return -4;
 		mSize = length;
@@ -177,15 +167,7 @@ s32 CFile::ReadAsync(const char* path, u32 offset, u32 size, BOOL fromAram)
 		return -7;
 	}
 
-	s32 error = StartRead(fromAram);
-	if (error < 0) {
-		if (mArchive != NULL) {
-			OSReport("cannot read file - '%s//%s'!\n", mArchive->mPath, mPath);
-		} else {
-			OSReport("cannot read file - '%s'!\n", mPath);
-		}
-		return error;
-	}
+	StartRead(fromAram);
 	return mResult;
 }
 
