@@ -721,7 +721,7 @@ config.libs = [
             Object(Equivalent, "game/cameraareaentries.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/evt.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/evt_schedule.cpp", cflags=with_hsd_headers(cflags_game)),
-            Object(NonMatching, "game/evt_init.cpp"),
+            Object(NonMatching, "game/evt_init.cpp", source="game/evt.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(NonMatching, "game/msg.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/xobjs.cpp", cflags=with_hsd_headers(cflags_game)),
             Object(Equivalent, "game/ccameraactionarea.cpp", cflags=with_hsd_headers(cflags_game)),
