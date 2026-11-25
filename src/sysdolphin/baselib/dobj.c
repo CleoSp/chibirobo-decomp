@@ -2,8 +2,6 @@
 #include <sysdolphin/class_new.h>
 #include <sysdolphin/gobjproc.h>
 
-extern const char gDObjBlendModeReport[];
-
 HSD_DObj* DObjCurrent;
 HSD_DObjInfo* DObjDefaultClass;
 
@@ -207,7 +205,7 @@ int DObjLoad(HSD_DObj* dobj, HSD_DObjDesc* desc)
                 HSD_DObjModifyFlags(dobj, DOBJ_XLU, DOBJ_TRSP_MASK);
                 break;
             default:
-                OSReport(gDObjBlendModeReport, dobj->mobj->rendermode);
+                OSReport("mobj has unexpected blending flags (0x%x).", dobj->mobj->rendermode);
                 HSD_Panic(__FILE__, 319, "");
         }
     }
@@ -352,6 +350,33 @@ void HSD_DObjDisp(HSD_DObj* dobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 }
 
 /**
+ * @note Address: N/A
+ */
+void HSD_DObjRemovePObj(HSD_DObj* dobj, HSD_PObj* pobj)
+{
+    HSD_PObj** p;
+
+    for (p = &dobj->pobj; *p != NULL; p = &(*p)->next) {
+        if (*p == pobj) {
+            *p = pobj->next;
+            pobj->next = NULL;
+            return;
+        }
+    }
+    OSReport("can not find specified pobj in link.\n");
+    HSD_Panic(__FILE__, __LINE__, "can not find specified pobj in link.");
+}
+
+/**
+ * @note Address: N/A
+ */
+void HSD_DObjRemoveMObj(HSD_DObj* dobj, HSD_MObj* mobj)
+{
+    assert_line(__LINE__, dobj->mobj == mobj);
+    dobj->mobj = NULL;
+}
+
+/**
  * @note Address: 0x801B8010
  * @note Size: 0x5C
  */
@@ -376,4 +401,20 @@ void DObjAmnesia(HSD_ClassInfo* info)
         DObjDefaultClass = NULL;
     }
     HSD_PARENT_INFO(&hsdDObj)->amnesia(info);
+}
+
+/**
+ * @note Address: 0x801B80B4
+ * @note Size: 0x80
+ */
+void DObjInfoInit(void)
+{
+    hsdInitClassInfo(HSD_CLASS_INFO(&hsdDObj), &hsdClass,
+        "sysdolphin_base_library", "hsd_dobj",
+        sizeof(HSD_DObjInfo), sizeof(HSD_DObj));
+
+    HSD_CLASS_INFO(&hsdDObj)->release = DObjRelease;
+    HSD_CLASS_INFO(&hsdDObj)->amnesia = DObjAmnesia;
+    hsdDObj.disp = HSD_DObjDisp;
+    hsdDObj.load = DObjLoad;
 }

@@ -213,12 +213,12 @@ void psInitGenerator(s32 num)
 
 	sActiveGenerators = NULL;
 	sFreeGenerators = NULL;
-	for (i = 0; i < num; ++i) {
+	for (i = num - 1; i >= 0; i--) {
 		gp = HSD_Alloc(sizeof(*gp));
-		if (gp == NULL) {
-			break;
-		}
 		memset(gp, 0, sizeof(*gp));
+		if (gp == NULL) {
+			return;
+		}
 		gp->next = sFreeGenerators;
 		sFreeGenerators = gp;
 	}
@@ -848,9 +848,11 @@ void psExecGenerator(u32 mask)
 
 static inline void gen_attachJoint(HSD_Generator* gen, HSD_JObj* jobj)
 {
-	gen->jobj = jobj;
-	if (jobj != NULL) {
-		ref_INC(jobj);
+	if (gen != NULL) {
+		gen->jobj = jobj;
+		if (jobj != NULL) {
+			ref_INC(jobj);
+		}
 	}
 }
 
@@ -1086,7 +1088,9 @@ HSD_Generator* psCreateQueuedJointGenerator(int linkNo, int bank, int kind, HSD_
  */
 static void psSetBillboardCamera(HSD_CObj* cobj)
 {
-	gen_cobjUnref(psCamera);
+	if (psCamera != NULL) {
+		gen_cobjUnref(psCamera);
+	}
 	if (cobj != NULL) {
 		ref_INC(cobj);
 	}
