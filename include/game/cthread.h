@@ -15,7 +15,7 @@ public:
 	u32 mStackSize;   // _31C
 	// _320 vtable
 
-	virtual ~CThread();                                                                                       // _08
+	virtual ~CThread() { }                                                                                    // _08
 	virtual BOOL Create(OSThreadStartFunction func, void* arg, u32 stackSize, OSPriority priority, u16 attr); // _0C
 
 	// todo: cleanup, card jobs and the movie all start threads like this
