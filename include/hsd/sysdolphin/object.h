@@ -76,15 +76,6 @@ static inline BOOL ref_DEC(void* object)
     return HSD_OBJ(object)->ref_count-- == 0;
 }
 
-static inline s32 ref_CNT(void* object)
-{
-    if (HSD_OBJ(object)->ref_count == HSD_OBJ_NOREF) {
-        return -1;
-    } else {
-        return HSD_OBJ(object)->ref_count;
-    }
-}
-
 inline void iref_INC(void* o)
 {
     HSD_OBJ(o)->ref_count_individual++;

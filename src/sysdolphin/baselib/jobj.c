@@ -959,12 +959,10 @@ void HSD_JObjResolveRefsAll(HSD_JObj* jobj, HSD_Joint* joint)
 
 static BOOL ReleaseIndividualRef(HSD_JObj* jobj)
 {
-	BOOL released = jobj->object.ref_count_individual == 0;
-	if (released) {
-		return released;
+	if (jobj->object.ref_count_individual == 0) {
+		return TRUE;
 	}
-	jobj->object.ref_count_individual -= 1;
-	return jobj->object.ref_count_individual == 0;
+	return --jobj->object.ref_count_individual == 0;
 }
 
 /**
@@ -974,7 +972,7 @@ static BOOL ReleaseIndividualRef(HSD_JObj* jobj)
 void HSD_JObjUnref(HSD_JObj* jobj)
 {
 	if (jobj != NULL && ref_DEC(jobj)) {
-		if (jobj->object.ref_count_individual - 1 < 0) {
+		if (jobj->object.ref_count_individual == 0) {
 			hsdDelete(jobj);
 		} else {
 			iref_INC(jobj);
@@ -992,7 +990,7 @@ void HSD_JObjUnref(HSD_JObj* jobj)
  */
 void HSD_JObjUnrefThis(HSD_JObj* jobj)
 {
-	if (jobj != NULL && ReleaseIndividualRef(jobj) && ref_CNT(jobj) < 0) {
+	if (jobj != NULL && ReleaseIndividualRef(jobj) && jobj->object.ref_count == HSD_OBJ_NOREF) {
 		hsdDelete(jobj);
 	}
 }
