@@ -1862,8 +1862,11 @@ def generate_objdiff_config(
         report_unit = {"name": unit["name"], "metadata": unit["metadata"]}
         for key in ("target_path", "base_path"):
             if unit[key] is not None:
-                # relative to the report project: objdiff drops the root of "F:/..." on Windows
-                report_unit[key] = Path(os.path.relpath(unit[key], report_project))
+                if is_windows():
+                    # objdiff drops the drive root of absolute "F:/..." paths
+                    report_unit[key] = Path(os.path.relpath(unit[key], report_project))
+                else:
+                    report_unit[key] = Path(unit[key]).absolute()
         report_units.append(report_unit)
     report_config = {
         "units": report_units,
